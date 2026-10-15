@@ -60,9 +60,10 @@ Result shown (count / time, faults, pass/fail) → examiner confirms → next ca
 - [x] Run course layout decided: point-to-point, cameras at start, 1 km,
   2 km and finish, connected by single-mode fiber through field switches
   ([SITE.md](SITE.md)).
-- [ ] Approve 2 extra cameras for the push-up and crunch stations (all four
-  existing cameras are on the run), and settle fiber installation, field
-  switches and power at the remote points.
+- [x] 2 extra cameras for the push-up and crunch stations approved (same
+  model).
+- [ ] Settle fiber installation, field switches and power at the remote
+  points with the installer.
 - [ ] Decide wave size (recommended ~50).
 - [ ] Connect one camera over RTSP and record the first batch of reference
   videos: at least 10 people doing push-ups and crunches from the planned

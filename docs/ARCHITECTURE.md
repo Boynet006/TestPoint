@@ -29,7 +29,8 @@ open a browser on the LAN.
 | 5*     | Push-up station, 3–4 lanes            | Side view, 6–7 m from the mats, 0.8–1 m high     |
 | 6*     | Crunch station, 3–4 lanes             | Side view, 6–7 m from the mats, 0.8–1 m high     |
 
-\* to be purchased: the owner's four cameras are all allocated to the run.
+\* approved for purchase (same model): the owner's original four cameras are
+all allocated to the run.
 
 Cameras are Hikvision iDS-2CD7A46G0/P-LZHS (4 MP, PoE, RTSP). The remote
 run cameras reach the main switch over single-mode fiber through field

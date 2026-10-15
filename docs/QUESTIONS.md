@@ -27,25 +27,25 @@ decision taken. Open points are at the bottom.
 
 | 18 | Run course layout | Start and finish far apart; Wi-Fi not an option; fiber possible; cameras at start, 1 km, 2 km, finish | Single-mode fiber daisy chain through field switches; four timing lines with split times and course-integrity checks. All four cameras go to the run, so the exercise stations need 2 more. See [SITE.md](SITE.md). |
 
+| 19 | Two more cameras for the exercise stations | Approved (same model) | 6 cameras total: 4 on the run, 1 per exercise station with 3–4 lanes each. |
+
 ## Still open
 
-1. **Two more cameras** for the push-up and crunch stations: approved?
-   Without them, the exercise stations have no camera on run days.
-2. **Fiber details:** who installs it, route length per hop, single-mode
+1. **Fiber details:** who installs it, route length per hop, single-mode
    confirmed, strands per hop (2 minimum, 4 for a ring), and whether a ring
    back from the start is possible.
-3. **Power at the start, 1 km and 2 km points:** mains or battery.
-4. **Field switch** model at each remote point (needs 2× SFP + PoE+, outdoor
-   rated) — we can propose one if you want.
-5. **Wave size:** can runners start in waves of about 50 with 2–3 minute gaps?
+2. **Power at the start, 1 km and 2 km points:** mains or battery.
+3. **Field switch** model at each remote point — candidates are listed in
+   [SITE.md](SITE.md); confirm with the installer.
+4. **Wave size:** can runners start in waves of about 50 with 2–3 minute gaps?
    One 500-runner mass start is the case where camera-only timing is least
    reliable.
-6. **Official time limits and depth rules** for push-ups and crunches, and
+5. **Official time limits and depth rules** for push-ups and crunches, and
    whether the crunch is a crunch (shoulders off the floor) or a full sit-up.
-7. **Scoring tables** by age and gender, when available.
-8. **A sample of the paper list** used today (to design the OCR import).
-9. **Reference videos:** 10+ people doing push-ups and crunches from the
+6. **Scoring tables** by age and gender, when available.
+7. **A sample of the paper list** used today (to design the OCR import).
+8. **Reference videos:** 10+ people doing push-ups and crunches from the
    planned camera angle, with the human count for each (needed for Phase 1
    exit test).
-10. **Photos of the site** (station area, each timing point) for camera
-    placement and sun direction.
+9. **Photos of the site** (station area, each timing point) for camera
+   placement and sun direction.
