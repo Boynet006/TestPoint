@@ -35,7 +35,8 @@ regulation.
 | Course | Point-to-point, measured 3.2 km (certified by the organiser) |
 | Start | Waves of up to 50 runners; wave start time recorded when the examiner presses Start with the horn |
 | Finish | Time = finish-line crossing − wave start, interpolated between frames, resolution 0.1 s |
-| Identification | Bib number (front and back) read by the finish cameras; face as secondary check; unresolved crossings reviewed by the examiner from video before results are published |
+| Splits | Crossings at 1 km and 2 km recorded per runner; a runner missing a split, or crossing points out of order, is held for review before a result is published |
+| Identification | Bib number (front and back) read at all four timing points; face as secondary check; unresolved crossings reviewed by the examiner from video before results are published |
 | Result | mm:ss.s; pass/fail and score from the score table for the candidate's age and gender |
 | Did not finish | A runner with no crossing within the cut-off time is marked DNF |
 

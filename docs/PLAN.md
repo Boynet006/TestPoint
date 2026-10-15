@@ -57,8 +57,13 @@ Result shown (count / time, faults, pass/fail) → examiner confirms → next ca
 - [x] Confirm hardware (see [SITE.md](SITE.md)): Hikvision 4 MP PoE cameras,
   TP-Link PoE+ switch, no internet at the site.
 - [x] Draft the rule set for sign-off ([RULES.md](RULES.md)).
-- [ ] Decide the run course layout (out-and-back vs remote start) and wave
-  size — the open points in [QUESTIONS.md](QUESTIONS.md).
+- [x] Run course layout decided: point-to-point, cameras at start, 1 km,
+  2 km and finish, connected by single-mode fiber through field switches
+  ([SITE.md](SITE.md)).
+- [ ] Approve 2 extra cameras for the push-up and crunch stations (all four
+  existing cameras are on the run), and settle fiber installation, field
+  switches and power at the remote points.
+- [ ] Decide wave size (recommended ~50).
 - [ ] Connect one camera over RTSP and record the first batch of reference
   videos: at least 10 people doing push-ups and crunches from the planned
   camera angle (side view, 3–4 lanes), plus a few runners crossing a line
@@ -124,14 +129,19 @@ and evidence stored, and one list imported from a scanned sheet.
 
 ## Phase 3 — Multi-camera capture service (2 weeks)
 
-- Capture service that reads all 4 cameras over RTSP (or USB), keeps a
-  common clock, and feeds frames to the vision workers.
-- Camera health monitoring, reconnect, frame-drop reporting.
-- GPU scheduling so that 2 pose stations plus 2 line cameras run in real
-  time on one PC.
+- Capture service that reads all 6 cameras over RTSP, keeps a common clock
+  (PC time, NTP served to the cameras), and feeds frames to the vision
+  workers.
+- Camera health monitoring, reconnect, frame-drop reporting; fiber-chain
+  outage detection (which points are reachable) shown in Diagnostics.
+- GPU scheduling so that 2 pose stations plus 4 line cameras run in real
+  time on one PC (line cameras only need the detector at full rate; OCR runs
+  on crops).
+- Bring-up of the fiber network with the installer: field switches, SFPs,
+  power, camera IP plan.
 
-**Exit test:** 4 cameras running for 2 hours with no stall and timestamps
-agreeing within 50 ms.
+**Exit test:** 6 cameras running for 2 hours with no stall and timestamps
+agreeing within 50 ms, including the start camera over 3 fiber hops.
 
 ## Phase 4 — 3.2 km run timing (4–6 weeks, highest risk)
 
@@ -139,23 +149,27 @@ Point-to-point course, up to 500 runners, in waves. Site design in
 [SITE.md](SITE.md).
 
 - Wave management: create waves from the daily list; check runners into a
-  wave at the start gate (face or bib); "Start wave N" records the wave start
+  wave at the start gate with camera 1 (face or bib); the examiner's wired
+  laptop at the start presses "Start wave N", which records the wave start
   time.
-- Finish line: cameras 3 (front bibs) and 4 (back bibs); person tracking
-  (ByteTrack) + bib detection + OCR; crossing time interpolated between
-  frames; the two cameras' reads are merged per runner.
+- Timing lines at start, 1 km, 2 km and finish: person tracking (ByteTrack)
+  + bib detection + OCR; crossing time interpolated between frames; the four
+  points' reads are chained per runner for splits, a course-integrity check
+  (every point, in order) and extra identification chances.
 - Runner identification: bib primary, face secondary; the result is only
-  published when both the identity and the crossing are confirmed or
-  reviewed.
-- Review queue: unknown or low-confidence crossings shown with the clip for
-  the examiner to resolve, in Advanced mode. DNF handling at cut-off.
-- Remote start (if the course cannot be out-and-back): wireless bridge or the
-  offline start tablet, per SITE.md.
+  published when the crossing chain is consistent and the identity is
+  confirmed or reviewed.
+- Review queue: unknown, low-confidence or out-of-order crossings shown with
+  the clips for the examiner to resolve, in Advanced mode. DNF handling at
+  cut-off.
+- Live board: runners in progress with last split, for the examiner at the
+  finish.
 
 **Exit test:** a wave of 50 runners through a two-lane chute: every runner
 either identified automatically or queued for review; finish time within
-±0.5 s of a reference stopwatch for all identified runners; zero runners
-assigned to the wrong bib after review.
+±0.5 s of a reference stopwatch for all identified runners; every runner has
+all four crossings or a review entry; zero runners assigned to the wrong bib
+after review.
 
 Risk note: RFID chip timing is the proven standard for mass events, and 500
 runners is a mass event. Waves and the chute make camera-only timing

@@ -18,18 +18,23 @@
 Everything runs on the single PC. The examiner never installs anything; they
 open a browser on the LAN.
 
-## Camera plan (4 cameras)
+## Camera plan (4 run cameras + 2 station cameras)
 
 | Camera | Role                                  | Placement                                        |
 |--------|---------------------------------------|--------------------------------------------------|
-| 1      | Push-up station, 3–4 lanes            | Side view, 6–7 m from the mats, 0.8–1 m high     |
-| 2      | Crunch station, 3–4 lanes             | Side view, 6–7 m from the mats, 0.8–1 m high     |
-| 3      | Run finish line, front bibs           | Head-on, 8–10 m before the line, 1.5 m high      |
-| 4      | Run finish line, back bibs            | Behind the line facing back, 1.5 m high          |
+| 1      | Run start line + wave check-in        | Head-on to the start gate, 1.5 m high, via fiber |
+| 2      | Run 2 km split line                   | Head-on, 8–10 m before the line, via fiber       |
+| 3      | Run 1 km split line                   | Head-on, 8–10 m before the line, via fiber       |
+| 4      | Run finish line                       | Head-on, 8–10 m before the line, two-lane chute  |
+| 5*     | Push-up station, 3–4 lanes            | Side view, 6–7 m from the mats, 0.8–1 m high     |
+| 6*     | Crunch station, 3–4 lanes             | Side view, 6–7 m from the mats, 0.8–1 m high     |
 
-Cameras are Hikvision iDS-2CD7A46G0/P-LZHS (4 MP, PoE, RTSP). Capacity
-reasoning, the finish chute and the remote-start options are in
-[SITE.md](SITE.md).
+\* to be purchased: the owner's four cameras are all allocated to the run.
+
+Cameras are Hikvision iDS-2CD7A46G0/P-LZHS (4 MP, PoE, RTSP). The remote
+run cameras reach the main switch over single-mode fiber through field
+switches at each point. Topology, power, capacity reasoning and the finish
+chute are in [SITE.md](SITE.md).
 
 Side view is the right angle for push-ups and crunches: elbow, hip and knee
 angles are all visible, and depth is unambiguous. Each lane is a rectangle
@@ -43,7 +48,9 @@ candidate.
 - One process per camera. Reads RTSP via OpenCV/GStreamer (hardware
   decoding on the GPU where available).
 - Stamps every frame with a monotonic PC clock time. All timing is done in
-  PC time, never camera time, so the 4 streams are comparable.
+  PC time, never camera time, so all streams are comparable. The PC also
+  runs an NTP server on the LAN so the cameras' own clocks (burned into
+  evidence video) agree with it; the remote fiber hops add well under 1 ms.
 - Writes a rolling recording to disk (evidence) and publishes frames to the
   vision worker over shared memory / local socket.
 - Reports health (fps, drops, reconnects) to the API.
@@ -53,10 +60,13 @@ candidate.
   on CUDA) → 17 COCO keypoints per person → picks the candidate in the
   station zone → joint angles → exercise rule set → rep state machine →
   events (`rep_counted`, `rep_rejected(reason)`, `phase_changed`).
-- **Line worker** (cameras 3 and 4): person detector + tracker (ByteTrack)
-  → bib detector + OCR on each track → virtual line in the image; the
-  crossing time is interpolated between the two frames around the line →
-  event `line_crossed(bib or unknown, t)`.
+- **Line worker** (run cameras 1–4, one instance per camera): person
+  detector + tracker (ByteTrack) → bib detector + OCR on each track →
+  virtual line in the image; the crossing time is interpolated between the
+  two frames around the line → event `line_crossed(point, bib or unknown, t)`.
+  The run service chains crossings per runner (start → 1 km → 2 km → finish),
+  computes splits and the final time, and flags out-of-order or missing
+  crossings for review.
 - Workers are plain Python modules that can also run on a video file, which
   is how we test them against the clip library.
 
@@ -120,7 +130,8 @@ Attempt(id, session_id, candidate_id, event[pushup|crunch|run], station_id,
         score, pass, status[running|finished|reviewed], video_path)
 Rep(id, attempt_id, index, t_down, t_up, valid, fault_reason, clip_path)
 Wave(id, session_id, number, started_at, started_by)
-Crossing(id, wave_id?, candidate_id?, camera_id, source[camera|rfid], t,
+TimingPoint(id, name[start|split1|split2|finish], camera_id, distance_m, line[json])
+Crossing(id, timing_point_id, wave_id?, candidate_id?, source[camera|rfid], t,
          bib_read, face_score, confidence, resolved_by)
 Override(id, attempt_id, user_id, field, old, new, reason, created_at)
 RuleSet(id, event, json thresholds, version, active)
