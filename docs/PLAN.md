@@ -52,28 +52,37 @@ Result shown (count / time, faults, pass/fail) → examiner confirms → next ca
 
 ## Phase 0 — Setup and requirements (1 week)
 
-- Install the toolchain on the PC: Python 3.12, Git, Node.js LTS, CUDA-ready
-  ONNX Runtime.
-- Confirm hardware details (see [QUESTIONS.md](QUESTIONS.md)): camera model
-  and protocol, switch PoE, run course layout.
-- Write down the official test rules for each event (what is a valid push-up,
-  what is a valid crunch, time limits, scoring tables by age/gender).
-- Record the first batch of reference videos: at least 10 people doing
-  push-ups and crunches from the planned camera angle, plus a few runners
-  crossing a line wearing bibs.
+- [x] Install the toolchain on the PC: Python 3.12, Git, GPU ONNX Runtime
+  (done 2026-10-15; Node.js LTS still to install for Phase 2).
+- [x] Confirm hardware (see [SITE.md](SITE.md)): Hikvision 4 MP PoE cameras,
+  TP-Link PoE+ switch, no internet at the site.
+- [x] Draft the rule set for sign-off ([RULES.md](RULES.md)).
+- [ ] Decide the run course layout (out-and-back vs remote start) and wave
+  size — the open points in [QUESTIONS.md](QUESTIONS.md).
+- [ ] Connect one camera over RTSP and record the first batch of reference
+  videos: at least 10 people doing push-ups and crunches from the planned
+  camera angle (side view, 3–4 lanes), plus a few runners crossing a line
+  wearing bibs.
+- [ ] Offline bundling: cache all model files and wheels so the installer
+  never needs the internet.
 
 **Exit test:** repository builds, `pytest` passes, 10+ reference clips stored
-under `data/clips/`, rules document agreed.
+under `data/clips/`, rules document agreed, one Hikvision camera streaming
+into the demo CLI.
 
 ## Phase 1 — Rep-counting engine (2–3 weeks)
 
-Scope: push-ups and crunches, one person per camera, offline video and live
-webcam.
+Scope: push-ups and crunches, **3–4 lanes per camera**, offline video and
+live RTSP.
 
-- Pose estimation backend (RTMPose via `rtmlib`, ONNX Runtime, GPU).
-- Joint-angle geometry and a hysteresis-based rep state machine.
-- Push-up rules: elbow angle down/up thresholds, straight body line, hands on
-  ground. Crunch rules: torso elevation thresholds, feet/knees position.
+- [x] Pose estimation backend (RTMPose via `rtmlib`, ONNX Runtime, GPU).
+- [x] Joint-angle geometry and a hysteresis-based rep state machine.
+- [x] Push-up rules: elbow angle down/up thresholds, straight body line.
+  Crunch rules: torso elevation thresholds, knee angle.
+- [ ] Knee-on-ground and resting-in-down-position faults for push-ups.
+- [ ] Lane zones: assign each detected person to a lane rectangle; one
+  counter per lane; ignore people outside all lanes.
+- [ ] RTSP input (Hikvision main stream) in the demo CLI, with reconnect.
 - Form faults are flagged per rep (e.g. "hips sagging", "not deep enough")
   so an invalid rep is *not counted* and the reason is recorded.
 - Demo CLI with overlay, and a measurement script that runs the engine over
@@ -99,9 +108,19 @@ webcam.
   test day; Advanced exposes calibration, rule thresholds, camera
   assignment, per-rep review and diagnostics.
 - Scoring tables and pass/fail; CSV/PDF export.
+- **English and Arabic UI** with right-to-left layout; language switch in the
+  header; bilingual exports.
+- **Daily list import:** typed entry form, CSV/Excel upload, and scanned
+  paper (photo or scanner) through OCR with a side-by-side review screen;
+  every row is confirmed by the administrator before it is on the list.
+- Multi-lane station screen: one tile per lane with its own candidate,
+  count, timer and faults.
+- Retention jobs: auto-delete evidence video and face data per the
+  retention settings.
 
-**Exit test:** a full push-up and crunch test for 5 candidates run end to end
-from the web UI with results and evidence stored.
+**Exit test:** a full push-up and crunch test for 12 candidates (3 lanes × 4
+rounds) run end to end from the web UI in Arabic and English, with results
+and evidence stored, and one list imported from a scanned sheet.
 
 ## Phase 3 — Multi-camera capture service (2 weeks)
 
@@ -116,29 +135,38 @@ agreeing within 50 ms.
 
 ## Phase 4 — 3.2 km run timing (4–6 weeks, highest risk)
 
-- Line camera(s) at start and finish (or one camera at a combined
-  start/finish line for a loop course).
-- Runner identification: bib-number detection + OCR, backed by person
-  tracking and candidate photo match. Bib design is chosen for the camera
-  (large, high-contrast digits, front and back).
-- Start event: examiner presses Start (or a start signal is detected); all
-  runners share the same start timestamp. Finish: line-crossing time per
-  runner from the tracked bounding box, interpolated between frames.
-- Unknown/uncertain crossings are queued for the examiner to resolve from
-  the finish-line video, in Advanced mode.
-- Lap counting if the course is a loop.
+Point-to-point course, up to 500 runners, in waves. Site design in
+[SITE.md](SITE.md).
 
-**Exit test:** 20 runners, finish time within ±0.5 s of a stopwatch for every
-identified runner, and every unidentified crossing presented for review.
+- Wave management: create waves from the daily list; check runners into a
+  wave at the start gate (face or bib); "Start wave N" records the wave start
+  time.
+- Finish line: cameras 3 (front bibs) and 4 (back bibs); person tracking
+  (ByteTrack) + bib detection + OCR; crossing time interpolated between
+  frames; the two cameras' reads are merged per runner.
+- Runner identification: bib primary, face secondary; the result is only
+  published when both the identity and the crossing are confirmed or
+  reviewed.
+- Review queue: unknown or low-confidence crossings shown with the clip for
+  the examiner to resolve, in Advanced mode. DNF handling at cut-off.
+- Remote start (if the course cannot be out-and-back): wireless bridge or the
+  offline start tablet, per SITE.md.
 
-Risk note: RFID chip timing is the proven standard for official race timing.
-Camera-only timing is achievable for groups of this size with good bibs, but
-we design the finish module so that an RFID reader can be added later as a
-second source if the accuracy target is not met.
+**Exit test:** a wave of 50 runners through a two-lane chute: every runner
+either identified automatically or queued for review; finish time within
+±0.5 s of a reference stopwatch for all identified runners; zero runners
+assigned to the wrong bib after review.
+
+Risk note: RFID chip timing is the proven standard for mass events, and 500
+runners is a mass event. Waves and the chute make camera-only timing
+workable; if the exit test fails on real footage, a UHF RFID reader is added
+at the finish as a second crossing source (the data model already supports
+multiple sources per crossing).
 
 ## Phase 5 — Hardening and deployment (2–3 weeks)
 
-- Installer / service setup on the PC (auto-start, logs, backups).
+- Installer / service setup on the PC (auto-start, logs, backups), fully
+  offline: bundled models, wheels and fonts; UPS and evidence disk.
 - Load test, failure drills (camera unplugged, PC reboot mid-session).
 - Role-based access (examiner vs administrator), audit export.
 - User manual for Simple mode, admin manual for Advanced mode.

@@ -17,7 +17,9 @@ network).
 
 - [docs/PLAN.md](docs/PLAN.md) — phased delivery plan (what we build, in what order, with exit criteria)
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — system design, components, data model, key decisions
-- [docs/QUESTIONS.md](docs/QUESTIONS.md) — what we need from the project owner before each phase
+- [docs/QUESTIONS.md](docs/QUESTIONS.md) — answers received so far and open points
+- [docs/SITE.md](docs/SITE.md) — hardware, camera placement, capacity for 500 candidates, run-course options
+- [docs/RULES.md](docs/RULES.md) — proposed rule set v1 for sign-off (thresholds, time limits, retention)
 - [docs/RESEARCH.md](docs/RESEARCH.md) — existing products, libraries and the reasoning behind the choices
 
 ## Repository layout

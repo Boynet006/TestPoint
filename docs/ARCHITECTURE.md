@@ -20,18 +20,22 @@ open a browser on the LAN.
 
 ## Camera plan (4 cameras)
 
-| Camera | Role                        | Placement                                   |
-|--------|-----------------------------|---------------------------------------------|
-| 1      | Push-up station             | Side view, 3–4 m from the mat, ~0.8 m high  |
-| 2      | Crunch station              | Side view, 3–4 m from the mat, ~0.8 m high  |
-| 3      | Run start line              | Facing runners, bibs visible, ~1.5 m high   |
-| 4      | Run finish line             | Facing runners, bibs visible, ~1.5 m high   |
+| Camera | Role                                  | Placement                                        |
+|--------|---------------------------------------|--------------------------------------------------|
+| 1      | Push-up station, 3–4 lanes            | Side view, 6–7 m from the mats, 0.8–1 m high     |
+| 2      | Crunch station, 3–4 lanes             | Side view, 6–7 m from the mats, 0.8–1 m high     |
+| 3      | Run finish line, front bibs           | Head-on, 8–10 m before the line, 1.5 m high      |
+| 4      | Run finish line, back bibs            | Behind the line facing back, 1.5 m high          |
 
-If the course is a loop, cameras 3 and 4 both watch the same line from two
-angles (front and back), which doubles bib-read chances.
+Cameras are Hikvision iDS-2CD7A46G0/P-LZHS (4 MP, PoE, RTSP). Capacity
+reasoning, the finish chute and the remote-start options are in
+[SITE.md](SITE.md).
 
 Side view is the right angle for push-ups and crunches: elbow, hip and knee
-angles are all visible, and depth is unambiguous.
+angles are all visible, and depth is unambiguous. Each lane is a rectangle
+drawn in the image in Advanced mode; a detected person is assigned to the
+lane containing their hip midpoint, and each lane has its own counter and
+candidate.
 
 ## Components
 
@@ -86,12 +90,21 @@ angles are all visible, and depth is unambiguous.
   diagnostics, user management.
 - The toggle is a single control in the header; Advanced requires the
   administrator role.
+- **Languages:** English and Arabic, switchable in the header, with full
+  right-to-left layout for Arabic (i18n from the first screen, not retrofitted).
+  Exports (CSV/PDF) are bilingual.
+- **Daily list import:** typed form, CSV/Excel upload, or a scanned/
+  photographed paper list through OCR (Arabic + English) with a side-by-side
+  review screen; nothing enters the list unconfirmed.
 
 ### Storage
 - SQLite in Phase 2 (zero setup), migrate to PostgreSQL in Phase 5 if the
   deployment needs concurrent writers or central reporting.
 - Evidence video under `data/evidence/<session>/<attempt>/`, per-rep clips
   as small MP4 files with the rep index and verdict in the file name.
+- Retention: results permanent; evidence video 30 days; face embeddings and
+  check-in photos 7 days after the test day. A nightly job deletes expired
+  data and logs what it removed. All three periods are settings.
 
 ## Data model (first cut)
 
@@ -101,11 +114,14 @@ Session(id, date, site, examiner_id, status)
 DayList(id, session_id, candidate_id, status[expected|checked_in|done|absent])
 CheckIn(id, session_id, candidate_id, station_id, t, match_score, photo_path,
         accepted_by, manual_override)
+Station(id, name, camera_id, event, lanes[json rectangles])
 Attempt(id, session_id, candidate_id, event[pushup|crunch|run], station_id,
-        started_at, ended_at, raw_count, final_count, time_s, score,
-        pass, status[running|finished|reviewed], video_path)
+        lane, wave_id?, started_at, ended_at, raw_count, final_count, time_s,
+        score, pass, status[running|finished|reviewed], video_path)
 Rep(id, attempt_id, index, t_down, t_up, valid, fault_reason, clip_path)
-Crossing(id, attempt_id?, camera_id, t, bib_read, confidence, resolved_by)
+Wave(id, session_id, number, started_at, started_by)
+Crossing(id, wave_id?, candidate_id?, camera_id, source[camera|rfid], t,
+         bib_read, face_score, confidence, resolved_by)
 Override(id, attempt_id, user_id, field, old, new, reason, created_at)
 RuleSet(id, event, json thresholds, version, active)
 ScoreTable(id, event, gender, age_min, age_max, json)
