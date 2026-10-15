@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "testpoint"
+version = "0.1.0"
+description = "Camera-based fitness test station: push-ups, crunches and run timing"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "numpy>=1.26",
+    "opencv-python>=4.9",
+    "rtmlib>=0.0.13",
+    "onnxruntime>=1.18",
+]
+
+[project.optional-dependencies]
+gpu = ["onnxruntime-gpu>=1.20"]
+dev = ["pytest>=8", "ruff>=0.5"]
+
+[project.scripts]
+testpoint-demo = "testpoint.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
