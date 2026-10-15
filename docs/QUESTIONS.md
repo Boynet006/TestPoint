@@ -27,7 +27,7 @@ decision taken. Open points are at the bottom.
 
 | 18 | Run course layout | Start and finish far apart; Wi-Fi not an option; fiber possible; cameras at start, 1 km, 2 km, finish | Single-mode fiber daisy chain through field switches; four timing lines with split times and course-integrity checks. All four cameras go to the run, so the exercise stations need 2 more. See [SITE.md](SITE.md). |
 
-| 19 | Two more cameras for the exercise stations | Approved (same model) | 6 cameras total: 4 on the run, 1 per exercise station with 3–4 lanes each. |
+| 19 | Two more cameras for the exercise stations | Approved in principle, may be added later | Target: 6 cameras, 4 on the run, 1 per exercise station with 3–4 lanes each. Until then, the split cameras are reassigned to the stations on non-run days (Advanced → Cameras). |
 
 ## Still open
 

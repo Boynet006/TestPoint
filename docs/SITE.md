@@ -27,8 +27,12 @@ stations have none.
 | B. Run on a different day | The four run cameras are mounted along the course and are not practical to move; this only works if the exercise stations use 2 of them on days without a run, which means re-mounting and re-calibrating each time. |
 | C. One camera per exercise station from the run set | Drop the 1 km and 2 km split cameras. Loses split times and course checks. |
 
-**Decision (2026-10-15): option A approved.** Six cameras total; the main
-switch has capacity for it.
+**Decision (2026-10-15): option A approved in principle, purchase deferred.**
+Until cameras 5 and 6 arrive, the exercise stations borrow the 1 km and 2 km
+split cameras on days without a run (they are the least critical run
+cameras). Camera roles are assigned in Advanced → Cameras, so no re-install
+of software is needed, only re-mounting and re-drawing the lane zones. On run
+days without the extra cameras, the exercise stations are offline.
 
 ## 3.2 km run: fiber network and timing lines
 

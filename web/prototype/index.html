@@ -1,451 +1,426 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TestPoint — UI prototype</title>
+<title>TestPoint — Station</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500;600&family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0f1419; --panel: #1a222c; --panel2: #222d39; --line: #2f3b48;
-    --text: #e8eef4; --muted: #8fa0b2; --accent: #2f80ed; --ok: #27ae60;
-    --bad: #eb5757; --warn: #f2c94c;
+    --ink: #0b0f14; --bg: #10161d; --bg2: #161e27; --panel: #1b252f; --line: #2a3745;
+    --text: #f2f5f7; --muted: #8b9bab; --dim: #5d6b79;
+    --amber: #ffb000; --amber-ink: #1a1200;
+    --go: #19d27a; --go-ink: #04200f; --stop: #ff3b3b; --warn: #ffb000; --info: #4cc2ff;
+    --cond: "Barlow Condensed", "Cairo", sans-serif; --sans: "Barlow", "Cairo", sans-serif;
   }
+  [dir=rtl] { --cond: "Cairo", "Barlow Condensed", sans-serif; --sans: "Cairo", "Barlow", sans-serif; }
   * { box-sizing: border-box; }
-  body { margin: 0; font-family: Segoe UI, system-ui, sans-serif; background: var(--bg); color: var(--text); }
-  header { display: flex; align-items: center; gap: 16px; padding: 12px 20px; background: var(--panel); border-bottom: 1px solid var(--line); }
-  header h1 { font-size: 18px; margin: 0; letter-spacing: .5px; }
-  header .station { color: var(--muted); font-size: 14px; }
+  html, body { height: 100%; }
+  body { margin: 0; font-family: var(--sans); background: var(--bg); color: var(--text);
+    background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 48px 48px; background-position: -1px -1px; }
+  body::before { content: ""; position: fixed; inset: 0; background: radial-gradient(1200px 600px at 50% -10%, rgba(255,176,0,.10), transparent 60%); pointer-events: none; }
+
+  /* ---------- header ---------- */
+  header { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 18px; padding: 10px 22px;
+    background: rgba(11,15,20,.92); border-bottom: 2px solid var(--amber); backdrop-filter: blur(6px); }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .mono { width: 38px; height: 38px; background: var(--amber); color: var(--amber-ink); font-family: var(--cond); font-weight: 800; font-size: 22px;
+    display: grid; place-items: center; clip-path: polygon(0 0, 100% 0, 100% 70%, 70% 100%, 0 100%); }
+  .brand b { font-family: var(--cond); font-size: 24px; letter-spacing: 1px; text-transform: uppercase; }
+  .brand small { display: block; color: var(--muted); font-size: 12px; margin-top: -4px; }
+  .station { font-family: var(--cond); font-size: 18px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .station b { color: var(--text); }
   .spacer { flex: 1; }
-  .toggle { display: flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
-  .toggle button { background: transparent; color: var(--muted); border: 0; padding: 8px 18px; cursor: pointer; font-size: 14px; }
-  .toggle button.active { background: var(--accent); color: white; }
-  .clock { font-variant-numeric: tabular-nums; color: var(--muted); }
-  main { padding: 20px; max-width: 1300px; margin: 0 auto; }
+  .clock { font-family: var(--cond); font-size: 22px; font-variant-numeric: tabular-nums; color: var(--muted); }
+  .seg { display: flex; border: 1px solid var(--line); background: var(--bg2); }
+  .seg button { background: transparent; color: var(--muted); border: 0; padding: 8px 16px; cursor: pointer; font-family: var(--cond); font-size: 16px; text-transform: uppercase; letter-spacing: 1px; }
+  .seg button.active { background: var(--amber); color: var(--amber-ink); font-weight: 700; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-inline-end: 6px; }
+  .dot.ok { background: var(--go); box-shadow: 0 0 8px var(--go); } .dot.bad { background: var(--stop); }
+
+  main { padding: 20px 22px 40px; max-width: 1500px; margin: 0 auto; }
   .hidden { display: none !important; }
-  .grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; }
-  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
-  .card h2 { margin: 0 0 12px; font-size: 15px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
-  .camera { position: relative; aspect-ratio: 16/9; background: linear-gradient(160deg, #1d2833, #0b1016); border-radius: 10px; overflow: hidden; border: 1px solid var(--line); }
-  .camera .label { position: absolute; top: 10px; left: 12px; font-size: 12px; color: var(--muted); }
-  .camera .rec { position: absolute; top: 10px; right: 12px; font-size: 12px; color: var(--bad); }
-  .facebox { position: absolute; left: 42%; top: 22%; width: 16%; aspect-ratio: 3/4; border: 2px solid var(--warn); border-radius: 6px; transition: border-color .3s; }
-  .facebox.ok { border-color: var(--ok); }
-  .facebox span { position: absolute; top: -22px; left: 0; font-size: 12px; white-space: nowrap; color: var(--warn); }
-  .facebox.ok span { color: var(--ok); }
-  .skeleton { position: absolute; inset: 0; }
-  .big { font-size: 110px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
-  .huge-label { color: var(--muted); font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
-  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-  .btn { border: 0; border-radius: 10px; padding: 16px 26px; font-size: 18px; cursor: pointer; color: white; background: var(--panel2); }
-  .btn.primary { background: var(--accent); }
-  .btn.ok { background: var(--ok); }
-  .btn.bad { background: var(--bad); }
-  .btn.xl { font-size: 26px; padding: 22px 40px; width: 100%; }
-  .btn:disabled { opacity: .4; cursor: not-allowed; }
-  .pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; background: var(--panel2); color: var(--muted); }
-  .pill.ok { background: rgba(39,174,96,.2); color: var(--ok); }
-  .pill.bad { background: rgba(235,87,87,.2); color: var(--bad); }
-  .pill.warn { background: rgba(242,201,76,.2); color: var(--warn); }
-  .candidate { display: flex; gap: 14px; align-items: center; }
-  .avatar { width: 64px; height: 64px; border-radius: 50%; background: var(--panel2); display: grid; place-items: center; font-size: 24px; }
-  .fault { background: rgba(235,87,87,.15); border: 1px solid var(--bad); color: var(--bad); padding: 10px 14px; border-radius: 8px; margin-top: 10px; font-size: 16px; }
-  .stat { display: flex; flex-direction: column; gap: 4px; }
-  .stat b { font-size: 34px; font-variant-numeric: tabular-nums; }
-  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+
+  /* ---------- station bar ---------- */
+  .bar { display: flex; align-items: center; gap: 16px; padding: 12px 16px; background: var(--panel); border: 1px solid var(--line); margin-bottom: 16px; }
+  .events { display: flex; gap: 8px; }
+  .ev { background: var(--bg2); border: 1px solid var(--line); color: var(--muted); padding: 10px 18px; cursor: pointer; font-family: var(--cond); font-size: 18px; text-transform: uppercase; letter-spacing: 1px; }
+  .ev.active { border-color: var(--amber); color: var(--amber); }
+  .kv { font-family: var(--cond); font-size: 16px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .kv b { color: var(--text); font-size: 20px; }
+  .btn { border: 0; padding: 12px 22px; cursor: pointer; font-family: var(--cond); font-size: 19px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; color: var(--text); background: var(--bg2); border: 1px solid var(--line); }
+  .btn.go { background: var(--go); color: var(--go-ink); border-color: var(--go); }
+  .btn.stop { background: var(--stop); color: white; border-color: var(--stop); }
+  .btn.amber { background: var(--amber); color: var(--amber-ink); border-color: var(--amber); }
+  .btn.ghost { background: transparent; }
+  .btn.xl { font-size: 24px; padding: 16px 28px; width: 100%; }
+  .btn:disabled { opacity: .35; cursor: not-allowed; }
+
+  /* ---------- lanes ---------- */
+  .lanes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 1100px) { .lanes { grid-template-columns: 1fr; } }
+  .lane { background: var(--panel); border: 1px solid var(--line); border-top: 4px solid var(--dim); display: flex; flex-direction: column; min-height: 520px; position: relative; }
+  .lane[data-state=verified] { border-top-color: var(--info); }
+  .lane[data-state=ready] { border-top-color: var(--amber); }
+  .lane[data-state=running] { border-top-color: var(--go); }
+  .lane[data-state=done] { border-top-color: var(--text); }
+  .lane[data-state=refused] { border-top-color: var(--stop); }
+  .lane-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+  .lane-num { font-family: var(--cond); font-size: 30px; font-weight: 800; color: var(--amber); line-height: 1; }
+  .lane-state { font-family: var(--cond); font-size: 15px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); }
+  .cam { position: relative; aspect-ratio: 4/3; background:
+      radial-gradient(ellipse at 50% 80%, rgba(255,176,0,.08), transparent 60%), linear-gradient(180deg, #121a22, #0b1016);
+      border-bottom: 1px solid var(--line); overflow: hidden; }
+  .cam .tag { position: absolute; top: 8px; inset-inline-start: 10px; font-family: var(--cond); font-size: 12px; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; }
+  .cam .rec { position: absolute; top: 8px; inset-inline-end: 10px; font-family: var(--cond); font-size: 12px; color: var(--stop); letter-spacing: 1px; }
+  .cam .rec::before { content: "●"; animation: blink 1.2s infinite; margin-inline-end: 4px; }
+  @keyframes blink { 50% { opacity: .2; } }
+  .facebox { position: absolute; left: 50%; top: 24%; transform: translateX(-50%); width: 26%; aspect-ratio: 3/4; border: 2px dashed var(--amber); }
+  .facebox.ok { border: 2px solid var(--go); box-shadow: 0 0 0 3px rgba(25,210,122,.25); }
+  .facebox.bad { border: 2px solid var(--stop); }
+  .facebox span { position: absolute; top: -24px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-family: var(--cond); font-size: 14px; letter-spacing: 1px; text-transform: uppercase; color: var(--amber); }
+  .facebox.ok span { color: var(--go); } .facebox.bad span { color: var(--stop); }
+  .skel { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .corner { position: absolute; width: 18px; height: 18px; border: 2px solid var(--line); }
+  .corner.tl { top: 6px; left: 6px; border-right: 0; border-bottom: 0; } .corner.tr { top: 6px; right: 6px; border-left: 0; border-bottom: 0; }
+  .corner.bl { bottom: 6px; left: 6px; border-right: 0; border-top: 0; } .corner.br { bottom: 6px; right: 6px; border-left: 0; border-top: 0; }
+  .lane-body { padding: 14px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+  .who { display: flex; align-items: center; gap: 12px; }
+  .avatar { width: 52px; height: 52px; background: var(--bg2); border: 1px solid var(--line); display: grid; place-items: center; font-size: 22px; }
+  .who b { font-family: var(--cond); font-size: 24px; display: block; line-height: 1.05; }
+  .who small { color: var(--muted); }
+  .tagline { font-family: var(--cond); font-size: 15px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); }
+  .count { font-family: var(--cond); font-weight: 800; font-size: 120px; line-height: .9; text-align: center; font-variant-numeric: tabular-nums; letter-spacing: -2px; }
+  .count small { display: block; font-size: 15px; letter-spacing: 2px; color: var(--muted); font-weight: 600; margin-top: 6px; }
+  .ring { width: 92px; height: 92px; margin: 0 auto; }
+  .ring circle { fill: none; stroke-width: 8; }
+  .ring .track { stroke: var(--line); } .ring .prog { stroke: var(--amber); stroke-linecap: butt; transform: rotate(-90deg); transform-origin: 50% 50%; transition: stroke-dashoffset .25s linear; }
+  .ring text { fill: var(--text); font-family: var(--cond); font-size: 24px; font-weight: 700; text-anchor: middle; dominant-baseline: central; }
+  .lane.low .ring .prog { stroke: var(--stop); }
+  .fault { background: rgba(255,59,59,.12); border-inline-start: 4px solid var(--stop); color: #ffb3b3; padding: 8px 12px; font-family: var(--cond); font-size: 17px; letter-spacing: 1px; text-transform: uppercase; }
+  .result { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .result div { background: var(--bg2); border: 1px solid var(--line); padding: 10px; }
+  .result b { font-family: var(--cond); font-size: 40px; display: block; line-height: 1; }
+  .result span { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; }
+  .verdict { font-family: var(--cond); font-size: 30px; font-weight: 800; letter-spacing: 2px; padding: 8px 12px; text-align: center; }
+  .verdict.pass { background: var(--go); color: var(--go-ink); } .verdict.fail { background: var(--stop); color: white; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .row .btn { flex: 1; }
+  .hint { color: var(--dim); font-size: 13px; }
+  .pill { display: inline-block; padding: 2px 8px; font-family: var(--cond); font-size: 13px; letter-spacing: 1px; text-transform: uppercase; border: 1px solid var(--line); color: var(--muted); }
+  .pill.ok { color: var(--go); border-color: var(--go); } .pill.bad { color: var(--stop); border-color: var(--stop); } .pill.warn { color: var(--warn); border-color: var(--warn); }
+
+  /* ---------- advanced ---------- */
+  .tabs { display: flex; gap: 2px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
+  .tabs button { background: transparent; color: var(--muted); border: 0; border-bottom: 3px solid transparent; padding: 10px 16px; cursor: pointer; font-family: var(--cond); font-size: 17px; text-transform: uppercase; letter-spacing: 1.5px; }
+  .tabs button.active { color: var(--amber); border-bottom-color: var(--amber); }
+  .card { background: var(--panel); border: 1px solid var(--line); padding: 16px; }
+  .card h2 { margin: 0 0 12px; font-family: var(--cond); font-size: 18px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); }
-  th { color: var(--muted); font-weight: 500; }
-  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
-  .tabs button { background: var(--panel); color: var(--muted); border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px; cursor: pointer; }
-  .tabs button.active { color: var(--text); border-color: var(--accent); }
-  .events { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-  .events button { padding: 20px; font-size: 20px; }
-  .events button.active { outline: 3px solid var(--accent); }
-  .slider { display: grid; grid-template-columns: 220px 1fr 60px; gap: 12px; align-items: center; padding: 8px 0; }
-  input[type=range] { width: 100%; }
-  .cams { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
-  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 6px; }
-  .dot.ok { background: var(--ok); } .dot.bad { background: var(--bad); }
-  .note { color: var(--muted); font-size: 13px; margin-top: 10px; }
-  .timer { font-size: 56px; font-variant-numeric: tabular-nums; font-weight: 600; }
-  .timer.low { color: var(--bad); }
-  .progress { height: 8px; background: var(--panel2); border-radius: 999px; overflow: hidden; margin-top: 8px; }
-  .progress div { height: 100%; background: var(--accent); width: 100%; transition: width 1s linear; }
+  th, td { text-align: start; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-family: var(--cond); font-size: 14px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600; }
+  .cams { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+  .camcard { background: var(--bg2); border: 1px solid var(--line); padding: 12px; }
+  .camcard b { font-family: var(--cond); font-size: 20px; }
+  .camcard select { width: 100%; margin-top: 8px; background: var(--panel); color: var(--text); border: 1px solid var(--line); padding: 6px; font-family: var(--sans); }
+  .camcard .mini { height: 90px; margin-top: 8px; background: linear-gradient(180deg,#121a22,#0b1016); border: 1px solid var(--line); }
+  .camcard.off { opacity: .5; }
+  .slider { display: grid; grid-template-columns: 240px 1fr 70px; gap: 12px; align-items: center; padding: 6px 0; }
+  input[type=range] { width: 100%; accent-color: var(--amber); }
+  .chain { display: flex; align-items: center; gap: 6px; font-family: var(--cond); font-size: 14px; }
+  .chain span { padding: 2px 8px; border: 1px solid var(--line); } .chain span.ok { border-color: var(--go); color: var(--go); } .chain span.miss { border-color: var(--stop); color: var(--stop); }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .stats div { background: var(--bg2); border: 1px solid var(--line); padding: 12px; }
+  .stats b { font-family: var(--cond); font-size: 30px; display: block; }
+  .stats span { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .grid2, .stats, .result { grid-template-columns: 1fr; } .slider { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
 <header>
-  <h1>TestPoint</h1>
-  <span class="station" id="stationName">Station 1 · Push-ups · Camera 1</span>
+  <div class="brand"><div class="mono">T</div><div><b>TestPoint</b><small data-i18n="tagline">Fitness examination station</small></div></div>
+  <div class="station"><span data-i18n="station">Station</span> <b>1</b> · <b id="stationEvent" data-i18n="pushup">Push-ups</b> · <span class="dot ok"></span><span data-i18n="cam">Camera</span> 5</div>
   <span class="spacer"></span>
   <span class="clock" id="clock"></span>
-  <div class="toggle">
-    <button id="modeSimple" class="active" onclick="setMode('simple')">Simple</button>
-    <button id="modeAdvanced" onclick="setMode('advanced')">Advanced</button>
-  </div>
+  <div class="seg"><button id="langEn" class="active" onclick="setLang('en')">EN</button><button id="langAr" onclick="setLang('ar')">ع</button></div>
+  <div class="seg"><button id="modeSimple" class="active" onclick="setMode('simple')" data-i18n="simple">Simple</button><button id="modeAdvanced" onclick="setMode('advanced')" data-i18n="advanced">Advanced</button></div>
 </header>
 
 <main>
-<!-- ============================ SIMPLE MODE ============================ -->
+<!-- ================= SIMPLE ================= -->
 <section id="simple">
-
-  <!-- Step 1: check-in -->
-  <div id="s-checkin" class="grid">
-    <div class="card">
-      <h2>Check-in · step 1 of 3</h2>
-      <div class="camera">
-        <span class="label">Camera 1 · live</span>
-        <span class="rec">● REC</span>
-        <div class="facebox" id="facebox"><span id="faceLabel">Looking for a face…</span></div>
-      </div>
-      <p class="note">The candidate stands in front of the camera. The system matches the face against <b>today's list only</b>.</p>
+  <div class="bar">
+    <div class="events">
+      <button class="ev active" id="ev-pushup" onclick="pickEvent('pushup')" data-i18n="pushup">Push-ups</button>
+      <button class="ev" id="ev-crunch" onclick="pickEvent('crunch')" data-i18n="crunch">Crunches</button>
     </div>
-    <div class="card">
-      <h2>Candidate</h2>
-      <div id="noMatch">
-        <p class="huge-label">Waiting for a candidate</p>
-        <p class="note">No one is verified yet. Nothing can start until a face on today's list is recognised.</p>
-        <div class="row">
-          <button class="btn" onclick="simulateFace(true)">Simulate: known face</button>
-          <button class="btn" onclick="simulateFace(false)">Simulate: unknown face</button>
-        </div>
-      </div>
-      <div id="matched" class="hidden">
-        <div class="candidate">
-          <div class="avatar">👤</div>
-          <div>
-            <div style="font-size:24px;font-weight:600" id="cName"></div>
-            <div class="note" id="cMeta"></div>
-          </div>
-        </div>
-        <p><span class="pill ok">VERIFIED · match 0.91</span> <span class="pill">on today's list</span></p>
-        <div class="row">
-          <button class="btn ok" onclick="accept()">Accept</button>
-          <button class="btn bad" onclick="resetCheckin()">Reject</button>
-        </div>
-      </div>
-      <div id="refused" class="hidden">
-        <p style="font-size:22px;color:var(--bad);font-weight:600">Not registered for today</p>
-        <p class="note">No match on today's list. The candidate cannot be tested. An administrator can search manually in Advanced mode (logged as an override).</p>
-        <button class="btn" onclick="resetCheckin()">Try again</button>
-      </div>
-    </div>
+    <div class="kv"><span data-i18n="timelimit">Time limit</span> <b>2:00</b></div>
+    <div class="kv"><span data-i18n="today">Today</span> <b id="doneCount">2</b>/<b>4</b></div>
+    <span class="spacer"></span>
+    <button class="btn go" id="startAll" onclick="startAllReady()" disabled data-i18n="startall">Start all ready lanes</button>
   </div>
-
-  <!-- Step 2: armed, choose event, start -->
-  <div id="s-armed" class="grid hidden">
-    <div class="card">
-      <h2>Ready · step 2 of 3</h2>
-      <div class="candidate" style="margin-bottom:16px">
-        <div class="avatar">👤</div>
-        <div>
-          <div style="font-size:24px;font-weight:600" id="aName"></div>
-          <div class="note" id="aMeta"></div>
-        </div>
-        <span class="spacer"></span>
-        <span class="pill ok">VERIFIED</span>
-      </div>
-      <div class="events">
-        <button class="btn active" id="ev-pushup" onclick="pickEvent('pushup')">Push-ups<br><small>2:00</small></button>
-        <button class="btn" id="ev-crunch" onclick="pickEvent('crunch')">Crunches<br><small>2:00</small></button>
-        <button class="btn" id="ev-run" onclick="pickEvent('run')">3.2 km run<br><small>group start</small></button>
-      </div>
-      <p class="note" id="eventHint">Camera 1 is assigned to push-ups. Candidate gets into the start position; counting begins only after the start position is held.</p>
-      <button class="btn primary xl" style="margin-top:16px" onclick="startTest()">START</button>
-    </div>
-    <div class="card">
-      <h2>Live preview</h2>
-      <div class="camera"><span class="label">Camera 1 · live</span><span class="rec">● REC</span></div>
-      <p class="note">Status: <span class="pill warn">waiting for start position</span></p>
-    </div>
-  </div>
-
-  <!-- Step 3: running -->
-  <div id="s-running" class="grid hidden">
-    <div class="card">
-      <h2>Testing · step 3 of 3</h2>
-      <div class="camera">
-        <span class="label">Camera 1 · live</span><span class="rec">● REC</span>
-        <svg class="skeleton" viewBox="0 0 160 90" id="skel"></svg>
-      </div>
-      <div id="faultBox" class="fault hidden"></div>
-    </div>
-    <div class="card" style="text-align:center">
-      <div class="huge-label" id="runLabel">Push-ups</div>
-      <div class="big" id="count">0</div>
-      <div class="huge-label">valid reps · <span id="rejected">0</span> rejected</div>
-      <div class="timer" id="timer" style="margin-top:18px">2:00</div>
-      <div class="progress"><div id="bar"></div></div>
-      <div class="row" style="justify-content:center;margin-top:18px">
-        <button class="btn bad" onclick="stopTest()">STOP</button>
-      </div>
-      <p class="note">Phase: <span class="pill" id="phase">rest</span></p>
-    </div>
-  </div>
-
-  <!-- Result -->
-  <div id="s-result" class="grid hidden">
-    <div class="card">
-      <h2>Result</h2>
-      <div class="candidate" style="margin-bottom:16px">
-        <div class="avatar">👤</div>
-        <div><div style="font-size:24px;font-weight:600" id="rName"></div><div class="note" id="rMeta"></div></div>
-      </div>
-      <div class="stats">
-        <div class="stat"><span class="huge-label">Valid reps</span><b id="rCount">0</b></div>
-        <div class="stat"><span class="huge-label">Rejected</span><b id="rRejected">0</b></div>
-        <div class="stat"><span class="huge-label">Score</span><b id="rScore">—</b></div>
-      </div>
-      <p style="margin-top:16px"><span class="pill ok" id="rPass">PASS</span> <span class="note">Evidence video and per-rep clips saved.</span></p>
-      <div class="row" style="margin-top:16px">
-        <button class="btn ok xl" onclick="confirmResult()">Confirm & next candidate</button>
-      </div>
-      <p class="note">A manual correction is possible in Advanced → Review and is logged.</p>
-    </div>
-    <div class="card">
-      <h2>Reps</h2>
-      <table><thead><tr><th>#</th><th>Time</th><th>Verdict</th><th>Reason</th></tr></thead><tbody id="repTable"></tbody></table>
-    </div>
-  </div>
+  <div class="lanes" id="lanes"></div>
+  <p class="hint" style="margin-top:12px" data-i18n="hint">Prototype: use the "Simulate" buttons to walk through check-in → test → result for each lane. No camera connected.</p>
 </section>
 
-<!-- ============================ ADVANCED MODE ============================ -->
+<!-- ================= ADVANCED ================= -->
 <section id="advanced" class="hidden">
   <div class="tabs">
-    <button class="active" onclick="tab('list')">Today's list</button>
-    <button onclick="tab('cams')">Cameras</button>
-    <button onclick="tab('rules')">Rules & thresholds</button>
-    <button onclick="tab('review')">Review</button>
-    <button onclick="tab('run')">Run timing</button>
-    <button onclick="tab('diag')">Diagnostics</button>
+    <button class="active" onclick="tab('list', this)" data-i18n="t_list">Today's list</button>
+    <button onclick="tab('cams', this)" data-i18n="t_cams">Cameras</button>
+    <button onclick="tab('rules', this)" data-i18n="t_rules">Rules</button>
+    <button onclick="tab('review', this)" data-i18n="t_review">Review</button>
+    <button onclick="tab('run', this)" data-i18n="t_run">Run timing</button>
+    <button onclick="tab('diag', this)" data-i18n="t_diag">Diagnostics</button>
   </div>
 
   <div id="t-list" class="card">
-    <h2>Today's candidate list · 2026-10-15</h2>
-    <div class="row" style="margin-bottom:12px"><button class="btn">Import CSV / Excel</button><button class="btn">Add candidate</button><button class="btn">Export results</button></div>
-    <table>
-      <thead><tr><th>ID</th><th>Name</th><th>Bib</th><th>Check-in</th><th>Push-ups</th><th>Crunches</th><th>Run</th></tr></thead>
-      <tbody id="listTable"></tbody>
-    </table>
+    <h2 data-i18n="t_list">Today's list</h2>
+    <div class="row" style="margin-bottom:12px;max-width:640px"><button class="btn">Import CSV / Excel</button><button class="btn">Scan paper list</button><button class="btn">Add candidate</button><button class="btn amber">Export results</button></div>
+    <table><thead><tr><th>ID</th><th data-i18n="name">Name</th><th data-i18n="bib">Bib</th><th data-i18n="checkin">Check-in</th><th data-i18n="pushup">Push-ups</th><th data-i18n="crunch">Crunches</th><th data-i18n="run">Run</th></tr></thead><tbody id="listTable"></tbody></table>
   </div>
 
   <div id="t-cams" class="card hidden">
-    <h2>Cameras</h2>
+    <h2 data-i18n="t_cams">Cameras</h2>
     <div class="cams">
-      <div class="card"><b><span class="dot ok"></span>Camera 1</b><div class="note">Push-up station · rtsp://192.168.1.11 · 1080p 30 fps · 29.7 fps</div><div class="camera" style="margin-top:8px"></div><div class="row" style="margin-top:8px"><button class="btn">Draw station zone</button></div></div>
-      <div class="card"><b><span class="dot ok"></span>Camera 2</b><div class="note">Crunch station · rtsp://192.168.1.12 · 1080p 30 fps · 30.0 fps</div><div class="camera" style="margin-top:8px"></div><div class="row" style="margin-top:8px"><button class="btn">Draw station zone</button></div></div>
-      <div class="card"><b><span class="dot ok"></span>Camera 3</b><div class="note">Run start line · rtsp://192.168.1.13 · 1080p 30 fps · 30.0 fps</div><div class="camera" style="margin-top:8px"></div><div class="row" style="margin-top:8px"><button class="btn">Draw timing line</button></div></div>
-      <div class="card"><b><span class="dot bad"></span>Camera 4</b><div class="note">Run finish line · rtsp://192.168.1.14 · <span style="color:var(--bad)">no signal, reconnecting…</span></div><div class="camera" style="margin-top:8px"></div><div class="row" style="margin-top:8px"><button class="btn">Draw timing line</button></div></div>
+      <div class="camcard"><b><span class="dot ok"></span>Cam 1</b><div class="hint">192.168.1.11 · 1440p 25 fps · via fiber (start)</div><select><option>Run: start line + wave check-in</option><option>Run: 1 km split</option><option>Run: 2 km split</option><option>Run: finish line</option><option>Station: push-ups</option><option>Station: crunches</option></select><div class="mini"></div></div>
+      <div class="camcard"><b><span class="dot ok"></span>Cam 2</b><div class="hint">192.168.1.12 · via fiber (2 km)</div><select><option>Run: 2 km split</option><option>Station: push-ups</option><option>Station: crunches</option></select><div class="mini"></div></div>
+      <div class="camcard"><b><span class="dot ok"></span>Cam 3</b><div class="hint">192.168.1.13 · via fiber (1 km)</div><select><option>Run: 1 km split</option><option>Station: push-ups</option><option>Station: crunches</option></select><div class="mini"></div></div>
+      <div class="camcard"><b><span class="dot bad"></span>Cam 4</b><div class="hint" style="color:var(--stop)">192.168.1.14 · finish · no signal, reconnecting…</div><select><option>Run: finish line</option></select><div class="mini"></div></div>
+      <div class="camcard"><b><span class="dot ok"></span>Cam 5</b><div class="hint">192.168.1.15 · station A · 3 lanes drawn</div><select><option>Station: push-ups</option><option>Station: crunches</option></select><div class="mini"></div><button class="btn ghost" style="width:100%;margin-top:8px;font-size:15px">Draw lanes</button></div>
+      <div class="camcard off"><b>Cam 6</b><div class="hint">not installed yet</div><select disabled><option>Station: crunches</option></select><div class="mini"></div></div>
     </div>
+    <p class="hint" style="margin-top:10px">Any camera can take any role. On non-run days, Cam 2 and Cam 3 can be reassigned to the stations until Cam 6 is installed.</p>
   </div>
 
   <div id="t-rules" class="card hidden">
-    <h2>Rules & thresholds · rule set v3 (active)</h2>
-    <h3 style="margin:8px 0">Push-ups</h3>
-    <div class="slider"><span>Bottom: elbow angle below</span><input type="range" min="60" max="120" value="95" oninput="this.nextElementSibling.textContent=this.value+'°'"><span>95°</span></div>
-    <div class="slider"><span>Top: elbow angle above</span><input type="range" min="130" max="180" value="155" oninput="this.nextElementSibling.textContent=this.value+'°'"><span>155°</span></div>
-    <div class="slider"><span>Body line minimum</span><input type="range" min="140" max="180" value="160" oninput="this.nextElementSibling.textContent=this.value+'°'"><span>160°</span></div>
-    <div class="slider"><span>Time limit</span><input type="range" min="60" max="180" value="120" oninput="this.nextElementSibling.textContent=this.value+' s'"><span>120 s</span></div>
-    <h3 style="margin:16px 0 8px">Crunches</h3>
-    <div class="slider"><span>Up: torso elevation above</span><input type="range" min="20" max="70" value="35" oninput="this.nextElementSibling.textContent=this.value+'°'"><span>35°</span></div>
-    <div class="slider"><span>Down: torso elevation below</span><input type="range" min="0" max="30" value="15" oninput="this.nextElementSibling.textContent=this.value+'°'"><span>15°</span></div>
-    <div class="slider"><span>Knee angle range</span><input type="range" min="30" max="150" value="90" oninput="this.nextElementSibling.textContent='45–135°'"><span>45–135°</span></div>
-    <h3 style="margin:16px 0 8px">Check-in</h3>
-    <div class="slider"><span>Face match threshold</span><input type="range" min="50" max="95" value="70" oninput="this.nextElementSibling.textContent=(this.value/100).toFixed(2)"><span>0.70</span></div>
-    <div class="row" style="margin-top:12px"><button class="btn primary">Save as v4</button><button class="btn">Test on clip library</button></div>
-    <p class="note">Changing thresholds creates a new rule-set version; results always record which version scored them.</p>
+    <h2>Rule set v1 · proposed</h2>
+    <div class="grid2">
+      <div>
+        <div class="tagline" style="margin-bottom:6px">Push-ups</div>
+        <div class="slider"><span>Bottom: elbow angle ≤</span><input type="range" min="60" max="120" value="90" oninput="this.nextElementSibling.textContent=this.value+'°'"><span>90°</span></div>
+        <div class="slider"><span>Top: elbow angle ≥</span><input type="range" min="130" max="180" value="155" oninput="this.nextElementSibling.textContent=this.value+'°'"><span>155°</span></div>
+        <div class="slider"><span>Body line ≥</span><input type="range" min="140" max="180" value="160" oninput="this.nextElementSibling.textContent=this.value+'°'"><span>160°</span></div>
+        <div class="slider"><span>Rest in down position ≤</span><input type="range" min="1" max="10" value="3" oninput="this.nextElementSibling.textContent=this.value+' s'"><span>3 s</span></div>
+        <div class="slider"><span>Time limit</span><input type="range" min="60" max="180" value="120" oninput="this.nextElementSibling.textContent=this.value+' s'"><span>120 s</span></div>
+      </div>
+      <div>
+        <div class="tagline" style="margin-bottom:6px">Crunches</div>
+        <div class="slider"><span>Up: torso elevation ≥</span><input type="range" min="20" max="80" value="35" oninput="this.nextElementSibling.textContent=this.value+'°'"><span>35°</span></div>
+        <div class="slider"><span>Down: torso elevation ≤</span><input type="range" min="0" max="30" value="15" oninput="this.nextElementSibling.textContent=this.value+'°'"><span>15°</span></div>
+        <div class="slider"><span>Knee angle range</span><input type="range" min="30" max="150" value="90" oninput="this.nextElementSibling.textContent='45–135°'"><span>45–135°</span></div>
+        <div class="slider"><span>Time limit</span><input type="range" min="60" max="180" value="120" oninput="this.nextElementSibling.textContent=this.value+' s'"><span>120 s</span></div>
+        <div class="tagline" style="margin:10px 0 6px">Check-in</div>
+        <div class="slider"><span>Face match threshold</span><input type="range" min="50" max="95" value="70" oninput="this.nextElementSibling.textContent=(this.value/100).toFixed(2)"><span>0.70</span></div>
+      </div>
+    </div>
+    <div class="row" style="margin-top:12px;max-width:420px"><button class="btn amber">Save as v2</button><button class="btn">Test on clip library</button></div>
   </div>
 
   <div id="t-review" class="card hidden">
-    <h2>Review · last attempt</h2>
-    <div class="grid">
-      <div class="camera"><span class="label">Rep clip playback</span></div>
-      <div>
-        <table><thead><tr><th>#</th><th>Time</th><th>AI verdict</th><th>Reason</th><th></th></tr></thead><tbody id="reviewTable"></tbody></table>
-        <p class="note">Overrides require a reason and are written to the audit log with the examiner's name.</p>
-      </div>
+    <h2>Review · last attempts</h2>
+    <div class="grid2">
+      <div class="cam" style="aspect-ratio:16/9"><span class="tag">Rep clip playback</span><div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div></div>
+      <div><table><thead><tr><th>Lane</th><th>#</th><th>t</th><th>AI</th><th>Reason</th><th></th></tr></thead><tbody id="reviewTable"><tr><td colspan="6" class="hint">No attempts yet in this session.</td></tr></tbody></table>
+      <p class="hint">Overrides need a reason and are written to the audit log with the examiner's name.</p></div>
     </div>
   </div>
 
   <div id="t-run" class="card hidden">
-    <h2>Run timing · group 2 · started 10:42:00</h2>
+    <h2>Run timing · wave 2 · started 10:42:00</h2>
     <table>
-      <thead><tr><th>Bib</th><th>Name</th><th>Finish crossing</th><th>Time</th><th>Confidence</th><th>Status</th></tr></thead>
+      <thead><tr><th>Bib</th><th>Name</th><th>Chain</th><th>1 km</th><th>2 km</th><th>Finish</th><th>Status</th></tr></thead>
       <tbody>
-        <tr><td>23</td><td>A. Hassan</td><td>10:56:12.4</td><td>14:12.4</td><td>0.98</td><td><span class="pill ok">auto</span></td></tr>
-        <tr><td>31</td><td>M. Ali</td><td>10:57:03.9</td><td>15:03.9</td><td>0.95</td><td><span class="pill ok">auto</span></td></tr>
-        <tr><td>?</td><td>—</td><td>10:57:41.1</td><td>15:41.1</td><td>0.41</td><td><span class="pill warn">needs review</span> <button class="btn" style="padding:4px 10px;font-size:13px">Open clip</button></td></tr>
-        <tr><td>08</td><td>S. Omar</td><td>—</td><td>—</td><td>—</td><td><span class="pill">running</span></td></tr>
+        <tr><td>23</td><td>A. Hassan</td><td><div class="chain"><span class="ok">S</span><span class="ok">1k</span><span class="ok">2k</span><span class="ok">F</span></div></td><td>4:21</td><td>8:50</td><td><b>14:12.4</b></td><td><span class="pill ok">auto</span></td></tr>
+        <tr><td>31</td><td>M. Ali</td><td><div class="chain"><span class="ok">S</span><span class="ok">1k</span><span class="ok">2k</span><span class="ok">F</span></div></td><td>4:40</td><td>9:31</td><td><b>15:03.9</b></td><td><span class="pill ok">auto</span></td></tr>
+        <tr><td>?</td><td>—</td><td><div class="chain"><span class="ok">S</span><span class="miss">1k</span><span class="ok">2k</span><span class="ok">F</span></div></td><td>—</td><td>9:58</td><td>15:41.1</td><td><span class="pill warn">review</span> <button class="btn ghost" style="padding:3px 8px;font-size:13px">Clip</button></td></tr>
+        <tr><td>08</td><td>S. Omar</td><td><div class="chain"><span class="ok">S</span><span class="ok">1k</span><span>2k</span><span>F</span></div></td><td>4:55</td><td>—</td><td>—</td><td><span class="pill">running</span></td></tr>
       </tbody>
     </table>
-    <p class="note">Uncertain bib reads are never auto-assigned; the examiner resolves them from the finish-line video.</p>
+    <p class="hint">A result is published only when the chain start → 1 km → 2 km → finish is complete and the bib is confirmed, or the examiner has reviewed it.</p>
   </div>
 
   <div id="t-diag" class="card hidden">
     <h2>Diagnostics</h2>
     <div class="stats">
-      <div class="stat"><span class="huge-label">GPU</span><b>RTX 5080 · 41%</b></div>
-      <div class="stat"><span class="huge-label">Pose fps (2 stations)</span><b>29.7 / 30.0</b></div>
-      <div class="stat"><span class="huge-label">Disk (evidence)</span><b>1.2 TB free</b></div>
+      <div><b>RTX 5080 · 41%</b><span>GPU</span></div>
+      <div><b>29.7 / 30.0 fps</b><span>Pose, 2 stations</span></div>
+      <div><b>1.2 TB</b><span>Evidence disk free</span></div>
+      <div><b>4 / 5</b><span>Cameras online</span></div>
+      <div><b>12 ms</b><span>Camera clock drift (NTP)</span></div>
+      <div><b>v1</b><span>Active rule set</span></div>
     </div>
-    <p class="note">Models: RTMPose-m (ONNX, CUDA) · InsightFace buffalo_l · ByteTrack · bib OCR v1. Rule set v3. Clock drift between cameras: 12 ms.</p>
   </div>
 </section>
 </main>
 
 <script>
-  // ---- mock data ---------------------------------------------------------
-  const candidates = [
-    {id:'C-1001', name:'Ahmed Hassan', bib:23, dob:'1999-04-12', g:'M', checkin:'10:12', pushup:'41 ✓', crunch:'52 ✓', run:'14:12'},
-    {id:'C-1002', name:'Mariam Ali', bib:31, dob:'2001-11-02', g:'F', checkin:'10:20', pushup:'28 ✓', crunch:'47 ✓', run:'15:03'},
-    {id:'C-1003', name:'Sami Omar', bib:8, dob:'1998-07-30', g:'M', checkin:'10:25', pushup:'—', crunch:'—', run:'running'},
-    {id:'C-1004', name:'Lina Khalil', bib:14, dob:'2000-01-19', g:'F', checkin:'', pushup:'—', crunch:'—', run:'—'},
-  ];
-  let current = null, event = 'pushup', timerId = null, remaining = 120, count = 0, rejected = 0, reps = [];
+  // ---------- i18n ----------
+  const I18N = {
+    en: { tagline:"Fitness examination station", station:"Station", cam:"Camera", simple:"Simple", advanced:"Advanced",
+      pushup:"Push-ups", crunch:"Crunches", run:"Run", timelimit:"Time limit", today:"Today", startall:"Start all ready lanes",
+      hint:"Prototype: use the Simulate buttons to walk through check-in → test → result for each lane. No camera connected.",
+      t_list:"Today's list", t_cams:"Cameras", t_rules:"Rules", t_review:"Review", t_run:"Run timing", t_diag:"Diagnostics",
+      name:"Name", bib:"Bib", checkin:"Check-in", lane:"Lane",
+      st_empty:"Waiting for candidate", st_matching:"Matching…", st_verified:"Verified", st_refused:"Not registered today", st_ready:"Ready", st_running:"Testing", st_done:"Result",
+      step:"Step into the lane", face:"Looking for face", simKnown:"Simulate: known face", simUnknown:"Simulate: unknown face",
+      accept:"Accept", reject:"Reject", start:"Start", stop:"Stop", confirm:"Confirm · next", retry:"Try again",
+      valid:"valid reps", rejected:"rejected", score:"score", pass:"PASS", fail:"FAIL", phase:"phase", holdStart:"Hold the start position to arm",
+      f_body_not_straight:"Rejected · body not straight", f_knees_not_bent:"Rejected · knees not bent", f_knee_on_ground:"Rejected · knee on ground",
+      onlist:"on today's list", match:"match" },
+    ar: { tagline:"محطة اختبار اللياقة البدنية", station:"محطة", cam:"كاميرا", simple:"بسيط", advanced:"متقدم",
+      pushup:"الضغط", crunch:"البطن", run:"الجري", timelimit:"الحد الزمني", today:"اليوم", startall:"ابدأ كل المسارات الجاهزة",
+      hint:"نموذج أولي: استخدم أزرار المحاكاة للمرور بتسجيل الدخول ← الاختبار ← النتيجة لكل مسار. لا توجد كاميرا متصلة.",
+      t_list:"قائمة اليوم", t_cams:"الكاميرات", t_rules:"القواعد", t_review:"المراجعة", t_run:"توقيت الجري", t_diag:"التشخيص",
+      name:"الاسم", bib:"الرقم", checkin:"تسجيل الدخول", lane:"مسار",
+      st_empty:"بانتظار المتقدم", st_matching:"جارٍ التحقق…", st_verified:"تم التحقق", st_refused:"غير مسجل لهذا اليوم", st_ready:"جاهز", st_running:"جارٍ الاختبار", st_done:"النتيجة",
+      step:"قف في المسار أمام الكاميرا", face:"البحث عن الوجه", simKnown:"محاكاة: وجه معروف", simUnknown:"محاكاة: وجه غير معروف",
+      accept:"قبول", reject:"رفض", start:"ابدأ", stop:"إيقاف", confirm:"تأكيد · التالي", retry:"حاول مجدداً",
+      valid:"عدّات صحيحة", rejected:"مرفوضة", score:"الدرجة", pass:"ناجح", fail:"راسب", phase:"المرحلة", holdStart:"اثبت في وضع البداية للتفعيل",
+      f_body_not_straight:"مرفوضة · الجسم غير مستقيم", f_knees_not_bent:"مرفوضة · الركبتان غير مثنيتين", f_knee_on_ground:"مرفوضة · الركبة على الأرض",
+      onlist:"في قائمة اليوم", match:"تطابق" }
+  };
+  let lang = 'en';
+  const t = k => (I18N[lang][k] ?? I18N.en[k] ?? k);
+  function setLang(l) {
+    lang = l;
+    document.documentElement.lang = l; document.documentElement.dir = l === 'ar' ? 'rtl' : 'ltr';
+    document.getElementById('langEn').classList.toggle('active', l === 'en');
+    document.getElementById('langAr').classList.toggle('active', l === 'ar');
+    document.querySelectorAll('[data-i18n]').forEach(el => el.textContent = t(el.dataset.i18n));
+    renderLanes();
+  }
 
-  // ---- header ------------------------------------------------------------
-  setInterval(() => document.getElementById('clock').textContent = new Date().toLocaleTimeString(), 1000);
+  // ---------- data ----------
+  const candidates = [
+    {id:'C-1001', name:'Ahmed Hassan', nameAr:'أحمد حسن', bib:23, dob:'1999-04-12', g:'M', checkin:'10:12', pushup:'41 ✓', crunch:'52 ✓', run:'14:12'},
+    {id:'C-1002', name:'Mariam Ali', nameAr:'مريم علي', bib:31, dob:'2001-11-02', g:'F', checkin:'10:20', pushup:'28 ✓', crunch:'47 ✓', run:'15:03'},
+    {id:'C-1003', name:'Sami Omar', nameAr:'سامي عمر', bib:8, dob:'1998-07-30', g:'M', checkin:'', pushup:'—', crunch:'—', run:'—'},
+    {id:'C-1004', name:'Lina Khalil', nameAr:'لينا خليل', bib:14, dob:'2000-01-19', g:'F', checkin:'', pushup:'—', crunch:'—', run:'—'},
+    {id:'C-1005', name:'Omar Saleh', nameAr:'عمر صالح', bib:42, dob:'1997-09-05', g:'M', checkin:'', pushup:'—', crunch:'—', run:'—'},
+  ];
+  let nextCand = 2;
+  let event = 'pushup';
+  const LIMIT = 120;
+  const lanes = [1,2,3].map(n => ({ n, state:'empty', cand:null, count:0, rejected:0, reps:[], remaining:LIMIT, phase:'rest', fault:null, timer:null, sim:null }));
+  const cname = c => lang === 'ar' ? c.nameAr : c.name;
+
+  // ---------- header ----------
+  setInterval(() => document.getElementById('clock').textContent = new Date().toLocaleTimeString(lang === 'ar' ? 'ar-EG' : 'en-GB'), 1000);
   function setMode(m) {
     document.getElementById('simple').classList.toggle('hidden', m !== 'simple');
     document.getElementById('advanced').classList.toggle('hidden', m !== 'advanced');
     document.getElementById('modeSimple').classList.toggle('active', m === 'simple');
     document.getElementById('modeAdvanced').classList.toggle('active', m === 'advanced');
   }
-  function tab(name) {
-    for (const t of ['list','cams','rules','review','run','diag']) document.getElementById('t-'+t).classList.toggle('hidden', t !== name);
-    document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.textContent.toLowerCase().startsWith(name === 'list' ? 'today' : name === 'cams' ? 'cameras' : name === 'rules' ? 'rules' : name === 'review' ? 'review' : name === 'run' ? 'run' : 'diag')));
+  function tab(name, btn) {
+    for (const x of ['list','cams','rules','review','run','diag']) document.getElementById('t-'+x).classList.toggle('hidden', x !== name);
+    document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b === btn));
   }
-  function show(step) {
-    for (const s of ['checkin','armed','running','result']) document.getElementById('s-'+s).classList.toggle('hidden', s !== step);
-  }
-
-  // ---- check-in ----------------------------------------------------------
-  function simulateFace(known) {
-    const box = document.getElementById('facebox'), label = document.getElementById('faceLabel');
-    label.textContent = 'Matching…';
-    setTimeout(() => {
-      if (known) {
-        current = candidates[3];
-        box.classList.add('ok'); label.textContent = current.name + ' · 0.91';
-        document.getElementById('cName').textContent = current.name;
-        document.getElementById('cMeta').textContent = `${current.id} · bib ${current.bib} · ${current.dob} · ${current.g}`;
-        document.getElementById('noMatch').classList.add('hidden');
-        document.getElementById('matched').classList.remove('hidden');
-      } else {
-        label.textContent = 'No match';
-        document.getElementById('noMatch').classList.add('hidden');
-        document.getElementById('refused').classList.remove('hidden');
-      }
-    }, 900);
-  }
-  function resetCheckin() {
-    current = null;
-    document.getElementById('facebox').classList.remove('ok');
-    document.getElementById('faceLabel').textContent = 'Looking for a face…';
-    document.getElementById('noMatch').classList.remove('hidden');
-    document.getElementById('matched').classList.add('hidden');
-    document.getElementById('refused').classList.add('hidden');
-    show('checkin');
-  }
-  function accept() {
-    document.getElementById('aName').textContent = current.name;
-    document.getElementById('aMeta').textContent = `${current.id} · bib ${current.bib}`;
-    current.checkin = new Date().toLocaleTimeString().slice(0,5);
-    renderList();
-    show('armed');
-  }
-
-  // ---- event selection ---------------------------------------------------
   function pickEvent(e) {
     event = e;
-    for (const x of ['pushup','crunch','run']) document.getElementById('ev-'+x).classList.toggle('active', x === e);
-    document.getElementById('eventHint').textContent = e === 'run'
-      ? 'Run uses cameras 3 and 4. START records the group start time; finish times come from the finish-line camera.'
-      : `Camera 1 is assigned to ${e === 'pushup' ? 'push-ups' : 'crunches'}. Counting begins only after the start position is held.`;
+    for (const x of ['pushup','crunch']) document.getElementById('ev-'+x).classList.toggle('active', x === e);
+    document.getElementById('stationEvent').dataset.i18n = e; document.getElementById('stationEvent').textContent = t(e);
   }
 
-  // ---- running simulation ------------------------------------------------
-  function startTest() {
-    count = 0; rejected = 0; reps = []; remaining = 120;
-    document.getElementById('runLabel').textContent = event === 'pushup' ? 'Push-ups' : event === 'crunch' ? 'Crunches' : '3.2 km run';
-    document.getElementById('count').textContent = '0';
-    document.getElementById('rejected').textContent = '0';
-    document.getElementById('faultBox').classList.add('hidden');
-    show('running');
-    const t0 = Date.now();
-    timerId = setInterval(() => {
-      remaining = 120 - Math.floor((Date.now() - t0) / 1000);
-      const el = document.getElementById('timer');
-      el.textContent = `${Math.floor(remaining/60)}:${String(remaining%60).padStart(2,'0')}`;
-      el.classList.toggle('low', remaining <= 10);
-      document.getElementById('bar').style.width = (remaining/120*100) + '%';
-      if (remaining <= 0) stopTest();
-    }, 250);
-    simulateReps();
+  // ---------- lane rendering ----------
+  function ringSvg(l) {
+    const r = 38, c = 2 * Math.PI * r, off = c * (1 - l.remaining / LIMIT);
+    const m = Math.floor(l.remaining / 60), s = String(l.remaining % 60).padStart(2, '0');
+    return `<svg class="ring" viewBox="0 0 92 92"><circle class="track" cx="46" cy="46" r="${r}"/><circle class="prog" cx="46" cy="46" r="${r}" stroke-dasharray="${c}" stroke-dashoffset="${off}"/><text x="46" y="46">${m}:${s}</text></svg>`;
   }
-  function simulateReps() {
-    if (document.getElementById('s-running').classList.contains('hidden')) return;
-    const phaseEl = document.getElementById('phase');
-    phaseEl.textContent = 'work'; drawSkeleton(true);
-    setTimeout(() => {
-      if (document.getElementById('s-running').classList.contains('hidden')) return;
-      phaseEl.textContent = 'rest'; drawSkeleton(false);
-      const bad = Math.random() < 0.18;
-      const t = (120 - remaining).toFixed(1) + 's';
-      if (bad) {
-        rejected++;
-        const reason = event === 'crunch' ? 'knees_not_bent' : 'body_not_straight';
-        reps.push({t, valid:false, reason});
-        const fb = document.getElementById('faultBox');
-        fb.textContent = 'REJECTED — ' + reason.replace(/_/g,' ');
-        fb.classList.remove('hidden');
-        setTimeout(() => fb.classList.add('hidden'), 1500);
-      } else {
-        count++; reps.push({t, valid:true, reason:''});
+  function skel(down) {
+    const y = down ? 66 : 50;
+    return `<svg class="skel" viewBox="0 0 160 120"><line x1="36" y1="${y}" x2="128" y2="${y+10}" stroke="#19d27a" stroke-width="2"/><line x1="36" y1="${y}" x2="${down?26:36}" y2="${down?76:80}" stroke="#19d27a" stroke-width="2"/><line x1="${down?26:36}" y1="${down?76:80}" x2="42" y2="84" stroke="#19d27a" stroke-width="2"/><line x1="128" y1="${y+10}" x2="140" y2="86" stroke="#19d27a" stroke-width="2"/><circle cx="36" cy="${y}" r="3" fill="#ffb000"/><circle cx="128" cy="${y+10}" r="3" fill="#ffb000"/><circle cx="${down?26:36}" cy="${down?76:80}" r="3" fill="#ffb000"/></svg>`;
+  }
+  function camBox(l) {
+    const corners = '<div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>';
+    const head = `<span class="tag">${t('lane')} ${l.n} · ${t('cam')} 5</span><span class="rec">REC</span>${corners}`;
+    if (l.state === 'empty')    return `<div class="cam">${head}<div class="facebox"><span>${t('face')}</span></div></div>`;
+    if (l.state === 'matching') return `<div class="cam">${head}<div class="facebox"><span>${t('st_matching')}</span></div></div>`;
+    if (l.state === 'verified' || l.state === 'ready') return `<div class="cam">${head}<div class="facebox ok"><span>${cname(l.cand)} · 0.91</span></div></div>`;
+    if (l.state === 'refused')  return `<div class="cam">${head}<div class="facebox bad"><span>${t('st_refused')}</span></div></div>`;
+    if (l.state === 'running')  return `<div class="cam">${head}${skel(l.phase === 'work')}</div>`;
+    return `<div class="cam">${head}</div>`;
+  }
+  function laneBody(l) {
+    const who = l.cand ? `<div class="who"><div class="avatar">👤</div><div><b>${cname(l.cand)}</b><small>${l.cand.id} · ${t('bib')} ${l.cand.bib}</small></div></div>` : '';
+    switch (l.state) {
+      case 'empty': return `<div class="tagline">${t('step')}</div><div class="hint">${t('st_empty')}</div><div class="row" style="margin-top:auto"><button class="btn ghost" onclick="simulate(${l.n}, true)">${t('simKnown')}</button><button class="btn ghost" onclick="simulate(${l.n}, false)">${t('simUnknown')}</button></div>`;
+      case 'matching': return `<div class="tagline">${t('st_matching')}</div>`;
+      case 'verified': return `${who}<div><span class="pill ok">${t('st_verified')} · ${t('match')} 0.91</span> <span class="pill">${t('onlist')}</span></div><div class="row" style="margin-top:auto"><button class="btn go" onclick="accept(${l.n})">${t('accept')}</button><button class="btn" onclick="reset(${l.n})">${t('reject')}</button></div>`;
+      case 'refused': return `<div class="tagline" style="color:var(--stop)">${t('st_refused')}</div><div class="hint">—</div><div class="row" style="margin-top:auto"><button class="btn" onclick="reset(${l.n})">${t('retry')}</button></div>`;
+      case 'ready': return `${who}<div><span class="pill warn">${t('holdStart')}</span></div><div class="row" style="margin-top:auto"><button class="btn go xl" onclick="start(${l.n})">${t('start')}</button></div>`;
+      case 'running': return `${who}<div class="count">${l.count}<small>${t('valid')} · ${l.rejected} ${t('rejected')}</small></div>${ringSvg(l)}${l.fault ? `<div class="fault">${t('f_'+l.fault)}</div>` : '<div style="height:38px"></div>'}<div class="row" style="margin-top:auto"><button class="btn stop" onclick="stop(${l.n})">${t('stop')}</button></div>`;
+      case 'done': {
+        const pass = l.count >= 25, score = Math.min(100, Math.round(l.count * 2.2));
+        return `${who}<div class="result"><div><b>${l.count}</b><span>${t('valid')}</span></div><div><b>${l.rejected}</b><span>${t('rejected')}</span></div><div><b>${score}</b><span>${t('score')}</span></div><div class="verdict ${pass?'pass':'fail'}">${pass ? t('pass') : t('fail')}</div></div><div class="row" style="margin-top:auto"><button class="btn amber xl" onclick="confirmLane(${l.n})">${t('confirm')}</button></div>`;
       }
-      document.getElementById('count').textContent = count;
-      document.getElementById('rejected').textContent = rejected;
-      setTimeout(simulateReps, 600 + Math.random()*900);
-    }, 700);
+    }
   }
-  function drawSkeleton(down) {
-    const y = down ? 62 : 48;
-    document.getElementById('skel').innerHTML = `
-      <line x1="30" y1="${y}" x2="120" y2="${y+8}" stroke="#27ae60" stroke-width="1.5"/>
-      <line x1="30" y1="${y}" x2="${down?22:30}" y2="${down?70:72}" stroke="#27ae60" stroke-width="1.5"/>
-      <line x1="${down?22:30}" y1="${down?70:72}" x2="34" y2="74" stroke="#27ae60" stroke-width="1.5"/>
-      <circle cx="30" cy="${y}" r="2" fill="#f2c94c"/><circle cx="120" cy="${y+8}" r="2" fill="#f2c94c"/>`;
+  function renderLane(l) {
+    const el = document.getElementById('lane-' + l.n);
+    el.dataset.state = l.state;
+    el.classList.toggle('low', l.state === 'running' && l.remaining <= 10);
+    el.innerHTML = `<div class="lane-head"><span class="lane-num">${l.n}</span><span class="lane-state">${t('st_' + (l.state === 'matching' ? 'matching' : l.state))}</span><span class="spacer"></span>${l.cand ? `<span class="pill">${t('bib')} ${l.cand.bib}</span>` : ''}</div>${camBox(l)}<div class="lane-body">${laneBody(l)}</div>`;
   }
-  function stopTest() {
-    clearInterval(timerId);
-    document.getElementById('rName').textContent = current.name;
-    document.getElementById('rMeta').textContent = `${current.id} · bib ${current.bib} · ${document.getElementById('runLabel').textContent}`;
-    document.getElementById('rCount').textContent = count;
-    document.getElementById('rRejected').textContent = rejected;
-    const score = Math.min(100, count * 2.2).toFixed(0);
-    document.getElementById('rScore').textContent = score;
-    const pass = count >= 25;
-    const p = document.getElementById('rPass');
-    p.textContent = pass ? 'PASS' : 'FAIL'; p.className = 'pill ' + (pass ? 'ok' : 'bad');
-    const rows = reps.map((r,i) => `<tr><td>${i+1}</td><td>${r.t}</td><td><span class="pill ${r.valid?'ok':'bad'}">${r.valid?'valid':'rejected'}</span></td><td>${r.reason.replace(/_/g,' ')}</td></tr>`).join('');
-    document.getElementById('repTable').innerHTML = rows;
-    document.getElementById('reviewTable').innerHTML = reps.map((r,i) => `<tr><td>${i+1}</td><td>${r.t}</td><td><span class="pill ${r.valid?'ok':'bad'}">${r.valid?'valid':'rejected'}</span></td><td>${r.reason.replace(/_/g,' ')}</td><td><button class="btn" style="padding:4px 10px;font-size:13px">Override</button></td></tr>`).join('');
-    if (event === 'pushup') current.pushup = `${count} ${pass?'✓':'✗'}`;
-    if (event === 'crunch') current.crunch = `${count} ${pass?'✓':'✗'}`;
+  function renderLanes() {
+    const host = document.getElementById('lanes');
+    if (!host.children.length) lanes.forEach(l => { const d = document.createElement('div'); d.className = 'lane'; d.id = 'lane-' + l.n; host.appendChild(d); });
+    lanes.forEach(renderLane);
+    document.getElementById('startAll').disabled = !lanes.some(l => l.state === 'ready');
     renderList();
-    show('result');
   }
-  function confirmResult() { resetCheckin(); }
 
-  // ---- advanced: list ----------------------------------------------------
+  // ---------- lane flow ----------
+  function simulate(n, known) {
+    const l = lanes[n-1]; l.state = 'matching'; renderLane(l);
+    setTimeout(() => { if (known) { l.cand = candidates[nextCand++ % candidates.length]; l.state = 'verified'; } else { l.state = 'refused'; } renderLanes(); }, 900);
+  }
+  function reset(n) { const l = lanes[n-1]; Object.assign(l, { state:'empty', cand:null, count:0, rejected:0, reps:[], remaining:LIMIT, fault:null, phase:'rest' }); renderLanes(); }
+  function accept(n) { const l = lanes[n-1]; l.state = 'ready'; l.cand.checkin = new Date().toLocaleTimeString('en-GB').slice(0,5); renderLanes(); }
+  function startAllReady() { lanes.filter(l => l.state === 'ready').forEach(l => start(l.n)); }
+  function start(n) {
+    const l = lanes[n-1]; l.state = 'running'; l.count = 0; l.rejected = 0; l.reps = []; l.remaining = LIMIT; l.fault = null;
+    const t0 = Date.now();
+    l.timer = setInterval(() => { l.remaining = Math.max(0, LIMIT - Math.floor((Date.now() - t0) / 1000)); if (l.remaining <= 0) stop(n); else renderLane(l); }, 500);
+    const rep = () => {
+      if (l.state !== 'running') return;
+      l.phase = 'work'; renderLane(l);
+      l.sim = setTimeout(() => {
+        if (l.state !== 'running') return;
+        l.phase = 'rest';
+        const bad = Math.random() < 0.18, tt = (LIMIT - l.remaining) + 's';
+        if (bad) { l.rejected++; l.fault = event === 'crunch' ? 'knees_not_bent' : (Math.random() < .5 ? 'body_not_straight' : 'knee_on_ground'); l.reps.push({t:tt, valid:false, reason:l.fault}); setTimeout(() => { l.fault = null; if (l.state === 'running') renderLane(l); }, 1500); }
+        else { l.count++; l.reps.push({t:tt, valid:true, reason:''}); }
+        renderLane(l);
+        l.sim = setTimeout(rep, 500 + Math.random() * 900);
+      }, 650);
+    };
+    renderLanes(); rep();
+  }
+  function stop(n) {
+    const l = lanes[n-1]; clearInterval(l.timer); clearTimeout(l.sim); l.state = 'done';
+    const pass = l.count >= 25;
+    l.cand[event] = `${l.count} ${pass ? '✓' : '✗'}`;
+    const rows = l.reps.map((r,i) => `<tr><td>${l.n}</td><td>${i+1}</td><td>${r.t}</td><td><span class="pill ${r.valid?'ok':'bad'}">${r.valid?'valid':'rejected'}</span></td><td>${r.reason.replace(/_/g,' ')}</td><td><button class="btn ghost" style="padding:3px 8px;font-size:13px">Override</button></td></tr>`).join('');
+    const rt = document.getElementById('reviewTable'); if (rt.querySelector('.hint')) rt.innerHTML = ''; rt.insertAdjacentHTML('afterbegin', rows);
+    renderLanes();
+  }
+  function confirmLane(n) { document.getElementById('doneCount').textContent = ++doneToday; reset(n); }
+  let doneToday = 2;
+
+  // ---------- advanced: list ----------
   function renderList() {
     document.getElementById('listTable').innerHTML = candidates.map(c => `
-      <tr><td>${c.id}</td><td>${c.name}</td><td>${c.bib}</td>
-      <td>${c.checkin ? `<span class="pill ok">${c.checkin}</span>` : '<span class="pill">expected</span>'}</td>
+      <tr><td>${c.id}</td><td>${cname(c)}</td><td>${c.bib}</td>
+      <td>${c.checkin ? `<span class="pill ok">${c.checkin}</span>` : '<span class="pill">—</span>'}</td>
       <td>${c.pushup}</td><td>${c.crunch}</td><td>${c.run}</td></tr>`).join('');
   }
-  renderList();
+  renderLanes();
 </script>
 </body>
 </html>
