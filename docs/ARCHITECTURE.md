@@ -94,7 +94,12 @@ candidate.
 ### Web UI (Phase 2)
 - React + TypeScript, single page app served by the API.
 - **Simple mode** (default, examiner): one station per screen, large
-  text, four actions: select candidate, start, stop, confirm result.
+  text. A station is fixed to one exercise (decided 2026-10-15): the camera
+  watches push-up mats or crunch mats, and candidates rotate between
+  stations. The screen is a board of 3–4 lane tiles; each tile walks through
+  check-in → verified → ready → testing → result for its own candidate, and
+  a "Start all ready lanes" button starts a round. The exercise selector on
+  the station bar changes the whole station, not one lane.
 - **Advanced mode** (administrator): camera assignment and preview, zone
   and line calibration, rule thresholds with live preview, per-rep review
   with clip playback and override, run crossing review queue, exports,
