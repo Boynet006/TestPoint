@@ -46,3 +46,20 @@ def distance(a, b) -> float:
     a = np.asarray(a, dtype=np.float64)
     b = np.asarray(b, dtype=np.float64)
     return float(np.linalg.norm(a - b))
+
+
+def point_line_distance(p, a, b) -> float:
+    """Perpendicular distance from point ``p`` to the infinite line through ``a`` and ``b``.
+
+    Falls back to the plain distance to ``a`` when ``a`` and ``b`` coincide.
+    """
+    p = np.asarray(p, dtype=np.float64)
+    a = np.asarray(a, dtype=np.float64)
+    b = np.asarray(b, dtype=np.float64)
+    ab = b - a
+    n = float(np.linalg.norm(ab))
+    if n == 0:
+        return float(np.linalg.norm(p - a))
+    ap = p - a
+    cross = ab[0] * ap[1] - ab[1] * ap[0]
+    return float(abs(cross) / n)

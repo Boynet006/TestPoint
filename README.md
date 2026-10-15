@@ -29,7 +29,7 @@ TestPoint/
   docs/                 plan, architecture, research, open questions
   src/testpoint/        Python package
     vision/             pose backends, geometry, rep counter, exercise rules
-    cli.py              demo: count reps on a webcam or video file
+    cli.py              demo: count reps per lane on a webcam, video file or RTSP camera
   scripts/bench_pose.py pose pipeline benchmark (cpu vs cuda, all rtmlib modes)
   tests/                unit tests (no camera or model needed)
   pyproject.toml        package + dependencies
@@ -57,6 +57,41 @@ Count crunches from a recorded video and save an annotated copy:
 ```bash
 testpoint-demo --exercise crunch --source sample.mp4 --out annotated.mp4
 ```
+
+Count push-ups on a live Hikvision camera (main stream, channel 101) with three
+candidates side by side, one lane per mat:
+
+```bash
+testpoint-demo --exercise pushup --source rtsp://user:pass@<ip>:554/Streaming/Channels/101 --lanes 3 --device cuda --show
+```
+
+RTSP streams are read with FFmpeg over TCP (set before OpenCV loads through
+`OPENCV_FFMPEG_CAPTURE_OPTIONS=rtsp_transport;tcp`), use the PC wall clock for
+timing, and reconnect with exponential backoff when the stream drops.
+`--connect-timeout S` (default 10) and `--connect-attempts N` (default 3,
+`0` = retry for ever) control how long a dead camera is retried before the demo
+exits with an error. The password is never printed.
+
+Lanes:
+
+- `--lanes N` splits the frame into N equal vertical strips, named `1`..`N`
+  from left to right.
+- `--lanes-file lanes.json` uses rectangles drawn by the administrator, in
+  normalized `0..1` image coordinates (x right, y down), so the same file works
+  at any stream resolution:
+
+  ```json
+  {"lanes": [
+    {"name": "1", "rect": [0.00, 0.30, 0.33, 1.00]},
+    {"name": "2", "rect": [0.33, 0.30, 0.66, 1.00]},
+    {"name": "3", "rect": [0.66, 0.30, 1.00, 1.00]}
+  ]}
+  ```
+
+Each detected person is assigned to the lane containing their hip midpoint;
+people outside every lane (examiners, the next candidate waiting) are ignored,
+and each lane keeps its own counter, phase and fault list. The overlay draws
+every lane with its count; the final JSON summary is per lane.
 
 Add `--device cuda` to run the pose model on the GPU (see *GPU setup* below).
 The first run downloads the RTMPose ONNX models (about 140 MB; the `performance`
@@ -121,7 +156,10 @@ a single 30 fps stream.
 
 ## Status (2026-10-15)
 
-- Unit tests: 20 passing (`pytest`).
+- Unit tests: 42 passing (`pytest`).
+- Engine: 3-4 lanes per camera (`vision/lanes.py`, `MultiLaneSession`), push-up
+  faults `body_not_straight`, `knee_on_ground`, `rest_in_down` (thresholds in
+  `PushupRules`, to be calibrated on real footage), RTSP input with reconnect.
 - GPU inference works: `onnxruntime-gpu` 1.31.0 (CUDA 13) on the RTX 5080,
   `balanced` mode at ~42 fps for 1080p frames (CPU was ~1.5 fps). See *GPU setup*.
 - `web/prototype/index.html` is a clickable UI mock-up (no backend) of the

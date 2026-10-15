@@ -103,3 +103,35 @@ def test_config_validation():
         RepCounterConfig(enter_work=160.0, enter_rest=90.0, work_is_below=True)
     with pytest.raises(ValueError):
         RepCounterConfig(enter_work=10.0, enter_rest=30.0, work_is_below=False)
+
+
+def test_resting_in_the_down_position_rejects_the_rep():
+    c = RepCounter(pushup_cfg(max_work_seconds=3.0))
+    seq = [170.0] * 5 + [120, 95, 80, 70] + [70.0] * 120 + [100, 140, 160, 170, 170]
+    events = run(c, seq)        # 120 frames at 30 fps = 4 s at the bottom
+    assert c.count == 0
+    assert c.rejected == 1
+    assert events[0].faults == ["rest_in_down"]
+
+
+def test_rest_half_way_up_also_counts_as_resting():
+    c = RepCounter(pushup_cfg(max_work_seconds=3.0))
+    seq = [170.0] * 5 + [120, 95, 80, 70, 70, 110, 120] + [120.0] * 100 + [160, 170, 170]
+    run(c, seq)
+    assert c.rejected == 1
+
+
+def test_quick_rep_within_the_limit_is_valid_and_timer_is_exposed():
+    c = RepCounter(pushup_cfg(max_work_seconds=3.0))
+    seq = [170.0] * 5 + [120, 95, 80, 70] + [70.0] * 30 + [100, 140, 160, 170, 170]
+    run(c, seq[:20])
+    assert c.phase is Phase.WORK
+    assert 0.3 < c.work_seconds(19 / 30.0) < 0.6
+    run(c, seq[20:])
+    assert c.count == 1 and c.rejected == 0
+    assert c.pending_faults == []
+
+
+def test_max_work_seconds_validation():
+    with pytest.raises(ValueError):
+        pushup_cfg(max_work_seconds=0)

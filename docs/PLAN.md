@@ -85,10 +85,11 @@ live RTSP.
 - [x] Joint-angle geometry and a hysteresis-based rep state machine.
 - [x] Push-up rules: elbow angle down/up thresholds, straight body line.
   Crunch rules: torso elevation thresholds, knee angle.
-- [ ] Knee-on-ground and resting-in-down-position faults for push-ups.
-- [ ] Lane zones: assign each detected person to a lane rectangle; one
+- [x] Knee-on-ground and resting-in-down-position faults for push-ups.
+- [x] Lane zones: assign each detected person to a lane rectangle; one
   counter per lane; ignore people outside all lanes.
-- [ ] RTSP input (Hikvision main stream) in the demo CLI, with reconnect.
+- [x] RTSP input (Hikvision main stream) in the demo CLI, with reconnect
+  (not yet tried against a real camera).
 - Form faults are flagged per rep (e.g. "hips sagging", "not deep enough")
   so an invalid rep is *not counted* and the reason is recorded.
 - Demo CLI with overlay, and a measurement script that runs the engine over

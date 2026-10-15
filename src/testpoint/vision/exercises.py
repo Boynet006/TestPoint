@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from typing import Protocol
 
 from .counter import RepCounterConfig
-from .geometry import angle_deg, elevation_deg
+from .geometry import angle_deg, distance, elevation_deg, point_line_distance
 from .keypoints import Person
 
 
@@ -41,6 +41,13 @@ class PushupRules:
     """Elbow angle above which arms count as extended."""
     min_body_line_deg: float = 160.0
     """Shoulder-hip-ankle angle below which hips are sagging or piked."""
+    knee_ground_max_ratio: float = 0.10
+    """Knee height above the ground line (wrist-ankle line, or the ankle level when the
+    wrist is not visible) as a fraction of the hip-ankle length. Below this, in the
+    down position, the knee is on the ground ("knee_on_ground")."""
+    rest_in_down_s: float = 3.0
+    """Longest time allowed away from the top position before the rep is rejected for
+    resting ("rest_in_down")."""
     min_conf: float = 0.3
     min_work_frames: int = 2
     min_rest_frames: int = 2
@@ -59,6 +66,8 @@ class PushupAnalyzer:
             work_is_below=True,
             min_work_frames=self.rules.min_work_frames,
             min_rest_frames=self.rules.min_rest_frames,
+            max_work_seconds=self.rules.rest_in_down_s,
+            work_timeout_fault="rest_in_down",
         )
 
     def analyze(self, person: Person) -> FrameMetrics:
@@ -82,7 +91,30 @@ class PushupAnalyzer:
             if body_line < self.rules.min_body_line_deg:
                 faults.append("body_not_straight")
 
+        leg_side = person.best_side("hip", "knee", "ankle", min_conf=self.rules.min_conf)
+        if leg_side is not None:
+            ratio = self._knee_ground_ratio(person, leg_side)
+            if ratio is not None:
+                debug["knee_ground_ratio"] = ratio
+                if elbow <= self.rules.down_elbow_deg and ratio < self.rules.knee_ground_max_ratio:
+                    faults.append("knee_on_ground")
+
         return FrameMetrics(metric=elbow, faults=faults, debug=debug)
+
+    def _knee_ground_ratio(self, person: Person, side: dict[str, int]) -> float | None:
+        """Knee distance from the ground line divided by the hip-ankle length (scale-free)."""
+        hip = person.point(side["hip"])
+        knee = person.point(side["knee"])
+        ankle = person.point(side["ankle"])
+        body_len = distance(hip, ankle)
+        if body_len <= 0:
+            return None
+        if person.visible(side["wrist"], min_conf=self.rules.min_conf):
+            ground_a, ground_b = person.point(side["wrist"]), ankle
+        else:
+            # Only the feet are known to be on the floor: use a horizontal through the ankle.
+            ground_a, ground_b = ankle, (ankle[0] + 1.0, ankle[1])
+        return point_line_distance(knee, ground_a, ground_b) / body_len
 
 
 # --------------------------------------------------------------------------- crunches

@@ -80,3 +80,48 @@ def test_select_largest_confident_person():
 def test_make_analyzer_names():
     assert make_analyzer("pushup").name == "pushup"
     assert make_analyzer("crunch").name == "crunch"
+
+
+def _pushup_bottom(knee_y: float) -> Person:
+    # side view facing left, ground is the wrist-ankle line at y=220
+    return person_from({
+        K.L_SHOULDER: (100, 180), K.L_ELBOW: (150, 200), K.L_WRIST: (110, 220),
+        K.L_HIP: (200, 190), K.L_KNEE: (265, knee_y), K.L_ANKLE: (330, 220),
+    })
+
+
+def test_knee_on_ground_in_the_down_position_is_faulted():
+    m = PushupAnalyzer().analyze(_pushup_bottom(knee_y=218))
+    assert m.metric is not None and m.metric < 95
+    assert "knee_on_ground" in m.faults
+    assert m.debug["knee_ground_ratio"] < 0.1
+
+
+def test_knee_clear_of_the_ground_is_not_faulted():
+    m = PushupAnalyzer().analyze(_pushup_bottom(knee_y=195))
+    assert "knee_on_ground" not in m.faults
+    assert "body_not_straight" not in m.faults
+
+
+def test_knee_check_only_applies_in_the_down_position():
+    p = person_from({
+        K.L_SHOULDER: (100, 160), K.L_ELBOW: (105, 190), K.L_WRIST: (110, 220),
+        K.L_HIP: (200, 190), K.L_KNEE: (265, 219), K.L_ANKLE: (330, 220),
+    })
+    m = PushupAnalyzer().analyze(p)
+    assert m.metric > 155
+    assert "knee_on_ground" not in m.faults
+
+
+def test_knee_check_uses_ankle_level_without_a_wrist_on_that_side():
+    p = person_from({
+        K.R_SHOULDER: (100, 180), K.R_ELBOW: (150, 200), K.R_WRIST: (110, 220),
+        K.L_HIP: (200, 190), K.L_KNEE: (265, 219), K.L_ANKLE: (330, 220),
+    })
+    assert "knee_on_ground" in PushupAnalyzer().analyze(p).faults
+
+
+def test_pushup_counter_config_carries_rest_limit():
+    cfg = PushupAnalyzer().counter_config()
+    assert cfg.max_work_seconds == 3.0
+    assert cfg.work_timeout_fault == "rest_in_down"

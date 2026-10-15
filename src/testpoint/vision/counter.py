@@ -16,13 +16,18 @@ A rep is REST -> WORK -> REST. Faults reported from the moment the candidate
 leaves the rest position until the rep completes make the rep *rejected*: it
 is not counted, and the reason is kept, so the examiner can see why.
 ``t_start`` of a rep is the last frame fully at rest before the descent.
+
+Time-based fault: when ``max_work_seconds`` is set, a candidate who stays away
+from the rest position (resting at the bottom, or half-way up) for longer than
+that gets ``work_timeout_fault`` added to the current rep, which is then
+rejected when it completes.
 """
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Iterable
 
 
 class Phase(str, Enum):
@@ -43,12 +48,18 @@ class RepCounterConfig:
     min_rest_frames: int = 2
     max_missing_frames: int = 30
     """Frames without a metric before the counter resets to WAITING."""
+    max_work_seconds: float | None = None
+    """Longest time allowed in the WORK phase before the rep is faulted; None disables."""
+    work_timeout_fault: str = "rest_in_down"
+    """Fault name recorded when ``max_work_seconds`` is exceeded."""
 
     def __post_init__(self) -> None:
         if self.work_is_below and not self.enter_work < self.enter_rest:
             raise ValueError("with work_is_below, enter_work must be < enter_rest")
         if not self.work_is_below and not self.enter_work > self.enter_rest:
             raise ValueError("without work_is_below, enter_work must be > enter_rest")
+        if self.max_work_seconds is not None and self.max_work_seconds <= 0:
+            raise ValueError("max_work_seconds must be positive or None")
 
     def in_work(self, metric: float) -> bool:
         return metric < self.enter_work if self.work_is_below else metric > self.enter_work
@@ -78,11 +89,22 @@ class RepCounter:
     _rest_streak: int = 0
     _missing: int = 0
     _rep_start: float = 0.0
+    _work_since: float = 0.0
+    _work_entered: float = 0.0
     _faults: set[str] = field(default_factory=set)
 
     @property
     def attempts(self) -> int:
         return self.count + self.rejected
+
+    @property
+    def pending_faults(self) -> list[str]:
+        """Faults collected so far for the rep in progress (shown live on the overlay)."""
+        return sorted(self._faults)
+
+    def work_seconds(self, t: float) -> float:
+        """Time spent in the WORK phase so far at time ``t`` (0 outside WORK)."""
+        return max(0.0, t - self._work_entered) if self.phase is Phase.WORK else 0.0
 
     def reset(self) -> None:
         self.phase = Phase.WAITING
@@ -116,14 +138,25 @@ class RepCounter:
                 self._rep_start = t
             else:
                 self._faults.update(faults)
-            self._work_streak = self._work_streak + 1 if in_work else 0
+            if in_work:
+                if self._work_streak == 0:
+                    self._work_since = t
+                self._work_streak += 1
+            else:
+                self._work_streak = 0
             if self._work_streak >= self.cfg.min_work_frames:
                 self.phase = Phase.WORK
+                self._work_entered = self._work_since
                 self._work_streak = 0
             return None
 
         # Phase.WORK
         self._faults.update(faults)
+        if (
+            self.cfg.max_work_seconds is not None
+            and t - self._work_entered > self.cfg.max_work_seconds
+        ):
+            self._faults.add(self.cfg.work_timeout_fault)
         self._rest_streak = self._rest_streak + 1 if in_rest else 0
         if self._rest_streak < self.cfg.min_rest_frames:
             return None
