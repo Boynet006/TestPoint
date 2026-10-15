@@ -22,7 +22,6 @@
     background-size: 48px 48px; background-position: -1px -1px; }
   body::before { content: ""; position: fixed; inset: 0; background: radial-gradient(1200px 600px at 50% -10%, rgba(255,176,0,.10), transparent 60%); pointer-events: none; }
 
-  /* ---------- header ---------- */
   header { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 18px; padding: 10px 22px;
     background: rgba(11,15,20,.92); border-bottom: 2px solid var(--amber); backdrop-filter: blur(6px); }
   .brand { display: flex; align-items: center; gap: 10px; }
@@ -30,8 +29,8 @@
     display: grid; place-items: center; clip-path: polygon(0 0, 100% 0, 100% 70%, 70% 100%, 0 100%); }
   .brand b { font-family: var(--cond); font-size: 24px; letter-spacing: 1px; text-transform: uppercase; }
   .brand small { display: block; color: var(--muted); font-size: 12px; margin-top: -4px; }
-  .station { font-family: var(--cond); font-size: 18px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
-  .station b { color: var(--text); }
+  .stationsel { display: flex; align-items: center; gap: 8px; font-family: var(--cond); font-size: 16px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .stationsel select { background: var(--bg2); color: var(--text); border: 1px solid var(--line); padding: 7px 10px; font-family: var(--cond); font-size: 17px; text-transform: uppercase; letter-spacing: 1px; }
   .spacer { flex: 1; }
   .clock { font-family: var(--cond); font-size: 22px; font-variant-numeric: tabular-nums; color: var(--muted); }
   .seg { display: flex; border: 1px solid var(--line); background: var(--bg2); }
@@ -42,9 +41,7 @@
 
   main { padding: 20px 22px 40px; max-width: 1500px; margin: 0 auto; }
   .hidden { display: none !important; }
-
-  /* ---------- station bar ---------- */
-  .bar { display: flex; align-items: center; gap: 16px; padding: 12px 16px; background: var(--panel); border: 1px solid var(--line); margin-bottom: 16px; }
+  .bar { display: flex; align-items: center; gap: 16px; padding: 12px 16px; background: var(--panel); border: 1px solid var(--line); margin-bottom: 16px; flex-wrap: wrap; }
   .events { display: flex; gap: 8px; }
   .ev { background: var(--bg2); border: 1px solid var(--line); color: var(--muted); padding: 10px 18px; cursor: pointer; font-family: var(--cond); font-size: 18px; text-transform: uppercase; letter-spacing: 1px; }
   .ev.active { border-color: var(--amber); color: var(--amber); }
@@ -56,28 +53,31 @@
   .btn.amber { background: var(--amber); color: var(--amber-ink); border-color: var(--amber); }
   .btn.ghost { background: transparent; }
   .btn.xl { font-size: 24px; padding: 16px 28px; width: 100%; }
+  .btn.huge { font-size: 40px; padding: 28px; width: 100%; letter-spacing: 4px; }
   .btn:disabled { opacity: .35; cursor: not-allowed; }
 
-  /* ---------- lanes ---------- */
   .lanes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-  @media (max-width: 1100px) { .lanes { grid-template-columns: 1fr; } }
+  .grid2 { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; }
+  @media (max-width: 1100px) { .lanes, .grid2 { grid-template-columns: 1fr; } }
   .lane { background: var(--panel); border: 1px solid var(--line); border-top: 4px solid var(--dim); display: flex; flex-direction: column; min-height: 520px; position: relative; }
   .lane[data-state=verified] { border-top-color: var(--info); }
   .lane[data-state=ready] { border-top-color: var(--amber); }
   .lane[data-state=running] { border-top-color: var(--go); }
   .lane[data-state=done] { border-top-color: var(--text); }
-  .lane[data-state=refused] { border-top-color: var(--stop); }
+  .lane[data-state=refused], .lane[data-state=notqualified] { border-top-color: var(--stop); }
   .lane-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
   .lane-num { font-family: var(--cond); font-size: 30px; font-weight: 800; color: var(--amber); line-height: 1; }
   .lane-state { font-family: var(--cond); font-size: 15px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); }
   .cam { position: relative; aspect-ratio: 4/3; background:
       radial-gradient(ellipse at 50% 80%, rgba(255,176,0,.08), transparent 60%), linear-gradient(180deg, #121a22, #0b1016);
       border-bottom: 1px solid var(--line); overflow: hidden; }
+  .cam.wide { aspect-ratio: 16/9; border: 1px solid var(--line); }
   .cam .tag { position: absolute; top: 8px; inset-inline-start: 10px; font-family: var(--cond); font-size: 12px; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; }
   .cam .rec { position: absolute; top: 8px; inset-inline-end: 10px; font-family: var(--cond); font-size: 12px; color: var(--stop); letter-spacing: 1px; }
   .cam .rec::before { content: "●"; animation: blink 1.2s infinite; margin-inline-end: 4px; }
   @keyframes blink { 50% { opacity: .2; } }
   .facebox { position: absolute; left: 50%; top: 24%; transform: translateX(-50%); width: 26%; aspect-ratio: 3/4; border: 2px dashed var(--amber); }
+  .cam.wide .facebox { width: 16%; top: 18%; }
   .facebox.ok { border: 2px solid var(--go); box-shadow: 0 0 0 3px rgba(25,210,122,.25); }
   .facebox.bad { border: 2px solid var(--stop); }
   .facebox span { position: absolute; top: -24px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-family: var(--cond); font-size: 14px; letter-spacing: 1px; text-transform: uppercase; color: var(--amber); }
@@ -86,6 +86,8 @@
   .corner { position: absolute; width: 18px; height: 18px; border: 2px solid var(--line); }
   .corner.tl { top: 6px; left: 6px; border-right: 0; border-bottom: 0; } .corner.tr { top: 6px; right: 6px; border-left: 0; border-bottom: 0; }
   .corner.bl { bottom: 6px; left: 6px; border-right: 0; border-top: 0; } .corner.br { bottom: 6px; right: 6px; border-left: 0; border-top: 0; }
+  .finishline { position: absolute; left: 10%; right: 10%; top: 62%; border-top: 3px dashed var(--amber); opacity: .8; }
+  .finishline::after { content: "FINISH"; position: absolute; right: 0; top: -20px; font-family: var(--cond); font-size: 12px; color: var(--amber); letter-spacing: 2px; }
   .lane-body { padding: 14px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
   .who { display: flex; align-items: center; gap: 12px; }
   .avatar { width: 52px; height: 52px; background: var(--bg2); border: 1px solid var(--line); display: grid; place-items: center; font-size: 22px; }
@@ -94,33 +96,42 @@
   .tagline { font-family: var(--cond); font-size: 15px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); }
   .count { font-family: var(--cond); font-weight: 800; font-size: 120px; line-height: .9; text-align: center; font-variant-numeric: tabular-nums; letter-spacing: -2px; }
   .count small { display: block; font-size: 15px; letter-spacing: 2px; color: var(--muted); font-weight: 600; margin-top: 6px; }
+  .bigclock { font-family: var(--cond); font-weight: 800; font-size: 96px; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -1px; }
   .ring { width: 92px; height: 92px; margin: 0 auto; }
   .ring circle { fill: none; stroke-width: 8; }
-  .ring .track { stroke: var(--line); } .ring .prog { stroke: var(--amber); stroke-linecap: butt; transform: rotate(-90deg); transform-origin: 50% 50%; transition: stroke-dashoffset .25s linear; }
+  .ring .track { stroke: var(--line); } .ring .prog { stroke: var(--amber); transform: rotate(-90deg); transform-origin: 50% 50%; transition: stroke-dashoffset .25s linear; }
   .ring text { fill: var(--text); font-family: var(--cond); font-size: 24px; font-weight: 700; text-anchor: middle; dominant-baseline: central; }
   .lane.low .ring .prog { stroke: var(--stop); }
   .fault { background: rgba(255,59,59,.12); border-inline-start: 4px solid var(--stop); color: #ffb3b3; padding: 8px 12px; font-family: var(--cond); font-size: 17px; letter-spacing: 1px; text-transform: uppercase; }
   .result { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .result div { background: var(--bg2); border: 1px solid var(--line); padding: 10px; }
-  .result b { font-family: var(--cond); font-size: 40px; display: block; line-height: 1; }
-  .result span { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; }
+  .result div, .tiles div { background: var(--bg2); border: 1px solid var(--line); padding: 10px; }
+  .result b, .tiles b { font-family: var(--cond); font-size: 40px; display: block; line-height: 1; }
+  .result span, .tiles span { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; }
+  .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .tiles b.go { color: var(--go); } .tiles b.bad { color: var(--stop); } .tiles b.warn { color: var(--amber); }
   .verdict { font-family: var(--cond); font-size: 30px; font-weight: 800; letter-spacing: 2px; padding: 8px 12px; text-align: center; }
-  .verdict.pass { background: var(--go); color: var(--go-ink); } .verdict.fail { background: var(--stop); color: white; }
+  .verdict.pass { background: var(--go); color: var(--go-ink); } .verdict.fail { background: var(--stop); color: white; } .verdict.pending { background: var(--bg2); color: var(--muted); border: 1px solid var(--line); }
   .row { display: flex; gap: 8px; flex-wrap: wrap; }
   .row .btn { flex: 1; }
   .hint { color: var(--dim); font-size: 13px; }
   .pill { display: inline-block; padding: 2px 8px; font-family: var(--cond); font-size: 13px; letter-spacing: 1px; text-transform: uppercase; border: 1px solid var(--line); color: var(--muted); }
-  .pill.ok { color: var(--go); border-color: var(--go); } .pill.bad { color: var(--stop); border-color: var(--stop); } .pill.warn { color: var(--warn); border-color: var(--warn); }
-
-  /* ---------- advanced ---------- */
-  .tabs { display: flex; gap: 2px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
-  .tabs button { background: transparent; color: var(--muted); border: 0; border-bottom: 3px solid transparent; padding: 10px 16px; cursor: pointer; font-family: var(--cond); font-size: 17px; text-transform: uppercase; letter-spacing: 1.5px; }
-  .tabs button.active { color: var(--amber); border-bottom-color: var(--amber); }
+  .pill.ok { color: var(--go); border-color: var(--go); } .pill.bad { color: var(--stop); border-color: var(--stop); } .pill.warn { color: var(--warn); border-color: var(--warn); } .pill.info { color: var(--info); border-color: var(--info); }
   .card { background: var(--panel); border: 1px solid var(--line); padding: 16px; }
   .card h2 { margin: 0 0 12px; font-family: var(--cond); font-size: 18px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+  .field { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .field label { display: block; font-family: var(--cond); font-size: 14px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+  .field input { width: 100%; background: var(--bg2); color: var(--text); border: 1px solid var(--line); padding: 12px; font-family: var(--cond); font-size: 34px; font-weight: 700; }
+  .bmi { text-align: center; padding: 12px; background: var(--bg2); border: 1px solid var(--line); }
+  .bmi b { font-family: var(--cond); font-size: 72px; line-height: 1; display: block; }
+  .bmi.ok b { color: var(--go); } .bmi.bad b { color: var(--stop); }
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
   th, td { text-align: start; padding: 8px 10px; border-bottom: 1px solid var(--line); }
   th { color: var(--muted); font-family: var(--cond); font-size: 14px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600; }
+  td.t { font-family: var(--cond); font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .scroll { max-height: 420px; overflow: auto; }
+  .tabs { display: flex; gap: 2px; margin-bottom: 14px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .tabs button { background: transparent; color: var(--muted); border: 0; border-bottom: 3px solid transparent; padding: 10px 16px; cursor: pointer; font-family: var(--cond); font-size: 17px; text-transform: uppercase; letter-spacing: 1.5px; }
+  .tabs button.active { color: var(--amber); border-bottom-color: var(--amber); }
   .cams { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
   .camcard { background: var(--bg2); border: 1px solid var(--line); padding: 12px; }
   .camcard b { font-family: var(--cond); font-size: 20px; }
@@ -135,14 +146,23 @@
   .stats div { background: var(--bg2); border: 1px solid var(--line); padding: 12px; }
   .stats b { font-family: var(--cond); font-size: 30px; display: block; }
   .stats span { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; }
-  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  @media (max-width: 900px) { .grid2, .stats, .result { grid-template-columns: 1fr; } .slider { grid-template-columns: 1fr; } }
+  .journey { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 14px; }
+  .journey span { font-family: var(--cond); font-size: 14px; letter-spacing: 1px; text-transform: uppercase; padding: 6px 12px; background: var(--bg2); border: 1px solid var(--line); color: var(--muted); }
+  .journey span.here { border-color: var(--amber); color: var(--amber); }
+  @media (max-width: 900px) { .stats, .result, .tiles, .field { grid-template-columns: 1fr; } .slider { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
 <header>
   <div class="brand"><div class="mono">T</div><div><b>TestPoint</b><small data-i18n="tagline">Fitness examination station</small></div></div>
-  <div class="station"><span data-i18n="station">Station</span> <b>1</b> · <b id="stationEvent" data-i18n="pushup">Push-ups</b> · <span class="dot ok"></span><span data-i18n="cam">Camera</span> 5</div>
+  <div class="stationsel"><span data-i18n="thisdevice">This device</span>
+    <select id="stationType" onchange="setStation(this.value)">
+      <option value="weigh" data-i18n="s_weigh">Weigh-in</option>
+      <option value="start" data-i18n="s_start">Run · start line</option>
+      <option value="finish" data-i18n="s_finish">Run · finish line</option>
+      <option value="station" data-i18n="s_station" selected>Exercise station</option>
+    </select>
+  </div>
   <span class="spacer"></span>
   <span class="clock" id="clock"></span>
   <div class="seg"><button id="langEn" class="active" onclick="setLang('en')">EN</button><button id="langAr" onclick="setLang('ar')">ع</button></div>
@@ -150,20 +170,92 @@
 </header>
 
 <main>
-<!-- ================= SIMPLE ================= -->
 <section id="simple">
-  <div class="bar">
-    <div class="events">
-      <button class="ev active" id="ev-pushup" onclick="pickEvent('pushup')" data-i18n="pushup">Push-ups</button>
-      <button class="ev" id="ev-crunch" onclick="pickEvent('crunch')" data-i18n="crunch">Crunches</button>
+  <div class="journey" id="journey"></div>
+
+  <!-- ===== 1. WEIGH-IN ===== -->
+  <div id="s-weigh" class="grid2 hidden">
+    <div class="card">
+      <h2 data-i18n="s_weigh">Weigh-in</h2>
+      <div class="cam wide" id="wCam"><span class="tag" data-i18n="tabletcam">Tablet camera</span><div class="facebox" id="wFace"><span data-i18n="face">Looking for face</span></div><div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div></div>
+      <div class="row" style="margin-top:10px"><button class="btn ghost" onclick="weighSim(true)" data-i18n="simKnown">Simulate: known face</button><button class="btn ghost" onclick="weighSim(false)" data-i18n="simUnknown">Simulate: unknown face</button></div>
+      <p class="hint" data-i18n="weighhint">The candidate is matched against today's list. Weight and height are typed (or read from a connected scale later). BMI decides acceptance for the day.</p>
     </div>
-    <div class="kv"><span data-i18n="timelimit">Time limit</span> <b>2:00</b></div>
-    <div class="kv"><span data-i18n="today">Today</span> <b id="doneCount">2</b>/<b>4</b></div>
-    <span class="spacer"></span>
-    <button class="btn go" id="startAll" onclick="startAllReady()" disabled data-i18n="startall">Start all ready lanes</button>
+    <div class="card" id="wPanel">
+      <h2 data-i18n="candidate">Candidate</h2>
+      <div id="wEmpty"><div class="tagline" data-i18n="st_empty">Waiting for candidate</div></div>
+      <div id="wRefused" class="hidden"><div class="tagline" style="color:var(--stop)" data-i18n="st_refused">Not registered today</div><div class="row" style="margin-top:10px"><button class="btn" onclick="weighReset()" data-i18n="retry">Try again</button></div></div>
+      <div id="wForm" class="hidden">
+        <div class="who" style="margin-bottom:12px"><div class="avatar">👤</div><div><b id="wName"></b><small id="wMeta"></small></div><span class="spacer"></span><span class="pill ok" data-i18n="st_verified">Verified</span></div>
+        <div class="field">
+          <div><label data-i18n="weight">Weight (kg)</label><input id="wKg" type="number" step="0.1" value="" oninput="bmi()"></div>
+          <div><label data-i18n="height">Height (cm)</label><input id="wCm" type="number" step="1" value="" oninput="bmi()"></div>
+        </div>
+        <div class="bmi" id="wBmi" style="margin-top:10px"><span class="tagline">BMI</span><b>—</b><span class="hint" id="wBmiNote" data-i18n="bmirange">accepted range 18.5 – 30.0 (rule set v1)</span></div>
+        <div class="row" style="margin-top:12px"><button class="btn go" id="wAccept" onclick="weighDecide(true)" disabled data-i18n="acceptday">Accept for today</button><button class="btn stop" onclick="weighDecide(false)" data-i18n="rejectday">Reject</button></div>
+      </div>
+      <div id="wDone" class="hidden">
+        <div class="who" style="margin-bottom:12px"><div class="avatar">👤</div><div><b id="wDoneName"></b><small id="wDoneMeta"></small></div></div>
+        <div class="verdict" id="wVerdict"></div>
+        <p class="hint" id="wNext"></p>
+        <button class="btn amber xl" onclick="weighReset()" data-i18n="next">Next candidate</button>
+      </div>
+    </div>
   </div>
-  <div class="lanes" id="lanes"></div>
-  <p class="hint" style="margin-top:12px" data-i18n="hint">Prototype: use the "Simulate" buttons to walk through check-in → test → result for each lane. No camera connected.</p>
+
+  <!-- ===== 2. RUN START ===== -->
+  <div id="s-start" class="grid2 hidden">
+    <div class="card">
+      <h2 data-i18n="s_start">Run · start line</h2>
+      <div class="tiles"><div><b id="rsAccepted">0</b><span data-i18n="accepted">Accepted at weigh-in</span></div><div><b class="go" id="rsPresent">0</b><span data-i18n="present">Present at the line</span></div><div><b class="warn" id="rsMissing">0</b><span data-i18n="missing">Missing</span></div></div>
+      <div id="rsBefore" style="margin-top:14px">
+        <div class="row"><button class="btn ghost" onclick="lineUpAll()" data-i18n="simLine">Simulate: candidates line up</button></div>
+        <p class="hint" data-i18n="starthint">Everyone accepted at weigh-in must be at the line. START records one start time for all runners (mass start). Press twice to confirm.</p>
+        <button class="btn go huge" id="rsStart" onclick="massStart()" disabled data-i18n="start">Start</button>
+      </div>
+      <div id="rsAfter" class="hidden" style="margin-top:14px;text-align:center">
+        <div class="tagline" data-i18n="elapsed">Elapsed since start</div>
+        <div class="bigclock" id="rsClock">00:00</div>
+        <div class="hint"><span data-i18n="startedat">Started at</span> <b id="rsAt"></b> · <span id="rsFin">0</span> <span data-i18n="finished">finished</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2 data-i18n="missinglist">Missing at the line</h2>
+      <div class="scroll"><table><thead><tr><th data-i18n="bib">Bib</th><th data-i18n="name">Name</th><th data-i18n="status">Status</th></tr></thead><tbody id="rsTable"></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- ===== 3. RUN FINISH ===== -->
+  <div id="s-finish" class="grid2 hidden">
+    <div class="card">
+      <h2 data-i18n="s_finish">Run · finish line</h2>
+      <div class="cam wide"><span class="tag">Cam 4 · finish</span><span class="rec">REC</span><div class="finishline"></div><div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div></div>
+      <div class="tiles" style="margin-top:12px"><div><b id="rfClock">00:00</b><span data-i18n="elapsed">Elapsed since start</span></div><div><b class="go" id="rfCount">0</b><span data-i18n="finished">finished</span></div><div><b class="warn" id="rfReview">0</b><span data-i18n="review">needs review</span></div></div>
+      <div class="row" style="margin-top:10px"><button class="btn ghost" id="rfSim" onclick="simFinisher()" disabled data-i18n="simFinish">Simulate: runner crosses the line</button></div>
+      <p class="hint" data-i18n="finishhint">Pass limit 16:00 (placeholder until the official table arrives). A crossing without a confident bib read goes to the review queue; the result is published after review.</p>
+    </div>
+    <div class="card">
+      <h2 data-i18n="finishers">Finishers</h2>
+      <div class="scroll"><table><thead><tr><th>#</th><th data-i18n="bib">Bib</th><th data-i18n="name">Name</th><th data-i18n="time">Time</th><th data-i18n="status">Status</th></tr></thead><tbody id="rfTable"></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- ===== 4. EXERCISE STATION ===== -->
+  <div id="s-station" class="hidden">
+    <div class="bar">
+      <div class="events">
+        <button class="ev active" id="ev-pushup" onclick="pickEvent('pushup')" data-i18n="pushup">Push-ups</button>
+        <button class="ev" id="ev-crunch" onclick="pickEvent('crunch')" data-i18n="crunch">Crunches</button>
+      </div>
+      <div class="kv"><span class="dot ok"></span>Cam 5</div>
+      <div class="kv"><span data-i18n="timelimit">Time limit</span> <b>2:00</b></div>
+      <div class="kv"><span data-i18n="qualified">Qualified</span> <b id="qualCount">0</b></div>
+      <span class="spacer"></span>
+      <button class="btn go" id="startAll" onclick="startAllReady()" disabled data-i18n="startall">Start all ready lanes</button>
+    </div>
+    <div class="lanes" id="lanes"></div>
+    <p class="hint" style="margin-top:12px" data-i18n="hint">Prototype: a station only accepts candidates who passed the run. Use the Simulate buttons; no camera connected.</p>
+  </div>
 </section>
 
 <!-- ================= ADVANCED ================= -->
@@ -179,40 +271,45 @@
 
   <div id="t-list" class="card">
     <h2 data-i18n="t_list">Today's list</h2>
-    <div class="row" style="margin-bottom:12px;max-width:640px"><button class="btn">Import CSV / Excel</button><button class="btn">Scan paper list</button><button class="btn">Add candidate</button><button class="btn amber">Export results</button></div>
-    <table><thead><tr><th>ID</th><th data-i18n="name">Name</th><th data-i18n="bib">Bib</th><th data-i18n="checkin">Check-in</th><th data-i18n="pushup">Push-ups</th><th data-i18n="crunch">Crunches</th><th data-i18n="run">Run</th></tr></thead><tbody id="listTable"></tbody></table>
+    <div class="row" style="margin-bottom:12px;max-width:720px"><button class="btn">Import CSV / Excel</button><button class="btn">Scan paper list</button><button class="btn">Add candidate</button><button class="btn amber">Export results</button></div>
+    <div class="scroll"><table><thead><tr><th>ID</th><th data-i18n="name">Name</th><th data-i18n="bib">Bib</th><th>BMI</th><th data-i18n="status">Status</th><th data-i18n="run">Run</th><th data-i18n="pushup">Push-ups</th><th data-i18n="crunch">Crunches</th></tr></thead><tbody id="listTable"></tbody></table></div>
   </div>
 
   <div id="t-cams" class="card hidden">
     <h2 data-i18n="t_cams">Cameras</h2>
     <div class="cams">
-      <div class="camcard"><b><span class="dot ok"></span>Cam 1</b><div class="hint">192.168.1.11 · 1440p 25 fps · via fiber (start)</div><select><option>Run: start line + wave check-in</option><option>Run: 1 km split</option><option>Run: 2 km split</option><option>Run: finish line</option><option>Station: push-ups</option><option>Station: crunches</option></select><div class="mini"></div></div>
-      <div class="camcard"><b><span class="dot ok"></span>Cam 2</b><div class="hint">192.168.1.12 · via fiber (2 km)</div><select><option>Run: 2 km split</option><option>Station: push-ups</option><option>Station: crunches</option></select><div class="mini"></div></div>
-      <div class="camcard"><b><span class="dot ok"></span>Cam 3</b><div class="hint">192.168.1.13 · via fiber (1 km)</div><select><option>Run: 1 km split</option><option>Station: push-ups</option><option>Station: crunches</option></select><div class="mini"></div></div>
-      <div class="camcard"><b><span class="dot bad"></span>Cam 4</b><div class="hint" style="color:var(--stop)">192.168.1.14 · finish · no signal, reconnecting…</div><select><option>Run: finish line</option></select><div class="mini"></div></div>
-      <div class="camcard"><b><span class="dot ok"></span>Cam 5</b><div class="hint">192.168.1.15 · station A · 3 lanes drawn</div><select><option>Station: push-ups</option><option>Station: crunches</option></select><div class="mini"></div><button class="btn ghost" style="width:100%;margin-top:8px;font-size:15px">Draw lanes</button></div>
+      <div class="camcard"><b><span class="dot ok"></span>Cam 1</b><div class="hint">192.168.1.11 · fiber (start)</div><select><option>Run: start line (evidence)</option><option>Run: 1 km split</option><option>Run: 2 km split</option><option>Run: finish line</option><option>Station: push-ups</option><option>Station: crunches</option></select><div class="mini"></div></div>
+      <div class="camcard"><b><span class="dot ok"></span>Cam 2</b><div class="hint">192.168.1.12 · fiber (2 km)</div><select><option>Run: 2 km split</option><option>Station: push-ups</option><option>Station: crunches</option></select><div class="mini"></div></div>
+      <div class="camcard"><b><span class="dot ok"></span>Cam 3</b><div class="hint">192.168.1.13 · fiber (1 km)</div><select><option>Run: 1 km split</option><option>Station: push-ups</option><option>Station: crunches</option></select><div class="mini"></div></div>
+      <div class="camcard"><b><span class="dot ok"></span>Cam 4</b><div class="hint">192.168.1.14 · finish</div><select><option>Run: finish line</option></select><div class="mini"></div></div>
+      <div class="camcard"><b><span class="dot ok"></span>Cam 5</b><div class="hint">192.168.1.15 · station A · 3 lanes</div><select><option>Station: push-ups</option><option>Station: crunches</option></select><div class="mini"></div><button class="btn ghost" style="width:100%;margin-top:8px;font-size:15px">Draw lanes</button></div>
       <div class="camcard off"><b>Cam 6</b><div class="hint">not installed yet</div><select disabled><option>Station: crunches</option></select><div class="mini"></div></div>
     </div>
-    <p class="hint" style="margin-top:10px">Any camera can take any role. On non-run days, Cam 2 and Cam 3 can be reassigned to the stations until Cam 6 is installed.</p>
+    <p class="hint" style="margin-top:10px">Any camera can take any role. Weigh-in uses the tablet's own camera, not an IP camera.</p>
   </div>
 
   <div id="t-rules" class="card hidden">
     <h2>Rule set v1 · proposed</h2>
     <div class="grid2">
       <div>
-        <div class="tagline" style="margin-bottom:6px">Push-ups</div>
+        <div class="tagline" style="margin-bottom:6px">Weigh-in</div>
+        <div class="slider"><span>BMI accepted from</span><input type="range" min="15" max="25" step="0.5" value="18.5" oninput="this.nextElementSibling.textContent=this.value"><span>18.5</span></div>
+        <div class="slider"><span>BMI accepted up to</span><input type="range" min="25" max="40" step="0.5" value="30" oninput="this.nextElementSibling.textContent=this.value"><span>30</span></div>
+        <div class="tagline" style="margin:10px 0 6px">Run</div>
+        <div class="slider"><span>Pass time ≤</span><input type="range" min="600" max="1500" step="15" value="960" oninput="this.nextElementSibling.textContent=Math.floor(this.value/60)+':'+String(this.value%60).padStart(2,'0')"><span>16:00</span></div>
+        <div class="slider"><span>DNF cut-off</span><input type="range" min="900" max="2400" step="30" value="1500" oninput="this.nextElementSibling.textContent=Math.floor(this.value/60)+':'+String(this.value%60).padStart(2,'0')"><span>25:00</span></div>
+        <div class="tagline" style="margin:10px 0 6px">Push-ups</div>
         <div class="slider"><span>Bottom: elbow angle ≤</span><input type="range" min="60" max="120" value="90" oninput="this.nextElementSibling.textContent=this.value+'°'"><span>90°</span></div>
         <div class="slider"><span>Top: elbow angle ≥</span><input type="range" min="130" max="180" value="155" oninput="this.nextElementSibling.textContent=this.value+'°'"><span>155°</span></div>
         <div class="slider"><span>Body line ≥</span><input type="range" min="140" max="180" value="160" oninput="this.nextElementSibling.textContent=this.value+'°'"><span>160°</span></div>
         <div class="slider"><span>Rest in down position ≤</span><input type="range" min="1" max="10" value="3" oninput="this.nextElementSibling.textContent=this.value+' s'"><span>3 s</span></div>
-        <div class="slider"><span>Time limit</span><input type="range" min="60" max="180" value="120" oninput="this.nextElementSibling.textContent=this.value+' s'"><span>120 s</span></div>
       </div>
       <div>
         <div class="tagline" style="margin-bottom:6px">Crunches</div>
         <div class="slider"><span>Up: torso elevation ≥</span><input type="range" min="20" max="80" value="35" oninput="this.nextElementSibling.textContent=this.value+'°'"><span>35°</span></div>
         <div class="slider"><span>Down: torso elevation ≤</span><input type="range" min="0" max="30" value="15" oninput="this.nextElementSibling.textContent=this.value+'°'"><span>15°</span></div>
         <div class="slider"><span>Knee angle range</span><input type="range" min="30" max="150" value="90" oninput="this.nextElementSibling.textContent='45–135°'"><span>45–135°</span></div>
-        <div class="slider"><span>Time limit</span><input type="range" min="60" max="180" value="120" oninput="this.nextElementSibling.textContent=this.value+' s'"><span>120 s</span></div>
+        <div class="slider"><span>Time limit (both)</span><input type="range" min="60" max="180" value="120" oninput="this.nextElementSibling.textContent=this.value+' s'"><span>120 s</span></div>
         <div class="tagline" style="margin:10px 0 6px">Check-in</div>
         <div class="slider"><span>Face match threshold</span><input type="range" min="50" max="95" value="70" oninput="this.nextElementSibling.textContent=(this.value/100).toFixed(2)"><span>0.70</span></div>
       </div>
@@ -223,22 +320,17 @@
   <div id="t-review" class="card hidden">
     <h2>Review · last attempts</h2>
     <div class="grid2">
-      <div class="cam" style="aspect-ratio:16/9"><span class="tag">Rep clip playback</span><div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div></div>
+      <div class="cam wide"><span class="tag">Rep clip playback</span><div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div></div>
       <div><table><thead><tr><th>Lane</th><th>#</th><th>t</th><th>AI</th><th>Reason</th><th></th></tr></thead><tbody id="reviewTable"><tr><td colspan="6" class="hint">No attempts yet in this session.</td></tr></tbody></table>
       <p class="hint">Overrides need a reason and are written to the audit log with the examiner's name.</p></div>
     </div>
   </div>
 
   <div id="t-run" class="card hidden">
-    <h2>Run timing · wave 2 · started 10:42:00</h2>
+    <h2>Run timing · crossing chains</h2>
     <table>
       <thead><tr><th>Bib</th><th>Name</th><th>Chain</th><th>1 km</th><th>2 km</th><th>Finish</th><th>Status</th></tr></thead>
-      <tbody>
-        <tr><td>23</td><td>A. Hassan</td><td><div class="chain"><span class="ok">S</span><span class="ok">1k</span><span class="ok">2k</span><span class="ok">F</span></div></td><td>4:21</td><td>8:50</td><td><b>14:12.4</b></td><td><span class="pill ok">auto</span></td></tr>
-        <tr><td>31</td><td>M. Ali</td><td><div class="chain"><span class="ok">S</span><span class="ok">1k</span><span class="ok">2k</span><span class="ok">F</span></div></td><td>4:40</td><td>9:31</td><td><b>15:03.9</b></td><td><span class="pill ok">auto</span></td></tr>
-        <tr><td>?</td><td>—</td><td><div class="chain"><span class="ok">S</span><span class="miss">1k</span><span class="ok">2k</span><span class="ok">F</span></div></td><td>—</td><td>9:58</td><td>15:41.1</td><td><span class="pill warn">review</span> <button class="btn ghost" style="padding:3px 8px;font-size:13px">Clip</button></td></tr>
-        <tr><td>08</td><td>S. Omar</td><td><div class="chain"><span class="ok">S</span><span class="ok">1k</span><span>2k</span><span>F</span></div></td><td>4:55</td><td>—</td><td>—</td><td><span class="pill">running</span></td></tr>
-      </tbody>
+      <tbody id="chainTable"><tr><td colspan="7" class="hint">Chains appear after the start.</td></tr></tbody>
     </table>
     <p class="hint">A result is published only when the chain start → 1 km → 2 km → finish is complete and the bib is confirmed, or the examiner has reviewed it.</p>
   </div>
@@ -249,7 +341,7 @@
       <div><b>RTX 5080 · 41%</b><span>GPU</span></div>
       <div><b>29.7 / 30.0 fps</b><span>Pose, 2 stations</span></div>
       <div><b>1.2 TB</b><span>Evidence disk free</span></div>
-      <div><b>4 / 5</b><span>Cameras online</span></div>
+      <div><b>5 / 5</b><span>Cameras online</span></div>
       <div><b>12 ms</b><span>Camera clock drift (NTP)</span></div>
       <div><b>v1</b><span>Active rule set</span></div>
     </div>
@@ -260,28 +352,50 @@
 <script>
   // ---------- i18n ----------
   const I18N = {
-    en: { tagline:"Fitness examination station", station:"Station", cam:"Camera", simple:"Simple", advanced:"Advanced",
-      pushup:"Push-ups", crunch:"Crunches", run:"Run", timelimit:"Time limit", today:"Today", startall:"Start all ready lanes",
-      hint:"Prototype: use the Simulate buttons to walk through check-in → test → result for each lane. No camera connected.",
+    en: { tagline:"Fitness examination station", thisdevice:"This device", simple:"Simple", advanced:"Advanced",
+      s_weigh:"Weigh-in", s_start:"Run · start line", s_finish:"Run · finish line", s_station:"Exercise station",
+      j_weigh:"1 · Weigh-in / BMI", j_start:"2 · Line-up & start", j_finish:"3 · Finish", j_station:"4 · Push-ups & crunches",
+      pushup:"Push-ups", crunch:"Crunches", run:"Run", timelimit:"Time limit", qualified:"Qualified for exercises", startall:"Start all ready lanes",
+      hint:"Prototype: a station only accepts candidates who passed the run. Use the Simulate buttons; no camera connected.",
       t_list:"Today's list", t_cams:"Cameras", t_rules:"Rules", t_review:"Review", t_run:"Run timing", t_diag:"Diagnostics",
-      name:"Name", bib:"Bib", checkin:"Check-in", lane:"Lane",
-      st_empty:"Waiting for candidate", st_matching:"Matching…", st_verified:"Verified", st_refused:"Not registered today", st_ready:"Ready", st_running:"Testing", st_done:"Result",
-      step:"Step into the lane", face:"Looking for face", simKnown:"Simulate: known face", simUnknown:"Simulate: unknown face",
-      accept:"Accept", reject:"Reject", start:"Start", stop:"Stop", confirm:"Confirm · next", retry:"Try again",
-      valid:"valid reps", rejected:"rejected", score:"score", pass:"PASS", fail:"FAIL", phase:"phase", holdStart:"Hold the start position to arm",
-      f_body_not_straight:"Rejected · body not straight", f_knees_not_bent:"Rejected · knees not bent", f_knee_on_ground:"Rejected · knee on ground",
-      onlist:"on today's list", match:"match" },
-    ar: { tagline:"محطة اختبار اللياقة البدنية", station:"محطة", cam:"كاميرا", simple:"بسيط", advanced:"متقدم",
-      pushup:"الضغط", crunch:"البطن", run:"الجري", timelimit:"الحد الزمني", today:"اليوم", startall:"ابدأ كل المسارات الجاهزة",
-      hint:"نموذج أولي: استخدم أزرار المحاكاة للمرور بتسجيل الدخول ← الاختبار ← النتيجة لكل مسار. لا توجد كاميرا متصلة.",
+      name:"Name", bib:"Bib", status:"Status", time:"Time", candidate:"Candidate", lane:"Lane", cam:"Camera", tabletcam:"Tablet camera",
+      st_empty:"Waiting for candidate", st_matching:"Matching…", st_verified:"Verified", st_refused:"Not registered today", st_notqualified:"Not qualified", st_ready:"Ready", st_running:"Testing", st_done:"Result",
+      step:"Step into the lane", face:"Looking for face", simKnown:"Simulate: known face", simUnknown:"Simulate: unknown face", simUnq:"Simulate: unqualified",
+      accept:"Accept", reject:"Reject", start:"Start", confirmstart:"Press again to confirm", stop:"Stop", confirm:"Confirm · next", retry:"Try again", next:"Next candidate",
+      valid:"valid reps", rejected:"rejected", score:"score", pass:"PASS", fail:"FAIL", holdStart:"Hold the start position to arm",
+      f_body_not_straight:"Rejected · body not straight", f_knees_not_bent:"Rejected · knees not bent", f_knee_on_ground:"Rejected · knee on ground", f_rest_in_down:"Rejected · rested in down position",
+      onlist:"on today's list", match:"match",
+      weight:"Weight (kg)", height:"Height (cm)", bmirange:"accepted range 18.5 – 30.0 (rule set v1)", acceptday:"Accept for today", rejectday:"Reject",
+      weighhint:"The candidate is matched against today's list. Weight and height are typed (or read from a connected scale later). BMI decides acceptance for the day.",
+      acceptedv:"ACCEPTED · go to the run line-up", rejectedv:"REJECTED · BMI outside the limit",
+      accepted:"Accepted at weigh-in", present:"Present at the line", missing:"Missing", missinglist:"Missing at the line", simLine:"Simulate: candidates line up",
+      starthint:"Everyone accepted at weigh-in must be at the line. START records one start time for all runners (mass start). Press twice to confirm.",
+      elapsed:"Elapsed since start", startedat:"Started at", finished:"finished", review:"needs review", finishers:"Finishers", simFinish:"Simulate: runner crosses the line",
+      finishhint:"Pass limit 16:00 (placeholder until the official table arrives). A crossing without a confident bib read goes to the review queue; the result is published after review.",
+      r_expected:"expected", r_accepted:"accepted", r_rejected:"rejected (BMI)", r_lined_up:"at the line", r_running:"running", r_run_passed:"run passed", r_run_failed:"run failed", r_dnf:"DNF", r_complete:"complete",
+      nq_run_failed:"Run not passed", nq_not_run:"Has not run yet", nq_rejected:"Rejected at weigh-in", nq_expected:"Not weighed in", nq_running:"Still running" },
+    ar: { tagline:"محطة اختبار اللياقة البدنية", thisdevice:"هذا الجهاز", simple:"بسيط", advanced:"متقدم",
+      s_weigh:"الوزن", s_start:"الجري · خط البداية", s_finish:"الجري · خط النهاية", s_station:"محطة التمارين",
+      j_weigh:"١ · الوزن / مؤشر الكتلة", j_start:"٢ · الاصطفاف والانطلاق", j_finish:"٣ · النهاية", j_station:"٤ · الضغط والبطن",
+      pushup:"الضغط", crunch:"البطن", run:"الجري", timelimit:"الحد الزمني", qualified:"مؤهلون للتمارين", startall:"ابدأ كل المسارات الجاهزة",
+      hint:"نموذج أولي: المحطة تقبل فقط من اجتاز الجري. استخدم أزرار المحاكاة؛ لا توجد كاميرا متصلة.",
       t_list:"قائمة اليوم", t_cams:"الكاميرات", t_rules:"القواعد", t_review:"المراجعة", t_run:"توقيت الجري", t_diag:"التشخيص",
-      name:"الاسم", bib:"الرقم", checkin:"تسجيل الدخول", lane:"مسار",
-      st_empty:"بانتظار المتقدم", st_matching:"جارٍ التحقق…", st_verified:"تم التحقق", st_refused:"غير مسجل لهذا اليوم", st_ready:"جاهز", st_running:"جارٍ الاختبار", st_done:"النتيجة",
-      step:"قف في المسار أمام الكاميرا", face:"البحث عن الوجه", simKnown:"محاكاة: وجه معروف", simUnknown:"محاكاة: وجه غير معروف",
-      accept:"قبول", reject:"رفض", start:"ابدأ", stop:"إيقاف", confirm:"تأكيد · التالي", retry:"حاول مجدداً",
-      valid:"عدّات صحيحة", rejected:"مرفوضة", score:"الدرجة", pass:"ناجح", fail:"راسب", phase:"المرحلة", holdStart:"اثبت في وضع البداية للتفعيل",
-      f_body_not_straight:"مرفوضة · الجسم غير مستقيم", f_knees_not_bent:"مرفوضة · الركبتان غير مثنيتين", f_knee_on_ground:"مرفوضة · الركبة على الأرض",
-      onlist:"في قائمة اليوم", match:"تطابق" }
+      name:"الاسم", bib:"الرقم", status:"الحالة", time:"الزمن", candidate:"المتقدم", lane:"مسار", cam:"كاميرا", tabletcam:"كاميرا الجهاز اللوحي",
+      st_empty:"بانتظار المتقدم", st_matching:"جارٍ التحقق…", st_verified:"تم التحقق", st_refused:"غير مسجل لهذا اليوم", st_notqualified:"غير مؤهل", st_ready:"جاهز", st_running:"جارٍ الاختبار", st_done:"النتيجة",
+      step:"قف في المسار أمام الكاميرا", face:"البحث عن الوجه", simKnown:"محاكاة: وجه معروف", simUnknown:"محاكاة: وجه غير معروف", simUnq:"محاكاة: غير مؤهل",
+      accept:"قبول", reject:"رفض", start:"انطلاق", confirmstart:"اضغط مرة أخرى للتأكيد", stop:"إيقاف", confirm:"تأكيد · التالي", retry:"حاول مجدداً", next:"المتقدم التالي",
+      valid:"عدّات صحيحة", rejected:"مرفوضة", score:"الدرجة", pass:"ناجح", fail:"راسب", holdStart:"اثبت في وضع البداية للتفعيل",
+      f_body_not_straight:"مرفوضة · الجسم غير مستقيم", f_knees_not_bent:"مرفوضة · الركبتان غير مثنيتين", f_knee_on_ground:"مرفوضة · الركبة على الأرض", f_rest_in_down:"مرفوضة · استراحة في الوضع السفلي",
+      onlist:"في قائمة اليوم", match:"تطابق",
+      weight:"الوزن (كغ)", height:"الطول (سم)", bmirange:"النطاق المقبول 18.5 – 30.0 (القواعد ١)", acceptday:"قبول لليوم", rejectday:"رفض",
+      weighhint:"تتم مطابقة المتقدم مع قائمة اليوم. يُدخل الوزن والطول يدوياً (أو من ميزان متصل لاحقاً). مؤشر كتلة الجسم يحدد القبول.",
+      acceptedv:"مقبول · التوجه إلى خط البداية", rejectedv:"مرفوض · مؤشر الكتلة خارج الحد",
+      accepted:"مقبولون في الوزن", present:"حاضرون عند الخط", missing:"غائبون", missinglist:"الغائبون عن الخط", simLine:"محاكاة: اصطفاف المتقدمين",
+      starthint:"يجب حضور كل المقبولين عند الخط. زر الانطلاق يسجل زمن بداية واحداً للجميع. اضغط مرتين للتأكيد.",
+      elapsed:"الزمن منذ الانطلاق", startedat:"بدأ في", finished:"أنهوا", review:"بحاجة لمراجعة", finishers:"المنهون", simFinish:"محاكاة: عدّاء يعبر الخط",
+      finishhint:"حد النجاح 16:00 (مؤقت حتى وصول الجدول الرسمي). العبور دون قراءة واضحة للرقم يذهب إلى قائمة المراجعة.",
+      r_expected:"متوقع", r_accepted:"مقبول", r_rejected:"مرفوض (الكتلة)", r_lined_up:"عند الخط", r_running:"يجري", r_run_passed:"اجتاز الجري", r_run_failed:"رسب في الجري", r_dnf:"لم يكمل", r_complete:"مكتمل",
+      nq_run_failed:"لم يجتز الجري", nq_not_run:"لم يجرِ بعد", nq_rejected:"مرفوض في الوزن", nq_expected:"لم يُوزن", nq_running:"ما زال يجري" }
   };
   let lang = 'en';
   const t = k => (I18N[lang][k] ?? I18N.en[k] ?? k);
@@ -291,46 +405,143 @@
     document.getElementById('langEn').classList.toggle('active', l === 'en');
     document.getElementById('langAr').classList.toggle('active', l === 'ar');
     document.querySelectorAll('[data-i18n]').forEach(el => el.textContent = t(el.dataset.i18n));
-    renderLanes();
+    renderAll();
   }
 
   // ---------- data ----------
-  const candidates = [
-    {id:'C-1001', name:'Ahmed Hassan', nameAr:'أحمد حسن', bib:23, dob:'1999-04-12', g:'M', checkin:'10:12', pushup:'41 ✓', crunch:'52 ✓', run:'14:12'},
-    {id:'C-1002', name:'Mariam Ali', nameAr:'مريم علي', bib:31, dob:'2001-11-02', g:'F', checkin:'10:20', pushup:'28 ✓', crunch:'47 ✓', run:'15:03'},
-    {id:'C-1003', name:'Sami Omar', nameAr:'سامي عمر', bib:8, dob:'1998-07-30', g:'M', checkin:'', pushup:'—', crunch:'—', run:'—'},
-    {id:'C-1004', name:'Lina Khalil', nameAr:'لينا خليل', bib:14, dob:'2000-01-19', g:'F', checkin:'', pushup:'—', crunch:'—', run:'—'},
-    {id:'C-1005', name:'Omar Saleh', nameAr:'عمر صالح', bib:42, dob:'1997-09-05', g:'M', checkin:'', pushup:'—', crunch:'—', run:'—'},
-  ];
-  let nextCand = 2;
-  let event = 'pushup';
-  const LIMIT = 120;
-  const lanes = [1,2,3].map(n => ({ n, state:'empty', cand:null, count:0, rejected:0, reps:[], remaining:LIMIT, phase:'rest', fault:null, timer:null, sim:null }));
+  const arNames = ['أحمد حسن','مريم علي','سامي عمر','لينا خليل','عمر صالح','خالد يوسف','نور سعيد','يوسف عادل','سارة محمود','طارق نبيل','هدى كمال','فارس زيد'];
+  const enNames = ['Ahmed Hassan','Mariam Ali','Sami Omar','Lina Khalil','Omar Saleh','Khaled Youssef','Nour Said','Youssef Adel','Sara Mahmoud','Tarek Nabil','Huda Kamal','Fares Zaid'];
+  const candidates = enNames.map((n, i) => ({ id:'C-10'+String(i+1).padStart(2,'0'), name:n, nameAr:arNames[i], bib:10+i*3, g: i%3===1?'F':'M',
+    status:'expected', bmi:null, runTime:null, pushup:'—', crunch:'—' }));
+  // pre-seed a realistic mid-day state
+  candidates[0].status='run_passed'; candidates[0].bmi=23.4; candidates[0].runTime='14:12.4';
+  candidates[1].status='run_passed'; candidates[1].bmi=21.8; candidates[1].runTime='15:03.9';
+  candidates[2].status='run_failed'; candidates[2].bmi=24.9; candidates[2].runTime='17:40.2';
+  candidates[3].status='rejected';   candidates[3].bmi=31.2;
+  candidates[4].status='accepted';   candidates[4].bmi=22.0;
+  candidates[5].status='accepted';   candidates[5].bmi=25.1;
   const cname = c => lang === 'ar' ? c.nameAr : c.name;
+  const run = { startedAt:null, finishers:[], review:0, next:0 };
+  const PASS_S = 16*60;
+  let event = 'pushup', stationType = 'station';
+  const LIMIT = 120;
+  const lanes = [1,2,3].map(n => ({ n, state:'empty', cand:null, reason:'', count:0, rejected:0, reps:[], remaining:LIMIT, phase:'rest', fault:null, timer:null, sim:null }));
 
   // ---------- header ----------
-  setInterval(() => document.getElementById('clock').textContent = new Date().toLocaleTimeString(lang === 'ar' ? 'ar-EG' : 'en-GB'), 1000);
+  setInterval(() => {
+    document.getElementById('clock').textContent = new Date().toLocaleTimeString(lang === 'ar' ? 'ar-EG' : 'en-GB');
+    if (run.startedAt) { const s = Math.floor((Date.now() - run.startedAt) / 1000); const txt = mmss(s); document.getElementById('rsClock').textContent = txt; document.getElementById('rfClock').textContent = txt; }
+  }, 500);
+  const mmss = s => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
   function setMode(m) {
     document.getElementById('simple').classList.toggle('hidden', m !== 'simple');
     document.getElementById('advanced').classList.toggle('hidden', m !== 'advanced');
     document.getElementById('modeSimple').classList.toggle('active', m === 'simple');
     document.getElementById('modeAdvanced').classList.toggle('active', m === 'advanced');
   }
+  function setStation(s) {
+    stationType = s;
+    for (const x of ['weigh','start','finish','station']) document.getElementById('s-'+x).classList.toggle('hidden', x !== s);
+    document.getElementById('journey').innerHTML = ['weigh','start','finish','station'].map(x => `<span class="${x===s?'here':''}">${t('j_'+x)}</span>`).join('');
+    renderAll();
+  }
   function tab(name, btn) {
     for (const x of ['list','cams','rules','review','run','diag']) document.getElementById('t-'+x).classList.toggle('hidden', x !== name);
     document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b === btn));
   }
-  function pickEvent(e) {
-    event = e;
-    for (const x of ['pushup','crunch']) document.getElementById('ev-'+x).classList.toggle('active', x === e);
-    document.getElementById('stationEvent').dataset.i18n = e; document.getElementById('stationEvent').textContent = t(e);
+  function pickEvent(e) { event = e; for (const x of ['pushup','crunch']) document.getElementById('ev-'+x).classList.toggle('active', x === e); }
+  function renderAll() { renderWeigh(); renderStart(); renderFinish(); renderLanes(); renderList(); }
+
+  // ---------- 1. weigh-in ----------
+  let wCand = null;
+  function weighSim(known) {
+    document.getElementById('wFace').querySelector('span').textContent = t('st_matching');
+    setTimeout(() => {
+      const c = candidates.find(x => x.status === 'expected');
+      if (known && c) { wCand = c; document.getElementById('wFace').className = 'facebox ok'; document.getElementById('wFace').querySelector('span').textContent = cname(c) + ' · 0.92'; }
+      else { wCand = null; document.getElementById('wFace').className = 'facebox bad'; document.getElementById('wFace').querySelector('span').textContent = t('st_refused'); }
+      renderWeigh(true);
+    }, 900);
+  }
+  function weighReset() { wCand = null; document.getElementById('wFace').className = 'facebox'; document.getElementById('wFace').querySelector('span').textContent = t('face'); document.getElementById('wKg').value = ''; document.getElementById('wCm').value = ''; renderWeigh(); }
+  function renderWeigh(afterMatch) {
+    const show = id => ['wEmpty','wRefused','wForm','wDone'].forEach(x => document.getElementById(x).classList.toggle('hidden', x !== id));
+    if (!afterMatch && !wCand) { show('wEmpty'); return; }
+    if (!wCand) { show('wRefused'); return; }
+    if (wCand.status !== 'expected') { show('wDone'); return; }
+    show('wForm');
+    document.getElementById('wName').textContent = cname(wCand);
+    document.getElementById('wMeta').textContent = `${wCand.id} · ${t('bib')} ${wCand.bib}`;
+    bmi();
+  }
+  function bmi() {
+    const kg = parseFloat(document.getElementById('wKg').value), cm = parseFloat(document.getElementById('wCm').value);
+    const box = document.getElementById('wBmi'), b = box.querySelector('b');
+    if (!(kg > 0 && cm > 0)) { b.textContent = '—'; box.className = 'bmi'; document.getElementById('wAccept').disabled = true; return; }
+    const v = kg / ((cm/100) ** 2); const ok = v >= 18.5 && v <= 30;
+    b.textContent = v.toFixed(1); box.className = 'bmi ' + (ok ? 'ok' : 'bad');
+    document.getElementById('wAccept').disabled = !ok;
+  }
+  function weighDecide(accept) {
+    const kg = parseFloat(document.getElementById('wKg').value), cm = parseFloat(document.getElementById('wCm').value);
+    wCand.bmi = kg > 0 && cm > 0 ? +(kg / ((cm/100) ** 2)).toFixed(1) : null;
+    wCand.status = accept ? 'accepted' : 'rejected';
+    document.getElementById('wDoneName').textContent = cname(wCand);
+    document.getElementById('wDoneMeta').textContent = `${wCand.id} · ${t('bib')} ${wCand.bib} · BMI ${wCand.bmi ?? '—'}`;
+    const v = document.getElementById('wVerdict'); v.className = 'verdict ' + (accept ? 'pass' : 'fail'); v.textContent = accept ? t('acceptedv') : t('rejectedv');
+    document.getElementById('wNext').textContent = '';
+    renderWeigh(true); renderStart(); renderList();
   }
 
-  // ---------- lane rendering ----------
+  // ---------- 2. run start ----------
+  let startArmed = false;
+  function lineUpAll() { candidates.filter(c => c.status === 'accepted').forEach(c => c.status = 'lined_up'); renderStart(); renderList(); }
+  function renderStart() {
+    const acc = candidates.filter(c => ['accepted','lined_up','running','run_passed','run_failed','dnf','complete'].includes(c.status));
+    const present = candidates.filter(c => c.status === 'lined_up');
+    const missing = candidates.filter(c => c.status === 'accepted');
+    document.getElementById('rsAccepted').textContent = acc.length;
+    document.getElementById('rsPresent').textContent = run.startedAt ? candidates.filter(c => ['running','run_passed','run_failed','dnf','complete'].includes(c.status)).length : present.length;
+    document.getElementById('rsMissing').textContent = missing.length;
+    document.getElementById('rsStart').disabled = present.length === 0 || !!run.startedAt;
+    document.getElementById('rsStart').textContent = startArmed ? t('confirmstart') : t('start');
+    document.getElementById('rsBefore').classList.toggle('hidden', !!run.startedAt);
+    document.getElementById('rsAfter').classList.toggle('hidden', !run.startedAt);
+    document.getElementById('rsFin').textContent = run.finishers.length;
+    document.getElementById('rsTable').innerHTML = (missing.length ? missing : []).map(c => `<tr><td>${c.bib}</td><td>${cname(c)}</td><td><span class="pill warn">${t('r_accepted')}</span></td></tr>`).join('') || `<tr><td colspan="3" class="hint">—</td></tr>`;
+  }
+  function massStart() {
+    if (!startArmed) { startArmed = true; renderStart(); setTimeout(() => { startArmed = false; renderStart(); }, 4000); return; }
+    startArmed = false; run.startedAt = Date.now() - 11*60*1000; // prototype: jump ahead 11 min so finishers can arrive
+    candidates.filter(c => c.status === 'lined_up').forEach(c => c.status = 'running');
+    document.getElementById('rsAt').textContent = new Date(run.startedAt).toLocaleTimeString('en-GB');
+    document.getElementById('rfSim').disabled = false;
+    renderAll();
+  }
+
+  // ---------- 3. run finish ----------
+  function simFinisher() {
+    const runners = candidates.filter(c => c.status === 'running');
+    const elapsed = (Date.now() - run.startedAt) / 1000 + run.finishers.length * 25 + Math.random() * 20;
+    const unknown = Math.random() < 0.15 || runners.length === 0;
+    const c = unknown ? null : runners[Math.floor(Math.random() * runners.length)];
+    const timeS = elapsed, pass = timeS <= PASS_S;
+    const timeTxt = `${Math.floor(timeS/60)}:${String(Math.floor(timeS%60)).padStart(2,'0')}.${Math.floor((timeS%1)*10)}`;
+    if (c) { c.status = pass ? 'run_passed' : 'run_failed'; c.runTime = timeTxt; } else { run.review++; }
+    run.finishers.push({ c, timeTxt, pass, unknown });
+    renderAll();
+  }
+  function renderFinish() {
+    document.getElementById('rfCount').textContent = run.finishers.filter(f => !f.unknown).length;
+    document.getElementById('rfReview').textContent = run.review;
+    document.getElementById('rfTable').innerHTML = run.finishers.slice().reverse().map((f, i) => `<tr><td>${run.finishers.length - i}</td><td>${f.unknown ? '?' : f.c.bib}</td><td>${f.unknown ? '—' : cname(f.c)}</td><td class="t">${f.timeTxt}</td><td>${f.unknown ? `<span class="pill warn">${t('review')}</span>` : `<span class="pill ${f.pass?'ok':'bad'}">${f.pass ? t('pass') : t('fail')}</span>`}</td></tr>`).join('') || `<tr><td colspan="5" class="hint">—</td></tr>`;
+    document.getElementById('chainTable').innerHTML = run.finishers.length ? run.finishers.map(f => `<tr><td>${f.unknown?'?':f.c.bib}</td><td>${f.unknown?'—':cname(f.c)}</td><td><div class="chain"><span class="ok">S</span><span class="${f.unknown?'miss':'ok'}">1k</span><span class="ok">2k</span><span class="ok">F</span></div></td><td>—</td><td>—</td><td class="t">${f.timeTxt}</td><td>${f.unknown?`<span class="pill warn">${t('review')}</span>`:`<span class="pill ok">auto</span>`}</td></tr>`).join('') : `<tr><td colspan="7" class="hint">Chains appear after the start.</td></tr>`;
+  }
+
+  // ---------- 4. exercise station: lanes ----------
   function ringSvg(l) {
     const r = 38, c = 2 * Math.PI * r, off = c * (1 - l.remaining / LIMIT);
-    const m = Math.floor(l.remaining / 60), s = String(l.remaining % 60).padStart(2, '0');
-    return `<svg class="ring" viewBox="0 0 92 92"><circle class="track" cx="46" cy="46" r="${r}"/><circle class="prog" cx="46" cy="46" r="${r}" stroke-dasharray="${c}" stroke-dashoffset="${off}"/><text x="46" y="46">${m}:${s}</text></svg>`;
+    return `<svg class="ring" viewBox="0 0 92 92"><circle class="track" cx="46" cy="46" r="${r}"/><circle class="prog" cx="46" cy="46" r="${r}" stroke-dasharray="${c}" stroke-dashoffset="${off}"/><text x="46" y="46">${Math.floor(l.remaining/60)}:${String(l.remaining%60).padStart(2,'0')}</text></svg>`;
   }
   function skel(down) {
     const y = down ? 66 : 50;
@@ -343,16 +554,18 @@
     if (l.state === 'matching') return `<div class="cam">${head}<div class="facebox"><span>${t('st_matching')}</span></div></div>`;
     if (l.state === 'verified' || l.state === 'ready') return `<div class="cam">${head}<div class="facebox ok"><span>${cname(l.cand)} · 0.91</span></div></div>`;
     if (l.state === 'refused')  return `<div class="cam">${head}<div class="facebox bad"><span>${t('st_refused')}</span></div></div>`;
+    if (l.state === 'notqualified') return `<div class="cam">${head}<div class="facebox bad"><span>${cname(l.cand)}</span></div></div>`;
     if (l.state === 'running')  return `<div class="cam">${head}${skel(l.phase === 'work')}</div>`;
     return `<div class="cam">${head}</div>`;
   }
   function laneBody(l) {
-    const who = l.cand ? `<div class="who"><div class="avatar">👤</div><div><b>${cname(l.cand)}</b><small>${l.cand.id} · ${t('bib')} ${l.cand.bib}</small></div></div>` : '';
+    const who = l.cand ? `<div class="who"><div class="avatar">👤</div><div><b>${cname(l.cand)}</b><small>${l.cand.id} · ${t('bib')} ${l.cand.bib}${l.cand.runTime ? ' · ' + t('run') + ' ' + l.cand.runTime : ''}</small></div></div>` : '';
     switch (l.state) {
-      case 'empty': return `<div class="tagline">${t('step')}</div><div class="hint">${t('st_empty')}</div><div class="row" style="margin-top:auto"><button class="btn ghost" onclick="simulate(${l.n}, true)">${t('simKnown')}</button><button class="btn ghost" onclick="simulate(${l.n}, false)">${t('simUnknown')}</button></div>`;
+      case 'empty': return `<div class="tagline">${t('step')}</div><div class="hint">${t('st_empty')}</div><div class="row" style="margin-top:auto"><button class="btn ghost" onclick="simulate(${l.n}, 'known')">${t('simKnown')}</button><button class="btn ghost" onclick="simulate(${l.n}, 'unq')">${t('simUnq')}</button><button class="btn ghost" onclick="simulate(${l.n}, 'unknown')">${t('simUnknown')}</button></div>`;
       case 'matching': return `<div class="tagline">${t('st_matching')}</div>`;
-      case 'verified': return `${who}<div><span class="pill ok">${t('st_verified')} · ${t('match')} 0.91</span> <span class="pill">${t('onlist')}</span></div><div class="row" style="margin-top:auto"><button class="btn go" onclick="accept(${l.n})">${t('accept')}</button><button class="btn" onclick="reset(${l.n})">${t('reject')}</button></div>`;
-      case 'refused': return `<div class="tagline" style="color:var(--stop)">${t('st_refused')}</div><div class="hint">—</div><div class="row" style="margin-top:auto"><button class="btn" onclick="reset(${l.n})">${t('retry')}</button></div>`;
+      case 'verified': return `${who}<div><span class="pill ok">${t('st_verified')} · ${t('match')} 0.91</span> <span class="pill ok">${t('r_run_passed')}</span></div><div class="row" style="margin-top:auto"><button class="btn go" onclick="accept(${l.n})">${t('accept')}</button><button class="btn" onclick="reset(${l.n})">${t('reject')}</button></div>`;
+      case 'refused': return `<div class="tagline" style="color:var(--stop)">${t('st_refused')}</div><div class="row" style="margin-top:auto"><button class="btn" onclick="reset(${l.n})">${t('retry')}</button></div>`;
+      case 'notqualified': return `${who}<div class="fault">${t('st_notqualified')} · ${t('nq_' + l.reason)}</div><div class="hint">${t('r_' + l.cand.status)}</div><div class="row" style="margin-top:auto"><button class="btn" onclick="reset(${l.n})">${t('next')}</button></div>`;
       case 'ready': return `${who}<div><span class="pill warn">${t('holdStart')}</span></div><div class="row" style="margin-top:auto"><button class="btn go xl" onclick="start(${l.n})">${t('start')}</button></div>`;
       case 'running': return `${who}<div class="count">${l.count}<small>${t('valid')} · ${l.rejected} ${t('rejected')}</small></div>${ringSvg(l)}${l.fault ? `<div class="fault">${t('f_'+l.fault)}</div>` : '<div style="height:38px"></div>'}<div class="row" style="margin-top:auto"><button class="btn stop" onclick="stop(${l.n})">${t('stop')}</button></div>`;
       case 'done': {
@@ -365,23 +578,27 @@
     const el = document.getElementById('lane-' + l.n);
     el.dataset.state = l.state;
     el.classList.toggle('low', l.state === 'running' && l.remaining <= 10);
-    el.innerHTML = `<div class="lane-head"><span class="lane-num">${l.n}</span><span class="lane-state">${t('st_' + (l.state === 'matching' ? 'matching' : l.state))}</span><span class="spacer"></span>${l.cand ? `<span class="pill">${t('bib')} ${l.cand.bib}</span>` : ''}</div>${camBox(l)}<div class="lane-body">${laneBody(l)}</div>`;
+    el.innerHTML = `<div class="lane-head"><span class="lane-num">${l.n}</span><span class="lane-state">${t('st_' + l.state)}</span><span class="spacer"></span>${l.cand ? `<span class="pill">${t('bib')} ${l.cand.bib}</span>` : ''}</div>${camBox(l)}<div class="lane-body">${laneBody(l)}</div>`;
   }
   function renderLanes() {
     const host = document.getElementById('lanes');
     if (!host.children.length) lanes.forEach(l => { const d = document.createElement('div'); d.className = 'lane'; d.id = 'lane-' + l.n; host.appendChild(d); });
     lanes.forEach(renderLane);
     document.getElementById('startAll').disabled = !lanes.some(l => l.state === 'ready');
-    renderList();
+    document.getElementById('qualCount').textContent = candidates.filter(c => c.status === 'run_passed').length;
   }
-
-  // ---------- lane flow ----------
-  function simulate(n, known) {
+  const busy = () => lanes.filter(l => l.cand).map(l => l.cand);
+  function simulate(n, kind) {
     const l = lanes[n-1]; l.state = 'matching'; renderLane(l);
-    setTimeout(() => { if (known) { l.cand = candidates[nextCand++ % candidates.length]; l.state = 'verified'; } else { l.state = 'refused'; } renderLanes(); }, 900);
+    setTimeout(() => {
+      if (kind === 'unknown') { l.state = 'refused'; }
+      else if (kind === 'unq') { const c = candidates.find(x => x.status !== 'run_passed' && !busy().includes(x)); l.cand = c; l.reason = c.status === 'run_failed' ? 'run_failed' : c.status === 'rejected' ? 'rejected' : c.status === 'expected' ? 'expected' : c.status === 'running' ? 'running' : 'not_run'; l.state = 'notqualified'; }
+      else { const c = candidates.find(x => x.status === 'run_passed' && x[event] === '—' && !busy().includes(x)); if (c) { l.cand = c; l.state = 'verified'; } else { l.cand = candidates.find(x => !busy().includes(x)); l.reason = 'not_run'; l.state = 'notqualified'; } }
+      renderLanes();
+    }, 900);
   }
-  function reset(n) { const l = lanes[n-1]; Object.assign(l, { state:'empty', cand:null, count:0, rejected:0, reps:[], remaining:LIMIT, fault:null, phase:'rest' }); renderLanes(); }
-  function accept(n) { const l = lanes[n-1]; l.state = 'ready'; l.cand.checkin = new Date().toLocaleTimeString('en-GB').slice(0,5); renderLanes(); }
+  function reset(n) { const l = lanes[n-1]; Object.assign(l, { state:'empty', cand:null, reason:'', count:0, rejected:0, reps:[], remaining:LIMIT, fault:null, phase:'rest' }); renderLanes(); }
+  function accept(n) { lanes[n-1].state = 'ready'; renderLanes(); }
   function startAllReady() { lanes.filter(l => l.state === 'ready').forEach(l => start(l.n)); }
   function start(n) {
     const l = lanes[n-1]; l.state = 'running'; l.count = 0; l.rejected = 0; l.reps = []; l.remaining = LIMIT; l.fault = null;
@@ -394,7 +611,7 @@
         if (l.state !== 'running') return;
         l.phase = 'rest';
         const bad = Math.random() < 0.18, tt = (LIMIT - l.remaining) + 's';
-        if (bad) { l.rejected++; l.fault = event === 'crunch' ? 'knees_not_bent' : (Math.random() < .5 ? 'body_not_straight' : 'knee_on_ground'); l.reps.push({t:tt, valid:false, reason:l.fault}); setTimeout(() => { l.fault = null; if (l.state === 'running') renderLane(l); }, 1500); }
+        if (bad) { l.rejected++; const pool = event === 'crunch' ? ['knees_not_bent'] : ['body_not_straight','knee_on_ground','rest_in_down']; l.fault = pool[Math.floor(Math.random()*pool.length)]; l.reps.push({t:tt, valid:false, reason:l.fault}); setTimeout(() => { l.fault = null; if (l.state === 'running') renderLane(l); }, 1500); }
         else { l.count++; l.reps.push({t:tt, valid:true, reason:''}); }
         renderLane(l);
         l.sim = setTimeout(rep, 500 + Math.random() * 900);
@@ -406,21 +623,20 @@
     const l = lanes[n-1]; clearInterval(l.timer); clearTimeout(l.sim); l.state = 'done';
     const pass = l.count >= 25;
     l.cand[event] = `${l.count} ${pass ? '✓' : '✗'}`;
+    if (l.cand.pushup !== '—' && l.cand.crunch !== '—') l.cand.status = 'complete';
     const rows = l.reps.map((r,i) => `<tr><td>${l.n}</td><td>${i+1}</td><td>${r.t}</td><td><span class="pill ${r.valid?'ok':'bad'}">${r.valid?'valid':'rejected'}</span></td><td>${r.reason.replace(/_/g,' ')}</td><td><button class="btn ghost" style="padding:3px 8px;font-size:13px">Override</button></td></tr>`).join('');
     const rt = document.getElementById('reviewTable'); if (rt.querySelector('.hint')) rt.innerHTML = ''; rt.insertAdjacentHTML('afterbegin', rows);
-    renderLanes();
+    renderLanes(); renderList();
   }
-  function confirmLane(n) { document.getElementById('doneCount').textContent = ++doneToday; reset(n); }
-  let doneToday = 2;
+  function confirmLane(n) { reset(n); }
 
   // ---------- advanced: list ----------
   function renderList() {
+    const pill = s => `<span class="pill ${['run_passed','complete'].includes(s)?'ok':['rejected','run_failed','dnf'].includes(s)?'bad':['accepted','lined_up','running'].includes(s)?'info':''}">${t('r_'+s)}</span>`;
     document.getElementById('listTable').innerHTML = candidates.map(c => `
-      <tr><td>${c.id}</td><td>${cname(c)}</td><td>${c.bib}</td>
-      <td>${c.checkin ? `<span class="pill ok">${c.checkin}</span>` : '<span class="pill">—</span>'}</td>
-      <td>${c.pushup}</td><td>${c.crunch}</td><td>${c.run}</td></tr>`).join('');
+      <tr><td>${c.id}</td><td>${cname(c)}</td><td>${c.bib}</td><td>${c.bmi ?? '—'}</td><td>${pill(c.status)}</td><td>${c.runTime ?? '—'}</td><td>${c.pushup}</td><td>${c.crunch}</td></tr>`).join('');
   }
-  renderLanes();
+  setStation('weigh'); document.getElementById('stationType').value = 'weigh';
 </script>
 </body>
 </html>

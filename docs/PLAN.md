@@ -64,7 +64,9 @@ Result shown (count / time, faults, pass/fail) → examiner confirms → next ca
   model).
 - [ ] Settle fiber installation, field switches and power at the remote
   points with the installer.
-- [ ] Decide wave size (recommended ~50).
+- [x] Start format decided: single mass start (see
+  [TEST-DAY.md](TEST-DAY.md)); the finish-line load is the Phase 4 risk.
+- [ ] BMI limits, scale model, run pass times and DNF cut-off (TEST-DAY.md).
 - [ ] Connect one camera over RTSP and record the first batch of reference
   videos: at least 10 people doing push-ups and crunches from the planned
   camera angle (side view, 3–4 lanes), plus a few runners crossing a line
@@ -122,12 +124,19 @@ live RTSP.
   every row is confirmed by the administrator before it is on the list.
 - Multi-lane station screen: one tile per lane with its own candidate,
   count, timer and faults.
+- **Candidate journey and gates** ([TEST-DAY.md](TEST-DAY.md)): weigh-in
+  station screen (tablet-camera face check-in, weight/height, BMI,
+  accept/reject), run start screen (roster, present/missing, mass START),
+  run finish board (live finishers, pass/fail, review queue), and station
+  check-in that refuses candidates who have not passed the run.
 - Retention jobs: auto-delete evidence video and face data per the
   retention settings.
 
-**Exit test:** a full push-up and crunch test for 12 candidates (3 lanes × 4
-rounds) run end to end from the web UI in Arabic and English, with results
-and evidence stored, and one list imported from a scanned sheet.
+**Exit test:** 12 candidates go through weigh-in, a simulated run result,
+and a full push-up and crunch test (3 lanes × 4 rounds) end to end from the
+web UI in Arabic and English, with results and evidence stored, one list
+imported from a scanned sheet, and a candidate without a run pass refused at
+a station.
 
 ## Phase 3 — Multi-camera capture service (2 weeks)
 

@@ -30,17 +30,21 @@ decision taken. Open points are at the bottom.
 | 20 | Exercise choice per station or per candidate | Per station | One camera = one exercise; candidates rotate between stations. The station bar sets the exercise; lanes inherit it. |
 | 19 | Two more cameras for the exercise stations | Approved in principle, may be added later | Target: 6 cameras, 4 on the run, 1 per exercise station with 3–4 lanes each. Until then, the split cameras are reassigned to the stations on non-run days (Advanced → Cameras). |
 
+| 21 | Test-day order | Weigh-in/BMI gate → run line-up → mass start → finish → push-ups and crunches only if the run is passed | Candidate journey and gates defined in [TEST-DAY.md](TEST-DAY.md); mass start replaces waves; weigh-in station added. |
+
 ## Still open
 
+0. **Weigh-in and run rules:** BMI limits, how weight/height are measured
+   (scale model, data output), run pass time limits by age/gender, DNF
+   cut-off. See [TEST-DAY.md](TEST-DAY.md).
 1. **Fiber details:** who installs it, route length per hop, single-mode
    confirmed, strands per hop (2 minimum, 4 for a ring), and whether a ring
    back from the start is possible.
 2. **Power at the start, 1 km and 2 km points:** mains or battery.
 3. **Field switch** model at each remote point — candidates are listed in
    [SITE.md](SITE.md); confirm with the installer.
-4. **Wave size:** can runners start in waves of about 50 with 2–3 minute gaps?
-   One 500-runner mass start is the case where camera-only timing is least
-   reliable.
+4. ~~Wave size~~ — decided: single mass start. The finish-line load is the
+   Phase 4 risk to prove (see TEST-DAY.md).
 5. **Official time limits and depth rules** for push-ups and crunches, and
    whether the crunch is a crunch (shoulders off the floor) or a full sit-up.
 6. **Scoring tables** by age and gender, when available.

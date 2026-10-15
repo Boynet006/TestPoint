@@ -20,6 +20,7 @@ network).
 - [docs/QUESTIONS.md](docs/QUESTIONS.md) — answers received so far and open points
 - [docs/SITE.md](docs/SITE.md) — hardware, camera placement, capacity for 500 candidates, run-course options
 - [docs/RULES.md](docs/RULES.md) — proposed rule set v1 for sign-off (thresholds, time limits, retention)
+- [docs/TEST-DAY.md](docs/TEST-DAY.md) — the test-day flow: weigh-in gate, mass-start run, exercises only after a run pass
 - [docs/RESEARCH.md](docs/RESEARCH.md) — existing products, libraries and the reasoning behind the choices
 
 ## Repository layout

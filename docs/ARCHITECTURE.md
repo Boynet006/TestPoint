@@ -85,9 +85,12 @@ candidate.
 ### API server (Phase 2)
 - FastAPI. REST for CRUD (candidates, sessions, attempts, results) and
   WebSocket for live station updates (count, phase, faults, timer).
-- Owns the test workflow state machine: `idle → checking_in → verified →
+- Owns the attempt state machine: `idle → checking_in → verified →
   running → finished → reviewed`. A test cannot enter `running` without a
   verified (or manually overridden) candidate.
+- Owns the **candidate journey** for the day (weigh-in → run → exercises,
+  see [TEST-DAY.md](TEST-DAY.md)) and refuses a check-in at a station whose
+  gate the candidate has not passed.
 - Enforces time limits, computes scores from configurable tables.
 - Audit log of every manual override.
 
@@ -127,7 +130,9 @@ candidate.
 ```
 Candidate(id, external_id, name, dob, gender, bib, photo_path, face_embedding)
 Session(id, date, site, examiner_id, status)
-DayList(id, session_id, candidate_id, status[expected|checked_in|done|absent])
+DayList(id, session_id, candidate_id,
+        status[expected|accepted|rejected|lined_up|running|run_passed|run_failed|dnf|complete|absent])
+WeighIn(id, session_id, candidate_id, t, weight_kg, height_cm, bmi, accepted, examiner_id, photo_path)
 CheckIn(id, session_id, candidate_id, station_id, t, match_score, photo_path,
         accepted_by, manual_override)
 Station(id, name, camera_id, event, lanes[json rectangles])
