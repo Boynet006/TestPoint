@@ -129,6 +129,15 @@ Lighting: outdoor daylight is fine; avoid cameras facing low sun (orient the
 course lines so the camera looks away from sunrise/sunset). For indoor
 stations, even light from the side, no strong backlight behind the mats.
 
+## Suggested network parts (to verify with the installer)
+
+| Part | Candidate | Notes |
+|------|-----------|-------|
+| Field switch (×3: start, 2 km, 1 km) | D-Link DIS-100G-06P (4× PoE+ 120 W, 2× SFP, 48–55 V DC, −40…75 °C) or StarTech IES1G52UP12V (4× PoE, 2× SFP, 12/24/48/56 V DC input, useful for battery sites) | Both are IP30/IP40 housings, so each goes inside an IP66 outdoor cabinet with the power supply or battery. DIN-rail mount. |
+| SFP modules (2 per hop, 6 total + 1 for the main switch) | TP-Link TL-SM311LS or an AddOn/Axiom "TL-SM311LS-compatible" 1000BASE-LX, 1310 nm, single-mode, LC, 10 km | Use the same type at both ends of a hop. The TL-SG1218MP's two SFP slots are combo ports (each shares with an RJ45 port) and the switch is listed as end-of-life on some TP-Link sites, so confirm module compatibility with the seller before buying. |
+| Fiber | OS2 single-mode, outdoor-rated (direct burial or aerial), LC pigtails in a small splice box at each point | 2 strands per hop minimum; 4 if a ring back to the main switch is wanted. |
+| Power at remote points | Mains if available; otherwise a 12 V 100 Ah battery box with a DC-input switch (StarTech) — camera + switch ≈ 30–40 W → 20+ hours | Camera heater raises draw in cold weather. |
+
 ## Still to confirm for the site
 
 - Fiber: who installs it, total route length, single-mode confirmed, number
