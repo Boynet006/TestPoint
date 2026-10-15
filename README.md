@@ -28,6 +28,7 @@ TestPoint/
   src/testpoint/        Python package
     vision/             pose backends, geometry, rep counter, exercise rules
     cli.py              demo: count reps on a webcam or video file
+  scripts/bench_pose.py pose pipeline benchmark (cpu vs cuda, all rtmlib modes)
   tests/                unit tests (no camera or model needed)
   pyproject.toml        package + dependencies
 ```
@@ -55,16 +56,72 @@ Count crunches from a recorded video and save an annotated copy:
 testpoint-demo --exercise crunch --source sample.mp4 --out annotated.mp4
 ```
 
-Add `--device cuda` to run the pose model on the GPU once `onnxruntime-gpu` is installed.
-The first run downloads the RTMPose ONNX models (about 140 MB).
+Add `--device cuda` to run the pose model on the GPU (see *GPU setup* below).
+The first run downloads the RTMPose ONNX models (about 140 MB; the `performance`
+mode adds another 530 MB).
+
+## GPU setup (Phase 0)
+
+The station PC has an RTX 5080 (Blackwell). Blackwell needs an ONNX Runtime build
+against CUDA 12.8 or newer; the pinned `onnxruntime-gpu` 1.31.0 wheel is built
+against CUDA 13 and the `nvidia-*` pip wheels supply the CUDA 13.4 / cuDNN 9.27
+runtime, so no system-wide CUDA toolkit is needed. Only a recent NVIDIA driver is
+required (verified with driver 617.42, which reports CUDA 13.4).
+
+`onnxruntime` (CPU) and `onnxruntime-gpu` install into the same package
+directory, and rtmlib depends on the CPU wheel, so the CPU wheel has to be swapped
+out after the install:
+
+```bash
+pip install -e ".[gpu,dev]"
+pip uninstall -y onnxruntime
+pip install --force-reinstall --no-deps onnxruntime-gpu==1.31.0
+```
+
+Check that the GPU is actually used (the `provider` column must say
+`CUDAExecutionProvider`; `RTMLibBackend(device="cuda")` raises if ONNX Runtime
+fell back to CPU):
+
+```bash
+python scripts/bench_pose.py --device cuda
+```
+
+The backend calls `onnxruntime.preload_dlls()` before creating a CUDA session.
+Without that call ONNX Runtime cannot find the DLLs inside the `nvidia` pip
+packages and silently runs on the CPU.
+
+### Pose pipeline speed
+
+`scripts/bench_pose.py`, 2026-10-15, RTX 5080, onnxruntime-gpu 1.31.0, median
+over 30 frames (5 on CPU) after warm-up. One frame = YOLOX detector + one
+RTMPose inference, i.e. the cost of one person in view; each extra person adds
+one more pose inference (about 2 ms on the GPU).
+
+| device | mode        | frame     | median ms | fps  |
+|--------|-------------|-----------|----------:|-----:|
+| cpu    | lightweight | 640x480   |     146.1 |  6.8 |
+| cpu    | lightweight | 1920x1080 |      94.2 | 10.6 |
+| cpu    | balanced    | 640x480   |     638.5 |  1.6 |
+| cpu    | balanced    | 1920x1080 |     655.7 |  1.5 |
+| cpu    | performance | 640x480   |    1283.2 |  0.8 |
+| cpu    | performance | 1920x1080 |    1167.9 |  0.9 |
+| cuda   | lightweight | 640x480   |      14.0 | 71.4 |
+| cuda   | lightweight | 1920x1080 |      14.1 | 71.1 |
+| cuda   | balanced    | 640x480   |      23.2 | 43.1 |
+| cuda   | balanced    | 1920x1080 |      23.9 | 41.9 |
+| cuda   | performance | 640x480   |      33.2 | 30.1 |
+| cuda   | performance | 1920x1080 |      33.4 | 29.9 |
+
+Frame size barely matters because both models resize their input; the GPU
+numbers are dominated by the fixed per-model cost. `balanced` at 1080p leaves
+headroom for two cameras at 20 fps on one GPU; `performance` is at the limit for
+a single 30 fps stream.
 
 ## Status (2026-10-15)
 
 - Unit tests: 20 passing (`pytest`).
-- Pipeline smoke test on CPU: models load in ~20 s, ~550 ms per frame at 640x480.
-  That is fine for offline clips but not for live use; the RTX 5080 needs
-  `onnxruntime-gpu` with a CUDA 12.8+ build (Blackwell GPUs are not supported by
-  older CUDA 12 wheels). Setting this up is a Phase 0 task.
+- GPU inference works: `onnxruntime-gpu` 1.31.0 (CUDA 13) on the RTX 5080,
+  `balanced` mode at ~42 fps for 1080p frames (CPU was ~1.5 fps). See *GPU setup*.
 - `web/prototype/index.html` is a clickable UI mock-up (no backend) of the
   Simple/Advanced modes and the check-in → test → result flow.
 
