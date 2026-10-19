@@ -92,6 +92,10 @@ class Crossing(Base):
     source: Mapped[str] = mapped_column(String(16), default="manual")
     needs_review: Mapped[bool] = mapped_column(Boolean, default=False)
     note: Mapped[str | None] = mapped_column(String(200))
+    # Machine-readable reason for the screen to translate; ``note`` stays the English audit text.
+    note_code: Mapped[str | None] = mapped_column(String(32))
+    note_bib: Mapped[str | None] = mapped_column(String(16))
+    note_status: Mapped[str | None] = mapped_column(String(16))
 
 
 class Attempt(Base):
@@ -133,6 +137,11 @@ def make_sessionmaker(db_url: str) -> sessionmaker:
             cur.close()
     Base.metadata.create_all(engine)
     with engine.begin() as conn:
+        # Columns added after the first release: add them to existing databases.
+        have = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(crossing)")} if db_url.startswith("sqlite") else None
+        for col in ("note_code", "note_bib", "note_status"):
+            if have is not None and col not in have:
+                conn.exec_driver_sql(f"ALTER TABLE crossing ADD COLUMN {col} VARCHAR")
         # At most one running attempt per candidate, enforced by the database itself
         # (a double tap or two devices cannot create two). IF NOT EXISTS also upgrades
         # databases created before this index existed.

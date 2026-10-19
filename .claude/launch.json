@@ -13,6 +13,18 @@
       "port": 8000
     },
     {
+      "name": "app-qa",
+      "runtimeExecutable": ".venv\\Scripts\\python.exe",
+      "runtimeArgs": ["-m", "testpoint.api.app", "--host", "127.0.0.1", "--port", "8002", "--db", "sqlite:///data/qa.db"],
+      "port": 8002
+    },
+    {
+      "name": "deck-app",
+      "runtimeExecutable": ".venv\\Scripts\\python.exe",
+      "runtimeArgs": ["-m", "testpoint.api.app", "--host", "127.0.0.1", "--port", "8001", "--db", "sqlite:///data/deck.db"],
+      "port": 8001
+    },
+    {
       "name": "prototype",
       "runtimeExecutable": "C:\\Users\\ADMIN\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
       "runtimeArgs": ["-m", "http.server", "8765", "--bind", "127.0.0.1", "--directory", "web/prototype"],

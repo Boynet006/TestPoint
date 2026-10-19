@@ -61,7 +61,8 @@ def entry_out(e: Entry, day: Day | None = None, faces: int | None = None) -> dic
 def crossing_out(c: Crossing) -> dict:
     return {"id": c.id, "entry_id": c.entry_id, "at": iso(c.at), "time_s": c.time_s,
             "bib_read": c.bib_read, "source": c.source, "needs_review": c.needs_review,
-            "note": c.note}
+            "note": c.note, "note_code": c.note_code, "note_bib": c.note_bib,
+            "note_status": c.note_status}
 
 
 def attempt_out(a: Attempt) -> dict:

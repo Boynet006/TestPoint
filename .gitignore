@@ -12,3 +12,5 @@ data/
 *.onnx
 .env
 *.tar
+deck/
+web/station/_deck/

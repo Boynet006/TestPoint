@@ -128,3 +128,18 @@ def test_unassign_refused_after_exercise_results(client):
     a = client.post("/api/attempts", json={"entry_id": i["11"], "event": "pushup"}).json()
     client.post(f"/api/attempts/{a['id']}/finish", json={"count": 30})
     assert code(client.post(f"/api/run/crossings/{c['id']}/unassign")) == "results_exist"
+
+
+def test_review_notes_carry_a_code_for_translation(client):
+    i = ids(client)
+    client.post(f"/api/entries/{i['11']}/weigh-in", json=W)
+    client.post(f"/api/entries/{i['11']}/line-up")
+    client.post("/api/run/start")
+    no_bib = client.post("/api/run/finish", json={"bib": None}).json()
+    stranger = client.post("/api/run/finish", json={"bib": "999"}).json()
+    assert (no_bib["note_code"], stranger["note_code"], stranger["note_bib"]) == ("no_bib_read", "bib_not_on_list", "999")
+    ok = client.post("/api/run/finish", json={"bib": "11"}).json()
+    again = client.post("/api/run/finish", json={"bib": "11"}).json()
+    assert (again["note_code"], again["note_status"]) == ("bib_not_running", "run_passed")
+    r = client.post(f"/api/run/crossings/{ok['id']}/unassign").json()
+    assert (r["note_code"], r["note_bib"]) == ("unassigned_by_examiner", "11")

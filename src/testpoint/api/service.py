@@ -489,10 +489,13 @@ def record_finish(db: Session, day: Day, rules: DayRules, bib: str | None,
         crossing.needs_review = True
         if crossing.bib_read is None:
             crossing.note = "no bib read"
+            crossing.note_code = "no_bib_read"
         elif entry is None:
             crossing.note = f"bib {crossing.bib_read} is not on today's list"
+            crossing.note_code, crossing.note_bib = "bib_not_on_list", crossing.bib_read
         else:
             crossing.note = f"bib {crossing.bib_read} is {entry.status}, not running"
+            crossing.note_code, crossing.note_bib, crossing.note_status = "bib_not_running", crossing.bib_read, entry.status
     db.add(crossing)
     db.flush()
     _audit(db, day, "finish", "crossing", entry, bib=crossing.bib_read, time_s=crossing.time_s,
@@ -520,6 +523,7 @@ def resolve_crossing(db: Session, day: Day, rules: DayRules, crossing_id: int,
         raise ServiceError("not_running", f"{entry.candidate.name} is {entry.status}, not running")
     _assign(day, rules, crossing, entry)
     crossing.note = (crossing.note or "") + " | assigned by examiner"
+    crossing.note_code, crossing.note_bib, crossing.note_status = "assigned_by_examiner", entry.candidate.bib, None
     _audit(db, day, "finish", "resolve_crossing", entry, crossing_id=crossing_id)
     db.commit()
     return crossing
@@ -544,6 +548,7 @@ def unassign_crossing(db: Session, day: Day, crossing_id: int) -> Crossing:
     crossing.entry_id = None
     crossing.needs_review = True
     crossing.note = f"unassigned from bib {entry.candidate.bib} by examiner"
+    crossing.note_code, crossing.note_bib, crossing.note_status = "unassigned_by_examiner", entry.candidate.bib, None
     _audit(db, day, "finish", "unassign_crossing", entry, crossing_id=crossing_id, time_s=crossing.time_s)
     db.commit()
     return crossing
