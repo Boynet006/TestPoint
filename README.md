@@ -35,6 +35,8 @@ TestPoint/
   tests/                unit tests (no camera or model needed)
   docker/               build helpers (model download for the offline images)
   web/prototype/        clickable UI mock-up
+  src/testpoint/api/    station app: journey rules, database, HTTP API
+  web/station/          station UI (weigh-in, run start, finish, exercise lanes)
   Start TestPoint.cmd   double-click to start (Docker Desktop + services + UI)
   Stop TestPoint.cmd    double-click to stop
   Dockerfile            images: gpu, cpu, test, prototype
@@ -162,6 +164,36 @@ numbers are dominated by the fixed per-model cost. `balanced` at 1080p leaves
 headroom for two cameras at 20 fps on one GPU; `performance` is at the limit for
 a single 30 fps stream.
 
+## Station app (Phase 2)
+
+The station app is a FastAPI server with a SQLite database and one web page
+for every device on test day. Each device picks its role in the header:
+
+| Role | What the examiner does |
+|------|------------------------|
+| Weigh-in | Check in by bib or ID, enter weight and height, accept or reject on BMI |
+| Run · start line | Mark runners present, then START (press twice) for the mass start |
+| Run · finish line | Type each bib as the runner crosses; unread bibs go to a review queue |
+| Exercise station | Push-ups or crunches, 3 lanes, check-in per lane, tap-count, save |
+
+**Advanced** shows today's list with everyone's status, CSV import and the
+rules. The server enforces the order of the day: a station refuses anyone who
+has not passed the step before it, with the reason on screen.
+
+It starts with the one-click **Start TestPoint.cmd** and runs at
+http://localhost:8080. Other devices on the LAN open
+`http://<station PC address>:8080`. Data lives in `data/testpoint.db`.
+
+To run it without Docker while developing:
+
+```bash
+.venv\Scripts\python.exe -m testpoint.api.app --port 8000 --db sqlite:///data/dev.db
+```
+
+A sample list to import is in `samples/candidates.csv` (columns
+`external_id,name,name_ar,gender,dob,bib`). The API is documented at
+http://localhost:8080/docs.
+
 ## Docker
 
 Everything also ships as Docker images, which is how the station PC will be
@@ -170,10 +202,11 @@ transfer with `docker save` / `docker load`.
 
 | Image | Dockerfile target | What it is |
 |-------|-------------------|------------|
+| `testpoint/app` | `app` | Station app: API, database and station UI (262 MB) |
 | `testpoint/engine-gpu` | `gpu` (default) | Rep-counting engine on the NVIDIA GPU, models baked in |
 | `testpoint/engine-cpu` | `cpu` | Same engine on the CPU (laptops, CI) |
 | `testpoint/tests` | `test` | Runs the unit tests |
-| `testpoint/prototype` | `prototype` | The UI mock-up on nginx |
+| `testpoint/prototype` | `prototype` | The original UI mock-up on nginx (port 8081, `--profile prototype`) |
 
 Measured sizes: engine-gpu 5.5 GB, engine-cpu 1.5 GB, tests 1.2 GB,
 prototype 74 MB. The GPU image carries the CUDA 13 and cuDNN runtime; only the
@@ -222,7 +255,7 @@ powershell -ExecutionPolicy Bypass -File scripts\testpoint.ps1 status
 
 For a station PC that should come up on its own after a power cut, enable
 Docker Desktop → Settings → General → *Start Docker Desktop when you sign in*.
-The prototype service has `restart: unless-stopped`, so it comes back by
+The app service has `restart: unless-stopped`, so it comes back by
 itself once Docker is up; no script needs to run.
 
 ### Build and run
@@ -265,10 +298,10 @@ Count reps in a recorded clip placed in `data/`:
 docker compose --profile gpu run --rm engine --exercise pushup --source /data/clip.mp4 --lanes 3 --device cuda --out /data/clip-annotated.mp4
 ```
 
-Serve the UI prototype on http://localhost:8080:
+Start the station app on http://localhost:8080:
 
 ```bash
-docker compose up -d prototype
+docker compose up -d app
 ```
 
 ### Move to the offline site
@@ -276,7 +309,7 @@ docker compose up -d prototype
 On a machine with internet, after building:
 
 ```bash
-docker save testpoint/engine-gpu:0.1.0 testpoint/prototype:0.1.0 -o testpoint-images.tar
+docker save testpoint/app:0.1.0 testpoint/engine-gpu:0.1.0 -o testpoint-images.tar
 ```
 
 On the station PC (Docker installed from an offline installer), copy the tar
@@ -287,7 +320,7 @@ docker load -i testpoint-images.tar
 ```
 
 ```bash
-docker compose up -d --no-build prototype
+docker compose up -d --no-build app
 ```
 
 ### Limits inside a container
@@ -300,7 +333,11 @@ docker compose up -d --no-build prototype
 
 ## Status (2026-10-15)
 
-- Unit tests: 42 passing (`pytest`).
+- Unit tests: 61 passing (`pytest`), including a full simulated test day through the API.
+- Station app (2026-10-19): weigh-in, run start, finish and exercise-lane screens
+  wired to the API and database, in Docker on port 8080. Check-in is by bib or ID
+  and exercise counts are tapped by the examiner until face check-in and the
+  camera engine are connected.
 - Engine: 3-4 lanes per camera (`vision/lanes.py`, `MultiLaneSession`), push-up
   faults `body_not_straight`, `knee_on_ground`, `rest_in_down` (thresholds in
   `PushupRules`, to be calibrated on real footage), RTSP input with reconnect.

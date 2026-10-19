@@ -1,10 +1,11 @@
 # TestPoint container images.
 #
 # Targets (docker build --target <name> .):
+#   app        station app: API + database + station UI (small, no vision stack)
 #   gpu        rep-counting engine on NVIDIA GPUs (default, used on the station PC)
 #   cpu        same engine, CPU only (laptops, CI, machines without an NVIDIA GPU)
-#   test       cpu image + pytest, runs the unit tests
-#   prototype  the clickable UI mock-up served by nginx
+#   test       runs the unit tests (engine + app)
+#   prototype  the original clickable UI mock-up served by nginx
 #
 # The test site has no internet, so the pose models are downloaded while the
 # image is built and live inside it. Build on a machine with internet, then move
@@ -13,22 +14,44 @@
 ARG PYTHON_IMAGE=python:3.12-slim-bookworm
 ARG NGINX_IMAGE=nginx:1.27-alpine
 
-# --------------------------------------------------------------------------- base
-FROM ${PYTHON_IMAGE} AS base
+# ----------------------------------------------------------------------- pybase
+FROM ${PYTHON_IMAGE} AS pybase
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    TORCH_HOME=/opt/testpoint/models \
-    OPENCV_FFMPEG_CAPTURE_OPTIONS="rtsp_transport;tcp"
-# libgl1 + libglib2.0-0: needed by the opencv-python wheels that rtmlib pulls in.
-RUN apt-get update \
- && apt-get install -y --no-install-recommends libgl1 libglib2.0-0 \
- && rm -rf /var/lib/apt/lists/* \
- && useradd --create-home --uid 1000 app \
+    TORCH_HOME=/opt/testpoint/models
+RUN useradd --create-home --uid 1000 app \
  && mkdir -p /app /data "$TORCH_HOME" \
  && chown app:app /app /data "$TORCH_HOME"
 WORKDIR /app
+
+# ------------------------------------------------------------------------- base
+# Vision base: libgl1 + libglib2.0-0 are needed by the opencv-python wheels
+# that rtmlib pulls in.
+FROM pybase AS base
+ENV OPENCV_FFMPEG_CAPTURE_OPTIONS="rtsp_transport;tcp"
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends libgl1 libglib2.0-0 \
+ && rm -rf /var/lib/apt/lists/*
+
+# -------------------------------------------------------------------------- app
+# Station app: FastAPI + SQLite + the station UI. Installs only the [app] extra.
+FROM pybase AS app
+COPY pyproject.toml ./
+RUN python -c "import tomllib; print('\n'.join(tomllib.load(open('pyproject.toml','rb'))['project']['optional-dependencies']['app']))" > /tmp/app-req.txt \
+ && pip install -r /tmp/app-req.txt
+COPY src ./src
+RUN pip install --no-deps . && rm -rf build src/*.egg-info
+COPY web/station ./web/station
+ENV TESTPOINT_DB=sqlite:////data/testpoint.db \
+    TESTPOINT_WEB=/app/web/station \
+    TESTPOINT_PORT=8000
+USER app
+EXPOSE 8000
+HEALTHCHECK --interval=15s --timeout=3s --start-period=10s \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"
+ENTRYPOINT ["testpoint-app"]
 
 # ------------------------------------------------------------- dependencies (cpu)
 # Dependencies are installed from pyproject.toml alone, before the source is
@@ -77,7 +100,8 @@ CMD ["--help"]
 # -------------------------------------------------------------------------- test
 # Unit tests need no camera and no models, so this skips the models stage.
 FROM deps-cpu AS test
-RUN pip install "pytest>=8"
+RUN python -c "import tomllib; d = tomllib.load(open('pyproject.toml','rb'))['project']['optional-dependencies']; print('\n'.join(d['app'] + d['dev']))" > /tmp/test-req.txt \
+ && pip install -r /tmp/test-req.txt
 COPY src ./src
 RUN pip install --no-deps . && rm -rf build src/*.egg-info
 COPY tests ./tests

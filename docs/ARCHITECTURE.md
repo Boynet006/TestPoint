@@ -72,6 +72,12 @@ candidate.
   is how we test them against the clip library.
 
 ### Check-in worker (Phase 2)
+- **Camera:** a USB webcam (e.g. Logitech C920/Brio) at eye level on the
+  check-in desk, or a tablet's front camera, not a Hikvision bullet camera:
+  faces need close range and even light. The browser on that device reads
+  the webcam and sends a frame to the server, so Docker never needs USB
+  access. Browsers allow camera access only on `localhost` or HTTPS, so a
+  separate check-in device needs the server on HTTPS (local certificate).
 - Runs on the same station camera before a test starts. Detects the
   nearest face, computes an embedding (InsightFace / ArcFace, ONNX,
   on-premise), and matches it against the embeddings of **today's list only**.

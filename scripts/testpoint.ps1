@@ -77,8 +77,8 @@ function Show-Status {
     if (-not (Test-Engine)) { Say 'Docker engine: not running' 'Yellow'; return }
     Say "Docker engine: running ($(& $Docker version --format '{{.Server.Version}}'))" 'Green'
     Say ''
-    & $Docker compose --profile gpu --profile cpu ps --format 'table {{.Service}}\t{{.Status}}\t{{.Ports}}'
-    $port = Get-EnvValue 'PROTOTYPE_PORT'
+    & $Docker compose --profile gpu --profile cpu --profile prototype ps --format 'table {{.Service}}\t{{.Status}}\t{{.Ports}}'
+    $port = Get-EnvValue 'APP_PORT'
     if (-not $port) { $port = '8080' }
     Say ''
     Say "Station UI: http://localhost:$port" 'Cyan'
@@ -92,7 +92,7 @@ switch ($Action) {
         }
         Start-DockerDesktop
 
-        $services = @('prototype')
+        $services = @('app')
         $composeArgs = @()
         $startEngine = $Engine -or ((Get-EnvValue 'START_ENGINE') -eq '1')
         if ($startEngine) {
@@ -103,7 +103,7 @@ switch ($Action) {
         # --no-build: use the images already on this PC (the site is offline).
         Invoke-Compose ($composeArgs + @('up', '-d', '--no-build') + $services)
 
-        $port = Get-EnvValue 'PROTOTYPE_PORT'
+        $port = Get-EnvValue 'APP_PORT'
         if (-not $port) { $port = '8080' }
         $url = "http://localhost:$port"
         $ready = $false
@@ -116,7 +116,7 @@ switch ($Action) {
     }
     'stop' {
         if (-not (Test-Engine)) { Say 'Docker engine is not running; nothing to stop.' 'Yellow'; break }
-        Invoke-Compose @('--profile', 'gpu', '--profile', 'cpu', '--profile', 'test', 'down')
+        Invoke-Compose @('--profile', 'gpu', '--profile', 'cpu', '--profile', 'test', '--profile', 'prototype', 'down')
         Say 'TestPoint stopped.' 'Green'
     }
     'status' { Show-Status }

@@ -53,7 +53,7 @@ Result shown (count / time, faults, pass/fail) → examiner confirms → next ca
 ## Phase 0 — Setup and requirements (1 week)
 
 - [x] Install the toolchain on the PC: Python 3.12, Git, GPU ONNX Runtime
-  (done 2026-10-15; Node.js LTS still to install for Phase 2).
+  (done 2026-10-15; Node.js is not needed: the UI has no build step).
 - [x] Confirm hardware (see [SITE.md](SITE.md)): Hikvision 4 MP PoE cameras,
   TP-Link PoE+ switch, no internet at the site.
 - [x] Draft the rule set for sign-off ([RULES.md](RULES.md)).
@@ -102,35 +102,44 @@ live RTSP.
 
 ## Phase 2 — Station app: web UI, database, evidence (3–4 weeks)
 
-- FastAPI backend, PostgreSQL (or SQLite to begin), React web UI.
-- Candidate registration (ID, name, bib number, photo), daily candidate
-  list import (CSV/Excel), test sessions, station assignment.
-- **Camera check-in:** face embedding (InsightFace, on-premise) of the
-  person in front of the station camera matched against today's list;
-  verified identity shown to the examiner for Accept/Reject; check-in
-  photo stored with the attempt. Manual search fallback for a failed match.
-- Live station view: camera feed with overlay, countdown timer, count,
-  fault messages. Start/stop by the examiner, time limit enforced.
-- Evidence: full station video per attempt plus a short clip per rep,
-  stored with timestamps; review screen with override and audit log.
-- Simple / Advanced toggle: Simple shows only what the examiner needs on
-  test day; Advanced exposes calibration, rule thresholds, camera
-  assignment, per-rep review and diagnostics.
-- Scoring tables and pass/fail; CSV/PDF export.
-- **English and Arabic UI** with right-to-left layout; language switch in the
-  header; bilingual exports.
-- **Daily list import:** typed entry form, CSV/Excel upload, and scanned
-  paper (photo or scanner) through OCR with a side-by-side review screen;
-  every row is confirmed by the administrator before it is on the list.
-- Multi-lane station screen: one tile per lane with its own candidate,
-  count, timer and faults.
-- **Candidate journey and gates** ([TEST-DAY.md](TEST-DAY.md)): weigh-in
-  station screen (tablet-camera face check-in, weight/height, BMI,
-  accept/reject), run start screen (roster, present/missing, mass START),
-  run finish board (live finishers, pass/fail, review queue), and station
-  check-in that refuses candidates who have not passed the run.
-- Retention jobs: auto-delete evidence video and face data per the
-  retention settings.
+Started 2026-10-19. Built so far (`src/testpoint/api/`, `web/station/`, Docker
+service `app` on port 8080):
+
+- [x] FastAPI backend with SQLite (SQLAlchemy 2, so PostgreSQL later is a
+  connection-string change). Database file in `data/` on the host.
+- [x] **Candidate journey and gates** ([TEST-DAY.md](TEST-DAY.md)) as pure,
+  tested rules (`journey.py`): weigh-in → accepted/rejected → line-up → mass
+  start (absent if not at the line) → finish → run passed/failed/DNF →
+  push-ups and crunches, each once → complete. Every station asks the server
+  before it takes a candidate.
+- [x] Weigh-in screen: check-in by bib or ID, weight and height, live BMI,
+  accept/reject; accepting outside the BMI range needs a written reason.
+- [x] Run start screen: present/missing roster, mass START (double press),
+  server-side start time.
+- [x] Run finish board: typed bib per crossing (server time), "bib not seen"
+  crossings go to a review queue the examiner assigns, close run → DNF.
+- [x] Exercise station: fixed exercise per station, 3 lanes, gate check per
+  lane, manual tap-count by the examiner (until the camera engine is
+  connected), timer, pass/fail, recovery after a tablet reload.
+- [x] Today's list (Advanced): CSV import, add candidate, live status of
+  everyone. Rules shown read-only.
+- [x] English and Arabic with right-to-left layout; Simple/Advanced toggle.
+- [x] Audit log of every action in the database.
+- [ ] **Face check-in:** a USB webcam (e.g. Logitech C920/Brio) at the
+  check-in desk, read by the browser on that PC, frame sent to the server for
+  matching (InsightFace, on-premise) against today's list. Needs HTTPS when
+  the check-in device is not the server PC itself.
+- [ ] Connect the rep-counting engine to the station lanes (live count and
+  faults instead of tapping), with evidence video and per-rep clips.
+- [ ] Examiner override of results with reason, review screen.
+- [ ] Editable, versioned rules and score tables; CSV/PDF export.
+- [ ] Scanned-paper list import (OCR with review screen); Excel import.
+- [ ] Retention jobs for evidence video and face data.
+- [ ] User roles (examiner vs administrator).
+
+Decision: the UI is a single HTML/JavaScript page served by the API, not a
+React build, so the site needs no Node toolchain and works fully offline. It
+can move to a framework later if it outgrows one page.
 
 **Exit test:** 12 candidates go through weigh-in, a simulated run result,
 and a full push-up and crunch test (3 lanes × 4 rounds) end to end from the

@@ -1,0 +1,625 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TestPoint Station</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500;600&family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #10161d; --bg2: #161e27; --panel: #1b252f; --line: #2a3745;
+    --text: #f2f5f7; --muted: #8b9bab; --dim: #5d6b79;
+    --amber: #ffb000; --amber-ink: #1a1200; --go: #19d27a; --go-ink: #04200f; --stop: #ff3b3b; --info: #4cc2ff;
+    --cond: "Barlow Condensed", "Cairo", "Arial Narrow", sans-serif; --sans: "Barlow", "Cairo", "Segoe UI", sans-serif;
+  }
+  [dir=rtl] { --cond: "Cairo", "Barlow Condensed", sans-serif; --sans: "Cairo", "Barlow", sans-serif; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: var(--sans); background: var(--bg); color: var(--text);
+    background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 48px 48px; min-height: 100vh; }
+  header { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 16px; padding: 10px 20px; flex-wrap: wrap;
+    background: rgba(11,15,20,.94); border-bottom: 2px solid var(--amber); }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .mono { width: 36px; height: 36px; background: var(--amber); color: var(--amber-ink); font-family: var(--cond); font-weight: 800; font-size: 21px;
+    display: grid; place-items: center; clip-path: polygon(0 0, 100% 0, 100% 70%, 70% 100%, 0 100%); }
+  .brand b { font-family: var(--cond); font-size: 23px; letter-spacing: 1px; text-transform: uppercase; }
+  .brand small { display: block; color: var(--muted); font-size: 12px; margin-top: -4px; }
+  select, input { background: var(--bg2); color: var(--text); border: 1px solid var(--line); padding: 8px 10px; font: inherit; }
+  header select { font-family: var(--cond); font-size: 17px; text-transform: uppercase; letter-spacing: 1px; }
+  .spacer { flex: 1; }
+  .clock { font-family: var(--cond); font-size: 21px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .seg { display: flex; border: 1px solid var(--line); background: var(--bg2); }
+  .seg button { background: transparent; color: var(--muted); border: 0; padding: 7px 14px; cursor: pointer; font-family: var(--cond); font-size: 16px; text-transform: uppercase; letter-spacing: 1px; }
+  .seg button.active { background: var(--amber); color: var(--amber-ink); font-weight: 700; }
+  .conn { font-family: var(--cond); font-size: 14px; letter-spacing: 1px; text-transform: uppercase; }
+  .conn.ok { color: var(--go); } .conn.bad { color: var(--stop); }
+  main { padding: 18px 20px 40px; max-width: 1500px; margin: 0 auto; }
+  .hidden { display: none !important; }
+  .grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+  .lanes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  @media (max-width: 1050px) { .grid2, .lanes { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--line); padding: 16px; }
+  .card h2 { margin: 0 0 12px; font-family: var(--cond); font-size: 18px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+  .bar { display: flex; align-items: center; gap: 14px; padding: 12px 16px; background: var(--panel); border: 1px solid var(--line); margin-bottom: 16px; flex-wrap: wrap; }
+  .kv { font-family: var(--cond); font-size: 16px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .kv b { color: var(--text); font-size: 20px; }
+  .btn { border: 1px solid var(--line); padding: 11px 20px; cursor: pointer; font-family: var(--cond); font-size: 19px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; color: var(--text); background: var(--bg2); }
+  .btn.go { background: var(--go); color: var(--go-ink); border-color: var(--go); }
+  .btn.stop { background: var(--stop); color: #fff; border-color: var(--stop); }
+  .btn.amber { background: var(--amber); color: var(--amber-ink); border-color: var(--amber); }
+  .btn.ghost { background: transparent; }
+  .btn.sm { font-size: 14px; padding: 5px 10px; }
+  .btn.xl { font-size: 24px; padding: 16px 24px; width: 100%; }
+  .btn.huge { font-size: 38px; padding: 26px; width: 100%; letter-spacing: 4px; }
+  .btn:disabled { opacity: .35; cursor: not-allowed; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .row > .btn { flex: 1; }
+  .search { display: flex; gap: 8px; }
+  .search input { flex: 1; font-family: var(--cond); font-size: 30px; font-weight: 700; padding: 10px 14px; min-width: 0; width: 100%; }
+  .search .btn { flex: 0 0 auto; }
+  .hint { color: var(--dim); font-size: 13px; }
+  .tagline { font-family: var(--cond); font-size: 15px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); }
+  .who { display: flex; align-items: center; gap: 12px; margin: 10px 0; }
+  .avatar { width: 52px; height: 52px; background: var(--bg2); border: 1px solid var(--line); display: grid; place-items: center; font-family: var(--cond); font-size: 22px; color: var(--amber); }
+  .who b { font-family: var(--cond); font-size: 25px; display: block; line-height: 1.05; }
+  .who small { color: var(--muted); }
+  .pill { display: inline-block; padding: 2px 8px; font-family: var(--cond); font-size: 13px; letter-spacing: 1px; text-transform: uppercase; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .pill.ok { color: var(--go); border-color: var(--go); } .pill.bad { color: var(--stop); border-color: var(--stop); }
+  .pill.warn { color: var(--amber); border-color: var(--amber); } .pill.info { color: var(--info); border-color: var(--info); }
+  .msg { padding: 10px 12px; font-family: var(--cond); font-size: 18px; letter-spacing: .5px; border-inline-start: 4px solid var(--line); background: var(--bg2); margin: 10px 0; }
+  .msg.bad { border-color: var(--stop); color: #ffb3b3; background: rgba(255,59,59,.10); }
+  .msg.ok { border-color: var(--go); color: #b6f5d4; background: rgba(25,210,122,.10); }
+  .msg.warn { border-color: var(--amber); color: #ffe2a3; background: rgba(255,176,0,.10); }
+  .field { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .field label { display: block; font-family: var(--cond); font-size: 14px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+  .field input { width: 100%; font-family: var(--cond); font-size: 34px; font-weight: 700; padding: 10px; }
+  .bmi { text-align: center; padding: 12px; background: var(--bg2); border: 1px solid var(--line); margin-top: 10px; }
+  .bmi b { font-family: var(--cond); font-size: 70px; line-height: 1; display: block; }
+  .bmi.ok b { color: var(--go); } .bmi.bad b { color: var(--stop); }
+  .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .tiles div { background: var(--bg2); border: 1px solid var(--line); padding: 10px; }
+  .tiles b { font-family: var(--cond); font-size: 40px; display: block; line-height: 1; font-variant-numeric: tabular-nums; }
+  .tiles span { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; }
+  .tiles b.go { color: var(--go); } .tiles b.warn { color: var(--amber); } .tiles b.bad { color: var(--stop); }
+  .bigclock { font-family: var(--cond); font-weight: 800; font-size: 96px; line-height: 1; font-variant-numeric: tabular-nums; text-align: center; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: start; padding: 7px 9px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  th { color: var(--muted); font-family: var(--cond); font-size: 14px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600; }
+  td.t { font-family: var(--cond); font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .scroll { max-height: 460px; overflow: auto; }
+  .lane { background: var(--panel); border: 1px solid var(--line); border-top: 4px solid var(--dim); padding: 14px; display: flex; flex-direction: column; gap: 8px; min-height: 470px; }
+  .lane[data-state=verified] { border-top-color: var(--info); } .lane[data-state=running] { border-top-color: var(--go); }
+  .lane[data-state=done] { border-top-color: var(--text); } .lane[data-state=refused] { border-top-color: var(--stop); }
+  .lane-head { display: flex; align-items: center; gap: 10px; }
+  .lane-num { font-family: var(--cond); font-size: 32px; font-weight: 800; color: var(--amber); line-height: 1; }
+  .count { font-family: var(--cond); font-weight: 800; font-size: 110px; line-height: .9; text-align: center; font-variant-numeric: tabular-nums; }
+  .count small { display: block; font-size: 15px; letter-spacing: 2px; color: var(--muted); font-weight: 600; margin-top: 6px; }
+  .timer { font-family: var(--cond); font-weight: 700; font-size: 40px; text-align: center; font-variant-numeric: tabular-nums; }
+  .timer.low { color: var(--stop); }
+  .tap { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 8px; }
+  .tap .btn { font-size: 22px; padding: 18px 6px; }
+  .verdict { font-family: var(--cond); font-size: 30px; font-weight: 800; letter-spacing: 2px; padding: 8px 12px; text-align: center; }
+  .verdict.pass { background: var(--go); color: var(--go-ink); } .verdict.fail { background: var(--stop); color: #fff; }
+  .tabs { display: flex; gap: 2px; margin-bottom: 14px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .tabs button { background: transparent; color: var(--muted); border: 0; border-bottom: 3px solid transparent; padding: 10px 16px; cursor: pointer; font-family: var(--cond); font-size: 17px; text-transform: uppercase; letter-spacing: 1.5px; }
+  .tabs button.active { color: var(--amber); border-bottom-color: var(--amber); }
+  .form { display: grid; grid-template-columns: repeat(6, 1fr) auto; gap: 8px; margin: 10px 0 16px; }
+  @media (max-width: 900px) { .form, .tiles, .field { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><div class="mono">T</div><div><b>TestPoint</b><small data-t="tagline"></small></div></div>
+  <select id="role" onchange="setRole(this.value)">
+    <option value="weigh" data-t="r_weigh"></option>
+    <option value="start" data-t="r_start"></option>
+    <option value="finish" data-t="r_finish"></option>
+    <option value="station" data-t="r_station"></option>
+  </select>
+  <span class="conn" id="conn"></span>
+  <span class="spacer"></span>
+  <span class="kv"><span data-t="today"></span> <b id="hdrDate">—</b></span>
+  <span class="clock" id="clock"></span>
+  <div class="seg"><button id="lang-en" onclick="setLang('en')">EN</button><button id="lang-ar" onclick="setLang('ar')">ع</button></div>
+  <div class="seg"><button id="mode-simple" onclick="setMode('simple')" data-t="simple"></button><button id="mode-advanced" onclick="setMode('advanced')" data-t="advanced"></button></div>
+</header>
+
+<main>
+<!-- ======================== SIMPLE ======================== -->
+<section id="simple">
+
+  <!-- WEIGH-IN -->
+  <div id="v-weigh" class="grid2 hidden">
+    <div class="card">
+      <h2 data-t="r_weigh"></h2>
+      <div class="search"><input id="wQuery" data-tp="ph_bib" autocomplete="off" onkeydown="if(event.key==='Enter')weighCheckin()"><button class="btn amber" onclick="weighCheckin()" data-t="checkin"></button></div>
+      <p class="hint" data-t="face_later"></p>
+      <div id="wMsg"></div>
+      <div id="wWho"></div>
+    </div>
+    <div class="card" id="wForm" style="opacity:.35;pointer-events:none">
+      <h2 data-t="measure"></h2>
+      <div class="field">
+        <div><label data-t="weight"></label><input id="wKg" type="number" step="0.1" inputmode="decimal" oninput="bmiPreview()"></div>
+        <div><label data-t="height"></label><input id="wCm" type="number" step="1" inputmode="decimal" oninput="bmiPreview()"></div>
+      </div>
+      <div class="bmi" id="wBmi"><span class="tagline">BMI</span><b>—</b><span class="hint" id="wRange"></span></div>
+      <div id="wOverride" class="hidden" style="margin-top:10px"><input id="wReason" style="width:100%" data-tp="ph_override"></div>
+      <div class="row" style="margin-top:12px"><button class="btn go" id="wAccept" onclick="weighSubmit(true)" disabled data-t="accept_day"></button><button class="btn stop" id="wReject" onclick="weighSubmit(false)" disabled data-t="reject"></button></div>
+    </div>
+  </div>
+
+  <!-- RUN START -->
+  <div id="v-start" class="grid2 hidden">
+    <div class="card">
+      <h2 data-t="r_start"></h2>
+      <div class="tiles"><div><b id="sAccepted">0</b><span data-t="waiting_line"></span></div><div><b class="go" id="sLined">0</b><span data-t="at_line"></span></div><div><b class="warn" id="sNotWeighed">0</b><span data-t="not_weighed_yet"></span></div></div>
+      <div id="sBefore" style="margin-top:14px">
+        <div class="search"><input id="sQuery" data-tp="ph_bib" autocomplete="off" onkeydown="if(event.key==='Enter')lineUp()"><button class="btn amber" onclick="lineUp()" data-t="mark_present"></button></div>
+        <div id="sMsg"></div>
+        <p class="hint" data-t="start_hint"></p>
+        <button class="btn go huge" id="sStart" onclick="massStart()" disabled></button>
+      </div>
+      <div id="sAfter" class="hidden" style="margin-top:14px">
+        <div class="tagline" style="text-align:center" data-t="elapsed"></div>
+        <div class="bigclock" id="sClock">00:00</div>
+        <p class="hint" style="text-align:center"><span data-t="started_at"></span> <b id="sAt"></b></p>
+      </div>
+    </div>
+    <div class="card">
+      <h2 data-t="missing_list"></h2>
+      <div class="scroll"><table><thead><tr><th data-t="bib"></th><th data-t="name"></th><th></th></tr></thead><tbody id="sMissing"></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- RUN FINISH -->
+  <div id="v-finish" class="grid2 hidden">
+    <div class="card">
+      <h2 data-t="r_finish"></h2>
+      <div class="tiles"><div><b id="fClock">--:--</b><span data-t="elapsed"></span></div><div><b class="go" id="fCount">0</b><span data-t="finished"></span></div><div><b class="warn" id="fReview">0</b><span data-t="needs_review"></span></div></div>
+      <div id="fNotStarted" class="msg warn" data-t="run_not_started"></div>
+      <div id="fLive" class="hidden" style="margin-top:12px">
+        <div class="search"><input id="fBib" data-tp="ph_finish" autocomplete="off" inputmode="numeric" onkeydown="if(event.key==='Enter')finish(true)"><button class="btn go" onclick="finish(true)" data-t="record_finish"></button></div>
+        <div class="row" style="margin-top:8px"><button class="btn" onclick="finish(false)" data-t="no_bib"></button><button class="btn stop" id="fClose" onclick="closeRun()" data-t="close_run"></button></div>
+        <div id="fMsg"></div>
+        <p class="hint" data-t="finish_hint"></p>
+      </div>
+      <div id="fReviewBox" class="hidden" style="margin-top:12px"><h2 data-t="review_queue"></h2><table><tbody id="fReviewTable"></tbody></table></div>
+    </div>
+    <div class="card">
+      <h2 data-t="finishers"></h2>
+      <div class="scroll"><table><thead><tr><th>#</th><th data-t="bib"></th><th data-t="name"></th><th data-t="time"></th><th data-t="status"></th></tr></thead><tbody id="fTable"></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- EXERCISE STATION -->
+  <div id="v-station" class="hidden">
+    <div class="bar">
+      <div class="seg"><button id="ev-pushup" onclick="setEvent('pushup')" data-t="pushup"></button><button id="ev-crunch" onclick="setEvent('crunch')" data-t="crunch"></button></div>
+      <div class="kv"><span data-t="time_limit"></span> <b id="xLimit">2:00</b></div>
+      <div class="kv"><span data-t="pass_mark"></span> <b id="xPass">—</b></div>
+      <div class="kv"><span data-t="waiting_here"></span> <b id="xWaiting">0</b></div>
+      <span class="spacer"></span>
+      <span class="hint" data-t="manual_count"></span>
+    </div>
+    <div class="lanes" id="lanes"></div>
+  </div>
+</section>
+
+<!-- ======================== ADVANCED ======================== -->
+<section id="advanced" class="hidden">
+  <div class="tabs">
+    <button class="active" onclick="tab('list', this)" data-t="t_list"></button>
+    <button onclick="tab('rules', this)" data-t="t_rules"></button>
+  </div>
+  <div id="t-list" class="card">
+    <h2 data-t="t_list"></h2>
+    <div class="row" style="margin-bottom:6px">
+      <label class="btn sm" style="flex:0 0 auto"><span data-t="import_csv"></span><input type="file" accept=".csv,text/csv" class="hidden" onchange="importCsv(this)"></label>
+      <span class="hint" data-t="csv_hint"></span>
+    </div>
+    <div class="form">
+      <input id="nId" data-tp="ph_id"><input id="nName" data-tp="ph_name"><input id="nNameAr" data-tp="ph_name_ar" dir="rtl">
+      <select id="nGender"><option value="">—</option><option value="M">M</option><option value="F">F</option></select>
+      <input id="nDob" type="date"><input id="nBib" data-tp="ph_bib_short">
+      <button class="btn amber sm" onclick="addCandidate()" data-t="add"></button>
+    </div>
+    <div id="aMsg"></div>
+    <div class="row" style="margin-bottom:8px"><span class="kv" id="aCounts"></span></div>
+    <div class="scroll" style="max-height:none"><table><thead><tr><th>ID</th><th data-t="name"></th><th data-t="bib"></th><th>BMI</th><th data-t="status"></th><th data-t="run"></th><th data-t="pushup"></th><th data-t="crunch"></th></tr></thead><tbody id="aTable"></tbody></table></div>
+  </div>
+  <div id="t-rules" class="card hidden">
+    <h2 data-t="t_rules"></h2>
+    <table><tbody id="rTable"></tbody></table>
+    <p class="hint" data-t="rules_hint"></p>
+  </div>
+</section>
+</main>
+
+<script>
+/* ============================== i18n ============================== */
+const I18N = {
+  en: {
+    tagline: "Fitness examination station", today: "Today", simple: "Simple", advanced: "Advanced",
+    r_weigh: "Weigh-in", r_start: "Run · start line", r_finish: "Run · finish line", r_station: "Exercise station",
+    online: "● online", offline: "● server offline",
+    checkin: "Check in", ph_bib: "Bib or ID", ph_finish: "Bib number", ph_bib_short: "Bib", ph_id: "ID", ph_name: "Name", ph_name_ar: "Name (Arabic)",
+    ph_override: "Reason for accepting outside the BMI range (required)",
+    face_later: "Face check-in on the camera comes in a later step; until then type the bib or ID.",
+    measure: "Measurements", weight: "Weight (kg)", height: "Height (cm)", accept_day: "Accept for today", reject: "Reject",
+    bmi_range: "accepted {min} – {max}", out_of_range: "Outside the accepted range. Accepting needs a reason.",
+    accepted_go: "Accepted · go to the run line-up", rejected_done: "Rejected · finished for today",
+    waiting_line: "Accepted, not at the line", at_line: "At the line", not_weighed_yet: "Not weighed yet",
+    mark_present: "At the line", start: "Start", confirm_start: "Press again to start", start_hint: "Mark every runner at the line, then press START twice. Everyone not at the line is marked absent.",
+    elapsed: "Elapsed", started_at: "Started at", missing_list: "Accepted but not at the line", present: "Present",
+    finished: "Finished", needs_review: "Need review", run_not_started: "Waiting for the start.", record_finish: "Finish",
+    no_bib: "Crossing, bib not seen", close_run: "Close run", confirm_close: "Press again: remaining runners become DNF",
+    finish_hint: "Type the bib as each runner crosses and press Enter. The time is taken when you press.",
+    review_queue: "Review queue", assign: "Assign", finishers: "Finishers", time: "Time", status: "Status", bib: "Bib", name: "Name", run: "Run",
+    pushup: "Push-ups", crunch: "Crunches", time_limit: "Time limit", pass_mark: "Pass", waiting_here: "Qualified, not done",
+    manual_count: "Manual count by the examiner until the camera engine is connected.",
+    lane: "Lane", st_empty: "Free", st_verified: "Checked in", st_refused: "Refused", st_running: "Testing", st_done: "Result",
+    verified: "Verified · qualified", start_test: "Start", valid: "valid", rejected_rep: "rejected", stop: "Stop", finish_save: "Save result",
+    confirm_next: "Next candidate", pass: "PASS", fail: "FAIL", cancel_prev: "Cancel the unfinished attempt", clear: "Clear",
+    t_list: "Today's list", t_rules: "Rules", import_csv: "Import CSV", add: "Add",
+    csv_hint: "Columns: external_id, name, name_ar, gender, dob, bib (header row required).",
+    imported: "Imported {n}.", import_errors: "{n} rows skipped:", added: "Added.",
+    rules_hint: "Placeholder values until the official regulation arrives (docs/RULES.md).",
+    s_expected: "expected", s_accepted: "accepted", s_rejected: "rejected (BMI)", s_lined_up: "at the line", s_absent: "absent",
+    s_running: "running", s_run_passed: "run passed", s_run_failed: "run failed", s_dnf: "DNF", s_complete: "complete",
+    e_not_on_todays_list: "Not on today's list", e_already_weighed: "Already weighed in today", e_not_weighed: "Not weighed in yet",
+    e_has_not_run: "Has not run yet", e_still_running: "Still running", e_rejected_at_weigh_in: "Rejected at weigh-in",
+    e_missed_the_run: "Missed the run", e_run_not_passed: "Run not passed", e_run_not_finished: "Run not finished (DNF)",
+    e_event_already_done: "Already done this exercise today", e_already_lined_up: "Already at the line",
+    e_run_already_started: "The run has already started", e_not_eligible: "Not eligible", e_bmi_out_of_range: "BMI out of range: give a reason",
+    e_attempt_in_progress: "An attempt is still open for this candidate", e_nobody_lined_up: "Nobody is at the line",
+    e_run_not_started: "The run has not started", e_run_already_closed: "The run is closed", e_bib_in_use: "Bib already used today",
+    e_missing_fields: "ID and name are required", e_bad_csv: "CSV header must contain external_id and name", e_not_running: "Not running",
+    e_already_resolved: "Already assigned", e_network: "Cannot reach the server", e_unknown: "Error",
+    rule_bmi: "BMI accepted", rule_run: "Run pass time", rule_cutoff: "Run cut-off (DNF)", rule_pushup: "Push-ups to pass", rule_crunch: "Crunches to pass", rule_time: "Exercise time", rule_version: "Rule set",
+  },
+  ar: {
+    tagline: "محطة اختبار اللياقة البدنية", today: "اليوم", simple: "بسيط", advanced: "متقدم",
+    r_weigh: "الوزن", r_start: "الجري · خط البداية", r_finish: "الجري · خط النهاية", r_station: "محطة التمارين",
+    online: "● متصل", offline: "● الخادم غير متصل",
+    checkin: "تسجيل", ph_bib: "الرقم أو الهوية", ph_finish: "رقم العدّاء", ph_bib_short: "الرقم", ph_id: "الهوية", ph_name: "الاسم", ph_name_ar: "الاسم بالعربية",
+    ph_override: "سبب القبول خارج نطاق مؤشر الكتلة (إلزامي)",
+    face_later: "التعرف على الوجه بالكاميرا في خطوة لاحقة؛ حتى ذلك الحين اكتب الرقم أو الهوية.",
+    measure: "القياسات", weight: "الوزن (كغ)", height: "الطول (سم)", accept_day: "قبول لليوم", reject: "رفض",
+    bmi_range: "المقبول {min} – {max}", out_of_range: "خارج النطاق المقبول. القبول يحتاج إلى سبب.",
+    accepted_go: "مقبول · التوجه إلى خط البداية", rejected_done: "مرفوض · انتهى اليوم",
+    waiting_line: "مقبولون لم يصلوا", at_line: "عند الخط", not_weighed_yet: "لم يُوزنوا",
+    mark_present: "عند الخط", start: "انطلاق", confirm_start: "اضغط مرة أخرى للانطلاق", start_hint: "سجّل كل عدّاء عند الخط ثم اضغط انطلاق مرتين. من ليس عند الخط يُسجّل غائباً.",
+    elapsed: "الزمن", started_at: "بدأ في", missing_list: "مقبولون لم يصلوا إلى الخط", present: "حاضر",
+    finished: "أنهوا", needs_review: "للمراجعة", run_not_started: "بانتظار الانطلاق.", record_finish: "وصول",
+    no_bib: "عبور دون رقم", close_run: "إغلاق الجري", confirm_close: "اضغط مرة أخرى: الباقون لم يكملوا",
+    finish_hint: "اكتب رقم كل عدّاء عند عبوره واضغط Enter. يُسجّل الزمن لحظة الضغط.",
+    review_queue: "قائمة المراجعة", assign: "تعيين", finishers: "المنهون", time: "الزمن", status: "الحالة", bib: "الرقم", name: "الاسم", run: "الجري",
+    pushup: "الضغط", crunch: "البطن", time_limit: "الحد الزمني", pass_mark: "النجاح", waiting_here: "مؤهلون لم يختبروا",
+    manual_count: "العد يدوي من الممتحن حتى ربط محرك الكاميرا.",
+    lane: "مسار", st_empty: "متاح", st_verified: "مسجّل", st_refused: "مرفوض", st_running: "جارٍ الاختبار", st_done: "النتيجة",
+    verified: "تم التحقق · مؤهل", start_test: "ابدأ", valid: "صحيحة", rejected_rep: "مرفوضة", stop: "إيقاف", finish_save: "حفظ النتيجة",
+    confirm_next: "المتقدم التالي", pass: "ناجح", fail: "راسب", cancel_prev: "إلغاء المحاولة غير المكتملة", clear: "مسح",
+    t_list: "قائمة اليوم", t_rules: "القواعد", import_csv: "استيراد CSV", add: "إضافة",
+    csv_hint: "الأعمدة: external_id, name, name_ar, gender, dob, bib (مع سطر العناوين).",
+    imported: "تم استيراد {n}.", import_errors: "تم تخطي {n} سطراً:", added: "تمت الإضافة.",
+    rules_hint: "قيم مؤقتة حتى وصول اللائحة الرسمية.",
+    s_expected: "متوقع", s_accepted: "مقبول", s_rejected: "مرفوض (الكتلة)", s_lined_up: "عند الخط", s_absent: "غائب",
+    s_running: "يجري", s_run_passed: "اجتاز الجري", s_run_failed: "رسب في الجري", s_dnf: "لم يكمل", s_complete: "مكتمل",
+    e_not_on_todays_list: "غير موجود في قائمة اليوم", e_already_weighed: "تم وزنه اليوم", e_not_weighed: "لم يُوزن بعد",
+    e_has_not_run: "لم يجرِ بعد", e_still_running: "ما زال يجري", e_rejected_at_weigh_in: "مرفوض في الوزن",
+    e_missed_the_run: "فاته الجري", e_run_not_passed: "لم يجتز الجري", e_run_not_finished: "لم يكمل الجري",
+    e_event_already_done: "أدى هذا التمرين اليوم", e_already_lined_up: "موجود عند الخط",
+    e_run_already_started: "بدأ الجري بالفعل", e_not_eligible: "غير مؤهل", e_bmi_out_of_range: "الكتلة خارج النطاق: أدخل سبباً",
+    e_attempt_in_progress: "توجد محاولة مفتوحة لهذا المتقدم", e_nobody_lined_up: "لا أحد عند الخط",
+    e_run_not_started: "لم يبدأ الجري", e_run_already_closed: "الجري مغلق", e_bib_in_use: "الرقم مستخدم اليوم",
+    e_missing_fields: "الهوية والاسم مطلوبان", e_bad_csv: "يجب أن يحتوي ملف CSV على external_id و name", e_not_running: "لا يجري",
+    e_already_resolved: "تم التعيين", e_network: "تعذر الاتصال بالخادم", e_unknown: "خطأ",
+    rule_bmi: "مؤشر الكتلة المقبول", rule_run: "زمن النجاح في الجري", rule_cutoff: "الحد الأقصى للجري", rule_pushup: "الضغط للنجاح", rule_crunch: "البطن للنجاح", rule_time: "زمن التمرين", rule_version: "القواعد",
+  },
+};
+let lang = load("lang", "en");
+const t = (k, vars) => { let s = I18N[lang][k] ?? I18N.en[k] ?? k; for (const [a, b] of Object.entries(vars || {})) s = s.replace(`{${a}}`, b); return s; };
+const err = e => t("e_" + (e.code || "unknown")) + (I18N.en["e_" + e.code] ? "" : (e.message ? ` (${e.message})` : ""));
+function applyI18n() {
+  document.documentElement.lang = lang; document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
+  document.querySelectorAll("[data-t]").forEach(el => el.textContent = t(el.dataset.t));
+  document.querySelectorAll("[data-tp]").forEach(el => el.placeholder = t(el.dataset.tp));
+  for (const l of ["en", "ar"]) document.getElementById("lang-" + l).classList.toggle("active", l === lang);
+}
+function setLang(l) { lang = l; save("lang", l); applyI18n(); lastReviewSig = ""; lanes.forEach(renderLane); render(); }
+
+/* ============================== helpers ============================== */
+function load(k, d) { try { return localStorage.getItem("tp." + k) ?? d; } catch { return d; } }
+function save(k, v) { try { localStorage.setItem("tp." + k, v); } catch {} }
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const cname = c => (lang === "ar" && c.name_ar) ? c.name_ar : c.name;
+const initials = c => esc((cname(c) || "?").trim().split(/\s+/).map(w => w[0]).slice(0, 2).join(""));
+const fmt = s => { if (s == null) return "—"; const m = Math.floor(s / 60), r = s - m * 60; return `${m}:${r.toFixed(1).padStart(4, "0")}`; };
+const mmss = s => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+const statusPill = s => `<span class="pill ${["run_passed", "complete"].includes(s) ? "ok" : ["rejected", "run_failed", "dnf", "absent"].includes(s) ? "bad" : ["accepted", "lined_up", "running"].includes(s) ? "info" : ""}">${t("s_" + s)}</span>`;
+const msg = (el, kind, text) => { $(el).innerHTML = text ? `<div class="msg ${kind}">${esc(text)}</div>` : ""; };
+const whoHtml = e => `<div class="who"><div class="avatar">${initials(e.candidate)}</div><div><b>${esc(cname(e.candidate))}</b><small>${esc(e.candidate.external_id)} · ${t("bib")} ${esc(e.candidate.bib ?? "—")}</small></div><span class="spacer"></span>${statusPill(e.status)}</div>`;
+
+async function api(method, path, body, raw) {
+  let r;
+  try {
+    r = await fetch(path, { method, headers: raw ? { "content-type": "text/csv" } : (body ? { "content-type": "application/json" } : {}), body: raw ?? (body ? JSON.stringify(body) : undefined) });
+  } catch { setConn(false); throw { code: "network" }; }
+  setConn(true);
+  if (r.status === 204) return null;
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw (data.detail && data.detail.code) ? data.detail : { code: "unknown", message: JSON.stringify(data.detail ?? data) };
+  return data;
+}
+function setConn(ok) { const c = $("conn"); c.textContent = ok ? t("online") : t("offline"); c.className = "conn " + (ok ? "ok" : "bad"); }
+
+/* ============================== state ============================== */
+let S = { state: null, entries: [], crossings: [], rules: null, offset: 0 };
+let role = load("role", "weigh"), mode = load("mode", "simple"), event = load("event", "pushup");
+
+async function refresh() {
+  try {
+    const [state, entries] = await Promise.all([api("GET", "/api/state"), api("GET", "/api/entries")]);
+    S.state = state; S.entries = entries;
+    S.offset = Date.parse(state.server_time) - Date.now();
+    if (role === "finish" || mode === "advanced") S.crossings = await api("GET", "/api/run/crossings");
+    render();
+  } catch (e) { /* connection pill already shows it */ }
+}
+const serverNow = () => Date.now() + S.offset;
+const runElapsed = () => S.state && S.state.run_started_at ? (serverNow() - Date.parse(S.state.run_started_at)) / 1000 : null;
+
+function render() {
+  if (!S.state) return;
+  $("hdrDate").textContent = S.state.date;
+  if (mode === "advanced") renderAdvanced();
+  else ({ weigh: renderWeigh, start: renderStart, finish: renderFinish, station: renderStation })[role]();
+}
+function setRole(r) { role = r; save("role", r); $("role").value = r; for (const x of ["weigh", "start", "finish", "station"]) $("v-" + x).classList.toggle("hidden", x !== r); refresh(); }
+function setMode(m) { mode = m; save("mode", m); $("simple").classList.toggle("hidden", m !== "simple"); $("advanced").classList.toggle("hidden", m !== "advanced");
+  for (const x of ["simple", "advanced"]) $("mode-" + x).classList.toggle("active", x === m); refresh(); }
+function tab(name, btn) { for (const x of ["list", "rules"]) $("t-" + x).classList.toggle("hidden", x !== name); document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("active", b === btn)); }
+
+/* ============================== weigh-in ============================== */
+let wEntry = null;
+async function weighCheckin() {
+  const q = $("wQuery").value.trim(); if (!q) return;
+  msg("wMsg"); $("wWho").innerHTML = ""; setWeighForm(false); wEntry = null;
+  try {
+    const r = await api("POST", "/api/checkin", { station: "weigh", query: q });
+    $("wWho").innerHTML = whoHtml(r.entry);
+    if (r.allowed) { wEntry = r.entry; setWeighForm(true); $("wKg").value = ""; $("wCm").value = ""; bmiPreview(); $("wKg").focus(); }
+    else msg("wMsg", "bad", t("e_" + r.reason));
+  } catch (e) { msg("wMsg", "bad", err(e)); }
+}
+function setWeighForm(on) { $("wForm").style.opacity = on ? 1 : .35; $("wForm").style.pointerEvents = on ? "auto" : "none"; }
+function bmiPreview() {
+  const r = S.rules, kg = parseFloat($("wKg").value), cm = parseFloat($("wCm").value), box = $("wBmi");
+  if (r) $("wRange").textContent = t("bmi_range", { min: r.bmi_min, max: r.bmi_max });
+  const valid = kg > 0 && cm > 50;
+  $("wReject").disabled = !(wEntry && valid); $("wAccept").disabled = !(wEntry && valid);
+  if (!valid) { box.querySelector("b").textContent = "—"; box.className = "bmi"; $("wOverride").classList.add("hidden"); return; }
+  const v = Math.round(kg / ((cm / 100) ** 2) * 10) / 10, ok = v >= r.bmi_min && v <= r.bmi_max;
+  box.querySelector("b").textContent = v.toFixed(1); box.className = "bmi " + (ok ? "ok" : "bad");
+  $("wOverride").classList.toggle("hidden", ok);
+}
+async function weighSubmit(accept) {
+  if (!wEntry) return;
+  try {
+    const e = await api("POST", `/api/entries/${wEntry.id}/weigh-in`, { weight_kg: parseFloat($("wKg").value), height_cm: parseFloat($("wCm").value), accept, override_reason: $("wReason").value || null });
+    $("wWho").innerHTML = whoHtml(e);
+    msg("wMsg", accept ? "ok" : "bad", `BMI ${e.bmi} · ` + (accept ? t("accepted_go") : t("rejected_done")));
+    wEntry = null; setWeighForm(false); $("wReason").value = ""; $("wQuery").value = ""; $("wKg").value = ""; $("wCm").value = ""; bmiPreview(); $("wQuery").focus(); refresh();
+  } catch (e) { msg("wMsg", "bad", err(e)); }
+}
+function renderWeigh() { if (S.rules) $("wRange").textContent = t("bmi_range", { min: S.rules.bmi_min, max: S.rules.bmi_max }); }
+
+/* ============================== run start ============================== */
+let startArmed = false;
+async function lineUp(entryId) {
+  msg("sMsg");
+  try {
+    let id = entryId;
+    if (!id) {
+      const q = $("sQuery").value.trim(); if (!q) return;
+      const r = await api("POST", "/api/checkin", { station: "lineup", query: q });
+      if (!r.allowed) { msg("sMsg", "bad", `${cname(r.entry.candidate)}: ${t("e_" + r.reason)}`); return; }
+      id = r.entry.id;
+    }
+    const e = await api("POST", `/api/entries/${id}/line-up`);
+    msg("sMsg", "ok", `${cname(e.candidate)} · ${t("s_lined_up")}`); $("sQuery").value = ""; $("sQuery").focus(); refresh();
+  } catch (e) { msg("sMsg", "bad", err(e)); }
+}
+async function massStart() {
+  if (!startArmed) { startArmed = true; renderStart(); setTimeout(() => { startArmed = false; renderStart(); }, 4000); return; }
+  startArmed = false;
+  try { await api("POST", "/api/run/start"); refresh(); } catch (e) { msg("sMsg", "bad", err(e)); }
+}
+function renderStart() {
+  const c = S.state.counts, started = !!S.state.run_started_at;
+  $("sAccepted").textContent = c.accepted; $("sLined").textContent = started ? c.running + c.run_passed + c.run_failed + c.dnf + c.complete : c.lined_up; $("sNotWeighed").textContent = c.expected;
+  $("sBefore").classList.toggle("hidden", started); $("sAfter").classList.toggle("hidden", !started);
+  $("sStart").disabled = c.lined_up === 0; $("sStart").textContent = startArmed ? t("confirm_start") : t("start");
+  if (started) $("sAt").textContent = new Date(S.state.run_started_at).toLocaleTimeString(lang === "ar" ? "ar-EG" : "en-GB");
+  const missing = S.entries.filter(e => e.status === (started ? "absent" : "accepted"));
+  $("sMissing").innerHTML = missing.map(e => `<tr><td class="t">${esc(e.candidate.bib ?? "—")}</td><td>${esc(cname(e.candidate))}</td><td>${started ? statusPill(e.status) : `<button class="btn go sm" onclick="lineUp(${e.id})">${t("present")}</button>`}</td></tr>`).join("") || `<tr><td colspan="3" class="hint">—</td></tr>`;
+}
+
+/* ============================== run finish ============================== */
+let closeArmed = false, lastReviewSig = "";
+async function finish(withBib) {
+  const bib = withBib ? $("fBib").value.trim() : null;
+  if (withBib && !bib) return;
+  try {
+    const c = await api("POST", "/api/run/finish", { bib });
+    const e = S.entries.find(x => x.id === c.entry_id);
+    msg("fMsg", c.needs_review ? "warn" : "ok", `${fmt(c.time_s)} · ` + (c.needs_review ? `${t("needs_review")}: ${c.note}` : cname(e ? e.candidate : { name: bib })));
+    $("fBib").value = ""; $("fBib").focus(); refresh();
+  } catch (e) { msg("fMsg", "bad", err(e)); }
+}
+async function resolveCrossing(cid) {
+  const id = parseInt($("rs-" + cid).value); if (!id) return;
+  try { await api("POST", `/api/run/crossings/${cid}/resolve`, { entry_id: id }); refresh(); } catch (e) { msg("fMsg", "bad", err(e)); }
+}
+async function closeRun() {
+  if (!closeArmed) { closeArmed = true; $("fClose").textContent = t("confirm_close"); setTimeout(() => { closeArmed = false; $("fClose").textContent = t("close_run"); }, 4000); return; }
+  closeArmed = false; $("fClose").textContent = t("close_run");
+  try { await api("POST", "/api/run/close"); refresh(); } catch (e) { msg("fMsg", "bad", err(e)); }
+}
+function renderFinish() {
+  const started = !!S.state.run_started_at, closed = !!S.state.run_closed_at;
+  $("fNotStarted").classList.toggle("hidden", started); $("fLive").classList.toggle("hidden", !started || closed);
+  const byId = Object.fromEntries(S.entries.map(e => [e.id, e]));
+  const done = S.crossings.filter(c => !c.needs_review);
+  $("fCount").textContent = done.length; $("fReview").textContent = S.state.review_queue;
+  $("fTable").innerHTML = done.slice().reverse().map((c, i) => { const e = byId[c.entry_id]; return `<tr><td>${done.length - i}</td><td class="t">${esc(e?.candidate.bib ?? c.bib_read ?? "?")}</td><td>${esc(e ? cname(e.candidate) : "—")}</td><td class="t">${fmt(c.time_s)}</td><td>${e ? statusPill(e.status) : ""}</td></tr>`; }).join("") || `<tr><td colspan="5" class="hint">—</td></tr>`;
+  const review = S.crossings.filter(c => c.needs_review), runners = S.entries.filter(e => e.status === "running");
+  $("fReviewBox").classList.toggle("hidden", review.length === 0);
+  // Redraw only when the queue or the runner list changed, so an open dropdown is not closed under the examiner.
+  const sig = lang + "|" + review.map(c => c.id).join(",") + "|" + runners.map(e => e.id).join(",");
+  if (sig === lastReviewSig) return;
+  lastReviewSig = sig;
+  const keep = Object.fromEntries(review.map(c => [c.id, $("rs-" + c.id)?.value]));
+  $("fReviewTable").innerHTML = review.map(c => `<tr><td class="t">${fmt(c.time_s)}</td><td class="hint">${esc(c.note ?? "")}</td><td><select id="rs-${c.id}"><option value="">—</option>${runners.map(e => `<option value="${e.id}" ${keep[c.id] == e.id ? "selected" : ""}>${esc(e.candidate.bib ?? "")} · ${esc(cname(e.candidate))}</option>`).join("")}</select></td><td><button class="btn amber sm" onclick="resolveCrossing(${c.id})">${t("assign")}</button></td></tr>`).join("");
+}
+function tickClocks() {
+  const el = runElapsed();
+  $("clock").textContent = new Date(serverNow()).toLocaleTimeString(lang === "ar" ? "ar-EG" : "en-GB");
+  if (el != null && !(S.state && S.state.run_closed_at)) { $("sClock").textContent = mmss(el); $("fClock").textContent = mmss(el); }
+  // Only the timer text changes each second; the tap buttons are not redrawn, so no tap is lost.
+  lanes.forEach(l => {
+    if (l.state !== "running") return;
+    const left = Math.max(0, limit() - Math.floor((Date.now() - l.t0) / 1000));
+    if (left === l.left) return;
+    l.left = left;
+    if (left === 0) { stopLane(l.n); return; }
+    const tm = $("lt-" + l.n); if (tm) { tm.textContent = mmss(left); tm.classList.toggle("low", left <= 10); }
+  });
+}
+
+/* ============================== exercise station ============================== */
+const limit = () => (S.rules ? S.rules.exercise_time_s : 120);
+const lanes = [1, 2, 3].map(n => ({ n, state: "empty", entry: null, reason: null, attempt: null, count: 0, rejected: 0, t0: 0, left: 0, result: null, error: null }));
+function setEvent(e) {
+  if (lanes.some(l => l.state === "running")) return;
+  event = e; save("event", e); lanes.forEach(l => resetLane(l.n, true)); renderStation();
+}
+function resetLane(n, quiet) { Object.assign(lanes[n - 1], { state: "empty", entry: null, reason: null, attempt: null, count: 0, rejected: 0, result: null, error: null }); if (!quiet) renderLane(lanes[n - 1]); }
+async function laneCheckin(n, query) {
+  const l = lanes[n - 1], q = (query ?? $("lq-" + n)?.value ?? "").trim(); if (!q) return;
+  l.error = null;
+  try {
+    const r = await api("POST", "/api/checkin", { station: event, query: q });
+    if (lanes.some(o => o !== l && o.entry && o.entry.id === r.entry.id)) { l.error = t("e_attempt_in_progress"); renderLane(l); return; }
+    l.entry = r.entry; l.reason = r.reason; l.state = r.allowed ? "verified" : "refused";
+    const open = r.entry.events[event];
+    if (open && open.status === "running") l.reason = "attempt_in_progress";   // e.g. the tablet was reloaded mid-test
+  } catch (e) { l.error = err(e); }
+  renderLane(l);
+}
+async function startLane(n) {
+  const l = lanes[n - 1];
+  try {
+    l.attempt = await api("POST", "/api/attempts", { entry_id: l.entry.id, event, lane: String(n) });
+    Object.assign(l, { state: "running", count: 0, rejected: 0, t0: Date.now(), left: limit(), error: null });
+  } catch (e) {
+    if (e.code === "attempt_in_progress") l.reason = "attempt_in_progress"; else l.error = err(e);
+  }
+  renderLane(l);
+}
+async function cancelOpen(n) {
+  const l = lanes[n - 1], fresh = await api("GET", `/api/entries/${l.entry.id}`).catch(() => null);
+  const open = fresh && Object.values(fresh.events).find(a => a.status === "running");
+  if (open) { try { await api("POST", `/api/attempts/${open.attempt_id}/cancel`); } catch (e) { l.error = err(e); renderLane(l); return; } }
+  const q = l.entry.candidate.bib || l.entry.candidate.external_id;
+  resetLane(n, true); await laneCheckin(n, q);
+}
+function tap(n, which, d) {
+  const l = lanes[n - 1]; if (l.state !== "running" && l.state !== "stopped") return;
+  l[which] = Math.max(0, l[which] + d);
+  $("lc-" + n).textContent = l.count; $("lr-" + n).textContent = l.rejected;   // no redraw: keeps the buttons under the finger
+}
+function stopLane(n) { const l = lanes[n - 1]; if (l.state === "running") { l.state = "stopped"; renderLane(l); } }
+async function saveLane(n) {
+  const l = lanes[n - 1];
+  try { l.result = await api("POST", `/api/attempts/${l.attempt.id}/finish`, { count: l.count, rejected: l.rejected }); l.state = "done"; refresh(); }
+  catch (e) { l.error = err(e); }
+  renderLane(l);
+}
+function renderLane(l) {
+  const el = $("lane-" + l.n); if (!el) return;
+  const st = l.state === "stopped" ? "running" : l.state;
+  el.dataset.state = st;
+  const head = `<div class="lane-head"><span class="lane-num">${l.n}</span><span class="tagline">${t("st_" + (l.state === "stopped" ? "running" : l.state))}</span><span class="spacer"></span>${l.entry ? `<span class="pill">${t("bib")} ${esc(l.entry.candidate.bib ?? "—")}</span>` : ""}</div>`;
+  const error = l.error ? `<div class="msg bad">${esc(l.error)}</div>` : "";
+  let body = "";
+  if (l.state === "empty") {
+    body = `<div class="search"><input id="lq-${l.n}" placeholder="${t("ph_bib")}" autocomplete="off" onkeydown="if(event.key==='Enter')laneCheckin(${l.n})"><button class="btn amber" onclick="laneCheckin(${l.n})">${t("checkin")}</button></div>`;
+  } else if (l.state === "refused") {
+    body = whoHtml(l.entry) + `<div class="msg bad">${t("e_" + l.reason)}</div>` + (l.reason === "attempt_in_progress" ? `<button class="btn" onclick="cancelOpen(${l.n})">${t("cancel_prev")}</button>` : "") + `<div class="row" style="margin-top:auto"><button class="btn" onclick="resetLane(${l.n})">${t("clear")}</button></div>`;
+  } else if (l.state === "verified") {
+    const open = l.reason === "attempt_in_progress";
+    body = whoHtml(l.entry) + `<div class="msg ok">${t("verified")} · ${t("run")} ${fmt(l.entry.run_time_s)}</div>`
+      + (open ? `<div class="msg warn">${t("e_attempt_in_progress")}</div><button class="btn" onclick="cancelOpen(${l.n})">${t("cancel_prev")}</button>` : "")
+      + `<div class="row" style="margin-top:auto"><button class="btn go xl" onclick="startLane(${l.n})" ${open ? "disabled" : ""}>${t("start_test")}</button></div><button class="btn ghost sm" onclick="resetLane(${l.n})">${t("clear")}</button>`;
+  } else if (l.state === "running" || l.state === "stopped") {
+    const left = l.state === "running" ? l.left : 0;
+    body = whoHtml(l.entry) + `<div class="count"><span id="lc-${l.n}">${l.count}</span><small>${t("valid")} · <span id="lr-${l.n}">${l.rejected}</span> ${t("rejected_rep")}</small></div><div class="timer ${left <= 10 ? "low" : ""}" id="lt-${l.n}">${mmss(left)}</div>
+      <div class="tap"><button class="btn go" onclick="tap(${l.n},'count',1)">+1 ${t("valid")}</button><button class="btn" onclick="tap(${l.n},'count',-1)">−1</button><button class="btn stop" onclick="tap(${l.n},'rejected',1)">+1 ✗</button></div>
+      <div class="row" style="margin-top:auto">${l.state === "running" ? `<button class="btn stop" onclick="stopLane(${l.n})">${t("stop")}</button>` : `<button class="btn amber xl" onclick="saveLane(${l.n})">${t("finish_save")}</button>`}</div>`;
+  } else if (l.state === "done") {
+    const r = l.result;
+    body = whoHtml(l.entry) + `<div class="count">${r.count}<small>${t("valid")} · ${r.rejected} ${t("rejected_rep")}</small></div><div class="verdict ${r.passed ? "pass" : "fail"}">${r.passed ? t("pass") : t("fail")}</div><div class="row" style="margin-top:auto"><button class="btn amber xl" onclick="resetLane(${l.n})">${t("confirm_next")}</button></div>`;
+  }
+  const keep = $("lq-" + l.n)?.value;
+  el.innerHTML = head + error + body;
+  if (keep && $("lq-" + l.n)) $("lq-" + l.n).value = keep;
+}
+function renderStation() {
+  for (const x of ["pushup", "crunch"]) $("ev-" + x).classList.toggle("active", x === event);
+  if (S.rules) { $("xLimit").textContent = mmss(S.rules.exercise_time_s).replace(/^0/, ""); $("xPass").textContent = S.rules[event + "_pass"]; }
+  $("xWaiting").textContent = S.entries.filter(e => e.status === "run_passed" && !(e.events[event] && e.events[event].status === "finished")).length;
+  const host = $("lanes");
+  if (!host.children.length) lanes.forEach(l => { const d = document.createElement("div"); d.className = "lane"; d.id = "lane-" + l.n; host.appendChild(d); renderLane(l); });
+}
+
+/* ============================== advanced ============================== */
+async function addCandidate() {
+  try {
+    await api("POST", "/api/entries", { external_id: $("nId").value, name: $("nName").value, name_ar: $("nNameAr").value || null, gender: $("nGender").value || null, dob: $("nDob").value || null, bib: $("nBib").value || null });
+    msg("aMsg", "ok", t("added")); ["nId", "nName", "nNameAr", "nDob", "nBib"].forEach(i => $(i).value = ""); $("nGender").value = ""; refresh();
+  } catch (e) { msg("aMsg", "bad", err(e)); }
+}
+async function importCsv(input) {
+  const f = input.files[0]; if (!f) return;
+  try {
+    const r = await api("POST", "/api/entries/import", null, await f.text());
+    msg("aMsg", r.errors.length ? "warn" : "ok", t("imported", { n: r.added }) + (r.errors.length ? " " + t("import_errors", { n: r.errors.length }) + " " + r.errors.map(x => `#${x.line} ${x.message}`).join("; ") : ""));
+    refresh();
+  } catch (e) { msg("aMsg", "bad", err(e)); }
+  input.value = "";
+}
+function renderAdvanced() {
+  const c = S.state.counts;
+  $("aCounts").innerHTML = Object.entries(c).filter(([, v]) => v).map(([k, v]) => `${statusPill(k)} <b>${v}</b>`).join(" &nbsp; ") || "—";
+  const ev = (e, k) => { const a = e.events[k]; return !a ? "—" : a.status === "running" ? `<span class="pill info">…</span>` : `${a.count} ${a.passed ? "✓" : "✗"}`; };
+  $("aTable").innerHTML = S.entries.map(e => `<tr><td>${esc(e.candidate.external_id)}</td><td>${esc(cname(e.candidate))}</td><td class="t">${esc(e.candidate.bib ?? "—")}</td><td>${e.bmi ?? "—"}</td><td>${statusPill(e.status)}</td><td class="t">${fmt(e.run_time_s)}</td><td>${ev(e, "pushup")}</td><td>${ev(e, "crunch")}</td></tr>`).join("") || `<tr><td colspan="8" class="hint">—</td></tr>`;
+  const r = S.rules;
+  if (r) $("rTable").innerHTML = [["rule_bmi", `${r.bmi_min} – ${r.bmi_max}`], ["rule_run", fmt(r.run_pass_s)], ["rule_cutoff", fmt(r.run_cutoff_s)], ["rule_pushup", r.pushup_pass], ["rule_crunch", r.crunch_pass], ["rule_time", `${r.exercise_time_s} s`], ["rule_version", r.version]].map(([k, v]) => `<tr><th>${t(k)}</th><td class="t">${esc(v)}</td></tr>`).join("");
+}
+
+/* ============================== boot ============================== */
+(async function boot() {
+  applyI18n();
+  $("role").value = role; setMode(mode); setRole(role); setEvent(event);
+  try { S.rules = await api("GET", "/api/rules"); } catch {}
+  await refresh();
+  setInterval(refresh, 2000);
+  setInterval(tickClocks, 250);
+})();
+</script>
+</body>
+</html>
