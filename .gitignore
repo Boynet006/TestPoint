@@ -10,3 +10,5 @@ data/
 *.mp4
 *.avi
 *.onnx
+.env
+*.tar

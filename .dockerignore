@@ -1,0 +1,24 @@
+# Keep the build context small: only pyproject.toml, src/, scripts/, tests/,
+# docker/ and web/ are needed by the Dockerfile.
+.git
+.gitignore
+.venv
+.claude
+.env
+.env.*
+.pytest_cache
+.ruff_cache
+**/__pycache__
+**/*.pyc
+**/*.egg-info
+build
+dist
+data
+docs
+README.md
+*.mp4
+*.avi
+*.onnx
+*.tar
+compose.yaml
+Dockerfile

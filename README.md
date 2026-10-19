@@ -33,6 +33,11 @@ TestPoint/
     cli.py              demo: count reps per lane on a webcam, video file or RTSP camera
   scripts/bench_pose.py pose pipeline benchmark (cpu vs cuda, all rtmlib modes)
   tests/                unit tests (no camera or model needed)
+  docker/               build helpers (model download for the offline images)
+  web/prototype/        clickable UI mock-up
+  Dockerfile            images: gpu, cpu, test, prototype
+  compose.yaml          services: prototype, engine (gpu), engine-cpu, tests
+  .env.example          camera address and settings for compose
   pyproject.toml        package + dependencies
 ```
 
@@ -155,6 +160,114 @@ numbers are dominated by the fixed per-model cost. `balanced` at 1080p leaves
 headroom for two cameras at 20 fps on one GPU; `performance` is at the limit for
 a single 30 fps stream.
 
+## Docker
+
+Everything also ships as Docker images, which is how the station PC will be
+installed: one tested image per role, no Python setup on site, and an offline
+transfer with `docker save` / `docker load`.
+
+| Image | Dockerfile target | What it is |
+|-------|-------------------|------------|
+| `testpoint/engine-gpu` | `gpu` (default) | Rep-counting engine on the NVIDIA GPU, models baked in |
+| `testpoint/engine-cpu` | `cpu` | Same engine on the CPU (laptops, CI) |
+| `testpoint/tests` | `test` | Runs the unit tests |
+| `testpoint/prototype` | `prototype` | The UI mock-up on nginx |
+
+The GPU image is several GB because it carries the CUDA 13 and cuDNN runtime.
+Only the NVIDIA driver comes from the host.
+
+### Install Docker on the Windows PC (once)
+
+Docker on Windows runs Linux containers inside WSL2. Both steps need an
+administrator PowerShell and a reboot after the first one.
+
+```bash
+wsl --install
+```
+
+```bash
+winget install -e --id Docker.DockerDesktop
+```
+
+GPU access works out of the box with Docker Desktop and the installed NVIDIA
+driver. Docker Desktop is free only for personal use, education and small
+businesses; larger organisations need a paid subscription. The free
+alternative is Docker Engine installed inside the WSL2 Ubuntu distribution
+plus the NVIDIA Container Toolkit.
+
+### Build and run
+
+Copy the settings file and put the camera address in it:
+
+```bash
+copy .env.example .env
+```
+
+Build all images. Profiled services are only built when their profile is named:
+
+```bash
+docker compose --profile gpu --profile cpu --profile test build
+```
+
+Run the unit tests:
+
+```bash
+docker compose --profile test run --rm tests
+```
+
+Check that the container really uses the GPU (the provider column must say
+`CUDAExecutionProvider`):
+
+```bash
+docker compose --profile gpu run --rm --entrypoint python engine scripts/bench_pose.py --device cuda --mode balanced
+```
+
+Count reps from the camera in `CAMERA_URL`; the annotated video is written to
+`data/` on the host:
+
+```bash
+docker compose --profile gpu up engine
+```
+
+Count reps in a recorded clip placed in `data/`:
+
+```bash
+docker compose --profile gpu run --rm engine --exercise pushup --source /data/clip.mp4 --lanes 3 --device cuda --out /data/clip-annotated.mp4
+```
+
+Serve the UI prototype on http://localhost:8080:
+
+```bash
+docker compose up -d prototype
+```
+
+### Move to the offline site
+
+On a machine with internet, after building:
+
+```bash
+docker save testpoint/engine-gpu:0.1.0 testpoint/prototype:0.1.0 -o testpoint-images.tar
+```
+
+On the station PC (Docker installed from an offline installer), copy the tar
+file, `compose.yaml` and `.env`, then:
+
+```bash
+docker load -i testpoint-images.tar
+```
+
+```bash
+docker compose up -d --no-build prototype
+```
+
+### Limits inside a container
+
+- USB webcams (`--source 0`) and the preview window (`--show`) do not work in
+  Docker on Windows. Use the RTSP cameras or video files, and `--out` to watch
+  the result.
+- The UI prototype loads its fonts from Google Fonts. Offline it falls back to
+  system fonts; the Phase 2 UI bundles its fonts.
+
 ## Status (2026-10-15)
 
 - Unit tests: 42 passing (`pytest`).
@@ -165,4 +278,7 @@ a single 30 fps stream.
   `balanced` mode at ~42 fps for 1080p frames (CPU was ~1.5 fps). See *GPU setup*.
 - `web/prototype/index.html` is a clickable UI mock-up (no backend) of the
   Simple/Advanced modes and the check-in → test → result flow.
+- Docker (2026-10-19): Dockerfile, `compose.yaml` and `.env.example` written;
+  the Linux dependency set resolves and the model-fetch script runs, but the
+  images have not been built yet because Docker is not installed on this PC.
 

@@ -1,0 +1,73 @@
+# TestPoint services.
+#
+#   docker compose up -d prototype                    UI mock-up on http://localhost:8080
+#   docker compose --profile gpu up engine            count reps from CAMERA_URL on the GPU
+#   docker compose --profile cpu up engine-cpu        same on the CPU (slow, for testing)
+#   docker compose --profile test run --rm tests      unit tests
+#
+# Settings come from a .env file next to this one (copy .env.example).
+
+name: testpoint
+
+# Output videos and lane files live in ./data on the host (/data in the container).
+x-engine: &engine
+  volumes:
+    - ./data:/data
+
+services:
+  prototype:
+    build:
+      context: .
+      target: prototype
+    image: testpoint/prototype:${TESTPOINT_VERSION:-0.1.0}
+    ports:
+      - "${PROTOTYPE_PORT:-8080}:80"
+    restart: unless-stopped
+
+  engine:
+    <<: *engine
+    profiles: [gpu]
+    build:
+      context: .
+      target: gpu
+      args:
+        MODEL_MODES: ${MODEL_MODES:-lightweight balanced}
+    image: testpoint/engine-gpu:${TESTPOINT_VERSION:-0.1.0}
+    command:
+      - --exercise=${EXERCISE:-pushup}
+      - --source=${CAMERA_URL:-rtsp://set-CAMERA_URL-in-.env}
+      - --lanes=${LANES:-3}
+      - --device=cuda
+      - --mode=${POSE_MODE:-balanced}
+      - --out=/data/${EXERCISE:-pushup}-annotated.mp4
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  engine-cpu:
+    <<: *engine
+    profiles: [cpu]
+    build:
+      context: .
+      target: cpu
+      args:
+        MODEL_MODES: ${MODEL_MODES:-lightweight balanced}
+    image: testpoint/engine-cpu:${TESTPOINT_VERSION:-0.1.0}
+    command:
+      - --exercise=${EXERCISE:-pushup}
+      - --source=${CAMERA_URL:-rtsp://set-CAMERA_URL-in-.env}
+      - --lanes=${LANES:-3}
+      - --device=cpu
+      - --mode=lightweight
+      - --out=/data/${EXERCISE:-pushup}-annotated.mp4
+
+  tests:
+    profiles: [test]
+    build:
+      context: .
+      target: test
+    image: testpoint/tests:${TESTPOINT_VERSION:-0.1.0}

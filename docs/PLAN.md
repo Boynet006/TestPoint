@@ -192,6 +192,10 @@ multiple sources per crossing).
 
 - Installer / service setup on the PC (auto-start, logs, backups), fully
   offline: bundled models, wheels and fonts; UPS and evidence disk.
+  Packaging is Docker images run by Docker Compose (Dockerfile and
+  `compose.yaml` started 2026-10-19), moved to the site with
+  `docker save` / `docker load`. The Phase 2 API, database and UI become
+  further services in the same compose file.
 - Load test, failure drills (camera unplugged, PC reboot mid-session).
 - Role-based access (examiner vs administrator), audit export.
 - User manual for Simple mode, admin manual for Advanced mode.
