@@ -35,6 +35,8 @@ TestPoint/
   tests/                unit tests (no camera or model needed)
   docker/               build helpers (model download for the offline images)
   web/prototype/        clickable UI mock-up
+  Start TestPoint.cmd   double-click to start (Docker Desktop + services + UI)
+  Stop TestPoint.cmd    double-click to stop
   Dockerfile            images: gpu, cpu, test, prototype
   compose.yaml          services: prototype, engine (gpu), engine-cpu, tests
   .env.example          camera address and settings for compose
@@ -198,6 +200,30 @@ driver. Docker Desktop is free only for personal use, education and small
 businesses; larger organisations need a paid subscription. The free
 alternative is Docker Engine installed inside the WSL2 Ubuntu distribution
 plus the NVIDIA Container Toolkit.
+
+### One-click start and stop
+
+Double-click **Start TestPoint.cmd** in the project folder. It starts Docker
+Desktop if needed, waits for it, starts the station services from the images
+already on the PC (no internet needed) and opens the station UI. **Stop
+TestPoint.cmd** stops the services. Both call `scripts/testpoint.ps1`, which
+also works from a PowerShell prompt:
+
+```bash
+powershell -ExecutionPolicy Bypass -File scripts\testpoint.ps1 status
+```
+
+| Action | What it does |
+|--------|--------------|
+| `start` | Docker Desktop up, services up, browser opens. Add `-Engine` (or `START_ENGINE=1` in `.env`) to also start the rep-counting engine on `CAMERA_URL`; `-NoBrowser` skips the browser. |
+| `stop` | Stops and removes the TestPoint containers. Docker Desktop keeps running. |
+| `status` | Docker engine, running services and the UI address. |
+| `logs` | Follows the services' logs (Ctrl+C to leave). |
+
+For a station PC that should come up on its own after a power cut, enable
+Docker Desktop → Settings → General → *Start Docker Desktop when you sign in*.
+The prototype service has `restart: unless-stopped`, so it comes back by
+itself once Docker is up; no script needs to run.
 
 ### Build and run
 
