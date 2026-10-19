@@ -18,6 +18,16 @@ a choice in the camera-source picker, not a code change.
 Use photos of people who agreed to take part. Face data is personal data;
 remove it after the demo with the ✕ next to the thumbnail.
 
+## Ready-made demo files on this PC
+
+`data/demo/` (not in git) holds a demo set made from one portrait:
+
+| File | Use |
+|------|-----|
+| `candidate-1.webp` | Enrolled as **Demo Candidate 1**, bib 21 |
+| `checkin-photo.jpg` | Weigh-in → **Photo**: the same person as a desk camera would see him |
+| `checkin-video.webm` | Weigh-in → **Video file** with **Auto** on: recognised in about 2 s |
+
 ## Run the demo
 
 1. Back in **Simple**, choose **Weigh-in** as this device's role.
@@ -53,6 +63,8 @@ remove it after the demo with the ✕ next to the thumbnail.
   blurred, resized: 12 of 12 correct, strangers all "not sure"). Two genuinely
   different photos of the same person, under real lighting, are harder; the
   real accuracy has to be measured with the webcam and real candidates.
+- Close-up portraits (face filling the frame) and small faces in large frames are
+  both handled: detection runs at 640 px first, then 1280 px.
 - Faces smaller than 40 pixels are refused; at a check-in desk faces are
   several hundred pixels wide.
 - A video or photo can be shown to the camera instead of a real person. Real

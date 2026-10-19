@@ -123,15 +123,22 @@ class FaceEngine:
     def largest_face(self, img: np.ndarray, require_single: bool = False) -> Face:
         import cv2
 
-        # Large photos are scaled down for detection; boxes are mapped back.
+        # YuNet works best around 640 px. Try that first (close-up portraits, where the face
+        # fills the frame, are missed at full size), then 1280 px for small faces in big frames.
         h, w = img.shape[:2]
-        scale = min(1.0, 1280.0 / max(h, w))
-        small = cv2.resize(img, (int(w * scale), int(h * scale))) if scale < 1 else img
-        faces = self.detect(small)
+        faces = np.zeros((0, 15), np.float32)
+        for target in (640.0, 1280.0):
+            scale = min(1.0, target / max(h, w))
+            small = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA) if scale < 1 else img
+            found = self.detect(small)
+            if len(found):
+                faces = found.copy()
+                faces[:, :14] /= scale
+                break
+            if scale == 1.0:
+                break
         if len(faces) == 0:
             raise FaceError("no_face", "no face found in the picture")
-        faces = faces.copy()
-        faces[:, :14] /= scale
         big = [f for f in faces if min(f[2], f[3]) >= MIN_FACE_PX]
         if not big:
             raise FaceError("face_too_small", "the face is too small; move closer to the camera")
