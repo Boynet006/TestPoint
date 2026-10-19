@@ -48,14 +48,14 @@ def entry_by_bib(client, bib):
 def test_import_and_list(client):
     res = ok(client.post("/api/entries/import", content=CSV.encode("utf-8"),
                          headers={"content-type": "text/csv"}))
-    assert res == {"added": 5, "errors": []}
+    assert res == {"added": 5, "updated": 0, "unchanged": 0, "errors": []}
     rows = ok(client.get("/api/entries"))
     assert [r["candidate"]["bib"] for r in rows] == ["11", "12", "13", "14", "15"]
     assert rows[0]["candidate"]["name_ar"] == "أحمد حسن"
     assert ok(client.get("/api/state"))["counts"]["expected"] == 5
     # duplicate bib is refused, re-importing the same people is harmless
     err(client.post("/api/entries", json={"external_id": "C-9", "name": "X", "bib": "11"}), 409, "bib_in_use")
-    assert ok(client.post("/api/entries/import", content=CSV.encode()))["added"] == 5
+    assert ok(client.post("/api/entries/import", content=CSV.encode()))["unchanged"] == 5
     assert ok(client.get("/api/state"))["total"] == 5
 
 
@@ -106,7 +106,8 @@ def test_full_day(client, monkeypatch):
     assert a["time_s"] == 852.0 and not a["needs_review"]
     unknown = cross(None, 15.0)                    # bib hidden -> review queue
     assert unknown["needs_review"] and unknown["note"] == "no bib read"
-    assert cross("14", 15.5)["needs_review"]       # rejected candidate's bib -> review
+    ghost = cross("14", 15.5)                      # rejected candidate's bib -> review
+    assert ghost["needs_review"]
     cross("13", 17.0)                              # over 16:00 -> fail
     assert ok(client.get("/api/state"))["review_queue"] == 2
 
@@ -116,6 +117,8 @@ def test_full_day(client, monkeypatch):
     statuses = {b: ok(client.get(f"/api/entries/{ids[b]}"))["status"] for b in ids}
     assert statuses == {11: "run_passed", 12: "run_passed", 13: "run_failed",
                         14: "rejected", 15: "absent"}
+    err(client.post("/api/run/close"), 409, "review_pending")    # the bib-14 crossing is still open
+    assert client.delete(f"/api/run/crossings/{ghost['id']}").status_code == 204
     ok(client.post("/api/run/close"))
 
     # stations: failed / absent refused, passed accepted once per event

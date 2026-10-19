@@ -132,4 +132,10 @@ def make_sessionmaker(db_url: str) -> sessionmaker:
             cur.execute("PRAGMA journal_mode=WAL")   # crash-safe, readers don't block the writer
             cur.close()
     Base.metadata.create_all(engine)
+    with engine.begin() as conn:
+        # At most one running attempt per candidate, enforced by the database itself
+        # (a double tap or two devices cannot create two). IF NOT EXISTS also upgrades
+        # databases created before this index existed.
+        conn.exec_driver_sql("CREATE UNIQUE INDEX IF NOT EXISTS uq_attempt_one_running "
+                             "ON attempt (entry_id) WHERE status = 'running'")
     return sessionmaker(engine, expire_on_commit=False)

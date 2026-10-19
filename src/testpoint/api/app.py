@@ -15,7 +15,10 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+import asyncio
+
 from fastapi import Depends, FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -73,7 +76,7 @@ class CandidateIn(BaseModel):
     external_id: str
     name: str
     name_ar: str | None = None
-    gender: str | None = Field(default=None, pattern="^[MF]$")
+    gender: str | None = None
     dob: str | None = None
     bib: str | None = None
 
@@ -102,6 +105,10 @@ class AttemptIn(BaseModel):
     entry_id: int
     event: str
     lane: str | None = None
+
+
+class UndoIn(BaseModel):
+    reason: str | None = None
 
 
 class AttemptResultIn(BaseModel):
@@ -163,6 +170,28 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
             response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
         return response
 
+    # One change at a time: every station checks a rule, then writes. Serialising the writes
+    # (one server process, SQLite) removes the races between devices, e.g. a line-up that
+    # lands during the mass start, a double START or a double-tapped "Start test".
+    write_lock = asyncio.Lock()
+    MAX_BODY = 15 * 1024 * 1024
+
+    @app.middleware("http")
+    async def _one_writer(request: Request, call_next):
+        if request.method in ("GET", "HEAD", "OPTIONS"):
+            return await call_next(request)
+        if int(request.headers.get("content-length") or 0) > MAX_BODY:
+            return JSONResponse({"detail": {"code": "too_large", "message": "upload larger than 15 MB"}}, 413)
+        async with write_lock:
+            return await call_next(request)
+
+    @app.exception_handler(RequestValidationError)
+    async def _bad_input(_: Request, e: RequestValidationError) -> JSONResponse:
+        first = e.errors()[0] if e.errors() else {}
+        field = ".".join(str(x) for x in first.get("loc", [])[1:]) or "input"
+        return JSONResponse({"detail": {"code": "bad_input", "message": f"{field}: {first.get('msg', 'invalid')}"}},
+                            status_code=422)
+
     @app.exception_handler(S.ServiceError)
     async def _service_error(_: Request, e: S.ServiceError) -> JSONResponse:
         return JSONResponse({"detail": {"code": e.code, "message": e.message}}, status_code=e.status)
@@ -208,7 +237,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     @app.post("/api/entries/import")
     async def import_csv(request: Request, db: Session = Depends(get_db),
                          day: Day = Depends(get_day)) -> dict:
-        text = (await request.body()).decode("utf-8-sig", errors="replace")
+        text = S.decode_csv(await request.body())
         return S.import_csv(db, day, text)
 
     # ------------------------------------------------------------------ check-in
@@ -264,6 +293,33 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     @app.post("/api/entries/{entry_id}/line-up")
     def line_up(entry_id: int, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
         return entry_out(S.line_up(db, day, S.get_entry(db, day, entry_id)), day)
+
+    @app.post("/api/entries/{entry_id}/line-up/undo")
+    def line_up_undo(entry_id: int, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        return entry_out(S.undo_line_up(db, day, S.get_entry(db, day, entry_id)), day)
+
+    @app.post("/api/entries/{entry_id}/weigh-in/undo")
+    def weigh_in_undo(entry_id: int, body: UndoIn | None = None, db: Session = Depends(get_db),
+                      day: Day = Depends(get_day)) -> dict:
+        reason = body.reason if body else None
+        return entry_out(S.undo_weigh_in(db, day, S.get_entry(db, day, entry_id), reason), day)
+
+    @app.delete("/api/entries/{entry_id}", status_code=204)
+    def entry_remove(entry_id: int, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> None:
+        S.remove_entry(db, day, S.get_entry(db, day, entry_id))
+
+    @app.post("/api/run/start/cancel")
+    def run_start_cancel(db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        S.cancel_start(db, day)
+        return {"run_started_at": None}
+
+    @app.post("/api/run/crossings/{crossing_id}/unassign")
+    def run_unassign(crossing_id: int, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        return crossing_out(S.unassign_crossing(db, day, crossing_id))
+
+    @app.delete("/api/run/crossings/{crossing_id}", status_code=204)
+    def run_discard(crossing_id: int, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> None:
+        S.discard_crossing(db, day, crossing_id)
 
     @app.post("/api/run/start")
     def run_start(db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:

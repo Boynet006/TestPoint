@@ -189,11 +189,15 @@
         <div class="tagline" style="text-align:center" data-t="elapsed"></div>
         <div class="bigclock" id="sClock">00:00</div>
         <p class="hint" style="text-align:center"><span data-t="started_at"></span> <b id="sAt"></b></p>
+        <div id="sCancelBox" class="hidden" style="text-align:center"><button class="btn ghost sm" id="sCancel" onclick="confirmClick('cancelstart', this, cancelStart)" data-t="cancel_start"></button>
+          <p class="hint" data-t="cancel_start_hint"></p></div>
       </div>
     </div>
     <div class="card">
-      <h2 data-t="missing_list"></h2>
-      <div class="scroll"><table><thead><tr><th data-t="bib"></th><th data-t="name"></th><th></th></tr></thead><tbody id="sMissing"></tbody></table></div>
+      <h2 id="sLinedTitle" data-t="at_line_list"></h2>
+      <div class="scroll" style="max-height:260px"><table><thead><tr><th data-t="bib"></th><th data-t="name"></th><th></th></tr></thead><tbody id="sLinedTable"></tbody></table></div>
+      <h2 id="sMissingTitle" style="margin-top:16px" data-t="missing_list"></h2>
+      <div class="scroll" style="max-height:260px"><table><thead><tr><th data-t="bib"></th><th data-t="name"></th><th></th></tr></thead><tbody id="sMissing"></tbody></table></div>
     </div>
   </div>
 
@@ -213,7 +217,7 @@
     </div>
     <div class="card">
       <h2 data-t="finishers"></h2>
-      <div class="scroll"><table><thead><tr><th>#</th><th data-t="bib"></th><th data-t="name"></th><th data-t="time"></th><th data-t="status"></th></tr></thead><tbody id="fTable"></tbody></table></div>
+      <div class="scroll"><table><thead><tr><th>#</th><th data-t="bib"></th><th data-t="name"></th><th data-t="time"></th><th data-t="status"></th><th></th></tr></thead><tbody id="fTable"></tbody></table></div>
     </div>
   </div>
 
@@ -251,7 +255,7 @@
     </div>
     <div id="aMsg"></div>
     <div class="row" style="margin-bottom:8px"><span class="kv" id="aCounts"></span></div>
-    <div class="scroll" style="max-height:none"><table><thead><tr><th data-t="face"></th><th>ID</th><th data-t="name"></th><th data-t="bib"></th><th>BMI</th><th data-t="status"></th><th data-t="run"></th><th data-t="pushup"></th><th data-t="crunch"></th></tr></thead><tbody id="aTable"></tbody></table></div>
+    <div class="scroll" style="max-height:none"><table><thead><tr><th data-t="face"></th><th>ID</th><th data-t="name"></th><th data-t="bib"></th><th>BMI</th><th data-t="status"></th><th data-t="run"></th><th data-t="pushup"></th><th data-t="crunch"></th><th></th></tr></thead><tbody id="aTable"></tbody></table></div>
   </div>
   <div id="t-rules" class="card hidden">
     <h2 data-t="t_rules"></h2>
@@ -313,6 +317,16 @@ const I18N = {
     e_nobody_enrolled: "Nobody on today's list has a face enrolled yet (Advanced → Enrol photo)", e_no_face_enrolled: "No face enrolled",
     e_camera_denied: "The browser could not open the webcam", e_no_frame: "No picture yet: choose a source first",
     e_face_belongs_to_other: "This face is already enrolled for another candidate",
+    sure: "Sure? Press again", at_line_list: "At the line", started_list: "Started", absent_list: "Absent (missed the start)",
+    remove_from_line: "Remove", removed_from_line: "removed from the line", cancel_start: "Cancel start",
+    cancel_start_hint: "Only if START was pressed by mistake: possible in the first 2 minutes, before anyone finishes.",
+    start_cancelled: "Start cancelled. Runners are back at the line.", wrong_bib: "Wrong bib",
+    unassigned: "Crossing moved back to the review queue; assign the right runner.", discard: "Discard", discarded: "Crossing discarded.",
+    undo_weigh: "Undo weigh-in", weigh_undone: "weigh-in undone; weigh again", remove: "Remove", entry_removed: "Removed from today's list.",
+    e_not_lined_up: "Not at the line", e_remove_from_line_first: "At the line: remove from the line first", e_cannot_undo_weigh_in: "The weigh-in can no longer be undone",
+    e_cannot_remove: "Cannot be removed any more", e_too_late_to_cancel: "Too late: the start can only be cancelled in the first 2 minutes",
+    e_finishers_exist: "Runners have already finished", e_not_assigned: "This crossing is not assigned", e_results_exist: "This runner already has exercise results",
+    e_review_pending: "Crossings still wait for review: assign or discard them first", e_not_found: "Not found",
   },
   ar: {
     tagline: "محطة اختبار اللياقة البدنية", today: "اليوم", simple: "بسيط", advanced: "متقدم",
@@ -363,6 +377,16 @@ const I18N = {
     e_nobody_enrolled: "لا أحد في قائمة اليوم لديه وجه مسجل (متقدم ← تسجيل صورة)", e_no_face_enrolled: "لا يوجد وجه مسجل",
     e_camera_denied: "تعذر فتح كاميرا الويب", e_no_frame: "لا توجد صورة بعد: اختر مصدراً أولاً",
     e_face_belongs_to_other: "هذا الوجه مسجل لمتقدم آخر",
+    sure: "متأكد؟ اضغط مرة أخرى", at_line_list: "عند الخط", started_list: "انطلقوا", absent_list: "غائبون (فاتهم الانطلاق)",
+    remove_from_line: "إزالة", removed_from_line: "أُزيل من الخط", cancel_start: "إلغاء الانطلاق",
+    cancel_start_hint: "فقط إذا ضُغط الانطلاق خطأً: ممكن خلال أول دقيقتين وقبل وصول أي عدّاء.",
+    start_cancelled: "أُلغي الانطلاق. العداؤون عادوا إلى الخط.", wrong_bib: "رقم خاطئ",
+    unassigned: "أُعيد العبور إلى قائمة المراجعة؛ عيّن العدّاء الصحيح.", discard: "حذف", discarded: "حُذف العبور.",
+    undo_weigh: "تراجع عن الوزن", weigh_undone: "أُلغي الوزن؛ أعد الوزن", remove: "إزالة", entry_removed: "أُزيل من قائمة اليوم.",
+    e_not_lined_up: "ليس عند الخط", e_remove_from_line_first: "عند الخط: أزله من الخط أولاً", e_cannot_undo_weigh_in: "لم يعد ممكناً التراجع عن الوزن",
+    e_cannot_remove: "لم يعد ممكناً إزالته", e_too_late_to_cancel: "فات الوقت: يمكن إلغاء الانطلاق خلال أول دقيقتين فقط",
+    e_finishers_exist: "وصل عداؤون بالفعل", e_not_assigned: "هذا العبور غير معيّن", e_results_exist: "لهذا العدّاء نتائج تمارين",
+    e_review_pending: "عبورات بانتظار المراجعة: عيّنها أو احذفها أولاً", e_not_found: "غير موجود",
   },
 };
 let lang = load("lang", "en");
@@ -388,6 +412,18 @@ const initials = c => esc((cname(c) || "?").trim().split(/\s+/).map(w => w[0]).s
 const fmt = s => { if (s == null) return "—"; const m = Math.floor(s / 60), r = s - m * 60; return `${m}:${r.toFixed(1).padStart(4, "0")}`; };
 const mmss = s => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 const statusPill = s => `<span class="pill ${["run_passed", "complete"].includes(s) ? "ok" : ["rejected", "run_failed", "dnf", "absent"].includes(s) ? "bad" : ["accepted", "lined_up", "running"].includes(s) ? "info" : ""}">${t("s_" + s)}</span>`;
+// Replace a table body only when its content changed: polling every 2 s must not swallow clicks.
+function setHTML(id, html) { const el = $(id); if (el._html !== html) { el._html = html; el.innerHTML = html; } }
+// Destructive or undo actions need a second press within CONFIRM_MS.
+const CONFIRM_MS = 4000, armedAt = {};
+function confirmClick(key, btn, fn) {
+  if (!btn.dataset.label) btn.dataset.label = btn.textContent;   // the real label, never "Sure?"
+  const disarm = () => { delete armedAt[key]; btn.textContent = btn.dataset.label; btn.classList.remove("amber"); };
+  if (armedAt[key] && Date.now() - armedAt[key] < CONFIRM_MS) { disarm(); fn(); return; }
+  armedAt[key] = Date.now(); btn.textContent = t("sure"); btn.classList.add("amber");
+  const mine = armedAt[key];
+  setTimeout(() => { if (armedAt[key] === mine) disarm(); }, CONFIRM_MS);
+}
 const msg = (el, kind, text) => { $(el).innerHTML = text ? `<div class="msg ${kind}">${esc(text)}</div>` : ""; };
 const whoHtml = e => `<div class="who"><div class="avatar">${initials(e.candidate)}</div><div><b>${esc(cname(e.candidate))}</b><small>${esc(e.candidate.external_id)} · ${t("bib")} ${esc(e.candidate.bib ?? "—")}</small></div><span class="spacer"></span>${statusPill(e.status)}</div>`;
 
@@ -596,8 +632,26 @@ function renderStart() {
   $("sBefore").classList.toggle("hidden", started); $("sAfter").classList.toggle("hidden", !started);
   $("sStart").disabled = c.lined_up === 0; $("sStart").textContent = startArmed ? t("confirm_start") : t("start");
   if (started) $("sAt").textContent = new Date(S.state.run_started_at).toLocaleTimeString(lang === "ar" ? "ar-EG" : "en-GB");
+  const row = (e, cell) => `<tr><td class="t">${esc(e.candidate.bib ?? "—")}</td><td>${esc(cname(e.candidate))}</td><td style="text-align:end">${cell}</td></tr>`;
+  const none = `<tr><td colspan="3" class="hint">—</td></tr>`;
+  const lined = S.entries.filter(e => started ? ["running", "run_passed", "run_failed", "dnf", "complete"].includes(e.status) : e.status === "lined_up");
+  $("sLinedTitle").textContent = started ? t("started_list") : t("at_line_list");
+  setHTML("sLinedTable", lined.map(e => row(e, started ? statusPill(e.status)
+    : `<button class="btn ghost sm" onclick="confirmClick('unline${e.id}', this, () => undoLineUp(${e.id}))">${t("remove_from_line")}</button>`)).join("") || none);
   const missing = S.entries.filter(e => e.status === (started ? "absent" : "accepted"));
-  $("sMissing").innerHTML = missing.map(e => `<tr><td class="t">${esc(e.candidate.bib ?? "—")}</td><td>${esc(cname(e.candidate))}</td><td>${started ? statusPill(e.status) : `<button class="btn go sm" onclick="lineUp(${e.id})">${t("present")}</button>`}</td></tr>`).join("") || `<tr><td colspan="3" class="hint">—</td></tr>`;
+  $("sMissingTitle").textContent = started ? t("absent_list") : t("missing_list");
+  setHTML("sMissing", missing.map(e => row(e, started ? statusPill(e.status) : `<button class="btn go sm" onclick="lineUp(${e.id})">${t("present")}</button>`)).join("") || none);
+  // Cancel an accidental START: first 2 minutes, nobody finished yet.
+  const age = started ? (serverNow() - Date.parse(S.state.run_started_at)) / 1000 : 1e9;
+  $("sCancelBox").classList.toggle("hidden", !(started && !S.state.run_closed_at && age < 120 && lined.every(e => e.status === "running")));
+}
+async function undoLineUp(id) {
+  try { const e = await api("POST", `/api/entries/${id}/line-up/undo`); msg("sMsg", "ok", `${cname(e.candidate)} · ${t("removed_from_line")}`); refresh(); }
+  catch (e) { msg("sMsg", "bad", err(e)); }
+}
+async function cancelStart() {
+  try { await api("POST", "/api/run/start/cancel"); msg("sMsg", "ok", t("start_cancelled")); refresh(); }
+  catch (e) { msg("sMsg", "bad", err(e)); }
 }
 
 /* ============================== run finish ============================== */
@@ -627,7 +681,9 @@ function renderFinish() {
   const byId = Object.fromEntries(S.entries.map(e => [e.id, e]));
   const done = S.crossings.filter(c => !c.needs_review);
   $("fCount").textContent = done.length; $("fReview").textContent = S.state.review_queue;
-  $("fTable").innerHTML = done.slice().reverse().map((c, i) => { const e = byId[c.entry_id]; return `<tr><td>${done.length - i}</td><td class="t">${esc(e?.candidate.bib ?? c.bib_read ?? "?")}</td><td>${esc(e ? cname(e.candidate) : "—")}</td><td class="t">${fmt(c.time_s)}</td><td>${e ? statusPill(e.status) : ""}</td></tr>`; }).join("") || `<tr><td colspan="5" class="hint">—</td></tr>`;
+  setHTML("fTable", done.slice().reverse().map((c, i) => { const e = byId[c.entry_id]; return `<tr><td>${done.length - i}</td><td class="t">${esc(e?.candidate.bib ?? c.bib_read ?? "?")}</td><td>${esc(e ? cname(e.candidate) : "—")}</td><td class="t">${fmt(c.time_s)}</td><td>${e ? statusPill(e.status) : ""}</td><td style="text-align:end">${closed ? "" : `<button class="btn ghost sm" onclick="confirmClick('unassign${c.id}', this, () => unassignCrossing(${c.id}))">${t("wrong_bib")}</button>`}</td></tr>`; }).join("") || `<tr><td colspan="6" class="hint">—</td></tr>`);
+  $("fClose").disabled = S.state.review_queue > 0;
+  $("fClose").title = S.state.review_queue > 0 ? t("e_review_pending") : "";
   const review = S.crossings.filter(c => c.needs_review), runners = S.entries.filter(e => e.status === "running");
   $("fReviewBox").classList.toggle("hidden", review.length === 0);
   // Redraw only when the queue or the runner list changed, so an open dropdown is not closed under the examiner.
@@ -635,7 +691,15 @@ function renderFinish() {
   if (sig === lastReviewSig) return;
   lastReviewSig = sig;
   const keep = Object.fromEntries(review.map(c => [c.id, $("rs-" + c.id)?.value]));
-  $("fReviewTable").innerHTML = review.map(c => `<tr><td class="t">${fmt(c.time_s)}</td><td class="hint">${esc(c.note ?? "")}</td><td><select id="rs-${c.id}"><option value="">—</option>${runners.map(e => `<option value="${e.id}" ${keep[c.id] == e.id ? "selected" : ""}>${esc(e.candidate.bib ?? "")} · ${esc(cname(e.candidate))}</option>`).join("")}</select></td><td><button class="btn amber sm" onclick="resolveCrossing(${c.id})">${t("assign")}</button></td></tr>`).join("");
+  $("fReviewTable").innerHTML = review.map(c => `<tr><td class="t">${fmt(c.time_s)}</td><td class="hint">${esc(c.note ?? "")}</td><td><select id="rs-${c.id}"><option value="">—</option>${runners.map(e => `<option value="${e.id}" ${keep[c.id] == e.id ? "selected" : ""}>${esc(e.candidate.bib ?? "")} · ${esc(cname(e.candidate))}</option>`).join("")}</select></td><td style="white-space:nowrap"><button class="btn amber sm" onclick="resolveCrossing(${c.id})">${t("assign")}</button> <button class="btn ghost sm" onclick="confirmClick('discard${c.id}', this, () => discardCrossing(${c.id}))">${t("discard")}</button></td></tr>`).join("");
+}
+async function unassignCrossing(cid) {
+  try { await api("POST", `/api/run/crossings/${cid}/unassign`); msg("fMsg", "warn", t("unassigned")); refresh(); }
+  catch (e) { msg("fMsg", "bad", err(e)); }
+}
+async function discardCrossing(cid) {
+  try { await api("DELETE", `/api/run/crossings/${cid}`); msg("fMsg", "ok", t("discarded")); refresh(); }
+  catch (e) { msg("fMsg", "bad", err(e)); }
 }
 function tickClocks() {
   const el = runElapsed();
@@ -759,9 +823,25 @@ function renderAdvanced() {
   $("aCounts").innerHTML = Object.entries(c).filter(([, v]) => v).map(([k, v]) => `${statusPill(k)} <b>${v}</b>`).join(" &nbsp; ") || "—";
   const ev = (e, k) => { const a = e.events[k]; return !a ? "—" : a.status === "running" ? `<span class="pill info">…</span>` : `${a.count} ${a.passed ? "✓" : "✗"}`; };
   const faceCell = e => `<td style="white-space:nowrap">${e.faces ? `<img class="thumb" src="/api/entries/${e.id}/face.jpg?n=${e.faces}" alt=""> <span class="hint">×${e.faces}</span> <button class="btn ghost sm" onclick="removeFace(${e.id})">✕</button>` : `<span class="pill warn">${t("no_face")}</span>`} <label class="btn sm">${t("enroll")}<input type="file" accept="image/*" class="hidden" onchange="enrollFile(${e.id}, this)"></label></td>`;
-  $("aTable").innerHTML = S.entries.map(e => `<tr>${faceCell(e)}<td>${esc(e.candidate.external_id)}</td><td>${esc(cname(e.candidate))}</td><td class="t">${esc(e.candidate.bib ?? "—")}</td><td>${e.bmi ?? "—"}</td><td>${statusPill(e.status)}</td><td class="t">${fmt(e.run_time_s)}</td><td>${ev(e, "pushup")}</td><td>${ev(e, "crunch")}</td></tr>`).join("") || `<tr><td colspan="9" class="hint">—</td></tr>`;
+  const started = !!S.state.run_started_at;
+  const actions = e => {
+    const b = [];
+    if (!started && ["accepted", "rejected"].includes(e.status)) b.push(`<button class="btn ghost sm" onclick="confirmClick('unweigh${e.id}', this, () => undoWeighIn(${e.id}))">${t("undo_weigh")}</button>`);
+    if (e.status === "expected" && !Object.keys(e.events).length) b.push(`<button class="btn ghost sm" onclick="confirmClick('remove${e.id}', this, () => removeEntry(${e.id}))">${t("remove")}</button>`);
+    return `<td style="white-space:nowrap">${b.join(" ")}</td>`;
+  };
+  setHTML("aTable", S.entries.map(e => `<tr>${faceCell(e)}<td>${esc(e.candidate.external_id)}</td><td>${esc(cname(e.candidate))}</td><td class="t">${esc(e.candidate.bib ?? "—")}</td><td>${e.bmi ?? "—"}</td><td>${statusPill(e.status)}</td><td class="t">${fmt(e.run_time_s)}</td><td>${ev(e, "pushup")}</td><td>${ev(e, "crunch")}</td>${actions(e)}</tr>`).join("") || `<tr><td colspan="10" class="hint">—</td></tr>`);
   const r = S.rules;
   if (r) $("rTable").innerHTML = [["rule_bmi", `${r.bmi_min} – ${r.bmi_max}`], ["rule_run", fmt(r.run_pass_s)], ["rule_cutoff", fmt(r.run_cutoff_s)], ["rule_pushup", r.pushup_pass], ["rule_crunch", r.crunch_pass], ["rule_time", `${r.exercise_time_s} s`], ["rule_version", r.version]].map(([k, v]) => `<tr><th>${t(k)}</th><td class="t">${esc(v)}</td></tr>`).join("");
+}
+
+async function undoWeighIn(id) {
+  try { const e = await api("POST", `/api/entries/${id}/weigh-in/undo`, { reason: null }); msg("aMsg", "ok", `${cname(e.candidate)} · ${t("weigh_undone")}`); refresh(); }
+  catch (e) { msg("aMsg", "bad", err(e)); }
+}
+async function removeEntry(id) {
+  try { await api("DELETE", `/api/entries/${id}`); msg("aMsg", "ok", t("entry_removed")); refresh(); }
+  catch (e) { msg("aMsg", "bad", err(e)); }
 }
 
 /* ============================== boot ============================== */

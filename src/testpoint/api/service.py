@@ -10,9 +10,10 @@ from __future__ import annotations
 import csv
 import io
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 import numpy as np
@@ -40,11 +41,20 @@ def _audit(db: Session, day: Day, station: str, action: str, entry: Entry | None
 # --------------------------------------------------------------------------- day
 
 def get_or_create_day(db: Session, date: str, rules: DayRules) -> Day:
+    # A run that is still open keeps its day, even past midnight.
+    open_run = db.scalar(select(Day).where(Day.run_started_at.is_not(None), Day.run_closed_at.is_(None))
+                         .order_by(Day.date.desc()))
+    if open_run is not None and open_run.date < date:
+        return open_run
     day = db.scalar(select(Day).where(Day.date == date))
     if day is None:
         day = Day(date=date, rules_version=rules.version)
         db.add(day)
-        db.commit()
+        try:
+            db.commit()
+        except IntegrityError:          # another device created it first
+            db.rollback()
+            day = db.scalar(select(Day).where(Day.date == date))
     return day
 
 
@@ -74,35 +84,87 @@ def list_entries(db: Session, day: Day, status: str | None = None) -> list[Entry
     return list(db.scalars(q.join(Candidate).order_by(Candidate.bib, Candidate.name)).unique())
 
 
+GENDERS = {"m": "M", "male": "M", "ذكر": "M", "f": "F", "female": "F", "أنثى": "F", "انثى": "F"}
+
+
+def norm_bib(bib: str | None) -> str | None:
+    """'  011 ' -> '11': numeric bibs lose leading zeros so typing 11 or 011 finds the same runner."""
+    b = (bib or "").strip()
+    if not b:
+        return None
+    return str(int(b)) if b.isdigit() else b.upper()
+
+
+def norm_gender(g: str | None) -> str | None:
+    g = (g or "").strip()
+    if not g:
+        return None
+    out = GENDERS.get(g.lower()) or GENDERS.get(g)
+    if out is None:
+        raise ServiceError("bad_gender", f"gender {g!r}: use M or F", 400)
+    return out
+
+
+def norm_dob(d: str | None) -> str | None:
+    d = (d or "").strip()
+    if not d:
+        return None
+    try:
+        return datetime.strptime(d, "%Y-%m-%d").date().isoformat()
+    except ValueError:
+        raise ServiceError("bad_dob", f"date of birth {d!r}: use YYYY-MM-DD", 400) from None
+
+
 def add_candidate(db: Session, day: Day, *, external_id: str, name: str, name_ar: str | None = None,
                   gender: str | None = None, dob: str | None = None, bib: str | None = None,
-                  commit: bool = True) -> Entry:
+                  commit: bool = True, result: dict | None = None) -> Entry:
+    """Add a candidate to today's list (or refresh the details of one already known).
+
+    External IDs are compared without case. A known ID with a different name is refused
+    rather than silently renaming that person. The bib a candidate ends up with must be
+    unique among today's entries. ``result['outcome']`` says added / updated / unchanged.
+    """
     external_id = (external_id or "").strip()
-    name = (name or "").strip()
+    name = " ".join((name or "").split())
     if not external_id or not name:
         raise ServiceError("missing_fields", "external_id and name are required", 400)
-    bib = (bib or "").strip() or None
-    cand = db.scalar(select(Candidate).where(Candidate.external_id == external_id))
+    bib = norm_bib(bib)
+    gender = norm_gender(gender)
+    dob = norm_dob(dob)
+    name_ar = " ".join((name_ar or "").split()) or None
+    cand = db.scalar(select(Candidate).where(func.lower(Candidate.external_id) == external_id.lower()))
+    if cand is not None and cand.name.casefold() != name.casefold():
+        raise ServiceError("external_id_in_use",
+                           f"ID {cand.external_id} already belongs to {cand.name}", 409)
+    effective_bib = bib or (cand.bib if cand else None)
+    if effective_bib:
+        clash = db.scalar(select(Entry).join(Candidate).where(
+            Entry.day_id == day.id, Candidate.bib == effective_bib,
+            *( [Candidate.id != cand.id] if cand is not None else [] )))
+        if clash:
+            raise ServiceError("bib_in_use", f"bib {effective_bib}, {clash.candidate.name}")
+    outcome = "unchanged"
     if cand is None:
-        cand = Candidate(external_id=external_id, name=name, name_ar=(name_ar or None),
-                         gender=(gender or None), dob=(dob or None), bib=bib)
+        cand = Candidate(external_id=external_id, name=name, name_ar=name_ar, gender=gender, dob=dob, bib=bib)
         db.add(cand)
         db.flush()
+        outcome = "added"
     else:
-        cand.name, cand.name_ar = name, (name_ar or cand.name_ar)
-        cand.gender, cand.dob = (gender or cand.gender), (dob or cand.dob)
-        cand.bib = bib or cand.bib
-    if bib:
-        clash = db.scalar(select(Entry).join(Candidate).where(
-            Entry.day_id == day.id, Candidate.bib == bib, Candidate.id != cand.id))
-        if clash:
-            raise ServiceError("bib_in_use", f"bib {bib} is already used today by {clash.candidate.name}")
+        new = {"name_ar": name_ar or cand.name_ar, "gender": gender or cand.gender,
+               "dob": dob or cand.dob, "bib": effective_bib}
+        if any(getattr(cand, k) != v for k, v in new.items()):
+            for k, v in new.items():
+                setattr(cand, k, v)
+            outcome = "updated"
     entry = db.scalar(select(Entry).where(Entry.day_id == day.id, Entry.candidate_id == cand.id))
     if entry is None:
         entry = Entry(day_id=day.id, candidate_id=cand.id, status=J.EXPECTED)
         db.add(entry)
         db.flush()
-        _audit(db, day, "admin", "add_candidate", entry, external_id=external_id, bib=bib)
+        outcome = "added"
+        _audit(db, day, "admin", "add_candidate", entry, external_id=cand.external_id, bib=effective_bib)
+    if result is not None:
+        result["outcome"] = outcome
     if commit:
         db.commit()
     return entry
@@ -111,38 +173,65 @@ def add_candidate(db: Session, day: Day, *, external_id: str, name: str, name_ar
 CSV_COLUMNS = ("external_id", "name", "name_ar", "gender", "dob", "bib")
 
 
+def decode_csv(data: bytes) -> str:
+    """UTF-8 (with or without BOM) first; Arabic Excel on Windows saves CP-1256."""
+    for enc in ("utf-8-sig", "cp1256"):
+        try:
+            return data.decode(enc)
+        except UnicodeDecodeError:
+            continue
+    raise ServiceError("bad_csv", "the file is not UTF-8 or Arabic Windows text", 400)
+
+
 def import_csv(db: Session, day: Day, text: str) -> dict:
     """Header row required; columns external_id,name[,name_ar,gender,dob,bib] in any order."""
-    reader = csv.DictReader(io.StringIO(text.lstrip("﻿")))
-    header = [h.strip().lower() for h in (reader.fieldnames or [])]
+    reader = csv.DictReader(io.StringIO(text.lstrip("﻿")), restkey="__extra__")
+    header = [(h or "").strip().lower() for h in (reader.fieldnames or [])]
     if "external_id" not in header or "name" not in header:
         raise ServiceError("bad_csv", "the header must contain external_id and name", 400)
-    added, errors = 0, []
-    for line_no, row in enumerate(reader, start=2):
-        row = {(k or "").strip().lower(): (v or "").strip() for k, v in row.items()}
+    counts = {"added": 0, "updated": 0, "unchanged": 0}
+    errors, seen = [], {}
+    for line_no, raw in enumerate(reader, start=2):
+        extra = [v for v in (raw.pop("__extra__", None) or []) if (v or "").strip()]
+        row = {(k or "").strip().lower(): (v or "").strip() for k, v in raw.items() if isinstance(v, str) or v is None}
+        if not any(row.values()) and not extra:
+            continue                                   # blank line
+        if extra:
+            errors.append({"line": line_no, "code": "extra_columns", "message": f"extra values {extra}"})
+            continue
+        key = row.get("external_id", "").lower()
+        if key and key in seen:
+            errors.append({"line": line_no, "code": "duplicate_row", "message": f"same ID as line {seen[key]}"})
+            continue
+        seen[key] = line_no
+        result: dict = {}
         try:
             with db.begin_nested():
-                add_candidate(db, day, commit=False,
+                add_candidate(db, day, commit=False, result=result,
                               **{c: row.get(c) or None for c in CSV_COLUMNS if c in row}
                               | {"external_id": row.get("external_id", ""), "name": row.get("name", "")})
-            added += 1
+            counts[result["outcome"]] += 1
         except ServiceError as e:
             errors.append({"line": line_no, "code": e.code, "message": e.message})
     db.commit()
-    return {"added": added, "errors": errors}
+    return counts | {"errors": errors}
 
 
 def find_entry(db: Session, day: Day, query: str) -> Entry:
-    """By bib, external ID or entry id (``#12``)."""
+    """By bib, external ID (any case) or entry id (``#12``). Refuses an ambiguous query."""
     q = (query or "").strip()
     if not q:
-        raise ServiceError("not_found", "type a bib or ID", 404)
+        raise ServiceError("empty_query", "type a bib or ID", 400)
     base = select(Entry).join(Candidate).where(Entry.day_id == day.id)
     if q.startswith("#") and q[1:].isdigit():
         entry = db.scalar(base.where(Entry.id == int(q[1:])))
     else:
-        entry = db.scalar(base.where(Candidate.bib == q)) or \
-                db.scalar(base.where(func.lower(Candidate.external_id) == q.lower()))
+        by_bib = db.scalar(base.where(Candidate.bib == norm_bib(q)))
+        by_id = db.scalar(base.where(func.lower(Candidate.external_id) == q.lower()))
+        if by_bib is not None and by_id is not None and by_bib.id != by_id.id:
+            raise ServiceError("ambiguous_query",
+                               f"{q} is bib of {by_bib.candidate.name} and ID of {by_id.candidate.name}", 409)
+        entry = by_bib or by_id
     if entry is None:
         raise ServiceError("not_on_todays_list", f"{q} is not on today's list", 404)
     return entry
@@ -266,6 +355,9 @@ def weigh_in(db: Session, day: Day, rules: DayRules, entry: Entry, *, weight_kg:
     except ValueError as e:
         raise ServiceError("bad_measurement", str(e), 400) from None
     in_range = rules.bmi_min <= value <= rules.bmi_max
+    if not accept and in_range and not (override_reason or "").strip():
+        raise ServiceError("reason_required",
+                           f"BMI {value} is within the accepted range; rejecting needs a reason")
     if accept and not in_range and not (override_reason or "").strip():
         raise ServiceError("bmi_out_of_range",
                            f"BMI {value} is outside {rules.bmi_min}-{rules.bmi_max}; "
@@ -288,6 +380,72 @@ def line_up(db: Session, day: Day, entry: Entry) -> Entry:
     _audit(db, day, "start", "line_up", entry)
     db.commit()
     return entry
+
+
+def undo_line_up(db: Session, day: Day, entry: Entry) -> Entry:
+    """Marked at the line by mistake: back to accepted (only before the start)."""
+    if day.run_started_at is not None:
+        raise ServiceError("run_already_started", "the run has already started")
+    if entry.status != J.LINED_UP:
+        raise ServiceError("not_lined_up", f"{entry.candidate.name} is not at the line")
+    entry.status = J.ACCEPTED
+    entry.lined_up_at = None
+    _audit(db, day, "start", "undo_line_up", entry)
+    db.commit()
+    return entry
+
+
+def undo_weigh_in(db: Session, day: Day, entry: Entry, reason: str | None = None) -> Entry:
+    """Wrong weight or height typed: back to expected so the weigh-in can be redone."""
+    if entry.status == J.LINED_UP:
+        raise ServiceError("remove_from_line_first", f"{entry.candidate.name} is at the line; remove them from the line first")
+    if entry.status not in (J.ACCEPTED, J.REJECTED):
+        raise ServiceError("cannot_undo_weigh_in", f"{entry.candidate.name} is {entry.status}")
+    if day.run_started_at is not None:
+        raise ServiceError("run_already_started", "the run has already started")
+    old = {"weight_kg": entry.weight_kg, "height_cm": entry.height_cm, "bmi": entry.bmi, "status": entry.status}
+    entry.status = J.EXPECTED
+    entry.weight_kg = entry.height_cm = entry.bmi = None
+    entry.weighed_at = None
+    _audit(db, day, "admin", "undo_weigh_in", entry, reason=reason or None, **old)
+    db.commit()
+    return entry
+
+
+def remove_entry(db: Session, day: Day, entry: Entry) -> None:
+    """Added to today's list by mistake. Only before anything happened to them today."""
+    if entry.status != J.EXPECTED or entry.attempts:
+        raise ServiceError("cannot_remove", f"{entry.candidate.name} is already {entry.status}; it cannot be removed")
+    cand = entry.candidate
+    for a in db.scalars(select(AuditLog).where(AuditLog.entry_id == entry.id)):
+        a.entry_id = None   # keep the history, drop the link to the deleted row
+    _audit(db, day, "admin", "remove_from_day", None, external_id=cand.external_id, name=cand.name, bib=cand.bib)
+    db.delete(entry)
+    db.commit()
+
+
+CANCEL_START_WINDOW_S = 120
+
+
+def cancel_start(db: Session, day: Day, now: datetime | None = None) -> Day:
+    """START pressed by mistake: undo it within 2 minutes, before anyone crossed the finish."""
+    if day.run_started_at is None:
+        raise ServiceError("run_not_started", "the run has not started")
+    if day.run_closed_at is not None:
+        raise ServiceError("run_already_closed", "the run is closed")
+    if (now or utcnow()) - day.run_started_at > timedelta(seconds=CANCEL_START_WINDOW_S):
+        raise ServiceError("too_late_to_cancel", "the start can only be cancelled in the first 2 minutes")
+    if db.scalar(select(func.count()).select_from(Crossing).where(Crossing.day_id == day.id)):
+        raise ServiceError("finishers_exist", "runners have already crossed the finish line")
+    for e in list_entries(db, day):
+        if e.status == J.RUNNING:
+            e.status = J.LINED_UP
+        elif e.status == J.ABSENT:
+            e.status = J.ACCEPTED
+    _audit(db, day, "start", "cancel_start", started_at=day.run_started_at)
+    day.run_started_at = None
+    db.commit()
+    return day
 
 
 def start_run(db: Session, day: Day, now: datetime | None = None) -> Day:
@@ -316,9 +474,11 @@ def record_finish(db: Session, day: Day, rules: DayRules, bib: str | None,
                   now: datetime | None = None, source: str = "manual") -> Crossing:
     if day.run_started_at is None:
         raise ServiceError("run_not_started", "the run has not started")
+    if day.run_closed_at is not None:
+        raise ServiceError("run_already_closed", "the run is closed")
     at = now or utcnow()
     crossing = Crossing(day_id=day.id, at=at, time_s=_elapsed(day, at), source=source,
-                        bib_read=(bib or "").strip() or None)
+                        bib_read=norm_bib(bib))
     entry = None
     if crossing.bib_read:
         entry = db.scalar(select(Entry).join(Candidate).where(
@@ -346,7 +506,7 @@ def _assign(day: Day, rules: DayRules, crossing: Crossing, entry: Entry) -> None
     crossing.needs_review = False
     entry.run_time_s = crossing.time_s
     entry.finished_at = crossing.at
-    entry.status = J.after_finish(crossing.time_s, rules.run_pass_s)
+    entry.status = J.after_finish(crossing.time_s, rules.run_pass_s, rules.run_cutoff_s)
 
 
 def resolve_crossing(db: Session, day: Day, rules: DayRules, crossing_id: int,
@@ -365,6 +525,43 @@ def resolve_crossing(db: Session, day: Day, rules: DayRules, crossing_id: int,
     return crossing
 
 
+def unassign_crossing(db: Session, day: Day, crossing_id: int) -> Crossing:
+    """Wrong bib typed at the finish: the crossing goes back to the review queue and
+    the runner back to running (their real crossing can then be assigned)."""
+    crossing = db.get(Crossing, crossing_id)
+    if crossing is None or crossing.day_id != day.id:
+        raise ServiceError("not_found", f"crossing {crossing_id} not found", 404)
+    if day.run_closed_at is not None:
+        raise ServiceError("run_already_closed", "the run is closed")
+    if crossing.needs_review or crossing.entry_id is None:
+        raise ServiceError("not_assigned", "this crossing is not assigned to anyone")
+    entry = db.get(Entry, crossing.entry_id)
+    if any(a.status in ("running", "finished") for a in entry.attempts):
+        raise ServiceError("results_exist", f"{entry.candidate.name} already has exercise results")
+    entry.status = J.RUNNING
+    entry.run_time_s = None
+    entry.finished_at = None
+    crossing.entry_id = None
+    crossing.needs_review = True
+    crossing.note = f"unassigned from bib {entry.candidate.bib} by examiner"
+    _audit(db, day, "finish", "unassign_crossing", entry, crossing_id=crossing_id, time_s=crossing.time_s)
+    db.commit()
+    return crossing
+
+
+def discard_crossing(db: Session, day: Day, crossing_id: int) -> None:
+    """A review-queue crossing that was not a runner (double press, official, spectator)."""
+    crossing = db.get(Crossing, crossing_id)
+    if crossing is None or crossing.day_id != day.id:
+        raise ServiceError("not_found", f"crossing {crossing_id} not found", 404)
+    if not crossing.needs_review:
+        raise ServiceError("already_resolved", "this crossing is assigned; unassign it first")
+    _audit(db, day, "finish", "discard_crossing", crossing_id=crossing_id, time_s=crossing.time_s,
+           bib=crossing.bib_read, note=crossing.note)
+    db.delete(crossing)
+    db.commit()
+
+
 def list_crossings(db: Session, day: Day) -> list[Crossing]:
     return list(db.scalars(select(Crossing).where(Crossing.day_id == day.id).order_by(Crossing.at)))
 
@@ -374,6 +571,11 @@ def close_run(db: Session, day: Day, now: datetime | None = None) -> Day:
         raise ServiceError("run_not_started", "the run has not started")
     if day.run_closed_at is not None:
         raise ServiceError("run_already_closed", "the run is already closed")
+    pending = db.scalar(select(func.count()).select_from(Crossing).where(
+        Crossing.day_id == day.id, Crossing.needs_review.is_(True)))
+    if pending:
+        raise ServiceError("review_pending",
+                           f"{pending} crossing(s) still wait for review; assign or discard them first")
     day.run_closed_at = now or utcnow()
     dnf = 0
     for e in list_entries(db, day, J.RUNNING):
@@ -394,7 +596,11 @@ def start_attempt(db: Session, day: Day, entry: Entry, event: str, lane: str | N
         raise ServiceError("attempt_in_progress", f"{entry.candidate.name} is already being tested")
     attempt = Attempt(entry_id=entry.id, event=event, lane=lane, status="running")
     db.add(attempt)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        raise ServiceError("attempt_in_progress", f"{entry.candidate.name} is already being tested") from None
     _audit(db, day, event, "start_attempt", entry, attempt_id=attempt.id, lane=lane)
     db.commit()
     db.refresh(entry)

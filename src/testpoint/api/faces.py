@@ -17,6 +17,7 @@ from __future__ import annotations
 import hashlib
 import os
 import sys
+import threading
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -110,6 +111,8 @@ class FaceEngine:
         self._detector = cv2.FaceDetectorYN.create(str(self.model_dir / DETECTOR), "", (320, 320),
                                                    0.8, 0.3, 5000)
         self._recognizer = cv2.FaceRecognizerSF.create(str(self.model_dir / RECOGNIZER), "")
+        # The OpenCV detector keeps per-call state (input size): one caller at a time.
+        self._lock = threading.Lock()
 
     def detect(self, img: np.ndarray) -> np.ndarray:
         h, w = img.shape[:2]
@@ -121,6 +124,10 @@ class FaceEngine:
         return self.largest_face(decode_image(data), require_single)
 
     def largest_face(self, img: np.ndarray, require_single: bool = False) -> Face:
+        with self._lock:
+            return self._largest_face(img, require_single)
+
+    def _largest_face(self, img: np.ndarray, require_single: bool = False) -> Face:
         import cv2
 
         # YuNet works best around 640 px. Try that first (close-up portraits, where the face

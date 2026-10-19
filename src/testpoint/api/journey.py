@@ -109,7 +109,10 @@ def after_run_start(status: str) -> str:
     return status
 
 
-def after_finish(time_s: float, pass_s: float) -> str:
+def after_finish(time_s: float, pass_s: float, cutoff_s: float | None = None) -> str:
+    """Passed within the pass time, DNF after the cut-off, failed in between."""
+    if cutoff_s is not None and time_s > cutoff_s:
+        return DNF
     return RUN_PASSED if time_s <= pass_s else RUN_FAILED
 
 
