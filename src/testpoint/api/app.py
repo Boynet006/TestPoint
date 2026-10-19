@@ -16,14 +16,15 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from fastapi import Depends, FastAPI, Request
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from . import journey as J
 from . import service as S
-from .models import Attempt, Crossing, Day, Entry, make_sessionmaker
+from .models import Attempt, Crossing, Day, Entry, FaceTemplate, make_sessionmaker
 from .rules import DayRules
 
 
@@ -33,7 +34,7 @@ def iso(dt: datetime | None) -> str | None:
     return None if dt is None else dt.isoformat(timespec="milliseconds") + "Z"
 
 
-def entry_out(e: Entry, day: Day | None = None) -> dict:
+def entry_out(e: Entry, day: Day | None = None, faces: int | None = None) -> dict:
     c = e.candidate
     events = {}
     for a in e.attempts:
@@ -47,6 +48,8 @@ def entry_out(e: Entry, day: Day | None = None) -> dict:
         "weight_kg": e.weight_kg, "height_cm": e.height_cm, "bmi": e.bmi,
         "run_time_s": e.run_time_s, "events": events,
     }
+    if faces is not None:
+        out["faces"] = faces
     if day is not None:
         out["gates"] = {st: S.gate_for(e, day, st).reason or "ok" for st in J.STATIONS}
     return out
@@ -108,8 +111,20 @@ class AttemptResultIn(BaseModel):
 
 # ---------------------------------------------------------------------------- app
 
+def default_face_engine():
+    """The face engine, or None (with the reason logged) if its models are missing."""
+    from .faces import FaceError, get_engine
+
+    try:
+        return get_engine()
+    except FaceError as e:
+        print(f"face check-in disabled: {e.message}")
+        return None
+
+
 def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules | None = None,
-               web_dir: str | Path | None = None, today: callable = None) -> FastAPI:
+               web_dir: str | Path | None = None, today: callable = None,
+               face_engine: callable = None) -> FastAPI:
     db_url = db_url or os.environ.get("TESTPOINT_DB", "sqlite:///data/testpoint.db")
     if db_url.startswith("sqlite:///") and not db_url.startswith("sqlite:///:memory:"):
         Path(db_url.removeprefix("sqlite:///")).parent.mkdir(parents=True, exist_ok=True)
@@ -118,7 +133,14 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     SessionLocal = make_sessionmaker(db_url)
     today = today or (lambda: datetime.now(zone).date().isoformat())
 
-    app = FastAPI(title="TestPoint station", version="0.2.0")
+    app = FastAPI(title="TestPoint station", version="0.3.0")
+    face_engine = face_engine or default_face_engine
+    _engine_cache: dict = {}
+
+    def engine():
+        if "e" not in _engine_cache:
+            _engine_cache["e"] = face_engine()
+        return _engine_cache["e"]
 
     def get_db() -> Iterator[Session]:
         db = SessionLocal()
@@ -165,7 +187,10 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     @app.get("/api/entries")
     def entries(status: str | None = None, db: Session = Depends(get_db),
                 day: Day = Depends(get_day)) -> list[dict]:
-        return [entry_out(e, day) for e in S.list_entries(db, day, status)]
+        rows = S.list_entries(db, day, status)
+        counts = dict(db.execute(select(FaceTemplate.candidate_id, func.count())
+                                 .group_by(FaceTemplate.candidate_id)).all())
+        return [entry_out(e, day, counts.get(e.candidate_id, 0)) for e in rows]
 
     @app.get("/api/entries/{entry_id}")
     def entry(entry_id: int, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
@@ -195,6 +220,38 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         e = S.find_entry(db, day, body.query)
         g = S.gate_for(e, day, body.station)
         return {"entry": entry_out(e, day), "allowed": g.ok, "reason": g.reason or None}
+
+    # --------------------------------------------------------------------- faces
+    @app.get("/api/face/status")
+    def face_status() -> dict:
+        return {"available": engine() is not None}
+
+    @app.post("/api/entries/{entry_id}/face")
+    async def face_enroll(entry_id: int, request: Request, db: Session = Depends(get_db),
+                          day: Day = Depends(get_day)) -> dict:
+        data = await request.body()
+        return {"faces": S.enroll_face(db, day, S.get_entry(db, day, entry_id), data, engine())}
+
+    @app.delete("/api/entries/{entry_id}/face", status_code=204)
+    def face_remove(entry_id: int, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> None:
+        S.remove_faces(db, day, S.get_entry(db, day, entry_id))
+
+    @app.get("/api/entries/{entry_id}/face.jpg")
+    def face_jpg(entry_id: int, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> Response:
+        jpg = S.face_photo(db, S.get_entry(db, day, entry_id))
+        if not jpg:
+            raise S.ServiceError("no_face_enrolled", "no face enrolled", 404)
+        return Response(jpg, media_type="image/jpeg")
+
+    @app.post("/api/face/identify")
+    async def face_identify(request: Request, station: str | None = None,
+                            db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        if station is not None and station not in J.STATIONS:
+            raise S.ServiceError("unknown_station", f"unknown station {station!r}", 400)
+        r = S.identify(db, day, await request.body(), engine(), station)
+        if r["entry"] is not None:
+            r["entry"] = entry_out(r["entry"], day, S.face_count(db, r["entry"].candidate_id))
+        return r
 
     # ------------------------------------------------------------------ weigh-in
     @app.post("/api/entries/{entry_id}/weigh-in")

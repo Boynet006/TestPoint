@@ -104,6 +104,14 @@
   .tabs { display: flex; gap: 2px; margin-bottom: 14px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
   .tabs button { background: transparent; color: var(--muted); border: 0; border-bottom: 3px solid transparent; padding: 10px 16px; cursor: pointer; font-family: var(--cond); font-size: 17px; text-transform: uppercase; letter-spacing: 1.5px; }
   .tabs button.active { color: var(--amber); border-bottom-color: var(--amber); }
+  .camsrc { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .viewer { position: relative; aspect-ratio: 4/3; background: #0b1016; border: 1px solid var(--line); overflow: hidden; }
+  .viewer video, .viewer img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+  .viewer canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .viewer-empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--dim); font-family: var(--cond); letter-spacing: 1px; text-transform: uppercase; text-align: center; padding: 20px; }
+  .viewer-tag { position: absolute; top: 8px; inset-inline-start: 10px; font-family: var(--cond); font-size: 13px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+  .btn.on { border-color: var(--go); color: var(--go); }
+  .thumb { width: 40px; height: 40px; object-fit: cover; border: 1px solid var(--line); vertical-align: middle; }
   .form { display: grid; grid-template-columns: repeat(6, 1fr) auto; gap: 8px; margin: 10px 0 16px; }
   @media (max-width: 900px) { .form, .tiles, .field { grid-template-columns: 1fr; } }
 </style>
@@ -133,10 +141,26 @@
   <div id="v-weigh" class="grid2 hidden">
     <div class="card">
       <h2 data-t="r_weigh"></h2>
-      <div class="search"><input id="wQuery" data-tp="ph_bib" autocomplete="off" onkeydown="if(event.key==='Enter')weighCheckin()"><button class="btn amber" onclick="weighCheckin()" data-t="checkin"></button></div>
-      <p class="hint" data-t="face_later"></p>
+      <div class="camsrc">
+        <div class="seg"><button id="src-webcam" onclick="Cam.use('webcam')" data-t="src_webcam"></button><button id="src-video" onclick="Cam.pick('video')" data-t="src_video"></button><button id="src-photo" onclick="Cam.pick('photo')" data-t="src_photo"></button></div>
+        <input type="file" id="camFile" class="hidden" onchange="Cam.fileChosen(this)">
+        <span class="hint" id="camNote"></span>
+      </div>
+      <div class="viewer" id="viewer">
+        <video id="camVideo" muted loop playsinline class="hidden"></video>
+        <img id="camImg" class="hidden" alt="">
+        <canvas id="camBox"></canvas>
+        <div class="viewer-empty" id="camEmpty" data-t="no_source"></div>
+        <div class="viewer-tag" id="camTag"></div>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button class="btn amber" id="idBtn" onclick="identifyNow()" data-t="identify"></button>
+        <button class="btn" id="autoBtn" onclick="toggleAuto()"></button>
+      </div>
+      <div class="search" style="margin-top:10px"><input id="wQuery" data-tp="ph_bib" autocomplete="off" onkeydown="if(event.key==='Enter')weighCheckin()"><button class="btn" onclick="weighCheckin()" data-t="checkin"></button></div>
       <div id="wMsg"></div>
       <div id="wWho"></div>
+      <div id="wEnroll" class="hidden"><button class="btn sm" onclick="enrollFromCamera()" data-t="enroll_cam"></button></div>
     </div>
     <div class="card" id="wForm" style="opacity:.35;pointer-events:none">
       <h2 data-t="measure"></h2>
@@ -227,7 +251,7 @@
     </div>
     <div id="aMsg"></div>
     <div class="row" style="margin-bottom:8px"><span class="kv" id="aCounts"></span></div>
-    <div class="scroll" style="max-height:none"><table><thead><tr><th>ID</th><th data-t="name"></th><th data-t="bib"></th><th>BMI</th><th data-t="status"></th><th data-t="run"></th><th data-t="pushup"></th><th data-t="crunch"></th></tr></thead><tbody id="aTable"></tbody></table></div>
+    <div class="scroll" style="max-height:none"><table><thead><tr><th data-t="face"></th><th>ID</th><th data-t="name"></th><th data-t="bib"></th><th>BMI</th><th data-t="status"></th><th data-t="run"></th><th data-t="pushup"></th><th data-t="crunch"></th></tr></thead><tbody id="aTable"></tbody></table></div>
   </div>
   <div id="t-rules" class="card hidden">
     <h2 data-t="t_rules"></h2>
@@ -278,6 +302,17 @@ const I18N = {
     e_missing_fields: "ID and name are required", e_bad_csv: "CSV header must contain external_id and name", e_not_running: "Not running",
     e_already_resolved: "Already assigned", e_network: "Cannot reach the server", e_unknown: "Error",
     rule_bmi: "BMI accepted", rule_run: "Run pass time", rule_cutoff: "Run cut-off (DNF)", rule_pushup: "Push-ups to pass", rule_crunch: "Crunches to pass", rule_time: "Exercise time", rule_version: "Rule set",
+    src_webcam: "Webcam", src_video: "Video file", src_photo: "Photo", no_source: "Choose a camera source: webcam, or a video or photo for the demo",
+    src_note_file: "Demo source: {name}", src_note_webcam: "Live webcam", src_reselect: "Choose the file again after reloading the page",
+    identify: "Identify face", auto_on: "Auto: on", auto_off: "Auto: off", identifying: "Looking…",
+    recognised: "Recognised {name} · match {score}", not_sure: "Not sure who this is (best match {score}). Type the bib.",
+    enroll_cam: "Save this face for the candidate", enrolled: "Face saved ({n} on file).", face: "Face", no_face_short: "no face",
+    no_face: "no face", enroll: "Enrol photo", removed: "Face removed.",
+    e_no_face: "No face in the picture", e_multiple_faces: "More than one face: use a picture of one person", e_face_too_small: "Face too small: move closer",
+    e_bad_image: "That file is not a picture", e_face_unavailable: "Face recognition is not available on this server", e_face_not_recognised: "Face not recognised",
+    e_nobody_enrolled: "Nobody on today's list has a face enrolled yet (Advanced → Enrol photo)", e_no_face_enrolled: "No face enrolled",
+    e_camera_denied: "The browser could not open the webcam", e_no_frame: "No picture yet: choose a source first",
+    e_face_belongs_to_other: "This face is already enrolled for another candidate",
   },
   ar: {
     tagline: "محطة اختبار اللياقة البدنية", today: "اليوم", simple: "بسيط", advanced: "متقدم",
@@ -317,18 +352,31 @@ const I18N = {
     e_missing_fields: "الهوية والاسم مطلوبان", e_bad_csv: "يجب أن يحتوي ملف CSV على external_id و name", e_not_running: "لا يجري",
     e_already_resolved: "تم التعيين", e_network: "تعذر الاتصال بالخادم", e_unknown: "خطأ",
     rule_bmi: "مؤشر الكتلة المقبول", rule_run: "زمن النجاح في الجري", rule_cutoff: "الحد الأقصى للجري", rule_pushup: "الضغط للنجاح", rule_crunch: "البطن للنجاح", rule_time: "زمن التمرين", rule_version: "القواعد",
+    src_webcam: "كاميرا الويب", src_video: "ملف فيديو", src_photo: "صورة", no_source: "اختر مصدر الكاميرا: كاميرا الويب، أو فيديو أو صورة للعرض التجريبي",
+    src_note_file: "مصدر تجريبي: {name}", src_note_webcam: "كاميرا ويب مباشرة", src_reselect: "اختر الملف مجدداً بعد إعادة تحميل الصفحة",
+    identify: "التعرف على الوجه", auto_on: "تلقائي: يعمل", auto_off: "تلقائي: متوقف", identifying: "جارٍ البحث…",
+    recognised: "تم التعرف على {name} · تطابق {score}", not_sure: "لم يتم التأكد من الهوية (أفضل تطابق {score}). اكتب الرقم.",
+    enroll_cam: "حفظ هذا الوجه للمتقدم", enrolled: "تم حفظ الوجه ({n} محفوظة).", face: "الوجه", no_face_short: "لا وجه",
+    no_face: "لا وجه", enroll: "تسجيل صورة", removed: "تم حذف الوجه.",
+    e_no_face: "لا يوجد وجه في الصورة", e_multiple_faces: "أكثر من وجه: استخدم صورة لشخص واحد", e_face_too_small: "الوجه صغير جداً: اقترب",
+    e_bad_image: "الملف ليس صورة", e_face_unavailable: "التعرف على الوجه غير متاح على هذا الخادم", e_face_not_recognised: "لم يتم التعرف على الوجه",
+    e_nobody_enrolled: "لا أحد في قائمة اليوم لديه وجه مسجل (متقدم ← تسجيل صورة)", e_no_face_enrolled: "لا يوجد وجه مسجل",
+    e_camera_denied: "تعذر فتح كاميرا الويب", e_no_frame: "لا توجد صورة بعد: اختر مصدراً أولاً",
+    e_face_belongs_to_other: "هذا الوجه مسجل لمتقدم آخر",
   },
 };
 let lang = load("lang", "en");
 const t = (k, vars) => { let s = I18N[lang][k] ?? I18N.en[k] ?? k; for (const [a, b] of Object.entries(vars || {})) s = s.replace(`{${a}}`, b); return s; };
-const err = e => t("e_" + (e.code || "unknown")) + (I18N.en["e_" + e.code] ? "" : (e.message ? ` (${e.message})` : ""));
+const SHOW_DETAIL = new Set(["face_belongs_to_other", "bib_in_use"]);   // the server's message names the other person
+const err = e => t("e_" + (e.code || "unknown")) + ((!I18N.en["e_" + e.code] || SHOW_DETAIL.has(e.code)) && e.message ? ` (${e.message})` : "");
 function applyI18n() {
   document.documentElement.lang = lang; document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
   document.querySelectorAll("[data-t]").forEach(el => el.textContent = t(el.dataset.t));
   document.querySelectorAll("[data-tp]").forEach(el => el.placeholder = t(el.dataset.tp));
   for (const l of ["en", "ar"]) document.getElementById("lang-" + l).classList.toggle("active", l === lang);
 }
-function setLang(l) { lang = l; save("lang", l); applyI18n(); lastReviewSig = ""; lanes.forEach(renderLane); render(); }
+function setLang(l) { lang = l; save("lang", l); applyI18n(); lastReviewSig = ""; lanes.forEach(renderLane); render();
+  if (typeof Cam !== "undefined") { Cam.show(); $("autoBtn").textContent = autoId ? t("auto_on") : t("auto_off"); } }
 
 /* ============================== helpers ============================== */
 function load(k, d) { try { return localStorage.getItem("tp." + k) ?? d; } catch { return d; } }
@@ -384,14 +432,20 @@ function setMode(m) { mode = m; save("mode", m); $("simple").classList.toggle("h
 function tab(name, btn) { for (const x of ["list", "rules"]) $("t-" + x).classList.toggle("hidden", x !== name); document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("active", b === btn)); }
 
 /* ============================== weigh-in ============================== */
-let wEntry = null;
+let wEntry = null, wLast = null;
+function startWeigh(entry) {
+  wEntry = entry; wLast = entry; setWeighForm(true); $("wKg").value = ""; $("wCm").value = ""; bmiPreview(); $("wKg").focus();
+}
 async function weighCheckin() {
   const q = $("wQuery").value.trim(); if (!q) return;
-  msg("wMsg"); $("wWho").innerHTML = ""; setWeighForm(false); wEntry = null;
+  msg("wMsg"); $("wWho").innerHTML = ""; setWeighForm(false); wEntry = null; clearBox();
   try {
     const r = await api("POST", "/api/checkin", { station: "weigh", query: q });
-    $("wWho").innerHTML = whoHtml(r.entry);
-    if (r.allowed) { wEntry = r.entry; setWeighForm(true); $("wKg").value = ""; $("wCm").value = ""; bmiPreview(); $("wKg").focus(); }
+    $("wWho").innerHTML = whoHtml(r.entry); wLast = r.entry;
+    // Typed in by bib: offer to save the face on screen, so next time the camera recognises them.
+    const known = S.entries.find(e => e.id === r.entry.id);
+    $("wEnroll").classList.toggle("hidden", !(known && !known.faces && Cam.kind && (Cam.stream || Cam.fileName)));
+    if (r.allowed) startWeigh(r.entry);
     else msg("wMsg", "bad", t("e_" + r.reason));
   } catch (e) { msg("wMsg", "bad", err(e)); }
 }
@@ -412,10 +466,108 @@ async function weighSubmit(accept) {
     const e = await api("POST", `/api/entries/${wEntry.id}/weigh-in`, { weight_kg: parseFloat($("wKg").value), height_cm: parseFloat($("wCm").value), accept, override_reason: $("wReason").value || null });
     $("wWho").innerHTML = whoHtml(e);
     msg("wMsg", accept ? "ok" : "bad", `BMI ${e.bmi} · ` + (accept ? t("accepted_go") : t("rejected_done")));
-    wEntry = null; setWeighForm(false); $("wReason").value = ""; $("wQuery").value = ""; $("wKg").value = ""; $("wCm").value = ""; bmiPreview(); $("wQuery").focus(); refresh();
+    wEntry = null; setWeighForm(false); $("wEnroll").classList.add("hidden"); clearBox(); $("wReason").value = ""; $("wQuery").value = ""; $("wKg").value = ""; $("wCm").value = ""; bmiPreview(); $("wQuery").focus(); refresh();
   } catch (e) { msg("wMsg", "bad", err(e)); }
 }
 function renderWeigh() { if (S.rules) $("wRange").textContent = t("bmi_range", { min: S.rules.bmi_min, max: S.rules.bmi_max }); }
+
+/* ============================== camera source ============================== */
+// One camera abstraction for every device: a live webcam, or a video/photo file for demos.
+// Switching to real hardware later is a choice in this picker, not a code change.
+const Cam = {
+  kind: load("camKind", ""), stream: null, fileName: "",
+  el() { return this.kind === "photo" ? $("camImg") : $("camVideo"); },
+  show() {
+    const live = this.kind === "webcam" ? !!this.stream : !!this.fileName;
+    $("camVideo").classList.toggle("hidden", !(live && this.kind !== "photo"));
+    $("camImg").classList.toggle("hidden", !(live && this.kind === "photo"));
+    $("camEmpty").classList.toggle("hidden", live);
+    for (const k of ["webcam", "video", "photo"]) $("src-" + k).classList.toggle("active", k === this.kind);
+    $("camTag").textContent = live ? (this.kind === "webcam" ? t("src_note_webcam") : t("src_note_file", { name: this.fileName })) : "";
+    $("camNote").textContent = (!live && this.kind && this.kind !== "webcam") ? t("src_reselect") : "";
+    $("idBtn").disabled = !live; $("autoBtn").disabled = !live;
+  },
+  stop() { if (this.stream) { this.stream.getTracks().forEach(tr => tr.stop()); this.stream = null; } },
+  async use(kind) {
+    this.stop(); this.kind = kind; save("camKind", kind); this.fileName = "";
+    if (kind === "webcam") {
+      try {
+        this.stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+        const v = $("camVideo"); v.srcObject = this.stream; v.removeAttribute("src"); await v.play();
+      } catch { msg("wMsg", "bad", t("e_camera_denied")); }
+    }
+    this.show();
+  },
+  pick(kind) { const f = $("camFile"); f.accept = kind === "video" ? "video/*" : "image/*"; f.dataset.kind = kind; f.click(); },
+  fileChosen(input) {
+    const file = input.files[0]; if (!file) return;
+    this.stop(); this.kind = input.dataset.kind; save("camKind", this.kind); this.fileName = file.name;
+    const url = URL.createObjectURL(file);
+    if (this.kind === "photo") { $("camImg").src = url; }
+    else { const v = $("camVideo"); v.srcObject = null; v.src = url; v.play().catch(() => {}); }
+    input.value = ""; clearBox(); this.show();
+  },
+  // Current frame as a JPEG blob, at the source's native resolution.
+  async frame() {
+    const el = this.el(); const w = el.videoWidth || el.naturalWidth, h = el.videoHeight || el.naturalHeight;
+    if (!w || !h) throw { code: "no_frame" };
+    const c = document.createElement("canvas"); c.width = w; c.height = h; c.getContext("2d").drawImage(el, 0, 0, w, h);
+    return { blob: await new Promise(r => c.toBlob(r, "image/jpeg", 0.92)), w, h };
+  },
+};
+async function apiImage(path, blob) {
+  let r;
+  try { r = await fetch(path, { method: "POST", headers: { "content-type": "image/jpeg" }, body: blob }); }
+  catch { setConn(false); throw { code: "network" }; }
+  setConn(true);
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw (data.detail && data.detail.code) ? data.detail : { code: "unknown" };
+  return data;
+}
+// Face box drawn over the picture, mapped from image pixels to the displayed (object-fit: contain) area.
+function drawBox(box, w, h, label, ok) {
+  const cv = $("camBox"), vw = cv.clientWidth, vh = cv.clientHeight; cv.width = vw; cv.height = vh;
+  const s = Math.min(vw / w, vh / h), ox = (vw - w * s) / 2, oy = (vh - h * s) / 2, g = cv.getContext("2d");
+  g.clearRect(0, 0, vw, vh); g.lineWidth = 3; g.strokeStyle = ok ? "#19d27a" : "#ffb000";
+  g.strokeRect(ox + box[0] * s, oy + box[1] * s, box[2] * s, box[3] * s);
+  g.font = "600 16px 'Barlow Condensed', sans-serif"; g.fillStyle = g.strokeStyle;
+  g.fillText(label, ox + box[0] * s, Math.max(16, oy + box[1] * s - 6));
+}
+function clearBox() { const cv = $("camBox"); cv.getContext("2d").clearRect(0, 0, cv.width, cv.height); }
+
+let autoId = false, autoTimer = null, idBusy = false;
+function toggleAuto() { autoId = !autoId; $("autoBtn").textContent = autoId ? t("auto_on") : t("auto_off"); $("autoBtn").classList.toggle("on", autoId);
+  clearInterval(autoTimer); if (autoId) autoTimer = setInterval(() => { if (!wEntry && role === "weigh" && mode === "simple") identifyNow(true); }, 1500); }
+async function identifyNow(quiet) {
+  if (idBusy) return; idBusy = true;
+  try {
+    const f = await Cam.frame();
+    if (!quiet) msg("wMsg", "warn", t("identifying"));
+    const r = await apiImage("/api/face/identify?station=weigh", f.blob);
+    if (r.entry) {
+      drawBox(r.box, f.w, f.h, `${cname(r.entry.candidate)} ${r.score.toFixed(2)}`, true);
+      $("wWho").innerHTML = whoHtml(r.entry); $("wEnroll").classList.add("hidden");
+      if (r.allowed) { msg("wMsg", "ok", t("recognised", { name: cname(r.entry.candidate), score: r.score.toFixed(2) })); startWeigh(r.entry); }
+      else msg("wMsg", "bad", `${cname(r.entry.candidate)}: ${t("e_" + r.reason)}`);
+    } else {
+      drawBox(r.box, f.w, f.h, `? ${r.score.toFixed(2)}`, false);
+      if (!quiet) msg("wMsg", "warn", r.reason === "nobody_enrolled" ? t("e_nobody_enrolled") : t("not_sure", { score: r.score.toFixed(2) }));
+    }
+  } catch (e) { clearBox(); if (!quiet) msg("wMsg", "bad", err(e)); }
+  finally { idBusy = false; }
+}
+async function enrollFromCamera() {
+  const e = wEntry || wLast; if (!e) return;
+  try { const f = await Cam.frame(); const r = await apiImage(`/api/entries/${e.id}/face`, f.blob); msg("wMsg", "ok", t("enrolled", { n: r.faces })); $("wEnroll").classList.add("hidden"); refresh(); }
+  catch (x) { msg("wMsg", "bad", err(x)); }
+}
+async function enrollFile(id, input) {
+  const file = input.files[0]; if (!file) return;
+  try { const r = await apiImage(`/api/entries/${id}/face`, file); msg("aMsg", "ok", t("enrolled", { n: r.faces })); refresh(); }
+  catch (e) { msg("aMsg", "bad", err(e)); }
+  input.value = "";
+}
+async function removeFace(id) { try { await api("DELETE", `/api/entries/${id}/face`); msg("aMsg", "ok", t("removed")); refresh(); } catch (e) { msg("aMsg", "bad", err(e)); } }
 
 /* ============================== run start ============================== */
 let startArmed = false;
@@ -606,7 +758,8 @@ function renderAdvanced() {
   const c = S.state.counts;
   $("aCounts").innerHTML = Object.entries(c).filter(([, v]) => v).map(([k, v]) => `${statusPill(k)} <b>${v}</b>`).join(" &nbsp; ") || "—";
   const ev = (e, k) => { const a = e.events[k]; return !a ? "—" : a.status === "running" ? `<span class="pill info">…</span>` : `${a.count} ${a.passed ? "✓" : "✗"}`; };
-  $("aTable").innerHTML = S.entries.map(e => `<tr><td>${esc(e.candidate.external_id)}</td><td>${esc(cname(e.candidate))}</td><td class="t">${esc(e.candidate.bib ?? "—")}</td><td>${e.bmi ?? "—"}</td><td>${statusPill(e.status)}</td><td class="t">${fmt(e.run_time_s)}</td><td>${ev(e, "pushup")}</td><td>${ev(e, "crunch")}</td></tr>`).join("") || `<tr><td colspan="8" class="hint">—</td></tr>`;
+  const faceCell = e => `<td style="white-space:nowrap">${e.faces ? `<img class="thumb" src="/api/entries/${e.id}/face.jpg?n=${e.faces}" alt=""> <span class="hint">×${e.faces}</span> <button class="btn ghost sm" onclick="removeFace(${e.id})">✕</button>` : `<span class="pill warn">${t("no_face")}</span>`} <label class="btn sm">${t("enroll")}<input type="file" accept="image/*" class="hidden" onchange="enrollFile(${e.id}, this)"></label></td>`;
+  $("aTable").innerHTML = S.entries.map(e => `<tr>${faceCell(e)}<td>${esc(e.candidate.external_id)}</td><td>${esc(cname(e.candidate))}</td><td class="t">${esc(e.candidate.bib ?? "—")}</td><td>${e.bmi ?? "—"}</td><td>${statusPill(e.status)}</td><td class="t">${fmt(e.run_time_s)}</td><td>${ev(e, "pushup")}</td><td>${ev(e, "crunch")}</td></tr>`).join("") || `<tr><td colspan="9" class="hint">—</td></tr>`;
   const r = S.rules;
   if (r) $("rTable").innerHTML = [["rule_bmi", `${r.bmi_min} – ${r.bmi_max}`], ["rule_run", fmt(r.run_pass_s)], ["rule_cutoff", fmt(r.run_cutoff_s)], ["rule_pushup", r.pushup_pass], ["rule_crunch", r.crunch_pass], ["rule_time", `${r.exercise_time_s} s`], ["rule_version", r.version]].map(([k, v]) => `<tr><th>${t(k)}</th><td class="t">${esc(v)}</td></tr>`).join("");
 }
@@ -615,6 +768,8 @@ function renderAdvanced() {
 (async function boot() {
   applyI18n();
   $("role").value = role; setMode(mode); setRole(role); setEvent(event);
+  $("autoBtn").textContent = t("auto_off");
+  if (Cam.kind === "webcam") Cam.use("webcam"); else Cam.show();
   try { S.rules = await api("GET", "/api/rules"); } catch {}
   await refresh();
   setInterval(refresh, 2000);

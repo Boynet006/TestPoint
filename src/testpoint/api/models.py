@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import (Boolean, DateTime, Float, ForeignKey, Integer, String, Text,
+from sqlalchemy import (Boolean, DateTime, Float, ForeignKey, Integer, LargeBinary, String, Text,
                         UniqueConstraint, create_engine, event)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 
@@ -30,6 +30,21 @@ class Candidate(Base):
     gender: Mapped[str | None] = mapped_column(String(1))
     dob: Mapped[str | None] = mapped_column(String(10))
     bib: Mapped[str | None] = mapped_column(String(16))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class FaceTemplate(Base):
+    """An enrolled face: 128-d SFace embedding plus the aligned 112x112 crop.
+
+    Face data is personal data: the retention job (Phase 2 backlog) deletes
+    these after the configured number of days.
+    """
+
+    __tablename__ = "face_template"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    candidate_id: Mapped[int] = mapped_column(ForeignKey("candidate.id"), index=True)
+    embedding: Mapped[bytes] = mapped_column(LargeBinary)
+    photo_jpeg: Mapped[bytes] = mapped_column(LargeBinary)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 

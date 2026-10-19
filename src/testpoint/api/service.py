@@ -15,8 +15,11 @@ from datetime import datetime
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+import numpy as np
+
 from . import journey as J
-from .models import Attempt, AuditLog, Candidate, Crossing, Day, Entry, utcnow
+from .faces import FaceError, match as face_match
+from .models import Attempt, AuditLog, Candidate, Crossing, Day, Entry, FaceTemplate, utcnow
 from .rules import EVENTS, DayRules, bmi as compute_bmi
 
 
@@ -164,6 +167,93 @@ def require_gate(entry: Entry, day: Day, station: str) -> None:
     g = gate_for(entry, day, station)
     if not g.ok:
         raise ServiceError(g.reason, f"{entry.candidate.name}: {g.reason.replace('_', ' ')}")
+
+
+# --------------------------------------------------------------------------- faces
+
+MAX_TEMPLATES = 3
+
+
+def _face(engine, data: bytes, require_single: bool):
+    if engine is None:
+        raise ServiceError("face_unavailable", "face recognition is not available on this server", 503)
+    try:
+        return engine.face_from_bytes(data, require_single=require_single)
+    except FaceError as e:
+        raise ServiceError(e.code, e.message, 422) from None
+
+
+def face_count(db: Session, candidate_id: int) -> int:
+    return db.scalar(select(func.count()).select_from(FaceTemplate)
+                     .where(FaceTemplate.candidate_id == candidate_id)) or 0
+
+
+def enroll_face(db: Session, day: Day, entry: Entry, data: bytes, engine) -> int:
+    """Store the face in ``data`` for this candidate; keeps the newest MAX_TEMPLATES."""
+    face = _face(engine, data, require_single=True)
+    # Guard against a mixed-up photo: refuse a face that already belongs to someone else.
+    others: dict[int, list[np.ndarray]] = {}
+    for cid, emb in db.execute(select(FaceTemplate.candidate_id, FaceTemplate.embedding)
+                               .where(FaceTemplate.candidate_id != entry.candidate_id)).all():
+        others.setdefault(cid, []).append(np.frombuffer(emb, np.float32))
+    clash = face_match(face.embedding, others, margin=0.0)
+    if clash.candidate_id is not None:
+        owner = db.get(Candidate, clash.candidate_id)
+        raise ServiceError("face_belongs_to_other",
+                           f"{owner.name}, bib {owner.bib}, match {clash.score}", 409)
+    db.add(FaceTemplate(candidate_id=entry.candidate_id,
+                        embedding=np.asarray(face.embedding, np.float32).tobytes(),
+                        photo_jpeg=face.crop_jpeg))
+    db.flush()
+    old = list(db.scalars(select(FaceTemplate).where(FaceTemplate.candidate_id == entry.candidate_id)
+                          .order_by(FaceTemplate.created_at.desc(), FaceTemplate.id.desc()))
+               )[MAX_TEMPLATES:]
+    for t in old:
+        db.delete(t)
+    _audit(db, day, "admin", "enroll_face", entry, detection_score=face.score)
+    db.commit()
+    return face_count(db, entry.candidate_id)
+
+
+def remove_faces(db: Session, day: Day, entry: Entry) -> None:
+    for t in db.scalars(select(FaceTemplate).where(FaceTemplate.candidate_id == entry.candidate_id)):
+        db.delete(t)
+    _audit(db, day, "admin", "remove_faces", entry)
+    db.commit()
+
+
+def face_photo(db: Session, entry: Entry) -> bytes | None:
+    t = db.scalar(select(FaceTemplate).where(FaceTemplate.candidate_id == entry.candidate_id)
+                  .order_by(FaceTemplate.created_at.desc(), FaceTemplate.id.desc()))
+    return t.photo_jpeg if t else None
+
+
+def identify(db: Session, day: Day, data: bytes, engine, station: str | None = None) -> dict:
+    """Who is in this frame, among today's candidates with an enrolled face?"""
+    face = _face(engine, data, require_single=False)
+    rows = db.execute(select(Entry.id, FaceTemplate.embedding).join(
+        FaceTemplate, FaceTemplate.candidate_id == Entry.candidate_id).where(Entry.day_id == day.id)).all()
+    gallery: dict[int, list[np.ndarray]] = {}
+    for entry_id, emb in rows:
+        gallery.setdefault(entry_id, []).append(np.frombuffer(emb, np.float32))
+    m = face_match(face.embedding, gallery)
+    out = {"box": list(face.box), "score": m.score, "runner_up": m.runner_up,
+           "confident": m.confident, "enrolled_today": len(gallery), "entry": None,
+           "allowed": None, "reason": None}
+    if m.candidate_id is not None:
+        entry = db.get(Entry, m.candidate_id)
+        out["entry"] = entry
+        if station:
+            g = gate_for(entry, day, station)
+            out["allowed"], out["reason"] = g.ok, (g.reason or None)
+    elif not gallery:
+        out["reason"] = "nobody_enrolled"
+    else:
+        out["reason"] = "face_not_recognised"
+    _audit(db, day, station or "checkin", "identify", out["entry"], score=m.score,
+           runner_up=m.runner_up, confident=m.confident)
+    db.commit()
+    return out
 
 
 # ----------------------------------------------------------------------- weigh-in

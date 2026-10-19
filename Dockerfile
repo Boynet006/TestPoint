@@ -39,13 +39,16 @@ RUN apt-get update \
 # Station app: FastAPI + SQLite + the station UI. Installs only the [app] extra.
 FROM pybase AS app
 COPY pyproject.toml ./
+# Face check-in needs OpenCV; the headless wheel avoids the X11/GL libraries.
 RUN python -c "import tomllib; print('\n'.join(tomllib.load(open('pyproject.toml','rb'))['project']['optional-dependencies']['app']))" > /tmp/app-req.txt \
- && pip install -r /tmp/app-req.txt
+ && pip install -r /tmp/app-req.txt "numpy>=1.26" "opencv-python-headless>=4.9"
 COPY src ./src
-RUN pip install --no-deps . && rm -rf build src/*.egg-info
+RUN pip install --no-deps . && rm -rf build src/*.egg-info \
+ && python -m testpoint.api.faces --download /opt/testpoint/models/face
 COPY web/station ./web/station
 ENV TESTPOINT_DB=sqlite:////data/testpoint.db \
     TESTPOINT_WEB=/app/web/station \
+    TESTPOINT_FACE_MODELS=/opt/testpoint/models/face \
     TESTPOINT_PORT=8000
 USER app
 EXPOSE 8000

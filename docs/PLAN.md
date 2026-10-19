@@ -125,10 +125,14 @@ service `app` on port 8080):
   everyone. Rules shown read-only.
 - [x] English and Arabic with right-to-left layout; Simple/Advanced toggle.
 - [x] Audit log of every action in the database.
-- [ ] **Face check-in:** a USB webcam (e.g. Logitech C920/Brio) at the
-  check-in desk, read by the browser on that PC, frame sent to the server for
-  matching (InsightFace, on-premise) against today's list. Needs HTTPS when
-  the check-in device is not the server PC itself.
+- [x] **Face check-in (demo-ready):** enrol photos per candidate, identify at
+  the weigh-in screen from a webcam, a video file or a photo (camera-source
+  picker per device). OpenCV YuNet + SFace, offline, checksummed models.
+  Refuses "not sure" matches and faces already enrolled for someone else.
+  See [DEMO.md](DEMO.md).
+- [ ] Face check-in on real hardware: USB webcam at the check-in desk,
+  measure real accuracy, HTTPS for separate check-in devices, liveness check,
+  retention job for face data.
 - [ ] Connect the rep-counting engine to the station lanes (live count and
   faults instead of tapping), with evidence video and per-rep clips.
 - [ ] Examiner override of results with reason, review screen.

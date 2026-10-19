@@ -20,6 +20,7 @@ network).
 - [docs/QUESTIONS.md](docs/QUESTIONS.md) — answers received so far and open points
 - [docs/SITE.md](docs/SITE.md) — hardware, camera placement, capacity for 500 candidates, run-course options
 - [docs/RULES.md](docs/RULES.md) — proposed rule set v1 for sign-off (thresholds, time limits, retention)
+- [docs/DEMO.md](docs/DEMO.md) — running the demo on one PC with photos and videos instead of cameras
 - [docs/TEST-DAY.md](docs/TEST-DAY.md) — the test-day flow: weigh-in gate, mass-start run, exercises only after a run pass
 - [docs/RESEARCH.md](docs/RESEARCH.md) — existing products, libraries and the reasoning behind the choices
 
@@ -171,13 +172,14 @@ for every device on test day. Each device picks its role in the header:
 
 | Role | What the examiner does |
 |------|------------------------|
-| Weigh-in | Check in by bib or ID, enter weight and height, accept or reject on BMI |
+| Weigh-in | Check in by face (webcam, or a photo/video for demos) or by bib, enter weight and height, accept or reject on BMI |
 | Run · start line | Mark runners present, then START (press twice) for the mass start |
 | Run · finish line | Type each bib as the runner crosses; unread bibs go to a review queue |
 | Exercise station | Push-ups or crunches, 3 lanes, check-in per lane, tap-count, save |
 
-**Advanced** shows today's list with everyone's status, CSV import and the
-rules. The server enforces the order of the day: a station refuses anyone who
+**Advanced** shows today's list with everyone's status, CSV import, face
+enrolment and the rules. To demonstrate on one PC with photos and videos
+instead of cameras, follow [docs/DEMO.md](docs/DEMO.md). The server enforces the order of the day: a station refuses anyone who
 has not passed the step before it, with the reason on screen.
 
 It starts with the one-click **Start TestPoint.cmd** and runs at
@@ -202,7 +204,7 @@ transfer with `docker save` / `docker load`.
 
 | Image | Dockerfile target | What it is |
 |-------|-------------------|------------|
-| `testpoint/app` | `app` | Station app: API, database and station UI (262 MB) |
+| `testpoint/app` | `app` | Station app: API, database, station UI and face check-in models (653 MB) |
 | `testpoint/engine-gpu` | `gpu` (default) | Rep-counting engine on the NVIDIA GPU, models baked in |
 | `testpoint/engine-cpu` | `cpu` | Same engine on the CPU (laptops, CI) |
 | `testpoint/tests` | `test` | Runs the unit tests |
@@ -338,6 +340,9 @@ docker compose up -d --no-build app
   wired to the API and database, in Docker on port 8080. Check-in is by bib or ID
   and exercise counts are tapped by the examiner until face check-in and the
   camera engine are connected.
+- Face check-in (2026-10-19): enrol photos, identify from a webcam, video file or
+  photo at the weigh-in screen (OpenCV YuNet + SFace, offline, models baked into the
+  app image). Demo guide in docs/DEMO.md. 68 tests passing.
 - Engine: 3-4 lanes per camera (`vision/lanes.py`, `MultiLaneSession`), push-up
   faults `body_not_straight`, `knee_on_ground`, `rest_in_down` (thresholds in
   `PushupRules`, to be calibrated on real footage), RTSP input with reconnect.
