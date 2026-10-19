@@ -173,8 +173,12 @@ transfer with `docker save` / `docker load`.
 | `testpoint/tests` | `test` | Runs the unit tests |
 | `testpoint/prototype` | `prototype` | The UI mock-up on nginx |
 
-The GPU image is several GB because it carries the CUDA 13 and cuDNN runtime.
-Only the NVIDIA driver comes from the host.
+Measured sizes: engine-gpu 5.5 GB, engine-cpu 1.5 GB, tests 1.2 GB,
+prototype 74 MB. The GPU image carries the CUDA 13 and cuDNN runtime; only the
+NVIDIA driver comes from the host. Models for `lightweight` and `balanced`
+are baked in; `performance` is downloaded on first use unless you build with
+`MODEL_MODES=lightweight balanced performance` in `.env`, which the offline
+site needs if it will use that mode.
 
 ### Install Docker on the Windows PC (once)
 
@@ -278,7 +282,10 @@ docker compose up -d --no-build prototype
   `balanced` mode at ~42 fps for 1080p frames (CPU was ~1.5 fps). See *GPU setup*.
 - `web/prototype/index.html` is a clickable UI mock-up (no backend) of the
   Simple/Advanced modes and the check-in → test → result flow.
-- Docker (2026-10-19): Dockerfile, `compose.yaml` and `.env.example` written;
-  the Linux dependency set resolves and the model-fetch script runs, but the
-  images have not been built yet because Docker is not installed on this PC.
+- Docker (2026-10-19): all four images build (first build 8 min, mostly the
+  CUDA download; later builds reuse the cache). In the containers: 42 tests
+  pass, the GPU engine runs on `CUDAExecutionProvider` at ~46 fps (`balanced`,
+  1080p, same as native Windows), the prototype serves on port 8080, and an
+  unreachable camera fails cleanly with the password masked. Not yet tried
+  against a real camera.
 
