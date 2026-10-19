@@ -169,7 +169,7 @@
         <div><label data-t="height"></label><input id="wCm" type="number" step="1" inputmode="decimal" oninput="bmiPreview()"></div>
       </div>
       <div class="bmi" id="wBmi"><span class="tagline">BMI</span><b>—</b><span class="hint" id="wRange"></span></div>
-      <div id="wOverride" class="hidden" style="margin-top:10px"><input id="wReason" style="width:100%" data-tp="ph_override"></div>
+      <div id="wOverride" class="hidden" style="margin-top:10px"><label class="hint" id="wReasonLabel" data-t="reason_out_of_range"></label><input id="wReason" style="width:100%" data-tp="ph_reason"></div>
       <div class="row" style="margin-top:12px"><button class="btn go" id="wAccept" onclick="weighSubmit(true)" disabled data-t="accept_day"></button><button class="btn stop" id="wReject" onclick="weighSubmit(false)" disabled data-t="reject"></button></div>
     </div>
   </div>
@@ -210,6 +210,7 @@
       <div id="fLive" class="hidden" style="margin-top:12px">
         <div class="search"><input id="fBib" data-tp="ph_finish" autocomplete="off" inputmode="numeric" onkeydown="if(event.key==='Enter')finish(true)"><button class="btn go" onclick="finish(true)" data-t="record_finish"></button></div>
         <div class="row" style="margin-top:8px"><button class="btn" onclick="finish(false)" data-t="no_bib"></button><button class="btn stop" id="fClose" onclick="closeRun()" data-t="close_run"></button></div>
+        <p class="hint" id="fCloseHint" style="color:var(--amber)"></p>
         <div id="fMsg"></div>
         <p class="hint" data-t="finish_hint"></p>
       </div>
@@ -294,7 +295,7 @@ const I18N = {
     csv_hint: "Columns: external_id, name, name_ar, gender, dob, bib (header row required).",
     imported: "Imported {n}.", import_errors: "{n} rows skipped:", added: "Added.",
     rules_hint: "Placeholder values until the official regulation arrives (docs/RULES.md).",
-    s_expected: "expected", s_accepted: "accepted", s_rejected: "rejected (BMI)", s_lined_up: "at the line", s_absent: "absent",
+    s_expected: "expected", s_accepted: "accepted", s_rejected: "rejected at weigh-in", s_lined_up: "at the line", s_absent: "absent",
     s_running: "running", s_run_passed: "run passed", s_run_failed: "run failed", s_dnf: "DNF", s_complete: "complete",
     e_not_on_todays_list: "Not on today's list", e_already_weighed: "Already weighed in today", e_not_weighed: "Not weighed in yet",
     e_has_not_run: "Has not run yet", e_still_running: "Still running", e_rejected_at_weigh_in: "Rejected at weigh-in",
@@ -327,6 +328,14 @@ const I18N = {
     e_cannot_remove: "Cannot be removed any more", e_too_late_to_cancel: "Too late: the start can only be cancelled in the first 2 minutes",
     e_finishers_exist: "Runners have already finished", e_not_assigned: "This crossing is not assigned", e_results_exist: "This runner already has exercise results",
     e_review_pending: "Crossings still wait for review: assign or discard them first", e_not_found: "Not found",
+    e_empty_query: "Type a bib or ID", e_ambiguous_query: "That number is one person's bib and another's ID: type the full ID",
+    e_external_id_in_use: "This ID already belongs to someone else", e_bad_gender: "Gender must be M or F", e_bad_dob: "Date of birth must be YYYY-MM-DD",
+    e_bad_input: "Check the value", e_too_large: "The file is too large (max 15 MB)", e_reason_required: "Rejecting inside the BMI range needs a reason",
+    e_extra_columns: "Too many values in the row", e_duplicate_row: "Same person twice in the file", e_attempt_not_running: "This test is no longer open",
+    e_bad_count: "Counts cannot be negative", e_bad_measurement: "Weight and height must be positive", e_unknown_station: "Unknown station",
+    e_unknown_event: "Unknown exercise",
+    reason_out_of_range: "Reason for accepting outside the BMI range (required)", reason_in_range: "Reason for rejecting inside the BMI range (required)",
+    ph_reason: "Reason", save_first: "Save this lane's result first", imported_counts: "Added {a}, updated {u}, unchanged {s}.",
   },
   ar: {
     tagline: "محطة اختبار اللياقة البدنية", today: "اليوم", simple: "بسيط", advanced: "متقدم",
@@ -354,7 +363,7 @@ const I18N = {
     csv_hint: "الأعمدة: external_id, name, name_ar, gender, dob, bib (مع سطر العناوين).",
     imported: "تم استيراد {n}.", import_errors: "تم تخطي {n} سطراً:", added: "تمت الإضافة.",
     rules_hint: "قيم مؤقتة حتى وصول اللائحة الرسمية.",
-    s_expected: "متوقع", s_accepted: "مقبول", s_rejected: "مرفوض (الكتلة)", s_lined_up: "عند الخط", s_absent: "غائب",
+    s_expected: "متوقع", s_accepted: "مقبول", s_rejected: "مرفوض في الوزن", s_lined_up: "عند الخط", s_absent: "غائب",
     s_running: "يجري", s_run_passed: "اجتاز الجري", s_run_failed: "رسب في الجري", s_dnf: "لم يكمل", s_complete: "مكتمل",
     e_not_on_todays_list: "غير موجود في قائمة اليوم", e_already_weighed: "تم وزنه اليوم", e_not_weighed: "لم يُوزن بعد",
     e_has_not_run: "لم يجرِ بعد", e_still_running: "ما زال يجري", e_rejected_at_weigh_in: "مرفوض في الوزن",
@@ -387,11 +396,19 @@ const I18N = {
     e_cannot_remove: "لم يعد ممكناً إزالته", e_too_late_to_cancel: "فات الوقت: يمكن إلغاء الانطلاق خلال أول دقيقتين فقط",
     e_finishers_exist: "وصل عداؤون بالفعل", e_not_assigned: "هذا العبور غير معيّن", e_results_exist: "لهذا العدّاء نتائج تمارين",
     e_review_pending: "عبورات بانتظار المراجعة: عيّنها أو احذفها أولاً", e_not_found: "غير موجود",
+    e_empty_query: "اكتب الرقم أو الهوية", e_ambiguous_query: "هذا الرقم هو رقم عدّاء وهوية شخص آخر: اكتب الهوية كاملة",
+    e_external_id_in_use: "هذه الهوية تخص شخصاً آخر", e_bad_gender: "الجنس يجب أن يكون M أو F", e_bad_dob: "تاريخ الميلاد بصيغة YYYY-MM-DD",
+    e_bad_input: "تحقق من القيمة", e_too_large: "الملف كبير جداً (الحد 15 ميغابايت)", e_reason_required: "الرفض داخل نطاق مؤشر الكتلة يحتاج إلى سبب",
+    e_extra_columns: "قيم زائدة في السطر", e_duplicate_row: "الشخص نفسه مكرر في الملف", e_attempt_not_running: "هذا الاختبار لم يعد مفتوحاً",
+    e_bad_count: "لا يمكن أن يكون العدد سالباً", e_bad_measurement: "الوزن والطول يجب أن يكونا موجبين", e_unknown_station: "محطة غير معروفة",
+    e_unknown_event: "تمرين غير معروف",
+    reason_out_of_range: "سبب القبول خارج نطاق مؤشر الكتلة (إلزامي)", reason_in_range: "سبب الرفض داخل نطاق مؤشر الكتلة (إلزامي)",
+    ph_reason: "السبب", save_first: "احفظ نتيجة هذا المسار أولاً", imported_counts: "أضيف {a}، حُدّث {u}، دون تغيير {s}.",
   },
 };
 let lang = load("lang", "en");
 const t = (k, vars) => { let s = I18N[lang][k] ?? I18N.en[k] ?? k; for (const [a, b] of Object.entries(vars || {})) s = s.replace(`{${a}}`, b); return s; };
-const SHOW_DETAIL = new Set(["face_belongs_to_other", "bib_in_use"]);   // the server's message names the other person
+const SHOW_DETAIL = new Set(["face_belongs_to_other", "bib_in_use", "bad_input", "external_id_in_use", "ambiguous_query", "bad_gender", "bad_dob"]);   // the server's message names the other person
 const err = e => t("e_" + (e.code || "unknown")) + ((!I18N.en["e_" + e.code] || SHOW_DETAIL.has(e.code)) && e.message ? ` (${e.message})` : "");
 function applyI18n() {
   document.documentElement.lang = lang; document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
@@ -468,22 +485,26 @@ function setMode(m) { mode = m; save("mode", m); $("simple").classList.toggle("h
 function tab(name, btn) { for (const x of ["list", "rules"]) $("t-" + x).classList.toggle("hidden", x !== name); document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("active", b === btn)); }
 
 /* ============================== weigh-in ============================== */
-let wEntry = null, wLast = null;
+let wEntry = null, wLast = null, wSeq = 0;
+// Every new check-in (typed or by face) gets a number; a face result that arrives after a
+// newer check-in is ignored, so the weight is never saved to someone no longer on screen.
+function newCheckin() { wSeq++; wEntry = null; wLast = null; setWeighForm(false); $("wEnroll").classList.add("hidden"); $("wOverride").classList.add("hidden"); $("wReason").value = ""; return wSeq; }
 function startWeigh(entry) {
   wEntry = entry; wLast = entry; setWeighForm(true); $("wKg").value = ""; $("wCm").value = ""; bmiPreview(); $("wKg").focus();
 }
 async function weighCheckin() {
   const q = $("wQuery").value.trim(); if (!q) return;
-  msg("wMsg"); $("wWho").innerHTML = ""; setWeighForm(false); wEntry = null; clearBox();
+  const seq = newCheckin(); msg("wMsg"); $("wWho").innerHTML = ""; clearBox();
   try {
     const r = await api("POST", "/api/checkin", { station: "weigh", query: q });
+    if (seq !== wSeq) return;
     $("wWho").innerHTML = whoHtml(r.entry); wLast = r.entry;
     // Typed in by bib: offer to save the face on screen, so next time the camera recognises them.
     const known = S.entries.find(e => e.id === r.entry.id);
     $("wEnroll").classList.toggle("hidden", !(known && !known.faces && Cam.kind && (Cam.stream || Cam.fileName)));
     if (r.allowed) startWeigh(r.entry);
     else msg("wMsg", "bad", t("e_" + r.reason));
-  } catch (e) { msg("wMsg", "bad", err(e)); }
+  } catch (e) { if (seq === wSeq) msg("wMsg", "bad", err(e)); }
 }
 function setWeighForm(on) { $("wForm").style.opacity = on ? 1 : .35; $("wForm").style.pointerEvents = on ? "auto" : "none"; }
 function bmiPreview() {
@@ -494,16 +515,30 @@ function bmiPreview() {
   if (!valid) { box.querySelector("b").textContent = "—"; box.className = "bmi"; $("wOverride").classList.add("hidden"); return; }
   const v = Math.round(kg / ((cm / 100) ** 2) * 10) / 10, ok = v >= r.bmi_min && v <= r.bmi_max;
   box.querySelector("b").textContent = v.toFixed(1); box.className = "bmi " + (ok ? "ok" : "bad");
-  $("wOverride").classList.toggle("hidden", ok);
+  // Outside the range: a reason is needed to accept. Inside: a reason is needed to reject (shown when asked).
+  if (!ok) { $("wReasonLabel").textContent = t("reason_out_of_range"); $("wOverride").classList.remove("hidden"); }
+  else if ($("wReasonLabel").textContent !== t("reason_in_range")) $("wOverride").classList.add("hidden");
 }
 async function weighSubmit(accept) {
   if (!wEntry) return;
+  const kg = parseFloat($("wKg").value), cm = parseFloat($("wCm").value), r = S.rules;
+  const v = kg > 0 && cm > 0 ? Math.round(kg / ((cm / 100) ** 2) * 10) / 10 : null;
+  const inRange = v != null && r && v >= r.bmi_min && v <= r.bmi_max;
+  if (!$("wReason").value.trim() && ((accept && !inRange) || (!accept && inRange))) {
+    $("wReasonLabel").textContent = accept ? t("reason_out_of_range") : t("reason_in_range");
+    $("wOverride").classList.remove("hidden"); $("wReason").focus();
+    msg("wMsg", "warn", accept ? t("e_bmi_out_of_range") : t("e_reason_required"));
+    return;
+  }
   try {
     const e = await api("POST", `/api/entries/${wEntry.id}/weigh-in`, { weight_kg: parseFloat($("wKg").value), height_cm: parseFloat($("wCm").value), accept, override_reason: $("wReason").value || null });
     $("wWho").innerHTML = whoHtml(e);
     msg("wMsg", accept ? "ok" : "bad", `BMI ${e.bmi} · ` + (accept ? t("accepted_go") : t("rejected_done")));
-    wEntry = null; setWeighForm(false); $("wEnroll").classList.add("hidden"); clearBox(); $("wReason").value = ""; $("wQuery").value = ""; $("wKg").value = ""; $("wCm").value = ""; bmiPreview(); $("wQuery").focus(); refresh();
-  } catch (e) { msg("wMsg", "bad", err(e)); }
+    newCheckin(); clearBox(); $("wQuery").value = ""; $("wKg").value = ""; $("wCm").value = ""; bmiPreview(); $("wQuery").focus(); refresh();
+  } catch (e) {
+    msg("wMsg", "bad", err(e));
+    if (e.code === "reason_required" || e.code === "bmi_out_of_range") { $("wOverride").classList.remove("hidden"); $("wReason").focus(); }
+  }
 }
 function renderWeigh() { if (S.rules) $("wRange").textContent = t("bmi_range", { min: S.rules.bmi_min, max: S.rules.bmi_max }); }
 
@@ -576,13 +611,17 @@ function toggleAuto() { autoId = !autoId; $("autoBtn").textContent = autoId ? t(
   clearInterval(autoTimer); if (autoId) autoTimer = setInterval(() => { if (!wEntry && role === "weigh" && mode === "simple") identifyNow(true); }, 1500); }
 async function identifyNow(quiet) {
   if (idBusy) return; idBusy = true;
+  const seqAtStart = wSeq;
   try {
     const f = await Cam.frame();
     if (!quiet) msg("wMsg", "warn", t("identifying"));
     const r = await apiImage("/api/face/identify?station=weigh", f.blob);
+    if (seqAtStart !== wSeq || (quiet && wEntry)) return;   // someone else was checked in meanwhile
     if (r.entry) {
+      if (wEntry && wEntry.id === r.entry.id) return;          // already weighing this person
+      newCheckin();
       drawBox(r.box, f.w, f.h, `${cname(r.entry.candidate)} ${r.score.toFixed(2)}`, true);
-      $("wWho").innerHTML = whoHtml(r.entry); $("wEnroll").classList.add("hidden");
+      $("wWho").innerHTML = whoHtml(r.entry);
       if (r.allowed) { msg("wMsg", "ok", t("recognised", { name: cname(r.entry.candidate), score: r.score.toFixed(2) })); startWeigh(r.entry); }
       else msg("wMsg", "bad", `${cname(r.entry.candidate)}: ${t("e_" + r.reason)}`);
     } else {
@@ -684,6 +723,7 @@ function renderFinish() {
   setHTML("fTable", done.slice().reverse().map((c, i) => { const e = byId[c.entry_id]; return `<tr><td>${done.length - i}</td><td class="t">${esc(e?.candidate.bib ?? c.bib_read ?? "?")}</td><td>${esc(e ? cname(e.candidate) : "—")}</td><td class="t">${fmt(c.time_s)}</td><td>${e ? statusPill(e.status) : ""}</td><td style="text-align:end">${closed ? "" : `<button class="btn ghost sm" onclick="confirmClick('unassign${c.id}', this, () => unassignCrossing(${c.id}))">${t("wrong_bib")}</button>`}</td></tr>`; }).join("") || `<tr><td colspan="6" class="hint">—</td></tr>`);
   $("fClose").disabled = S.state.review_queue > 0;
   $("fClose").title = S.state.review_queue > 0 ? t("e_review_pending") : "";
+  $("fCloseHint").textContent = S.state.review_queue > 0 ? t("e_review_pending") : "";   // tablets show no tooltips
   const review = S.crossings.filter(c => c.needs_review), runners = S.entries.filter(e => e.status === "running");
   $("fReviewBox").classList.toggle("hidden", review.length === 0);
   // Redraw only when the queue or the runner list changed, so an open dropdown is not closed under the examiner.
@@ -720,7 +760,8 @@ function tickClocks() {
 const limit = () => (S.rules ? S.rules.exercise_time_s : 120);
 const lanes = [1, 2, 3].map(n => ({ n, state: "empty", entry: null, reason: null, attempt: null, count: 0, rejected: 0, t0: 0, left: 0, result: null, error: null }));
 function setEvent(e) {
-  if (lanes.some(l => l.state === "running")) return;
+  // A running or stopped-but-unsaved lane would lose its count: refuse the switch.
+  if (lanes.some(l => l.state === "running" || l.state === "stopped" || l.busy)) { lanes.filter(l => l.state === "stopped").forEach(l => { l.error = t("save_first"); renderLane(l); }); return; }
   event = e; save("event", e); lanes.forEach(l => resetLane(l.n, true)); renderStation();
 }
 function resetLane(n, quiet) { Object.assign(lanes[n - 1], { state: "empty", entry: null, reason: null, attempt: null, count: 0, rejected: 0, result: null, error: null }); if (!quiet) renderLane(lanes[n - 1]); }
@@ -738,12 +779,14 @@ async function laneCheckin(n, query) {
 }
 async function startLane(n) {
   const l = lanes[n - 1];
+  if (l.busy) return;                        // double tap: only one request
+  l.busy = true; renderLane(l);
   try {
     l.attempt = await api("POST", "/api/attempts", { entry_id: l.entry.id, event, lane: String(n) });
     Object.assign(l, { state: "running", count: 0, rejected: 0, t0: Date.now(), left: limit(), error: null });
   } catch (e) {
     if (e.code === "attempt_in_progress") l.reason = "attempt_in_progress"; else l.error = err(e);
-  }
+  } finally { l.busy = false; }
   renderLane(l);
 }
 async function cancelOpen(n) {
@@ -761,8 +804,19 @@ function tap(n, which, d) {
 function stopLane(n) { const l = lanes[n - 1]; if (l.state === "running") { l.state = "stopped"; renderLane(l); } }
 async function saveLane(n) {
   const l = lanes[n - 1];
-  try { l.result = await api("POST", `/api/attempts/${l.attempt.id}/finish`, { count: l.count, rejected: l.rejected }); l.state = "done"; refresh(); }
-  catch (e) { l.error = err(e); }
+  if (l.busy) return;
+  l.busy = true;
+  try { l.result = await api("POST", `/api/attempts/${l.attempt.id}/finish`, { count: l.count, rejected: l.rejected }); l.state = "done"; l.error = null; refresh(); }
+  catch (e) {
+    l.error = err(e);
+    if (e.code === "attempt_not_running") {
+      // The save may have reached the server even though the answer was lost: show what it has.
+      const fresh = await api("GET", `/api/entries/${l.entry.id}`).catch(() => null);
+      const a = fresh && fresh.events[event];
+      if (a && a.status === "finished" && a.attempt_id === l.attempt.id) { l.result = a; l.state = "done"; l.error = null; refresh(); }
+      else { l.state = "refused"; l.reason = "attempt_not_running"; }
+    }
+  } finally { l.busy = false; }
   renderLane(l);
 }
 function renderLane(l) {
@@ -780,7 +834,7 @@ function renderLane(l) {
     const open = l.reason === "attempt_in_progress";
     body = whoHtml(l.entry) + `<div class="msg ok">${t("verified")} · ${t("run")} ${fmt(l.entry.run_time_s)}</div>`
       + (open ? `<div class="msg warn">${t("e_attempt_in_progress")}</div><button class="btn" onclick="cancelOpen(${l.n})">${t("cancel_prev")}</button>` : "")
-      + `<div class="row" style="margin-top:auto"><button class="btn go xl" onclick="startLane(${l.n})" ${open ? "disabled" : ""}>${t("start_test")}</button></div><button class="btn ghost sm" onclick="resetLane(${l.n})">${t("clear")}</button>`;
+      + `<div class="row" style="margin-top:auto"><button class="btn go xl" onclick="startLane(${l.n})" ${open || l.busy ? "disabled" : ""}>${t("start_test")}</button></div><button class="btn ghost sm" onclick="resetLane(${l.n})">${t("clear")}</button>`;
   } else if (l.state === "running" || l.state === "stopped") {
     const left = l.state === "running" ? l.left : 0;
     body = whoHtml(l.entry) + `<div class="count"><span id="lc-${l.n}">${l.count}</span><small>${t("valid")} · <span id="lr-${l.n}">${l.rejected}</span> ${t("rejected_rep")}</small></div><div class="timer ${left <= 10 ? "low" : ""}" id="lt-${l.n}">${mmss(left)}</div>
@@ -812,8 +866,9 @@ async function addCandidate() {
 async function importCsv(input) {
   const f = input.files[0]; if (!f) return;
   try {
-    const r = await api("POST", "/api/entries/import", null, await f.text());
-    msg("aMsg", r.errors.length ? "warn" : "ok", t("imported", { n: r.added }) + (r.errors.length ? " " + t("import_errors", { n: r.errors.length }) + " " + r.errors.map(x => `#${x.line} ${x.message}`).join("; ") : ""));
+    // Send the file's bytes unchanged: the server detects UTF-8 or Arabic Windows (CP-1256).
+    const r = await api("POST", "/api/entries/import", null, f);
+    msg("aMsg", r.errors.length ? "warn" : "ok", t("imported_counts", { a: r.added, u: r.updated ?? 0, s: r.unchanged ?? 0 }) + (r.errors.length ? " " + t("import_errors", { n: r.errors.length }) + " " + r.errors.map(x => `#${x.line} ${x.message}`).join("; ") : ""));
     refresh();
   } catch (e) { msg("aMsg", "bad", err(e)); }
   input.value = "";
