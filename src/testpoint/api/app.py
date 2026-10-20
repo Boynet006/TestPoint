@@ -130,6 +130,7 @@ class SettingsIn(BaseModel):
     lanes: int | None = Field(default=None, ge=1, le=4)
     wave_size: int | None = Field(default=None, ge=1, le=200)
     start_countdown_s: int | None = Field(default=None, ge=0, le=30)
+    cancel_window_s: int | None = Field(default=None, ge=0, le=3600)
     site_name: str | None = Field(default=None, max_length=80)
     default_language: Literal["en", "ar"] | None = None
 
@@ -584,6 +585,17 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
                      day: Day = Depends(get_day)) -> None:
         """Take someone off today's list; ``delete_results=true`` also when they have results."""
         S.remove_entry(db, day, S.get_entry(db, day, entry_id), delete_results=delete_results)
+
+    @app.post("/api/run/waves/{wave_id}/void", dependencies=[Depends(admin)])
+    def run_wave_void(wave_id: int, abort: bool = False, db: Session = Depends(get_db),
+                      day: Day = Depends(get_day)) -> dict:
+        """Take back a wave started by mistake; ``abort=true`` also deletes its finish times
+        (the wave runs again). Either way its people wait for a wave again."""
+        return S.void_wave(db, day, wave_id, abort=abort)
+
+    @app.post("/api/run/line/clear")
+    def run_line_clear(db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        return {"cleared": S.clear_line(db, day)}
 
     @app.post("/api/run/start/cancel")
     def run_start_cancel(request: Request, late: bool = False, db: Session = Depends(get_db),
