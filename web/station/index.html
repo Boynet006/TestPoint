@@ -149,6 +149,17 @@
   #setBgCustom { flex: 0 0 48px; height: 36px; padding: 2px; }
   .bgpick { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .bgpick img { width: 96px; height: 54px; object-fit: cover; border: 1px solid var(--line); }
+  .lastmark { display: flex; align-items: center; gap: 18px; margin-top: 12px; padding: 12px 16px; background: var(--bg2); border-inline-start: 4px solid var(--go); }
+  .lastmark .lm-bib { font-family: var(--cond); font-size: 64px; font-weight: 800; line-height: 1; color: var(--amber); min-width: 2.2ch; text-align: center; }
+  .lastmark .lm-who { display: flex; flex-direction: column; gap: 4px; flex: 1; } .lastmark .lm-who b { font-family: var(--cond); font-size: 26px; }
+  .wavefill { font-family: var(--cond); font-size: 22px; color: var(--amber); }
+  .countdown { text-align: center; margin: 12px 0; padding: 14px; background: var(--bg2); border: 1px solid var(--line); }
+  .countdown .cd-label { font-family: var(--cond); letter-spacing: 2px; text-transform: uppercase; color: var(--muted); font-size: 18px; }
+  .countdown .cd-num { font-family: var(--cond); font-size: 120px; font-weight: 800; line-height: 1.05; color: var(--amber); }
+  .countdown.go .cd-num { color: var(--go); }
+  .waverow { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .waverow .wclock { font-family: var(--cond); font-size: 40px; font-weight: 700; text-align: end; }
+  .waverow .wbtns { grid-column: 1 / -1; display: flex; gap: 8px; justify-content: flex-end; }
   .pagetitle { font-family: var(--cond); font-size: 28px; letter-spacing: 1.5px; text-transform: uppercase; margin: 0; }
   .sec { font-family: var(--cond); font-size: 15px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin: 22px 0 0; border-top: 1px solid var(--line); padding-top: 14px; }
   .pair { display: flex; align-items: center; gap: 8px; } .pair input { min-width: 0; flex: 1; }
@@ -232,6 +243,7 @@
   <div id="v-weigh" class="grid2 hidden">
     <div class="card">
       <h2 data-t="r_weigh"></h2>
+      <div id="camSlot-weigh"><div id="camBlock">
       <div class="camsrc">
         <div class="seg"><button id="src-webcam" onclick="Cam.use('webcam')" data-t="src_webcam"></button><button id="src-video" onclick="Cam.pick('video')" data-t="src_video"></button><button id="src-photo" onclick="Cam.pick('photo')" data-t="src_photo"></button></div>
         <input type="file" id="camFile" class="hidden" onchange="Cam.fileChosen(this)">
@@ -249,6 +261,7 @@
         <button class="btn amber" id="idBtn" onclick="identifyNow()" data-t="identify"></button>
         <button class="btn" id="autoBtn" onclick="toggleAuto()"></button>
       </div>
+      </div></div>
       <div class="search" style="margin-top:10px"><input id="wQuery" data-tp="ph_bib" autocomplete="off" onkeydown="if(event.key==='Enter')weighCheckin()"><button class="btn" onclick="weighCheckin()" data-t="checkin"></button></div>
       <div id="wMsg"></div>
       <div id="wWho"></div>
@@ -305,30 +318,38 @@
     </div>
   </div>
 
-  <!-- RUN START -->
+  <!-- RUN START: waves. Mark people present (camera or bib), START with a countdown and horn,
+       latecomers run in the next wave; waves close themselves after the cut-off. -->
   <div id="v-start" class="grid2 hidden">
     <div class="card">
       <h2 data-t="r_start"></h2>
-      <div class="tiles"><div><b id="sAccepted">0</b><span data-t="waiting_line"></span></div><div><b class="go" id="sLined">0</b><span data-t="at_line"></span></div><div><b class="warn" id="sNotWeighed">0</b><span data-t="not_weighed_yet"></span></div></div>
-      <div id="sBefore" style="margin-top:14px">
-        <div class="search"><input id="sQuery" data-tp="ph_bib" autocomplete="off" onkeydown="if(event.key==='Enter')lineUp()"><button class="btn amber" onclick="lineUp()" data-t="mark_present"></button></div>
-        <div id="sMsg"></div>
-        <p class="hint" data-t="start_hint"></p>
-        <button class="btn go huge" id="sStart" onclick="massStart()" disabled></button>
-      </div>
-      <div id="sAfter" class="hidden" style="margin-top:14px">
-        <div class="tagline" style="text-align:center" data-t="elapsed"></div>
-        <div class="bigclock" id="sClock">00:00</div>
-        <p class="hint" style="text-align:center"><span data-t="started_at"></span> <b id="sAt"></b></p>
-        <div id="sCancelBox" class="hidden" style="text-align:center"><button class="btn ghost sm" id="sCancel" onclick="confirmClick('cancelstart', this, cancelStart)" data-t="cancel_start"></button>
-          <p class="hint" data-t="cancel_start_hint"></p></div>
-      </div>
+      <div id="camSlot-start"></div>
+      <div class="search" style="margin-top:10px"><input id="sQuery" data-tp="ph_bib" autocomplete="off" onkeydown="if(event.key==='Enter')lineUp()"><button class="btn amber" onclick="lineUp()" data-t="mark_present"></button></div>
+      <div id="sMsg"></div>
+      <div id="sLast" class="lastmark hidden"></div>
     </div>
-    <div class="card">
-      <h2 id="sLinedTitle" data-t="at_line_list"></h2>
-      <div class="scroll" style="max-height:260px"><table><thead><tr><th data-t="bib"></th><th data-t="name"></th><th></th></tr></thead><tbody id="sLinedTable"></tbody></table></div>
-      <h2 id="sMissingTitle" style="margin-top:16px" data-t="missing_list"></h2>
-      <div class="scroll" style="max-height:260px"><table><thead><tr><th data-t="bib"></th><th data-t="name"></th><th></th></tr></thead><tbody id="sMissing"></tbody></table></div>
+    <div>
+      <div class="card">
+        <div class="row" style="align-items:baseline"><h2 id="sWaveTitle" style="margin:0"></h2><span class="spacer"></span><b class="wavefill" id="sWaveFill"></b></div>
+        <div id="sCountdown" class="countdown hidden">
+          <div class="cd-label" id="sCdLabel"></div><div class="cd-num" id="sCdNum"></div>
+          <button class="btn ghost" onclick="cancelStart()" data-t="cancel_start"></button>
+        </div>
+        <div id="sStartBox" style="margin-top:10px">
+          <button class="btn go huge" id="sStart" onclick="massStart()" disabled></button>
+          <p class="hint" data-t="start_hint"></p>
+        </div>
+        <div class="scroll" style="max-height:240px"><table><tbody id="sLinedTable"></tbody></table></div>
+      </div>
+      <div class="card hidden" id="sRunning" style="margin-top:16px">
+        <h2 data-t="on_course"></h2>
+        <div id="sWaves"></div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="row" style="align-items:baseline"><h2 style="margin:0" data-t="waiting_list"></h2><span class="spacer"></span><b class="wavefill" id="sWaitCount"></b></div>
+        <p class="hint" data-t="waiting_hint"></p>
+        <div class="scroll" style="max-height:320px"><table><tbody id="sMissing"></tbody></table></div>
+      </div>
     </div>
   </div>
 
@@ -336,7 +357,8 @@
   <div id="v-finish" class="grid2 hidden">
     <div class="card">
       <h2 data-t="r_finish"></h2>
-      <div class="tiles"><div><b id="fClock">--:--</b><span data-t="elapsed"></span></div><div><b class="go" id="fCount">0</b><span data-t="finished"></span></div><div><b class="warn" id="fReview">0</b><span data-t="needs_review"></span></div></div>
+      <div class="tiles"><div><b id="fClock">--:--</b><span id="fClockLabel" data-t="elapsed"></span></div><div><b class="go" id="fCount">0</b><span data-t="finished"></span></div><div><b class="warn" id="fReview">0</b><span data-t="needs_review"></span></div></div>
+      <div class="hint" id="fWaves" style="margin-top:6px"></div>
       <div id="fNotStarted" class="msg warn" data-t="run_not_started"></div>
       <div id="fLive" class="hidden" style="margin-top:12px">
         <div class="search"><input id="fBib" data-tp="ph_finish" autocomplete="off" inputmode="numeric" onkeydown="if(event.key==='Enter')finish(true)"><button class="btn go" onclick="finish(true)" data-t="record_finish"></button></div>
@@ -478,6 +500,15 @@
         <input id="setBib" type="number" min="1" max="99999" step="1">
         <span class="hint" data-t="set_bib_hint"></span>
       </div>
+      <h3 class="sec" data-t="sec_run"></h3>
+      <div class="settings">
+        <label for="setWave" data-t="set_wave"></label>
+        <input id="setWave" type="number" min="1" max="200" step="1">
+        <span class="hint" data-t="set_wave_hint"></span>
+        <label for="setCountdown" data-t="set_countdown"></label>
+        <select id="setCountdown"><option value="0">0 s</option><option value="5">5 s</option><option value="10">10 s</option><option value="15">15 s</option></select>
+        <span class="hint" data-t="set_countdown_hint"></span>
+      </div>
       <h3 class="sec" data-t="sec_station"></h3>
       <div class="settings">
         <label for="setLanes" data-t="set_lanes"></label>
@@ -524,7 +555,17 @@ const I18N = {
     bmi_range: "accepted {min} – {max}", out_of_range: "Outside the accepted range. Accepting needs a reason.",
     accepted_go: "Accepted · go to the run line-up", rejected_done: "Rejected · finished for today",
     waiting_line: "Accepted, not at the line", at_line: "At the line", not_weighed_yet: "Not weighed yet",
-    mark_present: "At the line", start: "Start", confirm_start: "Press again to start", start_hint: "Mark every runner at the line, then press START twice. Everyone not at the line is marked absent.",
+    mark_present: "At the line", start: "Start", confirm_start: "Press again: countdown and start", start_hint: "Mark everyone at the line (camera or bib), then press START twice: a countdown, 3-2-1 and the horn; the time starts at the horn. Anyone not here runs in the next wave.",
+    wave_n: "Wave {n}", wave_short: "W{n}", wave_fill: "{n} / {max} at the line", wave_runners: "{n} runners", start_wave: "Start wave {n}", line_empty: "Nobody at the line yet",
+    on_course: "On the course", wave_counts: "{out} out · {fin} in", review_n: "{n} to review", cutoff_in: "cut-off in {t}", cutoff_passed: "cut-off passed: closes itself",
+    close_wave: "Close wave", close_wave_n: "Close wave {n}", wave_closed: "Wave {n} closed: anyone still out is DNF.",
+    get_ready: "Get ready", go: "GO", waiting_list: "Waiting for a wave", waiting_hint: "Weighed in, not run yet. Tap Present, or let the camera mark them.",
+    by_face: "face checked", by_typed: "typed", check_bib: "Check the bib they are wearing.", undo: "Undo",
+    line_not_recognised: "Not recognised: type the bib",
+    e_wave_full: "This wave is full: start it, then line up for the next", e_still_running: "Still out on the course", e_already_ran: "Already ran today",
+    e_countdown_running: "The countdown is running", e_bad_countdown: "Countdown out of range",
+    sec_run: "Run start", set_wave: "Runners per wave", set_wave_hint: "What the finish line can time and check at once (camera and examiners).",
+    set_countdown: "Start countdown", set_countdown_hint: "\"Get ready\", 3-2-1 and the horn from the start-line tablet; the time starts at the horn.",
     elapsed: "Elapsed", started_at: "Started at", missing_list: "Accepted but not at the line", present: "Present",
     finished: "Finished", needs_review: "Need review", run_not_started: "Waiting for the start.", record_finish: "Finish",
     no_bib: "Crossing, bib not seen", close_run: "Close run", confirm_close: "Press again: remaining runners become DNF",
@@ -628,6 +669,7 @@ const I18N = {
     sure: "Sure? Press again", at_line_list: "At the line", started_list: "Started", absent_list: "Absent (missed the start)",
     remove_from_line: "Remove", removed_from_line: "removed from the line", cancel_start: "Cancel start",
     cancel_start_hint: "Only if START was pressed by mistake: possible in the first 2 minutes, before anyone finishes.",
+    cancel_start_late: "Cancel start (admin)", sure_cancel_late: "Call the runners back? Press again",
     start_cancelled: "Start cancelled. Runners are back at the line.", wrong_bib: "Wrong bib",
     unassigned: "Crossing moved back to the review queue; assign the right runner.", discard: "Discard", discarded: "Crossing discarded.",
     undo_weigh: "Undo weigh-in", weigh_undone: "weigh-in undone; weigh again", remove: "Remove", entry_removed: "Removed from today's list.",
@@ -637,8 +679,8 @@ const I18N = {
     face_remove_hint: "Delete this person's face photos", face_count_hint: "Face photos on file (3 poses is complete)",
     enrol_title: "Enrol face", enrol_cancel: "Cancel", e_camera_busy: "The camera is in use by another tab or app",
     e_not_lined_up: "Not at the line", e_remove_from_line_first: "At the line: remove from the line first", e_cannot_undo_weigh_in: "The weigh-in can no longer be undone",
-    e_cannot_remove: "Cannot be removed any more", e_too_late_to_cancel: "Too late: the start can only be cancelled in the first 2 minutes",
-    e_finishers_exist: "Runners have already finished", e_not_assigned: "This crossing is not assigned", e_results_exist: "This runner already has exercise results",
+    e_cannot_remove: "Cannot be removed any more", e_too_late_to_cancel: "After 2 minutes only an administrator can cancel a start",
+    e_finishers_exist: "Runners of this wave have already finished: it cannot be cancelled", e_not_assigned: "This crossing is not assigned", e_results_exist: "This runner already has exercise results",
     e_review_pending: "Crossings still wait for review: assign or discard them first", e_not_found: "Not found",
     e_empty_query: "Type a bib or ID", e_ambiguous_query: "That number is one person's bib and another's ID: type the full ID",
     e_external_id_in_use: "This ID already belongs to someone else", e_bad_gender: "Gender must be M or F", e_bad_dob: "Date of birth must be YYYY-MM-DD",
@@ -668,7 +710,17 @@ const I18N = {
     bmi_range: "المقبول {min} – {max}", out_of_range: "خارج النطاق المقبول. القبول يحتاج إلى سبب.",
     accepted_go: "مقبول · التوجه إلى خط البداية", rejected_done: "مرفوض · انتهى اليوم",
     waiting_line: "مقبولون لم يصلوا", at_line: "عند الخط", not_weighed_yet: "لم يُوزنوا",
-    mark_present: "عند الخط", start: "انطلاق", confirm_start: "اضغط مرة أخرى للانطلاق", start_hint: "سجّل كل عدّاء عند الخط ثم اضغط انطلاق مرتين. من ليس عند الخط يُسجّل غائباً.",
+    mark_present: "عند الخط", start: "انطلاق", confirm_start: "اضغط مرة أخرى: العد التنازلي والانطلاق", start_hint: "سجّل كل من عند الخط (بالكاميرا أو الرقم) ثم اضغط انطلاق مرتين: عدّ تنازلي، 3-2-1 والبوق؛ يبدأ الوقت عند البوق. من ليس هنا يجري في الموجة التالية.",
+    wave_n: "الموجة {n}", wave_short: "م{n}", wave_fill: "{n} / {max} عند الخط", wave_runners: "{n} عدّاء", start_wave: "انطلاق الموجة {n}", line_empty: "لا أحد عند الخط بعد",
+    on_course: "في المسار", wave_counts: "{out} في المسار · {fin} وصلوا", review_n: "{n} للمراجعة", cutoff_in: "الحد الأقصى بعد {t}", cutoff_passed: "انتهى الحد الأقصى: تُغلق تلقائياً",
+    close_wave: "إغلاق الموجة", close_wave_n: "إغلاق الموجة {n}", wave_closed: "أُغلقت الموجة {n}: من بقي في المسار لم يُكمل.",
+    get_ready: "استعد", go: "انطلق", waiting_list: "بانتظار موجة", waiting_hint: "تم وزنهم ولم يجروا بعد. اضغط حاضر أو دع الكاميرا تسجّلهم.",
+    by_face: "تم التحقق بالوجه", by_typed: "مكتوب", check_bib: "تحقق من الرقم الذي يرتديه.", undo: "تراجع",
+    line_not_recognised: "لم يتم التعرف: اكتب الرقم",
+    e_wave_full: "الموجة ممتلئة: أطلقها ثم سجّل للموجة التالية", e_still_running: "ما زال في المسار", e_already_ran: "جرى اليوم",
+    e_countdown_running: "العد التنازلي جارٍ", e_bad_countdown: "العد التنازلي خارج النطاق",
+    sec_run: "انطلاق الجري", set_wave: "عدد العدّائين في الموجة", set_wave_hint: "ما يستطيع خط النهاية توقيته والتحقق منه في وقت واحد (الكاميرا والممتحنون).",
+    set_countdown: "العد التنازلي للانطلاق", set_countdown_hint: "\"استعد\"، 3-2-1 والبوق من جهاز خط البداية؛ يبدأ الوقت عند البوق.",
     elapsed: "الزمن", started_at: "بدأ في", missing_list: "مقبولون لم يصلوا إلى الخط", present: "حاضر",
     finished: "أنهوا", needs_review: "للمراجعة", run_not_started: "بانتظار الانطلاق.", record_finish: "وصول",
     no_bib: "عبور دون رقم", close_run: "إغلاق الجري", confirm_close: "اضغط مرة أخرى: الباقون لم يكملوا",
@@ -772,6 +824,7 @@ const I18N = {
     sure: "متأكد؟ اضغط مرة أخرى", at_line_list: "عند الخط", started_list: "انطلقوا", absent_list: "غائبون (فاتهم الانطلاق)",
     remove_from_line: "إزالة", removed_from_line: "أُزيل من الخط", cancel_start: "إلغاء الانطلاق",
     cancel_start_hint: "فقط إذا ضُغط الانطلاق خطأً: ممكن خلال أول دقيقتين وقبل وصول أي عدّاء.",
+    cancel_start_late: "إلغاء الانطلاق (مسؤول)", sure_cancel_late: "استدعاء العدّائين؟ اضغط مرة أخرى",
     start_cancelled: "أُلغي الانطلاق. العداؤون عادوا إلى الخط.", wrong_bib: "رقم خاطئ",
     unassigned: "أُعيد العبور إلى قائمة المراجعة؛ عيّن العدّاء الصحيح.", discard: "حذف", discarded: "حُذف العبور.",
     undo_weigh: "تراجع عن الوزن", weigh_undone: "أُلغي الوزن؛ أعد الوزن", remove: "إزالة", entry_removed: "أُزيل من قائمة اليوم.",
@@ -781,8 +834,8 @@ const I18N = {
     face_remove_hint: "حذف صور وجه هذا الشخص", face_count_hint: "صور الوجه المحفوظة (3 أوضاع = مكتمل)",
     enrol_title: "تسجيل الوجه", enrol_cancel: "إلغاء", e_camera_busy: "الكاميرا مستخدمة في تبويب أو تطبيق آخر",
     e_not_lined_up: "ليس عند الخط", e_remove_from_line_first: "عند الخط: أزله من الخط أولاً", e_cannot_undo_weigh_in: "لم يعد ممكناً التراجع عن الوزن",
-    e_cannot_remove: "لم يعد ممكناً إزالته", e_too_late_to_cancel: "فات الوقت: يمكن إلغاء الانطلاق خلال أول دقيقتين فقط",
-    e_finishers_exist: "وصل عداؤون بالفعل", e_not_assigned: "هذا العبور غير معيّن", e_results_exist: "لهذا العدّاء نتائج تمارين",
+    e_cannot_remove: "لم يعد ممكناً إزالته", e_too_late_to_cancel: "بعد دقيقتين يلغي الانطلاق المسؤول فقط",
+    e_finishers_exist: "وصل عدّاؤون من هذه الموجة: لا يمكن الإلغاء", e_not_assigned: "هذا العبور غير معيّن", e_results_exist: "لهذا العدّاء نتائج تمارين",
     e_review_pending: "عبورات بانتظار المراجعة: عيّنها أو احذفها أولاً", e_not_found: "غير موجود",
     e_empty_query: "اكتب الرقم أو الهوية", e_ambiguous_query: "هذا الرقم هو رقم عدّاء وهوية شخص آخر: اكتب الهوية كاملة",
     e_external_id_in_use: "هذه الهوية تخص شخصاً آخر", e_bad_gender: "الجنس يجب أن يكون M أو F", e_bad_dob: "تاريخ الميلاد بصيغة YYYY-MM-DD",
@@ -885,7 +938,9 @@ function render() {
   if (mode === "advanced") renderAdvanced();
   else ({ weigh: renderWeigh, start: renderStart, finish: renderFinish, station: renderStation })[role]();
 }
-function setRole(r) { if (settingsOpen) closeSettings(); role = r; save("role", r); $("role").value = r; for (const x of ["weigh", "start", "finish", "station"]) $("v-" + x).classList.toggle("hidden", x !== r); refresh(); }
+function setRole(r) { if (settingsOpen) closeSettings(); role = r;
+  /* one camera, moved to the station in use */ const slot = $("camSlot-" + r); if (slot && !slot.contains($("camBlock"))) { slot.appendChild($("camBlock")); clearBox(); const v = $("camVideo"); if (v.srcObject || v.getAttribute("src")) v.play().catch(() => {}); }   /* moving a video pauses it */
+   save("role", r); $("role").value = r; for (const x of ["weigh", "start", "finish", "station"]) $("v-" + x).classList.toggle("hidden", x !== r); refresh(); }
 function setMode(m) {
   if (m === "advanced" && setting("admin_pin_set") && !adminPin()) { PinDlg.open(); return; }
   if (settingsOpen) { settingsOpen = false; $("settingsPage").classList.add("hidden"); $("setBtn").classList.remove("active"); }
@@ -1182,8 +1237,11 @@ function clearBox() { const cv = $("camBox"); cv.getContext("2d").clearRect(0, 0
 
 let autoId = false, autoTimer = null, idBusy = false;
 function toggleAuto() { autoId = !autoId; $("autoBtn").textContent = autoId ? t("auto_on") : t("auto_off"); $("autoBtn").classList.toggle("on", autoId);
-  clearInterval(autoTimer); if (autoId) autoTimer = setInterval(() => { if (!wEntry && wSource !== "typed" && !enrolBusy && $("wNew").classList.contains("hidden") && role === "weigh" && mode === "simple") identifyNow(true); }, 1500); }
+  clearInterval(autoTimer); if (autoId) autoTimer = setInterval(() => { if (mode !== "simple" || settingsOpen) return;
+    if (role === "start") { if (!countdownWave()) identifyNow(true); return; }
+    if (!wEntry && wSource !== "typed" && !enrolBusy && $("wNew").classList.contains("hidden") && role === "weigh") identifyNow(true); }, 1500); }
 async function identifyNow(quiet) {
+  if (role === "start") return lineIdentify(quiet);
   if (idBusy) return; idBusy = true;
   const seqAtStart = wSeq;
   try {
@@ -1435,51 +1493,145 @@ async function removeFace(id) { try { await api("DELETE", `/api/entries/${id}/fa
 
 /* ============================== run start ============================== */
 let startArmed = false;
-async function lineUp(entryId) {
+// ---- sounds at the start line (Web Audio; unlocked by the START tap, as browsers require)
+const Sound = {
+  ctx: null, nodes: [], planned: null,
+  unlock() { try { this.ctx ??= new (window.AudioContext || window.webkitAudioContext)(); this.ctx.resume(); } catch { this.ctx = null; } },
+  tone(at, freq, dur, vol = 0.25) {
+    const c = this.ctx, o = c.createOscillator(), g = c.createGain();
+    o.type = "sine"; o.frequency.value = freq;
+    g.gain.setValueAtTime(0, at); g.gain.linearRampToValueAtTime(vol, at + 0.01);
+    g.gain.setValueAtTime(vol, Math.max(at + 0.02, at + dur - 0.05)); g.gain.linearRampToValueAtTime(0, at + dur);
+    o.connect(g).connect(c.destination); o.start(at); o.stop(at + dur + 0.05); this.nodes.push(o);
+  },
+  // 3, 2, 1 beeps and the horn, timed to the server's start (every device shows the same countdown)
+  countdown(startMs) {
+    if (!this.ctx || this.planned === startMs) return;
+    this.planned = startMs;
+    const now = this.ctx.currentTime, go = now + (startMs - serverNow()) / 1000;
+    for (const k of [3, 2, 1]) if (go - k > now) this.tone(go - k, 880, 0.16);
+    if (go > now) { this.tone(go, 660, 1.2, 0.35); this.tone(go, 990, 1.2, 0.18); }
+  },
+  stop() { this.nodes.forEach(o => { try { o.stop(); } catch {} }); this.nodes = []; this.planned = null; },
+  chime() { if (!this.ctx) return; const t0 = this.ctx.currentTime; this.tone(t0, 1046, 0.1, 0.18); this.tone(t0 + 0.1, 1318, 0.16, 0.18); },
+};
+const bibNum = e => { const n = parseInt(e.candidate.bib, 10); return Number.isFinite(n) ? n : 1e9; };
+const waves = () => (S.state && S.state.waves) || [];
+const formingWave = () => waves().find(w => !w.started_at);
+const countdownWave = () => waves().find(w => w.started_at && !w.closed_at && Date.parse(w.started_at) > serverNow());
+const openWaves = () => waves().filter(w => w.started_at && !w.closed_at && Date.parse(w.started_at) <= serverNow());
+async function lineUp(entryId, by = "typed") {
   msg("sMsg");
   try {
     let id = entryId;
     if (!id) {
       const q = $("sQuery").value.trim(); if (!q) return;
       const r = await api("POST", "/api/checkin", { station: "lineup", query: q });
-      if (!r.allowed) { msg("sMsg", "bad", `${cname(r.entry.candidate)}: ${t("e_" + r.reason)}`); return; }
+      if (!r.allowed) { msg("sMsg", r.reason === "already_lined_up" ? "ok" : "bad", `${cname(r.entry.candidate)}: ${t("e_" + r.reason)}${r.entry.wave ? " · " + t("wave_n", { n: r.entry.wave }) : ""}`); return; }
       id = r.entry.id;
     }
-    const e = await api("POST", `/api/entries/${id}/line-up`);
-    msg("sMsg", "ok", `${cname(e.candidate)} · ${t("s_lined_up")}`); $("sQuery").value = ""; $("sQuery").focus(); refresh();
+    const e = await api("POST", `/api/entries/${id}/line-up?by=${by}`);
+    $("sQuery").value = ""; $("sQuery").focus(); showLast(e, by); Sound.chime(); refresh();
   } catch (e) { msg("sMsg", "bad", err(e)); }
 }
+// The person just marked present, large: the marshal checks the bib they are wearing.
+function showLast(e, by) {
+  $("sLast").innerHTML = `<div class="lm-bib">${esc(e.candidate.bib ?? "—")}</div><div class="lm-who"><b>${esc(cname(e.candidate))}</b>`
+    + `<span>${t("wave_n", { n: e.wave })} · <span class="pill ${by === "face" ? "ok" : ""}">${t(by === "face" ? "by_face" : "by_typed")}</span></span>`
+    + `<span class="hint">${t("check_bib")}</span></div><button class="btn ghost sm" onclick="undoLineUp(${e.id}, true)">${t("undo")}</button>`;
+  $("sLast").classList.remove("hidden");
+}
 async function massStart() {
+  Sound.unlock();
   if (!startArmed) { startArmed = true; renderStart(); setTimeout(() => { startArmed = false; renderStart(); }, 4000); return; }
   startArmed = false;
-  try { await api("POST", "/api/run/start"); refresh(); } catch (e) { msg("sMsg", "bad", err(e)); }
+  try { await api("POST", "/api/run/start", { countdown_s: setting("start_countdown_s") }); $("sLast").classList.add("hidden"); await refresh(); }
+  catch (e) { msg("sMsg", "bad", err(e)); }
 }
 function renderStart() {
-  const c = S.state.counts, started = !!S.state.run_started_at;
-  $("sAccepted").textContent = c.accepted; $("sLined").textContent = started ? c.running + c.run_passed + c.run_failed + (c.run_done || 0) + c.dnf + c.complete : c.lined_up; $("sNotWeighed").textContent = c.expected;
-  $("sBefore").classList.toggle("hidden", started); $("sAfter").classList.toggle("hidden", !started);
-  $("sStart").disabled = c.lined_up === 0; $("sStart").textContent = startArmed ? t("confirm_start") : t("start");
-  if (started) $("sAt").textContent = new Date(S.state.run_started_at).toLocaleTimeString(lang === "ar" ? "ar-EG" : "en-GB");
-  const row = (e, cell) => `<tr><td class="t">${esc(e.candidate.bib ?? "—")}</td><td>${esc(cname(e.candidate))}</td><td style="text-align:end">${cell}</td></tr>`;
-  const none = `<tr><td colspan="3" class="hint">—</td></tr>`;
-  const lined = S.entries.filter(e => started ? ["running", ...RAN, "complete"].includes(e.status) : e.status === "lined_up");
-  $("sLinedTitle").textContent = started ? t("started_list") : t("at_line_list");
-  setHTML("sLinedTable", lined.map(e => row(e, started ? statusPill(e.status)
-    : `<button class="btn ghost sm" onclick="confirmClick('unline${e.id}', this, () => undoLineUp(${e.id}))">${t("remove_from_line")}</button>`)).join("") || none);
-  const missing = S.entries.filter(e => e.status === (started ? "absent" : "accepted"));
-  $("sMissingTitle").textContent = started ? t("absent_list") : t("missing_list");
-  setHTML("sMissing", missing.map(e => row(e, started ? statusPill(e.status) : `<button class="btn go sm" onclick="lineUp(${e.id})">${t("present")}</button>`)).join("") || none);
-  // Cancel an accidental START: first 2 minutes, nobody finished yet.
-  const age = started ? (serverNow() - Date.parse(S.state.run_started_at)) / 1000 : 1e9;
-  $("sCancelBox").classList.toggle("hidden", !(started && !S.state.run_closed_at && age < 120 && lined.every(e => e.status === "running")));
+  const ws = waves(), fw = formingWave(), cw = countdownWave(), open = openWaves();
+  const lined = S.entries.filter(e => e.status === "lined_up").sort((a, b) => bibNum(a) - bibNum(b));
+  const next = fw ? fw.number : (Math.max(0, ...ws.map(w => w.number)) + 1);
+  $("sWaveTitle").textContent = t("wave_n", { n: cw && !lined.length ? cw.number : next });
+  $("sWaveFill").textContent = cw && !lined.length ? t("wave_runners", { n: cw.runners }) : t("wave_fill", { n: lined.length, max: setting("wave_size") });
+  $("sCountdown").classList.toggle("hidden", !cw);
+  $("sStartBox").classList.toggle("hidden", !!cw);
+  $("sStart").disabled = !lined.length; $("sStart").textContent = startArmed ? t("confirm_start") : t("start_wave", { n: next });
+  setHTML("sLinedTable", lined.map(e => `<tr><td class="t">${esc(e.candidate.bib ?? "—")}</td><td>${esc(cname(e.candidate))}</td><td style="text-align:end"><button class="btn ghost sm" onclick="confirmClick('unline${e.id}', this, () => undoLineUp(${e.id}))">${t("remove_from_line")}</button></td></tr>`).join("")
+    || `<tr><td class="hint">${t("line_empty")}</td></tr>`);
+  // waves out on the course: clock, runners still out, cut-off, close
+  $("sRunning").classList.toggle("hidden", !open.length);
+  const latest = open.length ? open.reduce((a, b) => (Date.parse(a.started_at) > Date.parse(b.started_at) ? a : b)) : null;
+  setHTML("sWaves", open.map(w => {
+    const age = (serverNow() - Date.parse(w.started_at)) / 1000;
+    const canCancel = w === latest && w.finished === 0 && w.dnf === 0, late = age >= 120;
+    return `<div class="waverow"><div><b>${t("wave_n", { n: w.number })}</b><div class="hint">${t("wave_counts", { out: w.running, fin: w.finished + w.dnf })}${w.review ? ` · <span style="color:var(--amber)">${t("review_n", { n: w.review })}</span>` : ""}</div></div>`
+      + `<div class="wclock" id="wc-${w.id}">${mmss(age)}</div><div class="hint" id="wcut-${w.id}"></div>`
+      + `<div class="wbtns">${canCancel ? `<button class="btn ghost sm${late ? " amber" : ""}" onclick="confirmClick('cancelstart${w.id}', this, () => cancelStart(${late}), '${late ? "sure_cancel_late" : "sure"}')">${t(late ? "cancel_start_late" : "cancel_start")}</button>` : ""}`
+      + `<button class="btn stop sm" ${w.review ? "disabled" : ""} onclick="confirmClick('closew${w.id}', this, () => closeWave(${w.id}), 'confirm_close')">${t("close_wave")}</button></div></div>`;
+  }).join(""));
+  const waiting = S.entries.filter(e => e.status === "accepted" || e.status === "absent").sort((a, b) => bibNum(a) - bibNum(b));
+  $("sWaitCount").textContent = waiting.length;
+  setHTML("sMissing", waiting.map(e => `<tr><td class="t">${esc(e.candidate.bib ?? "—")}</td><td>${esc(cname(e.candidate))}</td><td style="text-align:end"><button class="btn go sm" onclick="lineUp(${e.id})">${t("present")}</button></td></tr>`).join("")
+    || `<tr><td class="hint">—</td></tr>`);
+  tickStart();
 }
-async function undoLineUp(id) {
-  try { const e = await api("POST", `/api/entries/${id}/line-up/undo`); msg("sMsg", "ok", `${cname(e.candidate)} · ${t("removed_from_line")}`); refresh(); }
-  catch (e) { msg("sMsg", "bad", err(e)); }
+// Every 250 ms: countdown, wave clocks and cut-offs (only text changes, so no tap is lost).
+function tickStart() {
+  const cw = countdownWave();
+  if (cw) {
+    const left = (Date.parse(cw.started_at) - serverNow()) / 1000, n = Math.ceil(left);
+    $("sCdNum").textContent = n > 0 ? n : t("go");
+    $("sCdLabel").textContent = n > 3 ? t("get_ready") : t("wave_n", { n: cw.number });
+    $("sCountdown").classList.toggle("go", n <= 0);
+    Sound.countdown(Date.parse(cw.started_at));
+    if (left <= -0.5 && !tickStart.pending) { tickStart.pending = true; refresh().finally(() => { tickStart.pending = false; }); }
+  }
+  const cut = S.rules ? S.rules.run_cutoff_s : 1500;
+  for (const w of openWaves()) {
+    const age = (serverNow() - Date.parse(w.started_at)) / 1000, c = $("wc-" + w.id), k = $("wcut-" + w.id);
+    if (c) c.textContent = mmss(age);
+    if (k) k.textContent = age < cut ? t("cutoff_in", { t: mmss(cut - age) }) : t("cutoff_passed");
+  }
 }
-async function cancelStart() {
-  try { await api("POST", "/api/run/start/cancel"); msg("sMsg", "ok", t("start_cancelled")); refresh(); }
-  catch (e) { msg("sMsg", "bad", err(e)); }
+async function undoLineUp(id, fromLast) {
+  try {
+    const e = await api("POST", `/api/entries/${id}/line-up/undo`);
+    msg("sMsg", "ok", `${cname(e.candidate)} · ${t("removed_from_line")}`); if (fromLast) $("sLast").classList.add("hidden"); refresh();
+  } catch (e) { msg("sMsg", "bad", err(e)); }
+}
+async function cancelStart(late = false) {
+  Sound.stop();
+  try { await api("POST", `/api/run/start/cancel${late ? "?late=true" : ""}`); msg("sMsg", "ok", t("start_cancelled")); refresh(); }
+  catch (e) {
+    if (e.code === "admin_pin_required") PinDlg.open(() => cancelStart(late));
+    else msg("sMsg", "bad", err(e));
+  }
+}
+async function closeWave(id) {
+  try { const r = await api("POST", "/api/run/close", { wave_id: id }); msg(role === "finish" ? "fMsg" : "sMsg", "ok", t("wave_closed", { n: r.wave })); refresh(); }
+  catch (e) { msg(role === "finish" ? "fMsg" : "sMsg", "bad", err(e)); }
+}
+// Face at the start line: a recognised person who may run is marked present (and hears a chime).
+let lineSeen = "";
+async function lineIdentify(quiet) {
+  if (idBusy) return; idBusy = true;
+  try {
+    const f = await Cam.frame();
+    const r = await apiImage("/api/face/identify?station=lineup", f.blob);
+    if (r.entry) {
+      drawBox(r.box, f.w, f.h, `${cname(r.entry.candidate)} ${r.score.toFixed(2)}`, true);
+      if (r.allowed) { await lineUp(r.entry.id, "face"); lineSeen = ""; }
+      else if (!quiet || lineSeen !== r.entry.id + r.reason) {
+        lineSeen = r.entry.id + r.reason;
+        msg("sMsg", r.reason === "already_lined_up" ? "ok" : "bad", `${cname(r.entry.candidate)}: ${t("e_" + r.reason)}${r.entry.wave ? " · " + t("wave_n", { n: r.entry.wave }) : ""}`);
+      }
+    } else {
+      drawBox(r.box, f.w, f.h, `? ${r.score.toFixed(2)}`, false);
+      if (!quiet) msg("sMsg", "warn", r.reason === "nobody_enrolled" ? t("e_nobody_enrolled") : t("line_not_recognised"));
+    }
+  } catch (e) { clearBox(); if (!quiet) msg("sMsg", "bad", err(e)); }
+  finally { idBusy = false; }
 }
 
 /* ============================== run finish ============================== */
@@ -1515,10 +1667,14 @@ function renderFinish() {
   const byId = Object.fromEntries(S.entries.map(e => [e.id, e]));
   const done = S.crossings.filter(c => !c.needs_review);
   $("fCount").textContent = done.length; $("fReview").textContent = S.state.review_queue;
-  setHTML("fTable", done.slice().reverse().map((c, i) => { const e = byId[c.entry_id]; return `<tr><td>${done.length - i}</td><td class="t">${esc(e?.candidate.bib ?? c.bib_read ?? "?")}</td><td>${esc(e ? cname(e.candidate) : "—")}</td><td class="t">${fmt(c.time_s)}</td><td>${e ? statusPill(e.status) : ""}${camHtml(c)}</td><td style="text-align:end">${closed ? "" : `<button class="btn ghost sm" onclick="confirmClick('unassign${c.id}', this, () => unassignCrossing(${c.id}))">${t("wrong_bib")}</button>`}</td></tr>`; }).join("") || `<tr><td colspan="6" class="hint">—</td></tr>`);
-  $("fClose").disabled = S.state.review_queue > 0;
-  $("fClose").title = S.state.review_queue > 0 ? t("e_review_pending") : "";
-  $("fCloseHint").textContent = S.state.review_queue > 0 ? t("e_review_pending") : "";   // tablets show no tooltips
+  setHTML("fTable", done.slice().reverse().map((c, i) => { const e = byId[c.entry_id]; return `<tr><td>${done.length - i}</td><td class="t">${esc(e?.candidate.bib ?? c.bib_read ?? "?")}</td><td>${esc(e ? cname(e.candidate) : "—")}</td><td class="t">${fmt(c.time_s)}${e && e.wave ? ` <small class="hint">${t("wave_short", { n: e.wave })}</small>` : ""}</td><td>${e ? statusPill(e.status) : ""}${camHtml(c)}</td><td style="text-align:end">${closed ? "" : `<button class="btn ghost sm" onclick="confirmClick('unassign${c.id}', this, () => unassignCrossing(${c.id}))">${t("wrong_bib")}</button>`}</td></tr>`; }).join("") || `<tr><td colspan="6" class="hint">—</td></tr>`);
+  // Close the oldest wave on the course (they close themselves after the cut-off as well).
+  const oldest = openWaves()[0], newest = openWaves().slice(-1)[0];
+  $("fClockLabel").textContent = openWaves().length > 1 && newest ? `${t("elapsed")} · ${t("wave_n", { n: newest.number })}` : t("elapsed");
+  $("fClose").textContent = closeArmed ? t("confirm_close") : oldest ? t("close_wave_n", { n: oldest.number }) : t("close_run");
+  $("fClose").disabled = !oldest || oldest.review > 0;
+  $("fClose").title = oldest && oldest.review > 0 ? t("e_review_pending") : "";
+  $("fCloseHint").textContent = oldest && oldest.review > 0 ? t("e_review_pending") : "";   // tablets show no tooltips
   const review = S.crossings.filter(c => c.needs_review), runners = S.entries.filter(e => e.status === "running");
   $("fReviewBox").classList.toggle("hidden", review.length === 0);
   // Redraw only when the queue or the runner list changed, so an open dropdown is not closed under the examiner.
@@ -1526,7 +1682,7 @@ function renderFinish() {
   if (sig === lastReviewSig) return;
   lastReviewSig = sig;
   const keep = Object.fromEntries(review.map(c => [c.id, $("rs-" + c.id)?.value]));
-  $("fReviewTable").innerHTML = review.map(c => `<tr><td class="t">${fmt(c.time_s)}</td><td class="hint">${esc(noteText(c))}${camHtml(c)}</td><td><select id="rs-${c.id}"><option value="">—</option>${runners.map(e => `<option value="${e.id}" ${keep[c.id] == e.id ? "selected" : ""}>${esc(e.candidate.bib ?? "")} · ${esc(cname(e.candidate))}</option>`).join("")}</select></td><td style="white-space:nowrap"><button class="btn amber sm" onclick="resolveCrossing(${c.id})">${t("assign")}</button> <button class="btn ghost sm" onclick="confirmClick('discard${c.id}', this, () => discardCrossing(${c.id}))">${t("discard")}</button></td></tr>`).join("");
+  $("fReviewTable").innerHTML = review.map(c => `<tr><td class="t">${fmt(c.time_s)}</td><td class="hint">${esc(noteText(c))}${camHtml(c)}</td><td><select id="rs-${c.id}"><option value="">—</option>${runners.map(e => `<option value="${e.id}" ${keep[c.id] == e.id ? "selected" : ""}>${esc(e.candidate.bib ?? "")} · ${esc(cname(e.candidate))} · ${t("wave_short", { n: e.wave })}</option>`).join("")}</select></td><td style="white-space:nowrap"><button class="btn amber sm" onclick="resolveCrossing(${c.id})">${t("assign")}</button> <button class="btn ghost sm" onclick="confirmClick('discard${c.id}', this, () => discardCrossing(${c.id}))">${t("discard")}</button></td></tr>`).join("");
 }
 // Review-queue note in the screen's language; the English server note is the fallback.
 function noteText(c) {
@@ -1544,7 +1700,9 @@ async function discardCrossing(cid) {
 function tickClocks() {
   const el = runElapsed();
   $("clock").textContent = new Date(serverNow()).toLocaleTimeString(lang === "ar" ? "ar-EG" : "en-GB");
-  if (el != null && !(S.state && S.state.run_closed_at)) { $("sClock").textContent = mmss(el); $("fClock").textContent = mmss(el); }
+  if (el != null && !(S.state && S.state.run_closed_at)) $("fClock").textContent = mmss(el);
+  if (role === "start" && S.state) tickStart();
+  if (role === "finish" && S.state) $("fWaves").textContent = openWaves().map(w => `${t("wave_short", { n: w.number })} ${mmss((serverNow() - Date.parse(w.started_at)) / 1000)}`).join("  ·  ");
   // Only the timer text changes each second; the tap buttons are not redrawn, so no tap is lost.
   lanes.forEach(l => {
     if (l.state !== "running") return;
@@ -1885,7 +2043,7 @@ const CamLive = {
 /* ============================== settings ============================== */
 // Station settings from the server (shared by every device); see service.SETTINGS.
 const SETTING_DEFAULTS = { auto_identify: true, camera_background: "off", backdrop_color: "#8a949e", background_image: null, face_match: "normal", face_required: false, walk_ins: true, default_gender: "M", default_unit: "combat",
-                           bib_start: 1, lanes: 3, site_name: "", default_language: "en", admin_pin_set: false };
+                           bib_start: 1, lanes: 3, wave_size: 50, start_countdown_s: 10, site_name: "", default_language: "en", admin_pin_set: false };
 const setting = k => (S.settings && k in S.settings ? S.settings[k] : SETTING_DEFAULTS[k]);
 function applySettings(first) {
   if (first && load("lang", null) == null && setting("default_language") !== lang) setLang(setting("default_language"), false);
@@ -1908,7 +2066,8 @@ function applySiteName() {
 const SET_FIELDS = {   // input id -> [setting, read, write]
   setAuto: ["auto_identify", v => v === "1", v => (v ? "1" : "0")], setBg: ["camera_background"], setMatch: ["face_match"], setFaceReq: ["face_required", v => v === "1", v => (v ? "1" : "0")],
   setWalk: ["walk_ins", v => v === "1", v => (v ? "1" : "0")], setGender: ["default_gender"], setUnit: ["default_unit"], setBib: ["bib_start", v => parseInt(v, 10)],
-  setLanes: ["lanes", v => parseInt(v, 10), String], setSite: ["site_name", v => v.trim()], setLang: ["default_language"],
+  setLanes: ["lanes", v => parseInt(v, 10), String], setWave: ["wave_size", v => parseInt(v, 10)],
+  setCountdown: ["start_countdown_s", v => parseInt(v, 10), String], setSite: ["site_name", v => v.trim()], setLang: ["default_language"],
 };
 function showSettings() {
   for (const [id, [k, , out]] of Object.entries(SET_FIELDS)) $(id).value = out ? out(setting(k)) : setting(k);

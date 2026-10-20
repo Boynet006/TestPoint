@@ -84,19 +84,21 @@ def test_full_day(client, monkeypatch):
     err(client.post(f"/api/entries/{ids[11]}/weigh-in",
                     json={"weight_kg": 72, "height_cm": 176, "accept": True}), 409, "already_weighed")
 
-    # line-up: 15 does not show up; rejected 14 is refused
+    # line-up: 15 is late (runs in the next wave); rejected 14 is refused
     for b in (11, 12, 13):
         ok(client.post(f"/api/entries/{ids[b]}/line-up"))
     err(client.post(f"/api/entries/{ids[14]}/line-up"), 409, "rejected_at_weigh_in")
 
-    # mass start, with a controllable clock
+    # wave 1 starts, with a controllable clock
     t0 = models.utcnow()
     monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0)
-    ok(client.post("/api/run/start"))
-    err(client.post("/api/run/start"), 409, "run_already_started")
-    st = ok(client.get("/api/state"))["counts"]
-    assert st["running"] == 3 and st["absent"] == 1 and st["rejected"] == 1
-    err(client.post(f"/api/entries/{ids[15]}/line-up"), 409, "run_already_started")
+    assert ok(client.post("/api/run/start"))["wave"] == 1
+    err(client.post("/api/run/start"), 409, "nobody_lined_up")
+    st = ok(client.get("/api/state"))
+    assert st["counts"]["running"] == 3 and st["counts"]["accepted"] == 1 and st["counts"]["rejected"] == 1
+    assert [(w["number"], w["running"]) for w in st["waves"]] == [(1, 3)]
+    # the late one lines up for wave 2 while wave 1 runs
+    assert ok(client.post(f"/api/entries/{ids[15]}/line-up"))["wave"] == 2
 
     def cross(bib, minutes):
         monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0 + timedelta(minutes=minutes))
@@ -117,15 +119,15 @@ def test_full_day(client, monkeypatch):
     statuses = {b: ok(client.get(f"/api/entries/{ids[b]}"))["status"] for b in ids}
     # 12 is a woman: no women's table yet, the run is recorded without a verdict
     assert statuses == {11: "run_passed", 12: "run_done", 13: "run_failed",
-                        14: "rejected", 15: "absent"}
+                        14: "rejected", 15: "lined_up"}
     e11 = ok(client.get(f"/api/entries/{ids[11]}"))
     assert e11["standard"] == {"age": 27, "band": "23-30", "level": 60} and e11["run_grade"] == 100
     err(client.post("/api/run/close"), 409, "review_pending")    # the bib-14 crossing is still open
     assert client.delete(f"/api/run/crossings/{ghost['id']}").status_code == 204
     ok(client.post("/api/run/close"))
 
-    # stations: everyone who ran takes all three tests; absent / rejected are refused
-    for b, reason in ((15, "missed_the_run"), (14, "rejected_at_weigh_in")):
+    # stations: everyone who ran takes all three tests; not yet run / rejected are refused
+    for b, reason in ((15, "has_not_run"), (14, "rejected_at_weigh_in")):
         err(client.post("/api/attempts", json={"entry_id": ids[b], "event": "pushup"}), 409, reason)
     assert ok(client.post("/api/checkin", json={"station": "pushup", "query": "13"}))["allowed"] is True
     att = ok(client.post("/api/attempts", json={"entry_id": ids[11], "event": "pushup", "lane": "1"}), 201)
@@ -202,7 +204,7 @@ def test_bibs_are_assigned_automatically_when_asked(client):
 def test_station_settings_defaults_update_and_audit(client):
     assert ok(client.get("/api/settings")) == {
         "auto_identify": True, "camera_background": "off", "backdrop_color": "#8a949e", "face_match": "normal", "face_required": False, "walk_ins": True,
-        "default_gender": "M", "default_unit": "combat", "bib_start": 1, "lanes": 3, "site_name": "", "default_language": "en",
+        "default_gender": "M", "default_unit": "combat", "bib_start": 1, "lanes": 3, "wave_size": 50, "start_countdown_s": 10, "site_name": "", "default_language": "en",
         "admin_pin_set": False, "background_image": None}
     s = ok(client.put("/api/settings", json={"auto_identify": False, "bib_start": 500}))
     assert s["auto_identify"] is False and s["bib_start"] == 500 and s["default_gender"] == "M"
@@ -377,3 +379,62 @@ def test_camera_background_colour_and_picture(client):
     # admin PIN guards the picture too
     ok(client.put("/api/settings/admin-pin", json={"pin": "2468"}))
     err(client.put("/api/settings/background-image", content=jpeg), 403, "admin_pin_required")
+
+
+def test_waves_time_from_their_own_start_and_close_themselves(client, monkeypatch):
+    rows = "external_id,name,bib,gender,dob\n" + "".join(f"W-{b},Runner {b},{b},M,2000-01-01\n" for b in range(31, 36))
+    ok(client.post("/api/entries/import", content=rows.encode()))
+    ids = {b: entry_by_bib(client, b)["id"] for b in range(31, 36)}
+    for b in ids:
+        ok(client.post(f"/api/entries/{ids[b]}/weigh-in", json={"weight_kg": 70, "height_cm": 175, "accept": True}))
+    ok(client.put("/api/settings", json={"wave_size": 2}))
+    t0 = models.utcnow()
+    clock = {"t": t0}
+    monkeypatch.setattr(app_mod.S, "utcnow", lambda: clock["t"])
+    ok(client.post(f"/api/entries/{ids[31]}/line-up"))
+    ok(client.post(f"/api/entries/{ids[32]}/line-up", params={"by": "face"}))
+    err(client.post(f"/api/entries/{ids[33]}/line-up"), 409, "wave_full")
+    # a 10 s countdown: the time starts at the horn, every device shows the same countdown
+    w1 = ok(client.post("/api/run/start", json={"countdown_s": 10}))
+    assert w1["wave"] == 1 and w1["run_started_at"].startswith((t0 + timedelta(seconds=10)).isoformat()[:19])
+    err(client.post("/api/run/finish", json={"bib": "31"}), 409, "before_start")
+    # wave 2 lines up and starts 5 minutes later
+    clock["t"] = t0 + timedelta(minutes=5)
+    ok(client.post(f"/api/entries/{ids[33]}/line-up"))
+    ok(client.post(f"/api/entries/{ids[34]}/line-up"))
+    ok(client.post("/api/run/start"))
+    # each runner is timed from their own wave
+    clock["t"] = t0 + timedelta(minutes=20)
+    assert ok(client.post("/api/run/finish", json={"bib": "31"}), 201)["time_s"] == 1190.0    # 20:00 - 0:10
+    assert ok(client.post("/api/run/finish", json={"bib": "33"}), 201)["time_s"] == 900.0     # 20:00 - 5:00
+    # an unknown crossing is timed from the newest wave; assigning it to a wave-1 runner re-times it
+    u = ok(client.post("/api/run/finish", json={"bib": None}), 201)
+    assert u["needs_review"] and u["time_s"] == 900.0
+    r = ok(client.post(f"/api/run/crossings/{u['id']}/resolve", json={"entry_id": ids[32]}))
+    assert r["time_s"] == 1190.0
+    # wave 1 closes itself after the cut-off (25:00) and the grace period: 34 never finished
+    clock["t"] = t0 + timedelta(seconds=10 + 1500 + 121)
+    st = ok(client.get("/api/state"))
+    assert [(w["number"], bool(w["closed_at"]), w["closed_by"]) for w in st["waves"]] == [(1, True, "auto"), (2, False, None)]
+    clock["t"] = t0 + timedelta(minutes=5, seconds=1500 + 121)
+    st = ok(client.get("/api/state"))
+    assert st["waves"][1]["closed_by"] == "auto" and st["waves"][1]["dnf"] == 1
+    assert ok(client.get(f"/api/entries/{ids[34]}"))["status"] == "dnf"
+    # 35 never lined up: still waiting, can run in a later wave
+    assert ok(client.get(f"/api/entries/{ids[35]}"))["status"] == "accepted"
+    assert ok(client.post(f"/api/entries/{ids[35]}/line-up"))["wave"] == 3
+
+
+def test_wave_with_a_pending_review_waits_for_the_examiner(client, monkeypatch):
+    ok(client.post("/api/entries/import", content=CSV.encode()))
+    e = entry_by_bib(client, 11)
+    ok(client.post(f"/api/entries/{e['id']}/weigh-in", json={"weight_kg": 72, "height_cm": 176, "accept": True}))
+    ok(client.post(f"/api/entries/{e['id']}/line-up"))
+    t0 = models.utcnow()
+    monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0)
+    ok(client.post("/api/run/start"))
+    monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0 + timedelta(minutes=10))
+    ok(client.post("/api/run/finish", json={"bib": None}), 201)
+    monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0 + timedelta(hours=1))
+    st = ok(client.get("/api/state"))
+    assert st["waves"][0]["closed_at"] is None and st["waves"][0]["review"] == 1

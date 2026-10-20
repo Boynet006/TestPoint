@@ -26,6 +26,7 @@ mimetypes.add_type("text/javascript", ".mjs")
 mimetypes.add_type("application/wasm", ".wasm")
 
 from fastapi import Depends, FastAPI, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -59,6 +60,7 @@ def entry_out(e: Entry, day: Day | None = None, faces: int | None = None) -> dic
         "weight_kg": e.weight_kg, "height_cm": e.height_cm, "bmi": e.bmi,
         "run_time_s": e.run_time_s, "events": events,
         "standard": {"age": e.age, "band": e.band, "level": e.level},
+        "wave": e.wave.number if e.wave else None,
         "run_grade": e.run_grade, "verdict": S.verdict(e),
     }
     if faces is not None:
@@ -126,6 +128,8 @@ class SettingsIn(BaseModel):
     default_unit: Literal["combat", "admin", "special"] | None = None
     bib_start: int | None = Field(default=None, ge=1, le=99999)
     lanes: int | None = Field(default=None, ge=1, le=4)
+    wave_size: int | None = Field(default=None, ge=1, le=200)
+    start_countdown_s: int | None = Field(default=None, ge=0, le=30)
     site_name: str | None = Field(default=None, max_length=80)
     default_language: Literal["en", "ar"] | None = None
 
@@ -152,6 +156,15 @@ class RulesIn(BaseModel):
 class PinIn(BaseModel):
     pin: str | None = None
     """4 to 8 digits; empty removes the PIN."""
+
+
+class StartIn(BaseModel):
+    countdown_s: int | None = Field(default=None, ge=0, le=30)
+    """Seconds of countdown before the time starts; default: the start_countdown_s setting."""
+
+
+class CloseIn(BaseModel):
+    wave_id: int | None = None
 
 
 class CheckinIn(BaseModel):
@@ -287,6 +300,8 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     zone = ZoneInfo(tz or os.environ.get("TESTPOINT_TZ", "Asia/Dubai"))
     rules = rules or DayRules()
     SessionLocal = make_sessionmaker(db_url)
+    with SessionLocal() as _db:
+        S.migrate_single_runs(_db)
     today = today or (lambda: datetime.now(zone).date().isoformat())
 
     app = FastAPI(title="TestPoint station", version="0.3.0")
@@ -347,6 +362,23 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
             return JSONResponse({"detail": {"code": "too_large", "message": "upload larger than 15 MB"}}, 413)
         async with write_lock:
             return await call_next(request)
+
+    def _auto_close() -> None:
+        db = SessionLocal()
+        try:
+            day = S.get_or_create_day(db, today(), rules)
+            S.auto_close(db, day, S.rules_for(db, day, rules))
+        finally:
+            db.close()
+
+    @app.middleware("http")
+    async def _close_overdue_waves(request: Request, call_next):
+        # Every station polls /api/state every 2 s: a wave past its cut-off is closed here,
+        # under the same lock as every other write, so nobody has to remember to close it.
+        if request.method == "GET" and request.url.path == "/api/state":
+            async with write_lock:
+                await run_in_threadpool(_auto_close)
+        return await call_next(request)
 
     @app.exception_handler(RequestValidationError)
     async def _bad_input(_: Request, e: RequestValidationError) -> JSONResponse:
@@ -418,6 +450,8 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         s = S.summary(db, day)
         s["run_started_at"] = iso(s["run_started_at"])
         s["run_closed_at"] = iso(s["run_closed_at"])
+        for w in s["waves"]:
+            w["started_at"], w["closed_at"] = iso(w["started_at"]), iso(w["closed_at"])
         s["server_time"] = iso(S.utcnow())
         return s
 
@@ -458,7 +492,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         if body.station not in J.STATIONS:
             raise S.ServiceError("unknown_station", f"unknown station {body.station!r}", 400)
         e = S.find_entry(db, day, body.query)
-        if body.station == "weigh" and S.get_settings(db)["face_required"] and S.face_count(db, e.candidate_id):
+        if body.station in ("weigh", "lineup") and S.get_settings(db)["face_required"] and S.face_count(db, e.candidate_id):
             raise S.ServiceError("face_required", f"{e.candidate.name} has a face on file: check in by face", 409)
         g = S.gate_for(e, day, body.station)
         return {"entry": entry_out(e, day), "allowed": g.ok, "reason": g.reason or None}
@@ -524,8 +558,9 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
 
     # ----------------------------------------------------------------------- run
     @app.post("/api/entries/{entry_id}/line-up")
-    def line_up(entry_id: int, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
-        return entry_out(S.line_up(db, day, S.get_entry(db, day, entry_id)), day)
+    def line_up(entry_id: int, by: Literal["typed", "face"] = "typed", db: Session = Depends(get_db),
+                day: Day = Depends(get_day)) -> dict:
+        return entry_out(S.line_up(db, day, S.get_entry(db, day, entry_id), by=by), day)
 
     @app.post("/api/entries/{entry_id}/line-up/undo")
     def line_up_undo(entry_id: int, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
@@ -551,9 +586,13 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         S.remove_entry(db, day, S.get_entry(db, day, entry_id), delete_results=delete_results)
 
     @app.post("/api/run/start/cancel")
-    def run_start_cancel(db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
-        S.cancel_start(db, day)
-        return {"run_started_at": None}
+    def run_start_cancel(request: Request, late: bool = False, db: Session = Depends(get_db),
+                         day: Day = Depends(get_day)) -> dict:
+        """``late=true``: after the first 2 minutes, an administrator decision (PIN when one is set)."""
+        if late:
+            S.check_admin_pin(db, request.headers.get("x-admin-pin"))
+        w = S.cancel_start(db, day, late=late)
+        return {"wave": w.number, "run_started_at": None}
 
     @app.post("/api/run/crossings/{crossing_id}/unassign")
     def run_unassign(crossing_id: int, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
@@ -564,9 +603,10 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         S.discard_crossing(db, day, crossing_id)
 
     @app.post("/api/run/start")
-    def run_start(db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
-        S.start_run(db, day)
-        return {"run_started_at": iso(day.run_started_at)}
+    def run_start(body: StartIn | None = None, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        countdown = body.countdown_s if body and body.countdown_s is not None else 0
+        w = S.start_run(db, day, countdown_s=countdown)
+        return {"wave": w.number, "wave_id": w.id, "run_started_at": iso(w.started_at)}
 
     @app.post("/api/run/finish", status_code=201)
     def run_finish(body: FinishIn, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
@@ -579,9 +619,9 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         return crossing_out(c)
 
     @app.post("/api/run/close")
-    def run_close(db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
-        S.close_run(db, day)
-        return {"run_closed_at": iso(day.run_closed_at)}
+    def run_close(body: CloseIn | None = None, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        w = S.close_run(db, day, wave_id=body.wave_id if body else None)
+        return {"wave": w.number, "run_closed_at": iso(w.closed_at)}
 
     # ------------------------------------------------------------------ exercises
     @app.post("/api/attempts", status_code=201)

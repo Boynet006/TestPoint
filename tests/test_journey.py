@@ -18,12 +18,14 @@ def test_weigh_in_only_once():
             assert not g.ok and g.reason == "already_weighed"
 
 
-def test_lineup_needs_acceptance_and_closes_at_start():
+def test_lineup_needs_acceptance_and_runs_once():
     assert J.check_gate(J.ACCEPTED, "lineup").ok
     assert J.check_gate(J.EXPECTED, "lineup").reason == "not_weighed"
     assert J.check_gate(J.REJECTED, "lineup").reason == "rejected_at_weigh_in"
     assert J.check_gate(J.LINED_UP, "lineup").reason == "already_lined_up"
-    assert J.check_gate(J.ACCEPTED, "lineup", run_started=True).reason == "run_already_started"
+    assert J.check_gate(J.ABSENT, "lineup").ok                     # an old day's absentee may run in a wave
+    assert J.check_gate(J.RUNNING, "lineup").reason == "still_running"
+    assert J.check_gate(J.RUN_PASSED, "lineup").reason == "already_ran"
 
 
 @pytest.mark.parametrize("status,reason", [
@@ -50,9 +52,6 @@ def test_exercise_stations_accept_run_pass_once_per_event():
 def test_transitions():
     assert J.after_weigh_in(True) == J.ACCEPTED
     assert J.after_weigh_in(False) == J.REJECTED
-    assert J.after_run_start(J.LINED_UP) == J.RUNNING
-    assert J.after_run_start(J.ACCEPTED) == J.ABSENT
-    assert J.after_run_start(J.REJECTED) == J.REJECTED
     assert J.after_finish(960, 960) == J.RUN_PASSED
     assert J.after_finish(960.1, 960) == J.RUN_FAILED
     assert J.after_finish(960, None) == J.RUN_DONE           # no pass table: recorded only

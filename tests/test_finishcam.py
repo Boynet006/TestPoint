@@ -174,6 +174,7 @@ def test_camera_crossing_lands_as_result_or_review(client, monkeypatch):
         ok(client.post(f"/api/entries/{e['id']}/weigh-in", json={"weight_kg": 70, "height_cm": 175, "accept": True}))
         ok(client.post(f"/api/entries/{e['id']}/line-up"))
     t0 = app_mod.S.utcnow()
+    monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0)
     ok(client.post("/api/run/start"))
     # a crossing timed before the start is refused
     monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0 + timedelta(seconds=30.0))
