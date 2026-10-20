@@ -227,6 +227,7 @@ SETTINGS: dict[str, object] = {
     # run start
     "wave_size": 50,             # most runners in one wave (what the finish line can time and check)
     "start_countdown_s": 10,     # "get ready", 3-2-1 and the horn before the time starts
+    "cancel_window_s": 120,      # a start can be cancelled without the admin PIN this long; 0 = until the first finisher
     # display
     "site_name": "",             # shown in the header; empty = "Fitness examination station"
     "default_language": "en",    # a device that never chose a language: "en" or "ar"
@@ -802,6 +803,18 @@ def line_up(db: Session, day: Day, entry: Entry, by: str = "typed") -> Entry:
     return entry
 
 
+def clear_line(db: Session, day: Day) -> int:
+    """Everyone at the line (the wave not started yet) goes back to waiting."""
+    n = 0
+    for e in list_entries(db, day, J.LINED_UP):
+        e.status, e.lined_up_at, e.wave = J.ACCEPTED, None, None
+        n += 1
+    if n:
+        _audit(db, day, "start", "clear_line", people=n)
+    db.commit()
+    return n
+
+
 def undo_line_up(db: Session, day: Day, entry: Entry) -> Entry:
     """Marked at the line by mistake: back to accepted (only before their wave starts)."""
     if entry.status != J.LINED_UP:
@@ -874,7 +887,6 @@ def remove_entry(db: Session, day: Day, entry: Entry, delete_results: bool = Fal
     db.commit()
 
 
-CANCEL_START_WINDOW_S = 120
 START_COUNTDOWN_MAX_S = 30
 
 
@@ -906,8 +918,9 @@ def cancel_start(db: Session, day: Day, now: datetime | None = None, late: bool 
     if not started:
         raise ServiceError("run_not_started", "no wave has started")
     w = max(started, key=lambda x: x.started_at)
-    if (now or utcnow()) - w.started_at > timedelta(seconds=CANCEL_START_WINDOW_S) and not late:
-        raise ServiceError("too_late_to_cancel", "after 2 minutes a start can only be cancelled by an administrator")
+    window = int(get_settings(db)["cancel_window_s"])   # 0: no limit (until the first finisher)
+    if window and (now or utcnow()) - w.started_at > timedelta(seconds=window) and not late:
+        raise ServiceError("too_late_to_cancel", f"after {window // 60} min a start can only be cancelled by an administrator")
     if db.scalar(select(func.count()).select_from(Crossing).where(Crossing.wave_id == w.id)):
         raise ServiceError("finishers_exist", "runners of this wave have already crossed the finish line")
     for e in list_entries(db, day, J.RUNNING):
@@ -1078,6 +1091,45 @@ def close_run(db: Session, day: Day, wave_id: int | None = None, now: datetime |
     _audit(db, day, "finish", "close_wave", wave=w.number, dnf=dnf, by=by)
     db.commit()
     return w
+
+
+def void_wave(db: Session, day: Day, wave_id: int, abort: bool = False) -> dict:
+    """Take a wave back; its people wait for a wave again and run it again.
+
+    Without ``abort``: only a wave nobody of it finished (started by mistake). With ``abort``
+    (an incident, a run that went wrong): always possible. Whoever already did push-ups or
+    crunches keeps their run (their exercise results depend on it); everyone else's time is
+    deleted, crossings waiting for review are discarded, and the audit log keeps all of it."""
+    w = db.get(Wave, wave_id)
+    if w is None or w.day_id != day.id or w.started_at is None:
+        raise ServiceError("not_found", "no such started wave", 404)
+    crossings = list(db.scalars(select(Crossing).where(Crossing.wave_id == w.id)))
+    if crossings and not abort:
+        raise ServiceError("finishers_exist", f"runners of wave {w.number} have crossed the finish line")
+    people = [e for e in list_entries(db, day) if e.wave_id == w.id]
+    keep = {e.id for e in people if e.attempts}
+    deleted = []
+    for c in crossings:
+        if c.entry_id in keep:
+            continue
+        deleted.append({"bib": c.bib_read, "time_s": c.time_s, "entry_id": c.entry_id, "review": c.needs_review})
+        db.delete(c)
+    back = []
+    for e in people:
+        if e.id in keep:
+            continue
+        e.status, e.wave, e.lined_up_at = J.ACCEPTED, None, None
+        e.run_time_s = e.run_grade = e.finished_at = None
+        back.append(e.candidate.bib)
+    _audit(db, day, "admin", "abort_wave" if abort else "void_wave", wave=w.number, started_at=w.started_at,
+           closed_at=w.closed_at, back_to_waiting=back, kept=len(keep), deleted_crossings=deleted or None)
+    if keep:      # the wave stays (closed) for the runs that stand
+        w.closed_at, w.closed_by = w.closed_at or utcnow(), w.closed_by or "abort"
+    else:
+        db.flush()
+        db.delete(w)
+    db.commit()
+    return {"back_to_waiting": len(back), "kept": len(keep)}
 
 
 def auto_close(db: Session, day: Day, rules: DayRules, now: datetime | None = None) -> list[int]:

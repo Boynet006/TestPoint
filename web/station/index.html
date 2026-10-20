@@ -159,7 +159,8 @@
   .countdown.go .cd-num { color: var(--go); }
   .waverow { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
   .waverow .wclock { font-family: var(--cond); font-size: 40px; font-weight: 700; text-align: end; }
-  .waverow .wbtns { grid-column: 1 / -1; display: flex; gap: 8px; justify-content: flex-end; }
+  .waverow .wbtns { grid-column: 1 / -1; display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+  .waverow .wblock { grid-column: 1 / -1; display: flex; gap: 10px; align-items: center; justify-content: flex-end; color: var(--amber); font-size: 14px; }
   .pagetitle { font-family: var(--cond); font-size: 28px; letter-spacing: 1.5px; text-transform: uppercase; margin: 0; }
   .sec { font-family: var(--cond); font-size: 15px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin: 22px 0 0; border-top: 1px solid var(--line); padding-top: 14px; }
   .pair { display: flex; align-items: center; gap: 8px; } .pair input { min-width: 0; flex: 1; }
@@ -340,10 +341,15 @@
           <p class="hint" data-t="start_hint"></p>
         </div>
         <div class="scroll" style="max-height:240px"><table><tbody id="sLinedTable"></tbody></table></div>
+        <div class="row hidden" id="sClearRow" style="margin-top:8px;justify-content:flex-end"><button class="btn ghost sm" style="flex:0 0 auto" onclick="confirmClick('clearline', this, clearLine, 'sure_clear_line')" data-t="clear_line"></button></div>
       </div>
       <div class="card hidden" id="sRunning" style="margin-top:16px">
         <h2 data-t="on_course"></h2>
         <div id="sWaves"></div>
+      </div>
+      <div class="card hidden" id="sDone" style="margin-top:16px">
+        <h2 data-t="earlier_waves"></h2>
+        <div id="sDoneList"></div>
       </div>
       <div class="card" style="margin-top:16px">
         <div class="row" style="align-items:baseline"><h2 style="margin:0" data-t="waiting_list"></h2><span class="spacer"></span><b class="wavefill" id="sWaitCount"></b></div>
@@ -508,6 +514,9 @@
         <label for="setCountdown" data-t="set_countdown"></label>
         <select id="setCountdown"><option value="0">0 s</option><option value="5">5 s</option><option value="10">10 s</option><option value="15">15 s</option></select>
         <span class="hint" data-t="set_countdown_hint"></span>
+        <label for="setCancelWin" data-t="set_cancel_win"></label>
+        <select id="setCancelWin"><option value="120" data-t="min_2"></option><option value="300" data-t="min_5"></option><option value="600" data-t="min_10"></option><option value="1800" data-t="min_30"></option><option value="0" data-t="until_first_finisher"></option></select>
+        <span class="hint" data-t="set_cancel_win_hint"></span>
       </div>
       <h3 class="sec" data-t="sec_station"></h3>
       <div class="settings">
@@ -668,8 +677,18 @@ const I18N = {
     e_face_belongs_to_other: "This face is already enrolled for another candidate",
     sure: "Sure? Press again", at_line_list: "At the line", started_list: "Started", absent_list: "Absent (missed the start)",
     remove_from_line: "Remove", removed_from_line: "removed from the line", cancel_start: "Cancel start",
-    cancel_start_hint: "Only if START was pressed by mistake: possible in the first 2 minutes, before anyone finishes.",
+    cancel_start_hint: "Only if START was pressed by mistake: possible until a runner of the wave finishes (later than the set time with the admin PIN).",
     cancel_start_late: "Cancel start (admin)", sure_cancel_late: "Call the runners back? Press again",
+    earlier_waves: "Earlier waves", wave_done: "{fin} finished · {dnf} DNF", closed_auto: "closed itself",
+    e_wave_has_results: "Someone in this wave already did push-ups or crunches, so it cannot be run again. Review its crossings at the finish line and close it instead.",
+    abort_wave: "Abort wave (admin)", sure_abort: "Stop this wave: its runners run again? Press again",
+    wave_aborted: "Wave aborted: {n} back to waiting to run again; crossings to review discarded (all kept in the audit log).",
+    wave_kept: "{n} keep their run: they already did push-ups or crunches.",
+    close_blocked: "{n} crossing(s) to review at the finish line first", open_finish: "Open the finish line",
+    void_wave: "Void wave (admin)", sure_void: "Take this wave back? Press again", wave_voided: "Wave voided: {n} back to waiting.",
+    clear_line: "Clear the line", sure_clear_line: "Everyone back to waiting? Press again", line_cleared: "Line cleared: {n} back to waiting.",
+    set_cancel_win: "Cancel a start without the PIN", min_2: "2 minutes", min_5: "5 minutes", min_10: "10 minutes", min_30: "30 minutes", until_first_finisher: "Until the first finisher",
+    set_cancel_win_hint: "After this, Cancel start stays but needs the admin PIN. Once a runner of the wave finishes it cannot be cancelled.",
     start_cancelled: "Start cancelled. Runners are back at the line.", wrong_bib: "Wrong bib",
     unassigned: "Crossing moved back to the review queue; assign the right runner.", discard: "Discard", discarded: "Crossing discarded.",
     undo_weigh: "Undo weigh-in", weigh_undone: "weigh-in undone; weigh again", remove: "Remove", entry_removed: "Removed from today's list.",
@@ -679,7 +698,7 @@ const I18N = {
     face_remove_hint: "Delete this person's face photos", face_count_hint: "Face photos on file (3 poses is complete)",
     enrol_title: "Enrol face", enrol_cancel: "Cancel", e_camera_busy: "The camera is in use by another tab or app",
     e_not_lined_up: "Not at the line", e_remove_from_line_first: "At the line: remove from the line first", e_cannot_undo_weigh_in: "The weigh-in can no longer be undone",
-    e_cannot_remove: "Cannot be removed any more", e_too_late_to_cancel: "After 2 minutes only an administrator can cancel a start",
+    e_cannot_remove: "Cannot be removed any more", e_too_late_to_cancel: "This start can now only be cancelled by an administrator",
     e_finishers_exist: "Runners of this wave have already finished: it cannot be cancelled", e_not_assigned: "This crossing is not assigned", e_results_exist: "This runner already has exercise results",
     e_review_pending: "Crossings still wait for review: assign or discard them first", e_not_found: "Not found",
     e_empty_query: "Type a bib or ID", e_ambiguous_query: "That number is one person's bib and another's ID: type the full ID",
@@ -823,8 +842,18 @@ const I18N = {
     e_face_belongs_to_other: "هذا الوجه مسجل لمتقدم آخر",
     sure: "متأكد؟ اضغط مرة أخرى", at_line_list: "عند الخط", started_list: "انطلقوا", absent_list: "غائبون (فاتهم الانطلاق)",
     remove_from_line: "إزالة", removed_from_line: "أُزيل من الخط", cancel_start: "إلغاء الانطلاق",
-    cancel_start_hint: "فقط إذا ضُغط الانطلاق خطأً: ممكن خلال أول دقيقتين وقبل وصول أي عدّاء.",
+    cancel_start_hint: "فقط إذا ضُغط الانطلاق خطأً: ممكن حتى وصول أول عدّاء من الموجة (بعد الوقت المحدد برمز المسؤول).",
     cancel_start_late: "إلغاء الانطلاق (مسؤول)", sure_cancel_late: "استدعاء العدّائين؟ اضغط مرة أخرى",
+    earlier_waves: "الموجات السابقة", wave_done: "{fin} وصلوا · {dnf} لم يكملوا", closed_auto: "أُغلقت تلقائياً",
+    e_wave_has_results: "أحد أفراد هذه الموجة أدى الضغط أو البطن، فلا يمكن إعادتها. راجع عبوراتها عند خط النهاية ثم أغلقها.",
+    abort_wave: "إيقاف الموجة (مسؤول)", sure_abort: "إيقاف هذه الموجة وإعادة عدّائيها؟ اضغط مرة أخرى",
+    wave_aborted: "أُوقفت الموجة: عاد {n} إلى الانتظار ليجروا مجدداً؛ أُلغيت العبورات المعلّقة (الكل محفوظ في السجل).",
+    wave_kept: "{n} يحتفظون بجريهم: أدّوا الضغط أو البطن.",
+    close_blocked: "{n} عبور للمراجعة عند خط النهاية أولاً", open_finish: "فتح خط النهاية",
+    void_wave: "إلغاء الموجة (مسؤول)", sure_void: "إلغاء هذه الموجة؟ اضغط مرة أخرى", wave_voided: "أُلغيت الموجة: عاد {n} إلى الانتظار.",
+    clear_line: "إخلاء الخط", sure_clear_line: "إعادة الجميع إلى الانتظار؟ اضغط مرة أخرى", line_cleared: "أُخلي الخط: عاد {n} إلى الانتظار.",
+    set_cancel_win: "إلغاء الانطلاق دون رمز", min_2: "دقيقتان", min_5: "5 دقائق", min_10: "10 دقائق", min_30: "30 دقيقة", until_first_finisher: "حتى وصول أول عدّاء",
+    set_cancel_win_hint: "بعدها يبقى زر الإلغاء لكنه يطلب رمز المسؤول. بعد وصول أي عدّاء من الموجة لا يمكن الإلغاء.",
     start_cancelled: "أُلغي الانطلاق. العداؤون عادوا إلى الخط.", wrong_bib: "رقم خاطئ",
     unassigned: "أُعيد العبور إلى قائمة المراجعة؛ عيّن العدّاء الصحيح.", discard: "حذف", discarded: "حُذف العبور.",
     undo_weigh: "تراجع عن الوزن", weigh_undone: "أُلغي الوزن؛ أعد الوزن", remove: "إزالة", entry_removed: "أُزيل من قائمة اليوم.",
@@ -834,7 +863,7 @@ const I18N = {
     face_remove_hint: "حذف صور وجه هذا الشخص", face_count_hint: "صور الوجه المحفوظة (3 أوضاع = مكتمل)",
     enrol_title: "تسجيل الوجه", enrol_cancel: "إلغاء", e_camera_busy: "الكاميرا مستخدمة في تبويب أو تطبيق آخر",
     e_not_lined_up: "ليس عند الخط", e_remove_from_line_first: "عند الخط: أزله من الخط أولاً", e_cannot_undo_weigh_in: "لم يعد ممكناً التراجع عن الوزن",
-    e_cannot_remove: "لم يعد ممكناً إزالته", e_too_late_to_cancel: "بعد دقيقتين يلغي الانطلاق المسؤول فقط",
+    e_cannot_remove: "لم يعد ممكناً إزالته", e_too_late_to_cancel: "يلغي هذا الانطلاق الآن المسؤول فقط",
     e_finishers_exist: "وصل عدّاؤون من هذه الموجة: لا يمكن الإلغاء", e_not_assigned: "هذا العبور غير معيّن", e_results_exist: "لهذا العدّاء نتائج تمارين",
     e_review_pending: "عبورات بانتظار المراجعة: عيّنها أو احذفها أولاً", e_not_found: "غير موجود",
     e_empty_query: "اكتب الرقم أو الهوية", e_ambiguous_query: "هذا الرقم هو رقم عدّاء وهوية شخص آخر: اكتب الهوية كاملة",
@@ -1557,6 +1586,7 @@ function renderStart() {
   $("sCountdown").classList.toggle("hidden", !cw);
   $("sStartBox").classList.toggle("hidden", !!cw);
   $("sStart").disabled = !lined.length; $("sStart").textContent = startArmed ? t("confirm_start") : t("start_wave", { n: next });
+  $("sClearRow").classList.toggle("hidden", lined.length < 2);
   setHTML("sLinedTable", lined.map(e => `<tr><td class="t">${esc(e.candidate.bib ?? "—")}</td><td>${esc(cname(e.candidate))}</td><td style="text-align:end"><button class="btn ghost sm" onclick="confirmClick('unline${e.id}', this, () => undoLineUp(${e.id}))">${t("remove_from_line")}</button></td></tr>`).join("")
     || `<tr><td class="hint">${t("line_empty")}</td></tr>`);
   // waves out on the course: clock, runners still out, cut-off, close
@@ -1564,12 +1594,22 @@ function renderStart() {
   const latest = open.length ? open.reduce((a, b) => (Date.parse(a.started_at) > Date.parse(b.started_at) ? a : b)) : null;
   setHTML("sWaves", open.map(w => {
     const age = (serverNow() - Date.parse(w.started_at)) / 1000;
-    const canCancel = w === latest && w.finished === 0 && w.dnf === 0, late = age >= 120;
+    const win = setting("cancel_window_s"), canCancel = w === latest && w.finished === 0 && w.dnf === 0, late = win > 0 && age >= win;
     return `<div class="waverow"><div><b>${t("wave_n", { n: w.number })}</b><div class="hint">${t("wave_counts", { out: w.running, fin: w.finished + w.dnf })}${w.review ? ` · <span style="color:var(--amber)">${t("review_n", { n: w.review })}</span>` : ""}</div></div>`
       + `<div class="wclock" id="wc-${w.id}">${mmss(age)}</div><div class="hint" id="wcut-${w.id}"></div>`
       + `<div class="wbtns">${canCancel ? `<button class="btn ghost sm${late ? " amber" : ""}" onclick="confirmClick('cancelstart${w.id}', this, () => cancelStart(${late}), '${late ? "sure_cancel_late" : "sure"}')">${t(late ? "cancel_start_late" : "cancel_start")}</button>` : ""}`
-      + `<button class="btn stop sm" ${w.review ? "disabled" : ""} onclick="confirmClick('closew${w.id}', this, () => closeWave(${w.id}), 'confirm_close')">${t("close_wave")}</button></div></div>`;
+      + `<button class="btn ghost sm danger" onclick="confirmClick('abort${w.id}', this, () => voidWave(${w.id}, true), 'sure_abort')">${t("abort_wave")}</button>`
+      + `<button class="btn stop sm" ${w.review ? "disabled" : ""} onclick="confirmClick('closew${w.id}', this, () => closeWave(${w.id}), 'confirm_close')">${t("close_wave")}</button></div>`
+      + (w.review ? `<div class="wblock"><span>${t("close_blocked", { n: w.review })}</span><button class="btn amber sm" onclick="setRole('finish')">${t("open_finish")}</button></div>` : "")
+      + `</div>`;
   }).join(""));
+  // closed waves; one nobody finished (started by mistake) can be voided by an administrator
+  const done = ws.filter(w => w.closed_at);
+  $("sDone").classList.toggle("hidden", !done.length);
+  setHTML("sDoneList", done.slice().reverse().map(w => `<div class="waverow"><div><b>${t("wave_n", { n: w.number })}</b><div class="hint">${t("wave_done", { fin: w.finished, dnf: w.dnf })}${w.closed_by === "auto" ? " · " + t("closed_auto") : ""}</div></div>`
+    + `<div>${w.finished === 0 && w.review === 0
+      ? `<button class="btn ghost sm" onclick="confirmClick('void${w.id}', this, () => voidWave(${w.id}), 'sure_void')">${t("void_wave")}</button>`
+      : `<button class="btn ghost sm danger" onclick="confirmClick('abort${w.id}', this, () => voidWave(${w.id}, true), 'sure_abort')">${t("abort_wave")}</button>`}</div></div>`).join(""));
   const waiting = S.entries.filter(e => e.status === "accepted" || e.status === "absent").sort((a, b) => bibNum(a) - bibNum(b));
   $("sWaitCount").textContent = waiting.length;
   setHTML("sMissing", waiting.map(e => `<tr><td class="t">${esc(e.candidate.bib ?? "—")}</td><td>${esc(cname(e.candidate))}</td><td style="text-align:end"><button class="btn go sm" onclick="lineUp(${e.id})">${t("present")}</button></td></tr>`).join("")
@@ -1599,6 +1639,18 @@ async function undoLineUp(id, fromLast) {
     const e = await api("POST", `/api/entries/${id}/line-up/undo`);
     msg("sMsg", "ok", `${cname(e.candidate)} · ${t("removed_from_line")}`); if (fromLast) $("sLast").classList.add("hidden"); refresh();
   } catch (e) { msg("sMsg", "bad", err(e)); }
+}
+async function voidWave(id, abort = false) {
+  try {
+    const r = await api("POST", `/api/run/waves/${id}/void${abort ? "?abort=true" : ""}`);
+    msg("sMsg", "ok", t(abort ? "wave_aborted" : "wave_voided", { n: r.back_to_waiting }) + (r.kept ? " " + t("wave_kept", { n: r.kept }) : ""));
+    refresh();
+  }
+  catch (e) { if (e.code === "admin_pin_required") PinDlg.open(() => voidWave(id, abort)); else msg("sMsg", "bad", err(e)); }
+}
+async function clearLine() {
+  try { const r = await api("POST", "/api/run/line/clear"); $("sLast").classList.add("hidden"); msg("sMsg", "ok", t("line_cleared", { n: r.cleared })); refresh(); }
+  catch (e) { msg("sMsg", "bad", err(e)); }
 }
 async function cancelStart(late = false) {
   Sound.stop();
@@ -2043,7 +2095,7 @@ const CamLive = {
 /* ============================== settings ============================== */
 // Station settings from the server (shared by every device); see service.SETTINGS.
 const SETTING_DEFAULTS = { auto_identify: true, camera_background: "off", backdrop_color: "#8a949e", background_image: null, face_match: "normal", face_required: false, walk_ins: true, default_gender: "M", default_unit: "combat",
-                           bib_start: 1, lanes: 3, wave_size: 50, start_countdown_s: 10, site_name: "", default_language: "en", admin_pin_set: false };
+                           bib_start: 1, lanes: 3, wave_size: 50, start_countdown_s: 10, cancel_window_s: 120, site_name: "", default_language: "en", admin_pin_set: false };
 const setting = k => (S.settings && k in S.settings ? S.settings[k] : SETTING_DEFAULTS[k]);
 function applySettings(first) {
   if (first && load("lang", null) == null && setting("default_language") !== lang) setLang(setting("default_language"), false);
@@ -2067,7 +2119,7 @@ const SET_FIELDS = {   // input id -> [setting, read, write]
   setAuto: ["auto_identify", v => v === "1", v => (v ? "1" : "0")], setBg: ["camera_background"], setMatch: ["face_match"], setFaceReq: ["face_required", v => v === "1", v => (v ? "1" : "0")],
   setWalk: ["walk_ins", v => v === "1", v => (v ? "1" : "0")], setGender: ["default_gender"], setUnit: ["default_unit"], setBib: ["bib_start", v => parseInt(v, 10)],
   setLanes: ["lanes", v => parseInt(v, 10), String], setWave: ["wave_size", v => parseInt(v, 10)],
-  setCountdown: ["start_countdown_s", v => parseInt(v, 10), String], setSite: ["site_name", v => v.trim()], setLang: ["default_language"],
+  setCountdown: ["start_countdown_s", v => parseInt(v, 10), String], setCancelWin: ["cancel_window_s", v => parseInt(v, 10), String], setSite: ["site_name", v => v.trim()], setLang: ["default_language"],
 };
 function showSettings() {
   for (const [id, [k, , out]] of Object.entries(SET_FIELDS)) $(id).value = out ? out(setting(k)) : setting(k);
