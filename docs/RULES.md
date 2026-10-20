@@ -36,12 +36,12 @@ day is judged by the same numbers.
 | Rule | Proposed value |
 |------|----------------|
 | Course | Point-to-point, measured 3.2 km (certified by the organiser) |
-| Start | Waves of up to 50 runners; wave start time recorded when the examiner presses Start with the horn |
+| Start | Waves of up to 50 runners (a setting). Runners are marked at the line by face (bib as fallback); START gives a countdown, 3-2-1 and a horn from the start tablet, and the wave's time starts exactly at the horn. Anyone not at the line runs in the next wave. A start pressed by mistake can be cancelled in its first 2 minutes |
 | Finish | Time = finish-line crossing − wave start, interpolated between frames, resolution 0.1 s |
 | Splits | Crossings at 1 km and 2 km recorded per runner; a runner missing a split, or crossing points out of order, is held for review before a result is published |
 | Identification | Bib number (front and back) read at all four timing points; face as secondary check; unresolved crossings reviewed by the examiner from video before results are published |
 | Result | mm:ss.s; pass/fail and score from the score table for the candidate's age and gender |
-| Did not finish | A runner with no crossing within the cut-off time is marked DNF |
+| Did not finish | A wave closes itself 2 minutes after the cut-off (unless a crossing of it still waits for review); anyone of that wave still out is marked DNF. Each runner's time counts from their own wave's start |
 
 ## Check-in
 

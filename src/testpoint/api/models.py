@@ -61,6 +61,25 @@ class Day(Base):
     run_closed_at: Mapped[datetime | None] = mapped_column(DateTime)
 
 
+class Wave(Base):
+    """One start of the 3.2 km run. A test day has as many waves as it needs: people line up
+    for the next wave while earlier ones are out on the course.
+
+    ``started_at`` None: still lining up. A start in the future: the countdown is running
+    (every device shows the same countdown). ``closed_at``: everyone still out became DNF."""
+
+    __tablename__ = "wave"
+    __table_args__ = (UniqueConstraint("day_id", "number"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    day_id: Mapped[int] = mapped_column(ForeignKey("day.id"), index=True)
+    number: Mapped[int] = mapped_column(Integer)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    closed_by: Mapped[str | None] = mapped_column(String(16))
+    """"examiner", or "auto" when it closed itself after the cut-off."""
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
 class Entry(Base):
     """One candidate on one test day: the journey state and day results."""
 
@@ -75,6 +94,7 @@ class Entry(Base):
     bmi: Mapped[float | None] = mapped_column(Float)
     weighed_at: Mapped[datetime | None] = mapped_column(DateTime)
     lined_up_at: Mapped[datetime | None] = mapped_column(DateTime)
+    wave_id: Mapped[int | None] = mapped_column(ForeignKey("wave.id"))
     run_time_s: Mapped[float | None] = mapped_column(Float)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime)
     # The standard this person is judged by, fixed at weigh-in (age on the test day).
@@ -86,6 +106,7 @@ class Entry(Base):
     run_grade: Mapped[int | None] = mapped_column(Integer)
 
     candidate: Mapped[Candidate] = relationship(lazy="joined")
+    wave: Mapped[Wave | None] = relationship(lazy="joined")
     attempts: Mapped[list["Attempt"]] = relationship(back_populates="entry", lazy="selectin",
                                                      order_by="Attempt.id")
 
@@ -110,6 +131,8 @@ class Crossing(Base):
     # From the finish camera: OCR vote share for the bib and the evidence clip (docs/ENGINE-LINK.md).
     confidence: Mapped[float | None] = mapped_column(Float)
     clip_path: Mapped[str | None] = mapped_column(String(300))
+    wave_id: Mapped[int | None] = mapped_column(ForeignKey("wave.id"))
+    """The wave the time is measured from (the runner's, or the wave running then for a review)."""
 
 
 class Attempt(Base):
@@ -194,7 +217,9 @@ def make_sessionmaker(db_url: str) -> sessionmaker:
                 conn.exec_driver_sql(f"ALTER TABLE crossing ADD COLUMN {col} {typ}")
         for table, cols in (("day", (("rules_json", "TEXT"),)),
                             ("candidate", (("unit", "VARCHAR"),)),
-                            ("entry", (("age", "INTEGER"), ("band", "VARCHAR"), ("level", "INTEGER"), ("run_grade", "INTEGER"))),
+                            ("crossing", (("wave_id", "INTEGER"),)),
+                            ("entry", (("age", "INTEGER"), ("band", "VARCHAR"), ("level", "INTEGER"), ("run_grade", "INTEGER"),
+                                       ("wave_id", "INTEGER"))),
                             ("attempt", (("auto_count", "INTEGER"), ("auto_rejected", "INTEGER"),
                                          ("override_reason", "VARCHAR"), ("grade", "INTEGER")))):
             have = {row[1] for row in conn.exec_driver_sql(f"PRAGMA table_info({table})")} if db_url.startswith("sqlite") else None

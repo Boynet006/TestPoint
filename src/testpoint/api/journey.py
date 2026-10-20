@@ -1,11 +1,14 @@
 """The candidate journey for one test day, as pure functions.
 
-    expected ─ weigh-in ─► accepted ─ line-up ─► lined_up ─ START ─► running
+    expected ─ weigh-in ─► accepted ─ line-up ─► lined_up ─ START ─► running      (one wave)
         │                                 │                            │
-        └──► rejected (BMI)               └──► absent (missed start)   ├─► run_passed ─┐
+        └──► rejected (BMI)        (waits for the next wave)          ├─► run_passed ─┐
                                                                        ├─► run_failed ─┼─► exercises ─► complete
                                                                        ├─► run_done ───┤   (no pass table for them)
                                                                        └─► dnf ────────┘
+
+The run goes in waves: whoever is not at the line when a wave starts simply lines up
+for the next one. ``absent`` only remains on days recorded before waves existed.
 
 Everyone who ran takes all three tests (the pass table lists three separate tests); the final
 verdict needs every test at the person's required level (service.verdict).
@@ -53,12 +56,10 @@ class Gate:
 ALLOW = Gate(True)
 
 
-def check_gate(status: str, station: str, done_events: set[str] | None = None,
-               run_started: bool = False) -> Gate:
+def check_gate(status: str, station: str, done_events: set[str] | None = None) -> Gate:
     """May a candidate with ``status`` enter ``station`` now?
 
     ``done_events`` are the exercises this candidate already finished today.
-    ``run_started`` is whether the mass start has happened (the line-up closes).
     """
     done_events = done_events or set()
     if status not in STATUSES:
@@ -72,9 +73,7 @@ def check_gate(status: str, station: str, done_events: set[str] | None = None,
         return Gate(False, "already_weighed")
 
     if station == "lineup":
-        if run_started:
-            return Gate(False, "run_already_started")
-        if status == ACCEPTED:
+        if status in (ACCEPTED, ABSENT):
             return ALLOW
         if status == LINED_UP:
             return Gate(False, "already_lined_up")
@@ -82,7 +81,9 @@ def check_gate(status: str, station: str, done_events: set[str] | None = None,
             return Gate(False, "not_weighed")
         if status == REJECTED:
             return Gate(False, "rejected_at_weigh_in")
-        return Gate(False, "not_eligible")
+        if status == RUNNING:
+            return Gate(False, "still_running")
+        return Gate(False, "already_ran")
 
     # exercise stations
     event = station
@@ -104,15 +105,6 @@ def check_gate(status: str, station: str, done_events: set[str] | None = None,
 
 def after_weigh_in(accepted: bool) -> str:
     return ACCEPTED if accepted else REJECTED
-
-
-def after_run_start(status: str) -> str:
-    """Status of every candidate when the mass start happens."""
-    if status == LINED_UP:
-        return RUNNING
-    if status == ACCEPTED:
-        return ABSENT
-    return status
 
 
 def after_finish(time_s: float, pass_s: float | None, cutoff_s: float | None = None) -> str:

@@ -45,7 +45,7 @@ def test_undo_line_up_before_start_only(client):
     assert code(client.post(f"/api/entries/{i['11']}/line-up/undo")) == "not_lined_up"
     client.post(f"/api/entries/{i['11']}/line-up")
     client.post("/api/run/start")
-    assert code(client.post(f"/api/entries/{i['11']}/line-up/undo")) == "run_already_started"
+    assert code(client.post(f"/api/entries/{i['11']}/line-up/undo")) == "not_lined_up"   # running now
 
 
 def test_undo_weigh_in_then_redo(client):
@@ -72,15 +72,23 @@ def test_cancel_accidental_start(client, monkeypatch):
         client.post(f"/api/entries/{i[b]}/weigh-in", json=W)
     client.post(f"/api/entries/{i['11']}/line-up")          # 12 accepted but not at the line
     client.post("/api/run/start")
-    assert status(client, i["11"]) == "running" and status(client, i["12"]) == "absent"
+    assert status(client, i["11"]) == "running" and status(client, i["12"]) == "accepted"
+    client.post(f"/api/entries/{i['12']}/line-up")          # 12 lines up for wave 2 meanwhile
     assert client.post("/api/run/start/cancel").status_code == 200
-    assert status(client, i["11"]) == "lined_up" and status(client, i["12"]) == "accepted"
+    # both are back in wave 1, waiting for the real start
+    assert status(client, i["11"]) == "lined_up" and status(client, i["12"]) == "lined_up"
+    assert [w["number"] for w in client.get("/api/state").json()["waves"]] == [1]
     assert client.get("/api/state").json()["run_started_at"] is None
     # too late after 2 minutes
     client.post("/api/run/start")
     t0 = models.utcnow()
     monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0 + timedelta(minutes=3))
     assert code(client.post("/api/run/start/cancel")) == "too_late_to_cancel"
+    # an administrator can still call it off while nobody of the wave has finished
+    client.put("/api/settings/admin-pin", json={"pin": "2468"})
+    assert code(client.post("/api/run/start/cancel", params={"late": True})) == "admin_pin_required"
+    r = client.post("/api/run/start/cancel", params={"late": True}, headers={"X-Admin-Pin": "2468"})
+    assert r.status_code == 200 and status(client, i["11"]) == "lined_up"
 
 
 def test_cancel_start_refused_once_someone_finished(client):
