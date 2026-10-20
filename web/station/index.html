@@ -31,13 +31,14 @@
   .clock { font-family: var(--cond); font-size: 21px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .seg { display: flex; border: 1px solid var(--line); background: var(--bg2); }
   .seg button { background: transparent; color: var(--muted); border: 0; padding: 7px 14px; cursor: pointer; font-family: var(--cond); font-size: 16px; text-transform: uppercase; letter-spacing: 1px; }
+  .seg button.icon { padding: 7px 10px; display: grid; place-items: center; }
   .seg button.active { background: var(--amber); color: var(--amber-ink); font-weight: 700; }
   .conn { font-family: var(--cond); font-size: 14px; letter-spacing: 1px; text-transform: uppercase; }
   .conn.ok { color: var(--go); } .conn.bad { color: var(--stop); }
   main { padding: 18px 20px 40px; max-width: 1500px; margin: 0 auto; }
   .hidden { display: none !important; }
   .grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
-  .lanes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .lanes { display: grid; grid-template-columns: repeat(var(--lanes, 3), minmax(0, 1fr)); gap: 16px; }
   @media (max-width: 1050px) { .grid2, .lanes { grid-template-columns: 1fr; } }
   .card { background: var(--panel); border: 1px solid var(--line); padding: 16px; }
   .card h2 { margin: 0 0 12px; font-family: var(--cond); font-size: 18px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
@@ -49,6 +50,8 @@
   .btn.stop { background: var(--stop); color: #fff; border-color: var(--stop); }
   .btn.amber { background: var(--amber); color: var(--amber-ink); border-color: var(--amber); }
   .btn.ghost { background: transparent; }
+  .btn.danger:not(.amber) { color: #ff8a8a; border-color: rgba(255,59,59,.45); }
+  .btn.ghost.amber { background: var(--amber); color: var(--amber-ink); }   /* an armed confirm button must stay readable */
   .btn.sm { font-size: 14px; padding: 5px 10px; }
   .btn.xl { font-size: 24px; padding: 16px 24px; width: 100%; }
   .btn.huge { font-size: 38px; padding: 26px; width: 100%; letter-spacing: 4px; }
@@ -97,6 +100,10 @@
   .count small { display: block; font-size: 15px; letter-spacing: 2px; color: var(--muted); font-weight: 600; margin-top: 6px; }
   .timer { font-family: var(--cond); font-weight: 700; font-size: 40px; text-align: center; font-variant-numeric: tabular-nums; }
   .timer.low { color: var(--stop); }
+  .live { min-height: 22px; text-align: center; font-family: var(--cond); font-size: 16px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+  .live .fault { color: #ffb3b3; }
+  .pill.live { border-color: var(--go); color: #b6f5d4; } .pill.off { border-color: var(--stop); color: #ffb3b3; }
+  .fixlabel { font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--dim); text-align: center; }
   .tap { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 8px; }
   .tap .btn { font-size: 22px; padding: 18px 6px; }
   .verdict { font-family: var(--cond); font-size: 30px; font-weight: 800; letter-spacing: 2px; padding: 8px 12px; text-align: center; }
@@ -108,17 +115,68 @@
   .viewer { position: relative; aspect-ratio: 4/3; background: #0b1016; border: 1px solid var(--line); overflow: hidden; }
   .viewer video, .viewer img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
   .viewer canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .viewer.mirror video, .viewer.mirror canvas.fx { transform: scaleX(-1); }
+  .viewer canvas.fx { object-fit: contain; display: none; }
+  .viewer.fxon canvas.fx { display: block; } .viewer.fxon video { opacity: 0; }
+  .dlg { background: var(--panel); color: var(--text); border: 1px solid var(--line); padding: 16px; width: min(640px, 94vw); }
+  .dlg::backdrop { background: rgba(3,6,10,.72); }
+  .dlg-head { display: flex; align-items: center; gap: 10px; }
+  .autobib { display: flex; align-items: center; border: 1px dashed var(--line); color: var(--muted); letter-spacing: .5px; }
+  .autobib b { color: var(--muted); font-weight: 600; }
+  .settings { display: grid; grid-template-columns: 250px minmax(140px, 220px) 1fr; gap: 12px 16px; align-items: center; margin-top: 10px; }
+  .settings label { font-family: var(--cond); letter-spacing: .5px; color: var(--text); }
+  @media (max-width: 900px) { .settings { grid-template-columns: 1fr; } }
+  /* labelled form fields (registration): label above, every control the same size */
+  .std { margin: 4px 0 12px; } .std .field { margin-bottom: 8px; }
+  .stdline { padding: 10px 12px; background: var(--bg2); border-inline-start: 3px solid var(--go); }
+  .stdline.warn { border-color: var(--amber); color: var(--amber); } .stdline.bad { border-color: var(--stop, #e5484d); color: var(--stop, #e5484d); }
+  .target { margin: 10px 0; }
+  .needs-who { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+  .needs-who b { font-family: var(--cond); font-size: 30px; letter-spacing: .5px; }
+  .needs-who .age { font-family: var(--cond); font-size: 26px; font-weight: 700; color: var(--amber); }
+  .needs-sub { color: var(--muted); font-size: 15px; margin: 2px 0 6px; } .needs-sub b { color: var(--text); font-weight: 600; }
+  .grades { border-collapse: collapse; margin-top: 8px; font-family: var(--cond); }
+  .grades th, .grades td { padding: 4px 14px; text-align: center; border-bottom: 1px solid var(--line); }
+  .grades th:first-child { text-align: start; padding-inline-start: 0; font-weight: 500; color: var(--muted); }
+  .grades td { font-size: 22px; font-weight: 700; }
+  .grades .need { background: rgba(25, 210, 122, .14); color: var(--go); }
+  .grades th small { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }
+  .rtable { border-collapse: collapse; } .rtable th, .rtable td { padding: 4px; text-align: center; }
+  .rtable input { width: 64px; padding: 6px; text-align: center; } .rtable .ages { white-space: nowrap; } .rtable .ages input { width: 46px; }
+  .rtable input.invalid { border-color: #e5484d; }
+  .settings .sub { padding-inline-start: 18px; color: var(--muted); }
+  .swatch { flex: 0 0 34px; height: 34px; border: 1px solid var(--line); }
+  #setBgCustom { flex: 0 0 48px; height: 36px; padding: 2px; }
+  .bgpick { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .bgpick img { width: 96px; height: 54px; object-fit: cover; border: 1px solid var(--line); }
+  .pagetitle { font-family: var(--cond); font-size: 28px; letter-spacing: 1.5px; text-transform: uppercase; margin: 0; }
+  .sec { font-family: var(--cond); font-size: 15px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin: 22px 0 0; border-top: 1px solid var(--line); padding-top: 14px; }
+  .pair { display: flex; align-items: center; gap: 8px; } .pair input { min-width: 0; flex: 1; }
+  #t-settings > .card + .card { margin-top: 16px; }
+  .field .lbl { display: flex; flex-direction: column; gap: 4px; margin: 0; font-size: inherit; text-transform: none; letter-spacing: 0; color: var(--text); }
+  .lbl > span { font-family: var(--cond); font-size: 13px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+  .lbl input, .lbl select, .lbl .autobib { width: 100%; height: 52px; font-family: var(--cond); font-size: 22px; font-weight: 600; padding: 8px 12px; }
+  .lbl .autobib { font-size: 16px; }
+  .facecell { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .facecell .n { font-family: var(--cond); font-size: 15px; letter-spacing: .5px; }
+  .facecell .n.part { color: var(--amber); }   /* selfie view; boxes are mirrored in drawBox, text stays readable */
   .viewer-empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--dim); font-family: var(--cond); letter-spacing: 1px; text-transform: uppercase; text-align: center; padding: 20px; }
+  .camlive { position: relative; background: #0b1016; border: 1px solid var(--line); margin-bottom: 16px; }
+  .camlive img { display: block; width: 100%; max-height: 420px; object-fit: contain; }
+  .camlive .viewer-tag { color: var(--go); inset-inline-start: auto; inset-inline-end: 10px; }   /* lane 1's count is top-left in the picture */
   .viewer-tag { position: absolute; top: 8px; inset-inline-start: 10px; font-family: var(--cond); font-size: 13px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
   .btn.on { border-color: var(--go); color: var(--go); }
   .thumb { width: 40px; height: 40px; object-fit: cover; border: 1px solid var(--line); vertical-align: middle; }
+  .override { display: flex; flex-direction: column; gap: 4px; } .override input { width: 100%; }
+  table.reps { font-size: 13px; margin: 4px 0 10px; } table.reps th { color: var(--muted); font-weight: 400; }
+  #rvVideo { max-width: 100%; max-height: 360px; background: #000; display: block; }
   .form { display: grid; grid-template-columns: repeat(6, 1fr) auto; gap: 8px; margin: 10px 0 16px; }
   @media (max-width: 900px) { .form, .tiles, .field { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
 <header>
-  <div class="brand"><div class="mono">T</div><div><b>TestPoint</b><small data-t="tagline"></small></div></div>
+  <div class="brand"><div class="mono">T</div><div><b>TestPoint</b><small id="tagline"></small></div></div>
   <select id="role" onchange="setRole(this.value)">
     <option value="weigh" data-t="r_weigh"></option>
     <option value="start" data-t="r_start"></option>
@@ -131,9 +189,42 @@
   <span class="clock" id="clock"></span>
   <div class="seg"><button id="lang-en" onclick="setLang('en')">EN</button><button id="lang-ar" onclick="setLang('ar')">ع</button></div>
   <div class="seg"><button id="mode-simple" onclick="setMode('simple')" data-t="simple"></button><button id="mode-advanced" onclick="setMode('advanced')" data-t="advanced"></button></div>
+  <div class="seg"><button id="setBtn" class="icon" onclick="openSettings()" data-tl="t_settings"><svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div>
 </header>
 
 <main>
+<dialog id="enrolDlg" class="dlg">
+  <div class="dlg-head"><h2 data-t="enrol_title"></h2><span class="spacer"></span><button class="btn ghost sm" onclick="EnrolDlg.close()" data-t="enrol_cancel"></button></div>
+  <div id="enrolWho" style="margin:6px 0 10px"></div>
+  <div class="viewer mirror" style="aspect-ratio:4/3"><video id="enrolVideo" muted playsinline></video><canvas id="enrolFx" class="fx"></canvas><canvas id="enrolBox"></canvas></div>
+  <div id="enrolMsg"></div>
+</dialog>
+<dialog id="editDlg" class="dlg" style="max-width:720px">
+  <div class="dlg-head"><h2 data-t="edit_title"></h2><span class="spacer"></span><button class="btn ghost sm" type="button" onclick="EditDlg.close()" data-t="enrol_cancel"></button></div>
+  <form onsubmit="event.preventDefault(); EditDlg.save()">
+    <div class="field" style="margin-top:8px">
+      <label class="lbl"><span data-t="lbl_name_en"></span><input id="eName" autocomplete="off" lang="en" dir="ltr"></label>
+      <label class="lbl"><span data-t="lbl_name_ar"></span><input id="eNameAr" autocomplete="off" lang="ar" dir="rtl"></label>
+      <label class="lbl"><span data-t="lbl_id"></span><input id="eId" autocomplete="off"></label>
+      <label class="lbl"><span data-t="ph_bib_short"></span><input id="eBib" autocomplete="off" inputmode="numeric"></label>
+      <label class="lbl"><span data-t="lbl_gender"></span><select id="eGender"><option value="">—</option><option value="M" data-t="male"></option><option value="F" data-t="female"></option></select></label>
+      <label class="lbl"><span data-t="lbl_dob"></span><input id="eDob" type="date"></label>
+      <label class="lbl"><span data-t="lbl_unit"></span><select id="eUnit"><option value="combat" data-t="unit_combat"></option><option value="admin" data-t="unit_admin"></option><option value="special" data-t="unit_special"></option></select></label>
+    </div>
+    <p class="hint hidden" id="eRegrade" data-t="edit_regrade"></p>
+    <div id="editMsg"></div>
+    <div class="row" style="margin-top:10px"><button class="btn amber" type="submit" id="eSave" data-t="edit_save"></button></div>
+  </form>
+</dialog>
+<dialog id="pinDlg" class="dlg" style="max-width:360px">
+  <h2 data-t="pin_title"></h2>
+  <p class="hint" data-t="pin_hint"></p>
+  <form method="dialog" onsubmit="event.preventDefault(); PinDlg.submit()">
+    <input id="pinIn" type="password" inputmode="numeric" maxlength="8" autocomplete="off" style="width:100%;font-size:22px;letter-spacing:6px;text-align:center">
+    <div id="pinDlgMsg"></div>
+    <div class="row" style="margin-top:10px"><button class="btn amber" type="submit" data-t="pin_unlock"></button><button class="btn ghost" type="button" onclick="PinDlg.cancel()" data-t="enrol_cancel"></button></div>
+  </form>
+</dialog>
 <!-- ======================== SIMPLE ======================== -->
 <section id="simple">
 
@@ -148,6 +239,7 @@
       </div>
       <div class="viewer" id="viewer">
         <video id="camVideo" muted loop playsinline class="hidden"></video>
+        <canvas id="camFx" class="fx"></canvas>
         <img id="camImg" class="hidden" alt="">
         <canvas id="camBox"></canvas>
         <div class="viewer-empty" id="camEmpty" data-t="no_source"></div>
@@ -160,10 +252,44 @@
       <div class="search" style="margin-top:10px"><input id="wQuery" data-tp="ph_bib" autocomplete="off" onkeydown="if(event.key==='Enter')weighCheckin()"><button class="btn" onclick="weighCheckin()" data-t="checkin"></button></div>
       <div id="wMsg"></div>
       <div id="wWho"></div>
-      <div id="wEnroll" class="hidden"><button class="btn sm" onclick="enrollFromCamera()" data-t="enroll_cam"></button></div>
+      <div id="wEnroll" class="hidden"><button class="btn sm" id="wEnrollBtn" onclick="enrollFromCamera()" data-t="enroll_cam"></button></div>
+    </div>
+    <div id="wRight">
+    <div class="card hidden" id="wKnown">
+      <h2 data-t="known_title"></h2>
+      <div id="wKnownWho" style="margin:8px 0"></div>
+      <p class="hint" data-t="known_hint" style="margin:0 0 12px"></p>
+      <button class="btn amber xl" id="wKnownAdd" onclick="addKnownToday()" data-t="known_add"></button>
+    </div>
+    <div class="card hidden" id="wRegister">
+      <h2 data-t="register_title"></h2>
+      <p class="hint" data-t="register_prompt" style="margin:6px 0 12px"></p>
+      <button class="btn amber xl" onclick="openRegister()" data-t="register_new"></button>
+    </div>
+    <div id="wNew" class="card hidden">
+      <h2 data-t="register_title"></h2>
+      <div class="field">
+        <label class="lbl"><span data-t="lbl_name_en"></span><input id="rName" autocomplete="off" lang="en" dir="ltr"></label>
+        <label class="lbl"><span data-t="lbl_name_ar"></span><input id="rNameAr" autocomplete="off" lang="ar" dir="rtl"></label>
+        <label class="lbl"><span data-t="lbl_id"></span><input id="rId" autocomplete="off"></label>
+        <div class="lbl"><span data-t="ph_bib_short"></span><div class="autobib"><b data-t="bib_auto"></b></div></div>
+        <label class="lbl"><span data-t="lbl_gender"></span><select id="rGender"><option value="">—</option><option value="M" data-t="male"></option><option value="F" data-t="female"></option></select></label>
+        <label class="lbl"><span data-t="lbl_dob"></span><input id="rDob" type="date"></label>
+        <label class="lbl"><span data-t="lbl_unit"></span><select id="rUnit"><option value="combat" data-t="unit_combat"></option><option value="admin" data-t="unit_admin"></option><option value="special" data-t="unit_special"></option></select></label>
+      </div>
+      <p class="hint" data-t="register_hint"></p>
+      <div class="row" style="margin-top:8px"><button class="btn go xl" id="rSave" onclick="registerNew()" data-t="register_save"></button><button class="btn ghost" onclick="closeRegister()" data-t="clear"></button></div>
     </div>
     <div class="card" id="wForm" style="opacity:.35;pointer-events:none">
       <h2 data-t="measure"></h2>
+      <div id="wStd" class="std hidden">
+        <div class="field">
+          <label class="lbl hidden" id="wGenderL"><span data-t="lbl_gender"></span><select id="wGender" onchange="loadStandard()"><option value="">—</option><option value="M" data-t="male"></option><option value="F" data-t="female"></option></select></label>
+          <label class="lbl hidden" id="wDobL"><span data-t="lbl_dob"></span><input id="wDob" type="date" onchange="loadStandard()"></label>
+          <label class="lbl"><span data-t="lbl_unit"></span><select id="wUnit" onchange="loadStandard()"><option value="combat" data-t="unit_combat"></option><option value="admin" data-t="unit_admin"></option><option value="special" data-t="unit_special"></option></select></label>
+        </div>
+        <div id="wStdLine" class="stdline"></div>
+      </div>
       <div class="field">
         <div><label data-t="weight"></label><input id="wKg" type="number" step="0.1" inputmode="decimal" oninput="bmiPreview()"></div>
         <div><label data-t="height"></label><input id="wCm" type="number" step="1" inputmode="decimal" oninput="bmiPreview()"></div>
@@ -171,6 +297,11 @@
       <div class="bmi" id="wBmi"><span class="tagline">BMI</span><b>—</b><span class="hint" id="wRange"></span></div>
       <div id="wOverride" class="hidden" style="margin-top:10px"><label class="hint" id="wReasonLabel" data-t="reason_out_of_range"></label><input id="wReason" style="width:100%" data-tp="ph_reason"></div>
       <div class="row" style="margin-top:12px"><button class="btn go" id="wAccept" onclick="weighSubmit(true)" disabled data-t="accept_day"></button><button class="btn stop" id="wReject" onclick="weighSubmit(false)" disabled data-t="reject"></button></div>
+    </div>
+    <div class="card hidden" id="wNeeds" style="margin-top:16px">
+      <h2 data-t="needs_title"></h2>
+      <div id="wNeedsBody"></div>
+    </div>
     </div>
   </div>
 
@@ -217,6 +348,7 @@
       <div id="fReviewBox" class="hidden" style="margin-top:12px"><h2 data-t="review_queue"></h2><table><tbody id="fReviewTable"></tbody></table></div>
     </div>
     <div class="card">
+      <div class="camlive hidden" id="camLive-finish"><img alt=""><div class="viewer-tag" data-t="cam_view"></div></div>
       <h2 data-t="finishers"></h2>
       <div class="scroll"><table><thead><tr><th>#</th><th data-t="bib"></th><th data-t="name"></th><th data-t="time"></th><th data-t="status"></th><th></th></tr></thead><tbody id="fTable"></tbody></table></div>
     </div>
@@ -227,11 +359,11 @@
     <div class="bar">
       <div class="seg"><button id="ev-pushup" onclick="setEvent('pushup')" data-t="pushup"></button><button id="ev-crunch" onclick="setEvent('crunch')" data-t="crunch"></button></div>
       <div class="kv"><span data-t="time_limit"></span> <b id="xLimit">2:00</b></div>
-      <div class="kv"><span data-t="pass_mark"></span> <b id="xPass">—</b></div>
       <div class="kv"><span data-t="waiting_here"></span> <b id="xWaiting">0</b></div>
       <span class="spacer"></span>
-      <span class="hint" data-t="manual_count"></span>
+      <span class="pill off" id="xCam"></span>
     </div>
+    <div class="camlive hidden" id="camLive-station"><img alt=""><div class="viewer-tag" data-t="cam_view"></div></div>
     <div class="lanes" id="lanes"></div>
   </div>
 </section>
@@ -240,7 +372,7 @@
 <section id="advanced" class="hidden">
   <div class="tabs">
     <button class="active" onclick="tab('list', this)" data-t="t_list"></button>
-    <button onclick="tab('rules', this)" data-t="t_rules"></button>
+    <button onclick="tab('review', this)" data-t="t_review"></button>
   </div>
   <div id="t-list" class="card">
     <h2 data-t="t_list"></h2>
@@ -249,19 +381,131 @@
       <span class="hint" data-t="csv_hint"></span>
     </div>
     <div class="form">
-      <input id="nId" data-tp="ph_id"><input id="nName" data-tp="ph_name"><input id="nNameAr" data-tp="ph_name_ar" dir="rtl">
-      <select id="nGender"><option value="">—</option><option value="M">M</option><option value="F">F</option></select>
-      <input id="nDob" type="date"><input id="nBib" data-tp="ph_bib_short">
+      <input id="nId" data-tp="ph_id"><input id="nName" data-tp="ph_name_en" lang="en" dir="ltr"><input id="nNameAr" data-tp="ph_name_ar" lang="ar" dir="rtl">
+      <select id="nGender"><option value="">—</option><option value="M" data-t="male"></option><option value="F" data-t="female"></option></select>
+      <input id="nDob" type="date"><select id="nUnit"><option value="combat" data-t="unit_combat"></option><option value="admin" data-t="unit_admin"></option><option value="special" data-t="unit_special"></option></select><input id="nBib" data-tp="ph_bib_auto">
       <button class="btn amber sm" onclick="addCandidate()" data-t="add"></button>
     </div>
     <div id="aMsg"></div>
     <div class="row" style="margin-bottom:8px"><span class="kv" id="aCounts"></span></div>
-    <div class="scroll" style="max-height:none"><table><thead><tr><th data-t="face"></th><th>ID</th><th data-t="name"></th><th data-t="bib"></th><th>BMI</th><th data-t="status"></th><th data-t="run"></th><th data-t="pushup"></th><th data-t="crunch"></th><th></th></tr></thead><tbody id="aTable"></tbody></table></div>
+    <div class="scroll" style="max-height:none"><table><thead><tr><th data-t="face"></th><th>ID</th><th data-t="name"></th><th data-t="bib"></th><th>BMI</th><th data-t="status"></th><th data-t="run"></th><th data-t="pushup"></th><th data-t="crunch"></th><th data-t="result"></th><th></th></tr></thead><tbody id="aTable"></tbody></table></div>
   </div>
-  <div id="t-rules" class="card hidden">
-    <h2 data-t="t_rules"></h2>
-    <table><tbody id="rTable"></tbody></table>
-    <p class="hint" data-t="rules_hint"></p>
+  <div id="t-review" class="card hidden">
+    <h2 data-t="t_review"></h2>
+    <p class="hint" data-t="review_hint"></p>
+    <div id="rvPlayer" class="hidden" style="margin-bottom:12px"><video id="rvVideo" controls playsinline></video><div class="hint" id="rvCaption"></div></div>
+    <div class="scroll" style="max-height:none"><table><thead><tr><th data-t="time"></th><th data-t="name"></th><th data-t="bib"></th><th data-t="exercise"></th><th data-t="lane"></th><th data-t="saved"></th><th data-t="camera"></th><th data-t="override"></th><th></th></tr></thead><tbody id="rvTable"></tbody></table></div>
+  </div>
+</section>
+
+<!-- ======================== SETTINGS (from the header, any screen) ======================== -->
+<section id="settingsPage" class="hidden">
+  <div class="row" style="margin-bottom:14px"><h1 class="pagetitle" data-t="t_settings"></h1><span class="spacer"></span><button class="btn amber" style="flex:0 0 auto" onclick="closeSettings()" data-t="settings_done"></button></div>
+  <div id="t-settings">
+    <div class="card">
+      <h2 data-t="sec_rules"></h2>
+      <p class="hint" id="ruleState"></p>
+      <h3 class="sec" data-t="rt_title"></h3>
+      <p class="hint" data-t="rt_hint"></p>
+      <div class="scroll" style="max-height:none"><table class="rtable">
+        <thead>
+          <tr><th rowspan="2" data-t="rt_age"></th><th colspan="3" data-t="rt_run"></th><th colspan="3" data-t="pushup"></th><th colspan="3" data-t="crunch"></th></tr>
+          <tr><th>60%</th><th>70%</th><th>100%</th><th>60%</th><th>70%</th><th>100%</th><th>60%</th><th>70%</th><th>100%</th></tr>
+        </thead>
+        <tbody id="ruMen"></tbody>
+      </table></div>
+      <p class="hint" data-t="rt_women"></p>
+      <h3 class="sec" data-t="rt_levels"></h3>
+      <div class="settings">
+        <label for="ruLvCombat" data-t="unit_combat"></label><select id="ruLvCombat"><option>60</option><option>70</option><option>100</option></select><span class="hint" data-t="rt_level_hint"></span>
+        <label for="ruLvAdmin" data-t="unit_admin"></label><select id="ruLvAdmin"><option>60</option><option>70</option><option>100</option></select><span></span>
+        <label for="ruLvSpecial" data-t="unit_special"></label><select id="ruLvSpecial"><option>60</option><option>70</option><option>100</option></select><span></span>
+      </div>
+      <h3 class="sec" data-t="rt_other"></h3>
+      <div class="settings">
+        <label for="ruBmiMin" data-t="rule_bmi"></label>
+        <div class="pair"><input id="ruBmiMin" type="number" step="0.1" min="10" max="60"><span>–</span><input id="ruBmiMax" type="number" step="0.1" min="10" max="60"></div>
+        <span class="hint" data-t="rule_bmi_hint"></span>
+        <label for="ruCut" data-t="rule_cutoff"></label>
+        <input id="ruCut" placeholder="25:00" inputmode="numeric">
+        <span class="hint" data-t="rule_cut_hint"></span>
+        <label for="ruTime" data-t="rule_time"></label>
+        <input id="ruTime" type="number" min="10" max="600" step="5">
+        <span class="hint" data-t="rule_time_hint"></span>
+      </div>
+      <div class="row" style="margin-top:14px"><button class="btn amber" style="flex:0 0 auto" onclick="saveRules()" data-t="save_rules"></button><span class="hint" data-t="rules_save_hint"></span></div>
+      <div id="ruMsg"></div>
+    </div>
+    <div class="card">
+      <h2 data-t="t_settings"></h2>
+      <p class="hint" data-t="settings_hint"></p>
+      <h3 class="sec" data-t="sec_checkin"></h3>
+      <div class="settings">
+        <label for="setAuto" data-t="set_auto"></label>
+        <select id="setAuto"><option value="1" data-t="on"></option><option value="0" data-t="off"></option></select>
+        <span class="hint" data-t="set_auto_hint"></span>
+        <label for="setBg" data-t="set_bg"></label>
+        <select id="setBg" onchange="bgRows()"><option value="off" data-t="off"></option><option value="blur" data-t="bg_blur"></option><option value="backdrop" data-t="bg_backdrop"></option><option value="image" data-t="bg_image"></option></select>
+        <span class="hint" data-t="set_bg_hint"></span>
+        <label for="setBgColor" class="sub bgc" data-t="set_bg_color"></label>
+        <div class="bgc pair"><span class="swatch" id="setBgSwatch"></span><select id="setBgColor" onchange="bgColorPicked()">
+          <option value="#8a949e" data-t="c_studio"></option><option value="#c9d0d6" data-t="c_light"></option><option value="#eef1f4" data-t="c_white"></option>
+          <option value="#1f3a5f" data-t="c_navy"></option><option value="#2a2f36" data-t="c_charcoal"></option><option value="#2f5d4f" data-t="c_green"></option>
+          <option value="custom" data-t="c_custom"></option></select><input type="color" id="setBgCustom" class="hidden" oninput="bgColorPicked()"></div>
+        <span class="hint bgc" data-t="set_bg_color_hint"></span>
+        <label class="sub bgi" data-t="set_bg_image"></label>
+        <div class="bgi bgpick"><img id="setBgPrev" class="hidden" alt=""><label class="btn sm" style="flex:0 0 auto"><span data-t="bg_choose"></span><input type="file" accept="image/jpeg,image/png" class="hidden" onchange="uploadBg(this)"></label><button class="btn ghost sm danger hidden" id="setBgDel" onclick="confirmClick('bgdel', this, removeBg)" data-t="bg_remove"></button></div>
+        <span class="hint bgi" data-t="set_bg_image_hint"></span>
+        <label for="setMatch" data-t="set_match"></label>
+        <select id="setMatch"><option value="normal" data-t="match_normal"></option><option value="strict" data-t="match_strict"></option></select>
+        <span class="hint" data-t="set_match_hint"></span>
+        <label for="setFaceReq" data-t="set_face_req"></label>
+        <select id="setFaceReq"><option value="0" data-t="off"></option><option value="1" data-t="on"></option></select>
+        <span class="hint" data-t="set_face_req_hint"></span>
+      </div>
+      <h3 class="sec" data-t="sec_register"></h3>
+      <div class="settings">
+        <label for="setWalk" data-t="set_walk"></label>
+        <select id="setWalk"><option value="1" data-t="on"></option><option value="0" data-t="off"></option></select>
+        <span class="hint" data-t="set_walk_hint"></span>
+        <label for="setGender" data-t="set_gender"></label>
+        <select id="setGender"><option value="M" data-t="male"></option><option value="F" data-t="female"></option><option value="" data-t="none"></option></select>
+        <span class="hint" data-t="set_gender_hint"></span>
+        <label for="setUnit" data-t="set_unit"></label>
+        <select id="setUnit"><option value="combat" data-t="unit_combat"></option><option value="admin" data-t="unit_admin"></option><option value="special" data-t="unit_special"></option></select>
+        <span class="hint" data-t="set_unit_hint"></span>
+        <label for="setBib" data-t="set_bib"></label>
+        <input id="setBib" type="number" min="1" max="99999" step="1">
+        <span class="hint" data-t="set_bib_hint"></span>
+      </div>
+      <h3 class="sec" data-t="sec_station"></h3>
+      <div class="settings">
+        <label for="setLanes" data-t="set_lanes"></label>
+        <select id="setLanes"><option>1</option><option>2</option><option>3</option><option>4</option></select>
+        <span class="hint" data-t="set_lanes_hint"></span>
+      </div>
+      <h3 class="sec" data-t="sec_display"></h3>
+      <div class="settings">
+        <label for="setSite" data-t="set_site"></label>
+        <input id="setSite" maxlength="60" autocomplete="off">
+        <span class="hint" data-t="set_site_hint"></span>
+        <label for="setLang" data-t="set_lang"></label>
+        <select id="setLang"><option value="en">English</option><option value="ar">العربية</option></select>
+        <span class="hint" data-t="set_lang_hint"></span>
+      </div>
+      <div class="row" style="margin-top:14px"><button class="btn amber" style="flex:0 0 auto" onclick="saveSettings()" data-t="save_settings"></button></div>
+      <div id="setMsg"></div>
+    </div>
+    <div class="card">
+      <h2 data-t="sec_security"></h2>
+      <p class="hint" id="pinState"></p>
+      <div class="row">
+        <input id="setPin" type="password" inputmode="numeric" maxlength="8" autocomplete="new-password" data-tp="ph_new_pin" style="max-width:200px">
+        <button class="btn amber" style="flex:0 0 auto" onclick="savePin()" data-t="pin_save"></button>
+        <button class="btn ghost danger hidden" style="flex:0 0 auto" id="pinRemove" onclick="confirmClick('pinoff', this, () => savePin(true))" data-t="pin_remove"></button>
+      </div>
+      <div id="pinMsg"></div>
+    </div>
   </div>
 </section>
 </main>
@@ -285,14 +529,64 @@ const I18N = {
     finished: "Finished", needs_review: "Need review", run_not_started: "Waiting for the start.", record_finish: "Finish",
     no_bib: "Crossing, bib not seen", close_run: "Close run", confirm_close: "Press again: remaining runners become DNF",
     finish_hint: "Type the bib as each runner crosses and press Enter. The time is taken when you press.",
-    review_queue: "Review queue", assign: "Assign", finishers: "Finishers", time: "Time", status: "Status", bib: "Bib", name: "Name", run: "Run",
-    pushup: "Push-ups", crunch: "Crunches", time_limit: "Time limit", pass_mark: "Pass", waiting_here: "Qualified, not done",
-    manual_count: "Manual count by the examiner until the camera engine is connected.",
+    review_queue: "Review queue", clip: "clip", assign: "Assign", finishers: "Finishers", time: "Time", status: "Status", bib: "Bib", name: "Name", run: "Run",
+    pushup: "Push-ups", crunch: "Crunches", time_limit: "Time limit", pass_mark: "Pass", waiting_here: "Ran, not done here",
+    cam_view: "Live camera", cam_off: "Camera offline · manual count", cam_live: "Camera live · {fps} fps", corrections: "Examiner corrections",
+    ph_waiting: "Get into position", ph_rest: "Up", ph_work: "Down", no_person: "Nobody in the lane",
+    f_body_not_straight: "Body not straight", f_knee_on_ground: "Knee on the ground", f_rest_in_down: "Resting down", f_knees_not_bent: "Knees not bent",
     lane: "Lane", st_empty: "Free", st_verified: "Checked in", st_refused: "Refused", st_running: "Testing", st_done: "Result",
-    verified: "Verified · qualified", start_test: "Start", valid: "valid", rejected_rep: "rejected", stop: "Stop", finish_save: "Save result",
+    verified: "Identity verified", start_test: "Start", valid: "valid", rejected_rep: "rejected", stop: "Stop", finish_save: "Save result",
     confirm_next: "Next candidate", pass: "PASS", fail: "FAIL", cancel_prev: "Cancel the unfinished attempt", clear: "Clear",
-    t_list: "Today's list", t_rules: "Rules", import_csv: "Import CSV", add: "Add",
-    csv_hint: "Columns: external_id, name, name_ar, gender, dob, bib (header row required).",
+    t_list: "Today's list", t_rules: "Rules", t_settings: "Settings",
+    settings_hint: "Station settings, the same on every device. A change applies here at once and on the other devices within a few seconds.",
+    sec_rules: "Test rules", sec_checkin: "Check-in and weigh-in", sec_register: "Registration", sec_station: "Exercise station", sec_display: "Display", sec_security: "Administrator PIN",
+    rule_bmi_hint: "Accepted range; outside it the examiner must give a reason.", rule_mmss_hint: "Minutes:seconds for the 3.2 km run.",
+    rule_cut_hint: "Still running at this time = DNF.", rule_time_hint: "Seconds per push-up or crunch attempt.",
+    save_rules: "Save rules", rules_save_hint: "Saved as a new version. Everyone tested on one day is judged by the same rules.",
+    rules_today: "Today: rule set {v}.", rules_pending: "Today: rule set {v} (results already recorded). Set {next} starts on the next test day.",
+    rules_saved_today: "Rule set {v} saved and in force today.", rules_saved_next: "Rule set {v} saved. Today already has results, so it starts on the next test day.",
+    set_match: "Face match", match_normal: "Normal", match_strict: "Strict",
+    set_match_hint: "Strict: fewer automatic matches, even less chance of a wrong one. Use when look-alikes (e.g. relatives) are tested together.",
+    set_face_req: "Require face check-in", set_face_req_hint: "People with a face on file cannot be checked in at weigh-in by typing their bib or ID.",
+    set_walk: "Register walk-ins at the desk", set_walk_hint: "Off: only people on today's list (CSV or Advanced) can be tested.",
+    walk_ins_off: "Not on today's list. Registering at the desk is switched off: add them in Advanced.",
+    set_lanes: "Lanes per station", set_lanes_hint: "Must match the cameras the engine watches (--lanes).", lanes_wait: "The lane change waits until those lanes are free.",
+    set_site: "Site name", set_site_hint: "Shown at the top of every screen, e.g. the test centre.",
+    ph_new_pin: "New PIN (4–8 digits)", pin_save: "Set PIN", pin_remove: "Remove PIN", pin_saved: "PIN set. Advanced now asks for it.", pin_removed: "PIN removed.",
+    pin_is_set: "A PIN protects Advanced, settings, rules, imports and deletions. Daily work at the stations needs no PIN.",
+    pin_not_set: "No PIN: anyone at a station can open Advanced. Set one before test day.",
+    pin_title: "Administrator PIN", pin_hint: "Advanced is protected. Enter the PIN.", pin_unlock: "Unlock",
+    e_admin_pin_required: "Wrong or missing administrator PIN", e_bad_pin: "The PIN must be 4 to 8 digits", e_bad_rules: "These rules are not consistent",
+    e_face_required: "Face on file: check in by face", e_walk_ins_off: "Registering at the desk is switched off",
+    settings_done: "Done", set_bg: "Camera background", bg_blur: "Blur", bg_backdrop: "Colour", bg_image: "Picture",
+    set_bg_color: "Backdrop colour", set_bg_color_hint: "A plain studio backdrop in this colour.",
+    c_studio: "Studio grey", c_light: "Light grey", c_white: "White", c_navy: "Navy", c_charcoal: "Charcoal", c_green: "Green", c_custom: "Custom…",
+    set_bg_image: "Background picture", bg_choose: "Choose picture…", bg_remove: "Remove",
+    set_bg_image_hint: "JPEG or PNG; landscape works best. The same picture on every desk. Without one, the backdrop colour is used.",
+    bg_uploaded: "Picture saved. Save settings to keep Picture as the camera background.", e_bad_image: "Use a JPEG or PNG picture",
+    set_bg_hint: "What the weigh-in screen shows behind the person, like a video call. Face recognition always uses the camera's original picture.",
+    set_auto: "Auto-identify faces at weigh-in", set_auto_hint: "On: the camera keeps checking who is in front; off: the examiner presses Identify.",
+    set_gender: "Default gender for new candidates", set_gender_hint: "Pre-selected in the registration form; the examiner can change it.",
+    set_bib: "First automatic bib number", set_bib_hint: "Walk-ins get the next free bib from here on (e.g. 500, clear of the printed list).",
+    set_lang: "Default language", set_lang_hint: "For a device that never chose a language. A device keeps the language picked on it.",
+    save_settings: "Save settings", settings_saved: "Settings saved.", on: "On", off: "Off", none: "None",
+    lbl_name_en: "Name (English)", lbl_name_ar: "Name (Arabic)", lbl_id: "ID number", lbl_gender: "Gender", lbl_dob: "Date of birth",
+    ph_name_en: "Name (English)", import_csv: "Import CSV", add: "Add",
+    csv_hint: "Columns: external_id, name, name_ar, gender, dob, bib, unit (header row required). Unit: combat, admin or special (Arabic accepted).",
+    lbl_unit: "Unit type", unit_combat: "Combat unit", unit_admin: "Administrative unit", unit_special: "Special-nature unit",
+    std_age: "Age {age} · band {band}", std_needs: "needs {level}% in each test", required: "required", std_no_table: "Age {age}. No women's pass table yet: results are recorded without pass/fail.",
+    target_pass: "Pass ({level}%)", recorded_only: "Recorded", recorded_only_hint: "No pass table for this person: the count is recorded only.",
+    below_60: "below 60%", result: "Result", v_pass: "Pass", v_fail: "Fail", v_pending: "In progress", v_no_standard: "No standard", s_run_done: "run recorded",
+    e_gender_required: "Gender needed to pick the pass table", e_dob_required: "Date of birth needed to pick the age band",
+    e_no_standard_for_age: "Outside the pass table's ages", e_bad_unit: "Unknown unit type",
+    set_unit: "Default unit type", set_unit_hint: "For walk-ins and lists without a unit column. Combat and administrative units need 60%, special-nature units 70%.",
+    edit: "Edit", edit_details: "Edit details", edit_title: "Candidate details", edit_save: "Save changes",
+    edit_saved: "{name}: details saved.", edit_regrade: "Already weighed in: a change to date of birth, gender or unit type re-scores every saved result.",
+    e_bib_locked: "On the run: the bib cannot change now",
+    needs_title: "What you need", age_n: "Age {age}", born: "Born", band_n: "band {band}", needs_note: "Run: at or under the time. Push-ups and crunches: at or over the count, in 2 minutes.",
+    rt_title: "Pass table (men)", rt_hint: "Each test's result for 60%, 70% and 100%, by age on the test day. A result between two columns gets the lower one.",
+    rt_age: "Age", rt_run: "Run 3,200 m (min:s)", rt_women: "No women's table yet: women are measured and recorded without a pass/fail verdict.",
+    rt_levels: "Level needed, by unit type", rt_level_hint: "Every test must reach this column.", rt_other: "Weigh-in and timing",
     imported: "Imported {n}.", import_errors: "{n} rows skipped:", added: "Added.",
     rules_hint: "Placeholder values until the official regulation arrives (docs/RULES.md).",
     s_expected: "expected", s_accepted: "accepted", s_rejected: "rejected at weigh-in", s_lined_up: "at the line", s_absent: "absent",
@@ -310,12 +604,25 @@ const I18N = {
     src_webcam: "Webcam", src_video: "Video file", src_photo: "Photo", no_source: "Choose a camera source: webcam, or a video or photo for the demo",
     src_note_file: "Demo source: {name}", src_note_webcam: "Live webcam", src_reselect: "Choose the file again after reloading the page",
     identify: "Identify face", auto_on: "Auto: on", auto_off: "Auto: off", identifying: "Looking…",
-    recognised: "Recognised {name} · match {score}", not_sure: "Not sure who this is (best match {score}). Type the bib.",
-    enroll_cam: "Save this face for the candidate", enrolled: "Face saved ({n} on file).", face: "Face", no_face_short: "no face",
+    recognised: "Recognised {name} · match {score}", not_recognised: "Not recognised. Type the bib, or register them as new.", not_sure: "Not sure who this is (best match {score}). Type the bib.",
+    enroll_cam: "Save this face for the candidate", enroll_cam3: "Enrol face from camera (3 poses)",
+    register_new: "Register as a new candidate", register_title: "New candidate", register_prompt: "This person is not recognised. If they are new today, register them here: details, then the face, then the weigh-in.", register_save: "Save and capture face",
+    register_hint: "Adds the person to today's list, then captures the face in 3 poses and opens the weigh-in.",
+    registered: "{name} added to today's list (bib {bib}).", register_face_taken: "Not added: this face is already enrolled for {who}.",
+    male: "Male", female: "Female", bib_auto: "assigned automatically", ph_bib_auto: "Bib (empty = next free)",
+    give_bib: "{name} is on today's list. Give bib {bib}.",
+    known_title: "Returning candidate", known_add: "Add to today's list and weigh in",
+    known_hint: "This face is on file from an earlier day but the person is not on today's list.",
+    known_msg: "{name} is on file but not on today's list", register_need_camera: "Turn the camera on first: the face is captured right after saving.", enrolled: "Face saved ({n} on file).",
+    pose_straight: "Look straight at the camera", pose_left: "Turn your head a little to the left", pose_right: "Turn your head a little to the right",
+    pose_hold: "Hold still…", pose_saved: "Saved {k}/{n}",
+    guide_straight: "Look straight at the camera", guide_left: "Turn your head to your left", guide_right: "Turn your head to your right",
+    guide_more_left: "A little more to your left", guide_more_right: "A little more to your right",
+    guide_no_face: "Put your face in the oval", guide_one_face: "Only one person in front of the camera", guide_closer: "Come closer to the camera", face: "Face", no_face_short: "no face",
     no_face: "no face", enroll: "Enrol photo", removed: "Face removed.",
     e_no_face: "No face in the picture", e_multiple_faces: "More than one face: use a picture of one person", e_face_too_small: "Face too small: move closer",
     e_bad_image: "That file is not a picture", e_face_unavailable: "Face recognition is not available on this server", e_face_not_recognised: "Face not recognised",
-    e_nobody_enrolled: "Nobody on today's list has a face enrolled yet (Advanced → Enrol photo)", e_no_face_enrolled: "No face enrolled",
+    e_nobody_enrolled: "Nobody on today's list has a face enrolled yet", e_no_face_enrolled: "No face enrolled",
     e_camera_denied: "The browser could not open the webcam", e_no_frame: "No picture yet: choose a source first",
     e_face_belongs_to_other: "This face is already enrolled for another candidate",
     sure: "Sure? Press again", at_line_list: "At the line", started_list: "Started", absent_list: "Absent (missed the start)",
@@ -324,6 +631,11 @@ const I18N = {
     start_cancelled: "Start cancelled. Runners are back at the line.", wrong_bib: "Wrong bib",
     unassigned: "Crossing moved back to the review queue; assign the right runner.", discard: "Discard", discarded: "Crossing discarded.",
     undo_weigh: "Undo weigh-in", weigh_undone: "weigh-in undone; weigh again", remove: "Remove", entry_removed: "Removed from today's list.",
+    delete_entry: "Delete", sure_delete: "Delete with results?",
+    face_camera: "Camera", face_upload: "Upload", sure_unface: "Delete face?",
+    face_camera_hint: "Capture the face with the camera: 3 guided poses", face_upload_hint: "Add a face from a photo file (a passport photo)",
+    face_remove_hint: "Delete this person's face photos", face_count_hint: "Face photos on file (3 poses is complete)",
+    enrol_title: "Enrol face", enrol_cancel: "Cancel", e_camera_busy: "The camera is in use by another tab or app",
     e_not_lined_up: "Not at the line", e_remove_from_line_first: "At the line: remove from the line first", e_cannot_undo_weigh_in: "The weigh-in can no longer be undone",
     e_cannot_remove: "Cannot be removed any more", e_too_late_to_cancel: "Too late: the start can only be cancelled in the first 2 minutes",
     e_finishers_exist: "Runners have already finished", e_not_assigned: "This crossing is not assigned", e_results_exist: "This runner already has exercise results",
@@ -338,6 +650,12 @@ const I18N = {
     n_no_bib_read: "no bib read", n_bib_not_on_list: "bib {bib} is not on today's list", n_bib_not_running: "bib {bib} is {status}, not running",
     n_unassigned_by_examiner: "taken off bib {bib} by the examiner", n_assigned_by_examiner: "assigned to bib {bib} by the examiner",
     ph_reason: "Reason", save_first: "Save this lane's result first", imported_counts: "Added {a}, updated {u}, unchanged {s}.",
+    t_review: "Review", review_hint: "Today's saved results next to what the camera counted. Open the reps to replay any clip.",
+    exercise: "Exercise", saved: "Saved", camera: "Camera", override: "Override", overridden: "overridden", no_camera: "no camera",
+    show_reps: "Reps ({n})", hide_reps: "Hide reps", play: "Play", no_clip: "no clip", no_reps: "The camera recorded no reps for this attempt.",
+    rep: "Rep", faults: "Faults", clip_of: "{name} · rep {n}",
+    override_reason_label: "Camera counted {n} · reason for the correction (required)",
+    e_override_reason_required: "The count differs from the camera's: give a reason",
   },
   ar: {
     tagline: "محطة اختبار اللياقة البدنية", today: "اليوم", simple: "بسيط", advanced: "متقدم",
@@ -355,14 +673,64 @@ const I18N = {
     finished: "أنهوا", needs_review: "للمراجعة", run_not_started: "بانتظار الانطلاق.", record_finish: "وصول",
     no_bib: "عبور دون رقم", close_run: "إغلاق الجري", confirm_close: "اضغط مرة أخرى: الباقون لم يكملوا",
     finish_hint: "اكتب رقم كل عدّاء عند عبوره واضغط Enter. يُسجّل الزمن لحظة الضغط.",
-    review_queue: "قائمة المراجعة", assign: "تعيين", finishers: "المنهون", time: "الزمن", status: "الحالة", bib: "الرقم", name: "الاسم", run: "الجري",
-    pushup: "الضغط", crunch: "البطن", time_limit: "الحد الزمني", pass_mark: "النجاح", waiting_here: "مؤهلون لم يختبروا",
-    manual_count: "العد يدوي من الممتحن حتى ربط محرك الكاميرا.",
+    review_queue: "قائمة المراجعة", clip: "مقطع", assign: "تعيين", finishers: "المنهون", time: "الزمن", status: "الحالة", bib: "الرقم", name: "الاسم", run: "الجري",
+    pushup: "الضغط", crunch: "البطن", time_limit: "الحد الزمني", pass_mark: "النجاح", waiting_here: "أنهوا الجري ولم يختبروا هنا",
+    cam_view: "الكاميرا مباشرة", cam_off: "الكاميرا غير متصلة · عدّ يدوي", cam_live: "الكاميرا تعمل · {fps} إطار/ث", corrections: "تصحيحات الممتحن",
+    ph_waiting: "خذ الوضعية", ph_rest: "أعلى", ph_work: "أسفل", no_person: "لا أحد في المسار",
+    f_body_not_straight: "الجسم غير مستقيم", f_knee_on_ground: "الركبة على الأرض", f_rest_in_down: "استراحة في الأسفل", f_knees_not_bent: "الركبتان غير مثنيتين",
     lane: "مسار", st_empty: "متاح", st_verified: "مسجّل", st_refused: "مرفوض", st_running: "جارٍ الاختبار", st_done: "النتيجة",
-    verified: "تم التحقق · مؤهل", start_test: "ابدأ", valid: "صحيحة", rejected_rep: "مرفوضة", stop: "إيقاف", finish_save: "حفظ النتيجة",
+    verified: "تم التحقق من الهوية", start_test: "ابدأ", valid: "صحيحة", rejected_rep: "مرفوضة", stop: "إيقاف", finish_save: "حفظ النتيجة",
     confirm_next: "المتقدم التالي", pass: "ناجح", fail: "راسب", cancel_prev: "إلغاء المحاولة غير المكتملة", clear: "مسح",
-    t_list: "قائمة اليوم", t_rules: "القواعد", import_csv: "استيراد CSV", add: "إضافة",
-    csv_hint: "الأعمدة: external_id, name, name_ar, gender, dob, bib (مع سطر العناوين).",
+    t_list: "قائمة اليوم", t_rules: "القواعد", t_settings: "الإعدادات",
+    settings_hint: "إعدادات المحطة، نفسها على كل جهاز. يُطبّق التغيير هنا فوراً وعلى الأجهزة الأخرى خلال ثوانٍ.",
+    sec_rules: "قواعد الاختبار", sec_checkin: "التسجيل والوزن", sec_register: "تسجيل جديد", sec_station: "محطة التمارين", sec_display: "العرض", sec_security: "رمز المسؤول",
+    rule_bmi_hint: "النطاق المقبول؛ خارجه يجب على الممتحن ذكر السبب.", rule_mmss_hint: "دقائق:ثوانٍ لجري 3.2 كم.",
+    rule_cut_hint: "من يجري بعد هذا الوقت = لم يُكمل.", rule_time_hint: "ثوانٍ لكل محاولة ضغط أو بطن.",
+    save_rules: "حفظ القواعد", rules_save_hint: "تُحفظ كإصدار جديد. كل من يُختبر في يوم واحد يُقيّم بنفس القواعد.",
+    rules_today: "اليوم: القواعد {v}.", rules_pending: "اليوم: القواعد {v} (توجد نتائج مسجلة). القواعد {next} تبدأ في يوم الاختبار التالي.",
+    rules_saved_today: "حُفظت القواعد {v} وهي سارية اليوم.", rules_saved_next: "حُفظت القواعد {v}. لليوم نتائج مسجلة، لذا تبدأ في يوم الاختبار التالي.",
+    set_match: "مطابقة الوجه", match_normal: "عادية", match_strict: "صارمة",
+    set_match_hint: "صارمة: مطابقات تلقائية أقل، واحتمال خطأ أقل. استخدمها عند اختبار أشخاص متشابهين (مثل الأقارب) معاً.",
+    set_face_req: "إلزام التحقق بالوجه", set_face_req_hint: "من له وجه مسجل لا يمكن تسجيله عند الوزن بكتابة رقمه أو هويته.",
+    set_walk: "تسجيل الحضور غير المدرجين", set_walk_hint: "إيقاف: فقط المدرجون في قائمة اليوم يمكن اختبارهم.",
+    walk_ins_off: "غير موجود في قائمة اليوم. التسجيل عند المكتب متوقف: أضفه من القائمة المتقدمة.",
+    set_lanes: "عدد المسارات في المحطة", set_lanes_hint: "يجب أن يطابق الكاميرات التي يراقبها المحرك.", lanes_wait: "تغيير المسارات ينتظر حتى تفرغ.",
+    set_site: "اسم الموقع", set_site_hint: "يظهر أعلى كل شاشة، مثل اسم مركز الاختبار.",
+    ph_new_pin: "رمز جديد (4–8 أرقام)", pin_save: "تعيين الرمز", pin_remove: "إزالة الرمز", pin_saved: "تم تعيين الرمز. الوضع المتقدم يطلبه الآن.", pin_removed: "تمت إزالة الرمز.",
+    pin_is_set: "الرمز يحمي الوضع المتقدم والإعدادات والقواعد والاستيراد والحذف. العمل اليومي في المحطات لا يحتاج رمزاً.",
+    pin_not_set: "لا يوجد رمز: يمكن لأي شخص فتح الوضع المتقدم. عيّن رمزاً قبل يوم الاختبار.",
+    pin_title: "رمز المسؤول", pin_hint: "الوضع المتقدم محمي. أدخل الرمز.", pin_unlock: "فتح",
+    e_admin_pin_required: "رمز المسؤول خاطئ أو مفقود", e_bad_pin: "يجب أن يكون الرمز من 4 إلى 8 أرقام", e_bad_rules: "هذه القواعد غير متسقة",
+    e_face_required: "له وجه مسجل: سجّله بالوجه", e_walk_ins_off: "التسجيل عند المكتب متوقف",
+    settings_done: "تم", set_bg: "خلفية الكاميرا", bg_blur: "تمويه", bg_backdrop: "لون", bg_image: "صورة",
+    set_bg_color: "لون الخلفية", set_bg_color_hint: "خلفية استوديو سادة بهذا اللون.",
+    c_studio: "رمادي استوديو", c_light: "رمادي فاتح", c_white: "أبيض", c_navy: "كحلي", c_charcoal: "فحمي", c_green: "أخضر", c_custom: "مخصص…",
+    set_bg_image: "صورة الخلفية", bg_choose: "اختر صورة…", bg_remove: "إزالة",
+    set_bg_image_hint: "JPEG أو PNG؛ الصورة الأفقية أفضل. نفس الصورة على كل مكتب. بدونها يُستخدم لون الخلفية.",
+    bg_uploaded: "تم حفظ الصورة. احفظ الإعدادات لاعتماد الصورة كخلفية للكاميرا.", e_bad_image: "استخدم صورة JPEG أو PNG",
+    set_bg_hint: "ما تعرضه شاشة الوزن خلف الشخص، كما في مكالمات الفيديو. التعرف على الوجه يستخدم دائماً الصورة الأصلية للكاميرا.",
+    set_auto: "التعرف التلقائي على الوجه عند الوزن", set_auto_hint: "تشغيل: تتحقق الكاميرا باستمرار ممن أمامها؛ إيقاف: يضغط الممتحن زر التعرف.",
+    set_gender: "الجنس الافتراضي للمتقدمين الجدد", set_gender_hint: "يُختار مسبقاً في نموذج التسجيل؛ يمكن للممتحن تغييره.",
+    set_bib: "أول رقم تلقائي", set_bib_hint: "يأخذ المتقدمون الجدد الرقم المتاح التالي بدءاً من هنا (مثلاً 500، بعيداً عن القائمة المطبوعة).",
+    set_lang: "اللغة الافتراضية", set_lang_hint: "لجهاز لم يختر لغة. يحتفظ الجهاز باللغة المختارة عليه.",
+    save_settings: "حفظ الإعدادات", settings_saved: "تم حفظ الإعدادات.", on: "تشغيل", off: "إيقاف", none: "بدون",
+    lbl_name_en: "الاسم (بالإنجليزية)", lbl_name_ar: "الاسم (بالعربية)", lbl_id: "رقم الهوية", lbl_gender: "الجنس", lbl_dob: "تاريخ الميلاد",
+    ph_name_en: "الاسم (بالإنجليزية)", import_csv: "استيراد CSV", add: "إضافة",
+    csv_hint: "الأعمدة: external_id, name, name_ar, gender, dob, bib, unit (مع سطر العناوين). الوحدة: قتالية أو إدارية أو خاصة.",
+    lbl_unit: "نوع الوحدة", unit_combat: "وحدة مقاتلة", unit_admin: "وحدة إدارية", unit_special: "وحدة ذات طبيعة خاصة",
+    std_age: "العمر {age} · الفئة {band}", std_needs: "يحتاج {level}% في كل اختبار", required: "المطلوب", std_no_table: "العمر {age}. لا يوجد جدول للنساء بعد: تُسجّل النتائج دون نجاح أو رسوب.",
+    target_pass: "النجاح ({level}%)", recorded_only: "مُسجّل", recorded_only_hint: "لا يوجد جدول لهذا الشخص: يُسجّل العدد فقط.",
+    below_60: "أقل من 60%", result: "النتيجة", v_pass: "ناجح", v_fail: "راسب", v_pending: "قيد الاختبار", v_no_standard: "بدون معيار", s_run_done: "سُجّل الجري",
+    e_gender_required: "الجنس مطلوب لاختيار الجدول", e_dob_required: "تاريخ الميلاد مطلوب لتحديد الفئة العمرية",
+    e_no_standard_for_age: "العمر خارج الفئات العمرية للجدول", e_bad_unit: "نوع وحدة غير معروف",
+    set_unit: "نوع الوحدة الافتراضي", set_unit_hint: "للمسجلين عند المكتب والقوائم بدون عمود الوحدة. الوحدات المقاتلة والإدارية 60%، والوحدات ذات الطبيعة الخاصة 70%.",
+    edit: "تعديل", edit_details: "تعديل البيانات", edit_title: "بيانات المتقدم", edit_save: "حفظ التعديلات",
+    edit_saved: "{name}: تم حفظ البيانات.", edit_regrade: "تم وزنه: تغيير تاريخ الميلاد أو الجنس أو نوع الوحدة يعيد احتساب كل النتائج المسجلة.",
+    e_bib_locked: "أثناء الجري: لا يمكن تغيير الرقم الآن",
+    needs_title: "المطلوب منك", age_n: "العمر {age}", born: "تاريخ الميلاد", band_n: "الفئة {band}", needs_note: "الجري: في هذا الزمن أو أقل. الضغط والبطن: هذا العدد أو أكثر خلال دقيقتين.",
+    rt_title: "جدول درجات النجاح (رجال)", rt_hint: "نتيجة كل اختبار لـ 60% و70% و100% حسب العمر يوم الاختبار. النتيجة بين عمودين تأخذ الأدنى.",
+    rt_age: "العمر", rt_run: "الجري 3200م (دقيقة:ثانية)", rt_women: "لا يوجد جدول للنساء بعد: تُقاس النساء وتُسجّل النتائج دون نجاح أو رسوب.",
+    rt_levels: "المستوى المطلوب حسب نوع الوحدة", rt_level_hint: "يجب بلوغ هذا العمود في كل اختبار.", rt_other: "الوزن والتوقيت",
     imported: "تم استيراد {n}.", import_errors: "تم تخطي {n} سطراً:", added: "تمت الإضافة.",
     rules_hint: "قيم مؤقتة حتى وصول اللائحة الرسمية.",
     s_expected: "متوقع", s_accepted: "مقبول", s_rejected: "مرفوض في الوزن", s_lined_up: "عند الخط", s_absent: "غائب",
@@ -380,12 +748,25 @@ const I18N = {
     src_webcam: "كاميرا الويب", src_video: "ملف فيديو", src_photo: "صورة", no_source: "اختر مصدر الكاميرا: كاميرا الويب، أو فيديو أو صورة للعرض التجريبي",
     src_note_file: "مصدر تجريبي: {name}", src_note_webcam: "كاميرا ويب مباشرة", src_reselect: "اختر الملف مجدداً بعد إعادة تحميل الصفحة",
     identify: "التعرف على الوجه", auto_on: "تلقائي: يعمل", auto_off: "تلقائي: متوقف", identifying: "جارٍ البحث…",
-    recognised: "تم التعرف على {name} · تطابق {score}", not_sure: "لم يتم التأكد من الهوية (أفضل تطابق {score}). اكتب الرقم.",
-    enroll_cam: "حفظ هذا الوجه للمتقدم", enrolled: "تم حفظ الوجه ({n} محفوظة).", face: "الوجه", no_face_short: "لا وجه",
+    recognised: "تم التعرف على {name} · تطابق {score}", not_recognised: "لم يتم التعرف عليه. اكتب الرقم أو سجّله كمتقدم جديد.", not_sure: "لم يتم التأكد من الهوية (أفضل تطابق {score}). اكتب الرقم.",
+    enroll_cam: "حفظ هذا الوجه للمتقدم", enroll_cam3: "تسجيل الوجه من الكاميرا (3 أوضاع)",
+    register_new: "تسجيل كمتقدم جديد", register_title: "متقدم جديد", register_prompt: "لم يتم التعرف على هذا الشخص. إن كان جديداً اليوم فسجّله هنا: البيانات ثم الوجه ثم الوزن.", register_save: "حفظ والتقاط الوجه",
+    register_hint: "يضيف الشخص إلى قائمة اليوم، ثم يلتقط الوجه بثلاثة أوضاع ويفتح الوزن.",
+    registered: "تمت إضافة {name} إلى قائمة اليوم (الرقم {bib}).", register_face_taken: "لم تتم الإضافة: هذا الوجه مسجل لـ {who}.",
+    male: "ذكر", female: "أنثى", bib_auto: "يُعيَّن تلقائياً", ph_bib_auto: "الرقم (فارغ = التالي المتاح)",
+    give_bib: "أُضيف {name} إلى قائمة اليوم. سلّمه الرقم {bib}.",
+    known_title: "متقدم سابق", known_add: "إضافة إلى قائمة اليوم والوزن",
+    known_hint: "هذا الوجه مسجل من يوم سابق لكن الشخص غير موجود في قائمة اليوم.",
+    known_msg: "{name} مسجل لكنه غير موجود في قائمة اليوم", register_need_camera: "شغّل الكاميرا أولاً: يُلتقط الوجه مباشرة بعد الحفظ.", enrolled: "تم حفظ الوجه ({n} محفوظة).",
+    pose_straight: "انظر إلى الكاميرا مباشرة", pose_left: "أدر رأسك قليلاً إلى اليسار", pose_right: "أدر رأسك قليلاً إلى اليمين",
+    pose_hold: "اثبت…", pose_saved: "تم حفظ {k}/{n}",
+    guide_straight: "انظر إلى الكاميرا مباشرة", guide_left: "أدر رأسك إلى يسارك", guide_right: "أدر رأسك إلى يمينك",
+    guide_more_left: "أكثر قليلاً إلى يسارك", guide_more_right: "أكثر قليلاً إلى يمينك",
+    guide_no_face: "ضع وجهك داخل الإطار", guide_one_face: "شخص واحد فقط أمام الكاميرا", guide_closer: "اقترب من الكاميرا", face: "الوجه", no_face_short: "لا وجه",
     no_face: "لا وجه", enroll: "تسجيل صورة", removed: "تم حذف الوجه.",
     e_no_face: "لا يوجد وجه في الصورة", e_multiple_faces: "أكثر من وجه: استخدم صورة لشخص واحد", e_face_too_small: "الوجه صغير جداً: اقترب",
     e_bad_image: "الملف ليس صورة", e_face_unavailable: "التعرف على الوجه غير متاح على هذا الخادم", e_face_not_recognised: "لم يتم التعرف على الوجه",
-    e_nobody_enrolled: "لا أحد في قائمة اليوم لديه وجه مسجل (متقدم ← تسجيل صورة)", e_no_face_enrolled: "لا يوجد وجه مسجل",
+    e_nobody_enrolled: "لا أحد في قائمة اليوم لديه وجه مسجل بعد", e_no_face_enrolled: "لا يوجد وجه مسجل",
     e_camera_denied: "تعذر فتح كاميرا الويب", e_no_frame: "لا توجد صورة بعد: اختر مصدراً أولاً",
     e_face_belongs_to_other: "هذا الوجه مسجل لمتقدم آخر",
     sure: "متأكد؟ اضغط مرة أخرى", at_line_list: "عند الخط", started_list: "انطلقوا", absent_list: "غائبون (فاتهم الانطلاق)",
@@ -394,6 +775,11 @@ const I18N = {
     start_cancelled: "أُلغي الانطلاق. العداؤون عادوا إلى الخط.", wrong_bib: "رقم خاطئ",
     unassigned: "أُعيد العبور إلى قائمة المراجعة؛ عيّن العدّاء الصحيح.", discard: "حذف", discarded: "حُذف العبور.",
     undo_weigh: "تراجع عن الوزن", weigh_undone: "أُلغي الوزن؛ أعد الوزن", remove: "إزالة", entry_removed: "أُزيل من قائمة اليوم.",
+    delete_entry: "حذف", sure_delete: "حذف مع النتائج؟",
+    face_camera: "الكاميرا", face_upload: "رفع صورة", sure_unface: "حذف الوجه؟",
+    face_camera_hint: "التقاط الوجه بالكاميرا: 3 أوضاع موجّهة", face_upload_hint: "إضافة وجه من ملف صورة (صورة جواز)",
+    face_remove_hint: "حذف صور وجه هذا الشخص", face_count_hint: "صور الوجه المحفوظة (3 أوضاع = مكتمل)",
+    enrol_title: "تسجيل الوجه", enrol_cancel: "إلغاء", e_camera_busy: "الكاميرا مستخدمة في تبويب أو تطبيق آخر",
     e_not_lined_up: "ليس عند الخط", e_remove_from_line_first: "عند الخط: أزله من الخط أولاً", e_cannot_undo_weigh_in: "لم يعد ممكناً التراجع عن الوزن",
     e_cannot_remove: "لم يعد ممكناً إزالته", e_too_late_to_cancel: "فات الوقت: يمكن إلغاء الانطلاق خلال أول دقيقتين فقط",
     e_finishers_exist: "وصل عداؤون بالفعل", e_not_assigned: "هذا العبور غير معيّن", e_results_exist: "لهذا العدّاء نتائج تمارين",
@@ -408,19 +794,26 @@ const I18N = {
     n_no_bib_read: "لم يُقرأ الرقم", n_bib_not_on_list: "الرقم {bib} غير موجود في قائمة اليوم", n_bib_not_running: "الرقم {bib} حالته {status} وليس يجري",
     n_unassigned_by_examiner: "أُزيل من الرقم {bib} بواسطة الممتحن", n_assigned_by_examiner: "عُيّن للرقم {bib} بواسطة الممتحن",
     ph_reason: "السبب", save_first: "احفظ نتيجة هذا المسار أولاً", imported_counts: "أضيف {a}، حُدّث {u}، دون تغيير {s}.",
+    t_review: "المراجعة", review_hint: "نتائج اليوم المحفوظة إلى جانب عدّ الكاميرا. افتح العدّات لإعادة تشغيل أي مقطع.",
+    exercise: "التمرين", saved: "المحفوظ", camera: "الكاميرا", override: "تعديل", overridden: "معدّل", no_camera: "بدون كاميرا",
+    show_reps: "العدّات ({n})", hide_reps: "إخفاء العدّات", play: "تشغيل", no_clip: "لا مقطع", no_reps: "لم تسجل الكاميرا أي عدّة لهذه المحاولة.",
+    rep: "عدّة", faults: "الأخطاء", clip_of: "{name} · عدّة {n}",
+    override_reason_label: "عدّت الكاميرا {n} · سبب التصحيح (إلزامي)",
+    e_override_reason_required: "العدد يختلف عن عدّ الكاميرا: أدخل سبباً",
   },
 };
-let lang = load("lang", "en");
+let lang = load("lang", "en");      // an explicit choice on this device; else the station default (applySettings)
 const t = (k, vars) => { let s = I18N[lang][k] ?? I18N.en[k] ?? k; for (const [a, b] of Object.entries(vars || {})) s = s.replace(`{${a}}`, b); return s; };
-const SHOW_DETAIL = new Set(["face_belongs_to_other", "bib_in_use", "bad_input", "external_id_in_use", "ambiguous_query", "bad_gender", "bad_dob"]);   // the server's message names the other person
+const SHOW_DETAIL = new Set(["face_belongs_to_other", "dob_required", "gender_required", "bad_rules", "no_standard_for_age", "bad_unit", "bib_in_use", "bad_input", "external_id_in_use", "ambiguous_query", "bad_gender", "bad_dob"]);   // the server's message names the other person
 const err = e => t("e_" + (e.code || "unknown")) + ((!I18N.en["e_" + e.code] || SHOW_DETAIL.has(e.code)) && e.message ? ` (${e.message})` : "");
 function applyI18n() {
   document.documentElement.lang = lang; document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
   document.querySelectorAll("[data-t]").forEach(el => el.textContent = t(el.dataset.t));
   document.querySelectorAll("[data-tp]").forEach(el => el.placeholder = t(el.dataset.tp));
+  document.querySelectorAll("[data-tl]").forEach(el => { el.title = t(el.dataset.tl); el.setAttribute("aria-label", t(el.dataset.tl)); });
   for (const l of ["en", "ar"]) document.getElementById("lang-" + l).classList.toggle("active", l === lang);
 }
-function setLang(l) { lang = l; save("lang", l); applyI18n(); lastReviewSig = ""; lanes.forEach(renderLane); render();
+function setLang(l, remember = true) { lang = l; if (remember) save("lang", l); applyI18n(); if (typeof applySiteName === "function" && S) applySiteName(); lastReviewSig = ""; lanes.forEach(renderLane); render();
   if (typeof Cam !== "undefined") { Cam.show(); $("autoBtn").textContent = autoId ? t("auto_on") : t("auto_off"); } }
 
 /* ============================== helpers ============================== */
@@ -432,16 +825,16 @@ const cname = c => (lang === "ar" && c.name_ar) ? c.name_ar : c.name;
 const initials = c => esc((cname(c) || "?").trim().split(/\s+/).map(w => w[0]).slice(0, 2).join(""));
 const fmt = s => { if (s == null) return "—"; const m = Math.floor(s / 60), r = s - m * 60; return `${m}:${r.toFixed(1).padStart(4, "0")}`; };
 const mmss = s => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
-const statusPill = s => `<span class="pill ${["run_passed", "complete"].includes(s) ? "ok" : ["rejected", "run_failed", "dnf", "absent"].includes(s) ? "bad" : ["accepted", "lined_up", "running"].includes(s) ? "info" : ""}">${t("s_" + s)}</span>`;
+const statusPill = s => `<span class="pill ${["run_passed", "complete"].includes(s) ? "ok" : ["rejected", "run_failed", "dnf", "absent"].includes(s) ? "bad" : ["accepted", "lined_up", "running", "run_done"].includes(s) ? "info" : ""}">${t("s_" + s)}</span>`;
 // Replace a table body only when its content changed: polling every 2 s must not swallow clicks.
 function setHTML(id, html) { const el = $(id); if (el._html !== html) { el._html = html; el.innerHTML = html; } }
 // Destructive or undo actions need a second press within CONFIRM_MS.
 const CONFIRM_MS = 4000, armedAt = {};
-function confirmClick(key, btn, fn) {
+function confirmClick(key, btn, fn, sureKey = "sure") {
   if (!btn.dataset.label) btn.dataset.label = btn.textContent;   // the real label, never "Sure?"
   const disarm = () => { delete armedAt[key]; btn.textContent = btn.dataset.label; btn.classList.remove("amber"); };
   if (armedAt[key] && Date.now() - armedAt[key] < CONFIRM_MS) { disarm(); fn(); return; }
-  armedAt[key] = Date.now(); btn.textContent = t("sure"); btn.classList.add("amber");
+  armedAt[key] = Date.now(); btn.textContent = t(sureKey); btn.classList.add("amber");
   const mine = armedAt[key];
   setTimeout(() => { if (armedAt[key] === mine) disarm(); }, CONFIRM_MS);
 }
@@ -451,11 +844,14 @@ const whoHtml = e => `<div class="who"><div class="avatar">${initials(e.candidat
 async function api(method, path, body, raw) {
   let r;
   try {
-    r = await fetch(path, { method, headers: raw ? { "content-type": "text/csv" } : (body ? { "content-type": "application/json" } : {}), body: raw ?? (body ? JSON.stringify(body) : undefined) });
+    const headers = raw ? { "content-type": "text/csv" } : (body ? { "content-type": "application/json" } : {});
+    const pin = adminPin(); if (pin) headers["x-admin-pin"] = pin;
+    r = await fetch(path, { method, headers, body: raw ?? (body ? JSON.stringify(body) : undefined) });
   } catch { setConn(false); throw { code: "network" }; }
   setConn(true);
   if (r.status === 204) return null;
   const data = await r.json().catch(() => ({}));
+  if (r.status === 403 && data.detail && data.detail.code === "admin_pin_required") { setAdminPin(null); if (settingsOpen) PinDlg.open(openSettings); else if (mode === "advanced") PinDlg.open(); }
   if (!r.ok) throw (data.detail && data.detail.code) ? data.detail : { code: "unknown", message: JSON.stringify(data.detail ?? data) };
   return data;
 }
@@ -469,8 +865,14 @@ async function refresh() {
   try {
     const [state, entries] = await Promise.all([api("GET", "/api/state"), api("GET", "/api/entries")]);
     S.state = state; S.entries = entries;
+    if (Date.now() - (S.settingsAt || 0) > 15000) {   // pick up changes made on another device
+      S.settingsAt = Date.now();
+      api("GET", "/api/settings").then(v => { S.settings = v; applySettings(false); }).catch(() => {});
+      api("GET", "/api/rules").then(v => { S.rules = v; }).catch(() => {});
+    }
     S.offset = Date.parse(state.server_time) - Date.now();
     if (role === "finish" || mode === "advanced") S.crossings = await api("GET", "/api/run/crossings");
+    if (mode === "advanced") S.attempts = await api("GET", "/api/attempts");
     render();
   } catch (e) { /* connection pill already shows it */ }
 }
@@ -483,39 +885,81 @@ function render() {
   if (mode === "advanced") renderAdvanced();
   else ({ weigh: renderWeigh, start: renderStart, finish: renderFinish, station: renderStation })[role]();
 }
-function setRole(r) { role = r; save("role", r); $("role").value = r; for (const x of ["weigh", "start", "finish", "station"]) $("v-" + x).classList.toggle("hidden", x !== r); refresh(); }
-function setMode(m) { mode = m; save("mode", m); $("simple").classList.toggle("hidden", m !== "simple"); $("advanced").classList.toggle("hidden", m !== "advanced");
+function setRole(r) { if (settingsOpen) closeSettings(); role = r; save("role", r); $("role").value = r; for (const x of ["weigh", "start", "finish", "station"]) $("v-" + x).classList.toggle("hidden", x !== r); refresh(); }
+function setMode(m) {
+  if (m === "advanced" && setting("admin_pin_set") && !adminPin()) { PinDlg.open(); return; }
+  if (settingsOpen) { settingsOpen = false; $("settingsPage").classList.add("hidden"); $("setBtn").classList.remove("active"); }
+  mode = m; save("mode", m); $("simple").classList.toggle("hidden", m !== "simple"); $("advanced").classList.toggle("hidden", m !== "advanced");
   for (const x of ["simple", "advanced"]) $("mode-" + x).classList.toggle("active", x === m); refresh(); }
-function tab(name, btn) { for (const x of ["list", "rules"]) $("t-" + x).classList.toggle("hidden", x !== name); document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("active", b === btn)); }
+function tab(name, btn) { for (const x of ["list", "review"]) $("t-" + x).classList.toggle("hidden", x !== name); document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("active", b === btn)); }
 
 /* ============================== weigh-in ============================== */
 let wEntry = null, wLast = null, wSeq = 0;
+// Where the person on screen came from: "typed" (the examiner typed a bib/ID on purpose) is
+// left alone by Auto; anything else is replaced as soon as a different face is in front.
+let wSource = null;
 // Every new check-in (typed or by face) gets a number; a face result that arrives after a
 // newer check-in is ignored, so the weight is never saved to someone no longer on screen.
-function newCheckin() { wSeq++; wEntry = null; wLast = null; setWeighForm(false); $("wEnroll").classList.add("hidden"); $("wOverride").classList.add("hidden"); $("wReason").value = ""; return wSeq; }
+function newCheckin() { stdSeq++; wStdOk = false; $("wStd").classList.add("hidden"); $("wNeeds").classList.add("hidden"); needsFor = null; wSeq++; wEntry = null; wLast = null; wSource = null; setWeighForm(false); $("wEnroll").classList.add("hidden"); showRight("form"); $("wOverride").classList.add("hidden"); $("wReason").value = ""; return wSeq; }
 function startWeigh(entry) {
   wEntry = entry; wLast = entry; setWeighForm(true); $("wKg").value = ""; $("wCm").value = ""; bmiPreview(); $("wKg").focus();
+  // Gender and date of birth are asked for only when the list did not have them; the unit type is
+  // always shown so the examiner confirms the level this person must reach.
+  const c = entry.candidate;
+  $("wGender").value = c.gender || setting("default_gender"); $("wGenderL").classList.toggle("hidden", !!c.gender);
+  $("wDob").value = c.dob || ""; $("wDobL").classList.toggle("hidden", !!c.dob);
+  $("wUnit").value = c.unit || setting("default_unit");
+  $("wStd").classList.remove("hidden"); loadStandard();
+}
+// What this person needs today (age band x unit level), from the server: nothing is saved yet.
+let stdSeq = 0, wStdOk = false;
+const standardBody = () => {
+  const c = wEntry.candidate;
+  return { gender: c.gender ? null : $("wGender").value || null, dob: c.dob ? null : $("wDob").value || null, unit: $("wUnit").value };
+};
+async function loadStandard() {
+  if (!wEntry) return;
+  const seq = ++stdSeq, line = $("wStdLine"); wStdOk = false;
+  try {
+    const r = await api("POST", `/api/entries/${wEntry.id}/standard`, standardBody());
+    if (seq !== stdSeq) return;
+    wStdOk = true;
+    if (!r.needs) { line.className = "stdline warn"; line.textContent = t("std_no_table", { age: r.age }); $("wNeeds").classList.add("hidden"); return; }
+    const n = r.needs;
+    line.className = "stdline";
+    line.innerHTML = `<b>${t("std_age", { age: r.age, band: r.band.replace("-", "–") })}</b> · ${t("std_needs", { level: r.level })}`;
+    needsCard(wEntry, r.age, r.band, r.level, ["run", "pushup", "crunch"].map(x => [x, GRADES.map(g => n[x][String(g)])]));
+  } catch (e) {
+    if (seq !== stdSeq) return;
+    line.className = "stdline " + (["gender_required", "dob_required"].includes(e.code) ? "warn" : "bad");
+    line.textContent = err(e);
+  } finally { bmiPreview(); }
 }
 async function weighCheckin() {
   const q = $("wQuery").value.trim(); if (!q) return;
-  const seq = newCheckin(); msg("wMsg"); $("wWho").innerHTML = ""; clearBox();
+  const seq = newCheckin(); msg("wMsg"); $("wWho").innerHTML = ""; clearBox(); wSource = "typed";
   try {
     const r = await api("POST", "/api/checkin", { station: "weigh", query: q });
     if (seq !== wSeq) return;
     $("wWho").innerHTML = whoHtml(r.entry); wLast = r.entry;
     // Typed in by bib: offer to save the face on screen, so next time the camera recognises them.
     const known = S.entries.find(e => e.id === r.entry.id);
-    $("wEnroll").classList.toggle("hidden", !(known && !known.faces && Cam.kind && (Cam.stream || Cam.fileName)));
+    $("wEnroll").classList.toggle("hidden", !(known && (known.faces || 0) < 3 && Cam.kind && (Cam.stream || Cam.fileName)));
+    $("wEnrollBtn").textContent = t(Cam.kind === "webcam" ? "enroll_cam3" : "enroll_cam");
     if (r.allowed) startWeigh(r.entry);
-    else msg("wMsg", "bad", t("e_" + r.reason));
-  } catch (e) { if (seq === wSeq) msg("wMsg", "bad", err(e)); }
+    else { msg("wMsg", "bad", t("e_" + r.reason)); showNeeds(r.entry); }
+  } catch (e) {
+    if (seq !== wSeq) return;
+    msg("wMsg", "bad", err(e));
+    if (e.code === "not_on_todays_list") offerRegister(q);
+  }
 }
 function setWeighForm(on) { $("wForm").style.opacity = on ? 1 : .35; $("wForm").style.pointerEvents = on ? "auto" : "none"; }
 function bmiPreview() {
   const r = S.rules, kg = parseFloat($("wKg").value), cm = parseFloat($("wCm").value), box = $("wBmi");
   if (r) $("wRange").textContent = t("bmi_range", { min: r.bmi_min, max: r.bmi_max });
   const valid = kg > 0 && cm > 50;
-  $("wReject").disabled = !(wEntry && valid); $("wAccept").disabled = !(wEntry && valid);
+  $("wReject").disabled = !(wEntry && valid); $("wAccept").disabled = !(wEntry && valid && wStdOk);
   if (!valid) { box.querySelector("b").textContent = "—"; box.className = "bmi"; $("wOverride").classList.add("hidden"); return; }
   const v = Math.round(kg / ((cm / 100) ** 2) * 10) / 10, ok = v >= r.bmi_min && v <= r.bmi_max;
   box.querySelector("b").textContent = v.toFixed(1); box.className = "bmi " + (ok ? "ok" : "bad");
@@ -535,10 +979,11 @@ async function weighSubmit(accept) {
     return;
   }
   try {
-    const e = await api("POST", `/api/entries/${wEntry.id}/weigh-in`, { weight_kg: parseFloat($("wKg").value), height_cm: parseFloat($("wCm").value), accept, override_reason: $("wReason").value || null });
+    const e = await api("POST", `/api/entries/${wEntry.id}/weigh-in`, { weight_kg: parseFloat($("wKg").value), height_cm: parseFloat($("wCm").value), accept, override_reason: $("wReason").value || null, ...standardBody() });
     $("wWho").innerHTML = whoHtml(e);
     msg("wMsg", accept ? "ok" : "bad", `BMI ${e.bmi} · ` + (accept ? t("accepted_go") : t("rejected_done")));
     newCheckin(); clearBox(); $("wQuery").value = ""; $("wKg").value = ""; $("wCm").value = ""; bmiPreview(); $("wQuery").focus(); refresh();
+    if (accept) showNeeds(e);
   } catch (e) {
     msg("wMsg", "bad", err(e));
     if (e.code === "reason_required" || e.code === "bmi_out_of_range") { $("wOverride").classList.remove("hidden"); $("wReason").focus(); }
@@ -559,10 +1004,11 @@ const Cam = {
     $("camEmpty").classList.toggle("hidden", live);
     for (const k of ["webcam", "video", "photo"]) $("src-" + k).classList.toggle("active", k === this.kind);
     $("camTag").textContent = live ? (this.kind === "webcam" ? t("src_note_webcam") : t("src_note_file", { name: this.fileName })) : "";
+    $("viewer").classList.toggle("mirror", this.kind === "webcam");
     $("camNote").textContent = (!live && this.kind && this.kind !== "webcam") ? t("src_reselect") : "";
     $("idBtn").disabled = !live; $("autoBtn").disabled = !live;
   },
-  stop() { if (this.stream) { this.stream.getTracks().forEach(tr => tr.stop()); this.stream = null; } },
+  stop() { if (this.stream) { this.stream.getTracks().forEach(tr => tr.stop()); this.stream = null; } BgFx.stop($("camVideo")); },
   async use(kind) {
     this.stop(); this.kind = kind; save("camKind", kind); this.fileName = "";
     if (kind === "webcam") {
@@ -590,6 +1036,128 @@ const Cam = {
     return { blob: await new Promise(r => c.toBlob(r, "image/jpeg", 0.92)), w, h };
   },
 };
+// ---- camera background: blur or a plain backdrop behind the person, like a video call.
+// Only the picture on screen changes; identification and enrolment always send the camera's
+// original frame (Cam.frame / grabFrame read the <video>, not this canvas). The model (MediaPipe
+// multiclass selfie segmenter, vendored, works offline) runs in bgfx-worker.js so it never blocks
+// the page; every camera frame is drawn here with the latest mask.
+const mixHex = (a, b, k) => "#" + [1, 3, 5].map(i => Math.round(parseInt(a.substr(i, 2), 16) * (1 - k) + parseInt(b.substr(i, 2), 16) * k).toString(16).padStart(2, "0")).join("");
+const BgFx = {
+  mode: "off", worker: null, failed: false, views: new Map(), pending: null, pendingAt: 0,
+  backdrop: "#8a949e", img: null, imgVer: null,
+  setImage(ver) {
+    if (ver === this.imgVer) return;
+    this.imgVer = ver; this.img = null;
+    if (!ver) return;
+    const im = new Image();
+    im.onload = () => { if (this.imgVer === ver) this.img = im; };
+    im.src = `/api/settings/background-image?v=${ver}`;
+  },
+  setMode(m) { if (m === this.mode) return; this.mode = m; for (const v of this.views.values()) this.sync(v); },
+  ensureWorker() {
+    if (this.worker || this.failed) return this.worker;
+    const fail = e => { console.warn("camera background unavailable:", e); this.failed = true; this.worker = null; for (const v of this.views.values()) this.stop(v.video); };
+    try {
+      const w = new Worker("bgfx-worker.js");
+      w.onmessage = ({ data }) => {
+        const v = this.pending; this.pending = null;
+        if (data.error) { fail(data.error); return; }
+        if (v && data.mask) { v.mask = data; v.fresh = true; }
+      };
+      w.onerror = e => { e.preventDefault(); fail(e.message); };
+      this.worker = w;
+    } catch (e) { fail(e); }
+    return this.worker;
+  },
+  attach(video, canvas) {
+    const v = { video, canvas, viewer: video.parentElement, gen: 0, img: null, mask: null, fresh: false, prev: null,
+                maskC: document.createElement("canvas"), personC: document.createElement("canvas"),
+                cutC: document.createElement("canvas"), bgC: document.createElement("canvas") };
+    this.views.set(video, v);
+    video.addEventListener("playing", () => this.sync(v));
+  },
+  wanted(v) { return this.mode !== "off" && !this.failed && !!v.video.srcObject; },   // live camera only; demo files show as they are
+  sync(v) {
+    if (!this.wanted(v) || !this.ensureWorker()) { this.stop(v.video); return; }
+    const gen = ++v.gen, vid = v.video;
+    const step = () => {
+      if (gen !== v.gen) return;
+      if (!this.wanted(v)) { this.stop(vid); return; }
+      if (vid.readyState >= 2 && vid.videoWidth) {
+        if (this.pending && performance.now() - this.pendingAt > 2000) this.pending = null;   // a lost frame never stalls it
+        if (!this.pending) {
+          // The model works at 256 px: a 512-px copy is plenty and cheap to send.
+          this.pending = v; this.pendingAt = performance.now();
+          createImageBitmap(vid, { resizeWidth: 512, resizeHeight: Math.round(vid.videoHeight * 512 / vid.videoWidth), resizeQuality: "medium" })
+            .then(frame => this.worker ? this.worker.postMessage({ frame, ts: performance.now() }, [frame]) : frame.close())
+            .catch(() => { this.pending = null; });
+        }
+        if (v.mask) this.draw(v);
+      }
+      if (vid.requestVideoFrameCallback) vid.requestVideoFrameCallback(step); else requestAnimationFrame(step);
+    };
+    step();
+  },
+  stop(video) {
+    const v = this.views.get(video); if (!v) return;
+    v.gen++; v.mask = null; v.fresh = false; v.viewer.classList.remove("fxon");
+    v.canvas.getContext("2d").clearRect(0, 0, v.canvas.width, v.canvas.height);
+  },
+  draw(v) {
+    const mc = v.maskC;
+    if (v.fresh) {   // a new mask from the worker: smooth it a little over time (no edge flicker)
+      v.fresh = false;
+      const { mask, w: mw, h: mh } = v.mask;
+      if (mc.width !== mw || mc.height !== mh || !v.img) { mc.width = mw; mc.height = mh; v.img = mc.getContext("2d").createImageData(mw, mh); v.prev = new Float32Array(mask.length); }
+      const px = v.img.data, prev = v.prev;
+      for (let i = 0; i < mask.length; i++) {
+        const c = 0.75 * mask[i] + 0.25 * prev[i]; prev[i] = c;
+        const a = Math.max(0, Math.min(1, (c - 0.3) / 0.4));
+        px[i * 4 + 3] = a * a * (3 - 2 * a) * 255;                 // smooth edge between 0.3 and 0.7
+      }
+      mc.getContext("2d").putImageData(v.img, 0, 0);
+    }
+    // Full camera resolution for the person; the background is blurred small and scaled up
+    // (looks the same, a fraction of the work).
+    const vid = v.video, k = Math.min(1, 1920 / vid.videoWidth), w = Math.round(vid.videoWidth * k), h = Math.round(vid.videoHeight * k);
+    const out = v.canvas, pc = v.personC;
+    if (out.width !== w || out.height !== h) { out.width = pc.width = w; out.height = pc.height = h; }
+    const p = pc.getContext("2d");
+    p.imageSmoothingQuality = "high";
+    p.globalCompositeOperation = "copy"; p.drawImage(mc, 0, 0, w, h);   // scaling the small mask up softens the edge by itself
+    p.globalCompositeOperation = "source-in"; p.drawImage(vid, 0, 0, w, h);
+    const g = out.getContext("2d");
+    g.globalCompositeOperation = "source-over"; g.imageSmoothingQuality = "high";
+    if (this.mode === "blur") {
+      // Blur the background without the person in it, so their outline does not smear into a halo:
+      // a strongly blurred full frame fills the gap, the person-free frame blurred on top.
+      const sw = Math.round(w / 4), sh = Math.round(h / 4), cut = v.cutC, bg = v.bgC, rad = Math.max(3, Math.round(sw / 60));
+      if (cut.width !== sw || cut.height !== sh) { cut.width = bg.width = sw; cut.height = bg.height = sh; }
+      const cx = cut.getContext("2d");
+      cx.globalCompositeOperation = "copy"; cx.drawImage(vid, 0, 0, sw, sh);
+      cx.globalCompositeOperation = "destination-out"; cx.drawImage(mc, 0, 0, sw, sh);
+      const bx = bg.getContext("2d");
+      bx.globalCompositeOperation = "copy"; bx.filter = `blur(${rad * 3}px)`; bx.drawImage(vid, 0, 0, sw, sh);
+      bx.globalCompositeOperation = "source-over"; bx.filter = `blur(${rad}px)`; bx.drawImage(cut, 0, 0); bx.drawImage(cut, 0, 0);
+      bx.filter = "none";
+      g.drawImage(bg, 0, 0, w, h);
+    } else if (this.mode === "image" && this.img) {
+      // Cover the frame like a wallpaper. The station shows the camera mirrored (a selfie view),
+      // so the picture is drawn flipped here and reads the right way round on screen.
+      const im = this.img, sc = Math.max(w / im.naturalWidth, h / im.naturalHeight), iw = im.naturalWidth * sc, ih = im.naturalHeight * sc;
+      g.save();
+      if (v.viewer.classList.contains("mirror")) { g.translate(w, 0); g.scale(-1, 1); }
+      g.drawImage(im, (w - iw) / 2, (h - ih) / 2, iw, ih);
+      g.restore();
+    } else {   // a studio backdrop in the chosen colour: lighter behind the head, like a lit backdrop
+      const gr = g.createRadialGradient(w / 2, h * 0.35, h * 0.05, w / 2, h * 0.45, h * 0.9);
+      gr.addColorStop(0, mixHex(this.backdrop, "#ffffff", 0.3)); gr.addColorStop(1, this.backdrop); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    }
+    g.drawImage(pc, 0, 0);
+    v.viewer.classList.add("fxon");
+  },
+};
+
 async function apiImage(path, blob) {
   let r;
   try { r = await fetch(path, { method: "POST", headers: { "content-type": "image/jpeg" }, body: blob }); }
@@ -600,19 +1168,21 @@ async function apiImage(path, blob) {
   return data;
 }
 // Face box drawn over the picture, mapped from image pixels to the displayed (object-fit: contain) area.
+const mirrored = () => Cam.kind === "webcam";
 function drawBox(box, w, h, label, ok) {
   const cv = $("camBox"), vw = cv.clientWidth, vh = cv.clientHeight; cv.width = vw; cv.height = vh;
   const s = Math.min(vw / w, vh / h), ox = (vw - w * s) / 2, oy = (vh - h * s) / 2, g = cv.getContext("2d");
+  const bx = mirrored() ? w - box[0] - box[2] : box[0];
   g.clearRect(0, 0, vw, vh); g.lineWidth = 3; g.strokeStyle = ok ? "#19d27a" : "#ffb000";
-  g.strokeRect(ox + box[0] * s, oy + box[1] * s, box[2] * s, box[3] * s);
+  g.strokeRect(ox + bx * s, oy + box[1] * s, box[2] * s, box[3] * s);
   g.font = "600 16px 'Barlow Condensed', sans-serif"; g.fillStyle = g.strokeStyle;
-  g.fillText(label, ox + box[0] * s, Math.max(16, oy + box[1] * s - 6));
+  g.fillText(label, ox + bx * s, Math.max(16, oy + box[1] * s - 6));
 }
 function clearBox() { const cv = $("camBox"); cv.getContext("2d").clearRect(0, 0, cv.width, cv.height); }
 
 let autoId = false, autoTimer = null, idBusy = false;
 function toggleAuto() { autoId = !autoId; $("autoBtn").textContent = autoId ? t("auto_on") : t("auto_off"); $("autoBtn").classList.toggle("on", autoId);
-  clearInterval(autoTimer); if (autoId) autoTimer = setInterval(() => { if (!wEntry && role === "weigh" && mode === "simple") identifyNow(true); }, 1500); }
+  clearInterval(autoTimer); if (autoId) autoTimer = setInterval(() => { if (!wEntry && wSource !== "typed" && !enrolBusy && $("wNew").classList.contains("hidden") && role === "weigh" && mode === "simple") identifyNow(true); }, 1500); }
 async function identifyNow(quiet) {
   if (idBusy) return; idBusy = true;
   const seqAtStart = wSeq;
@@ -623,22 +1193,237 @@ async function identifyNow(quiet) {
     if (seqAtStart !== wSeq || (quiet && wEntry)) return;   // someone else was checked in meanwhile
     if (r.entry) {
       if (wEntry && wEntry.id === r.entry.id) return;          // already weighing this person
-      newCheckin();
+      newCheckin(); wSource = "face";
       drawBox(r.box, f.w, f.h, `${cname(r.entry.candidate)} ${r.score.toFixed(2)}`, true);
       $("wWho").innerHTML = whoHtml(r.entry);
       if (r.allowed) { msg("wMsg", "ok", t("recognised", { name: cname(r.entry.candidate), score: r.score.toFixed(2) })); startWeigh(r.entry); }
-      else msg("wMsg", "bad", `${cname(r.entry.candidate)}: ${t("e_" + r.reason)}`);
+      else { msg("wMsg", "bad", `${cname(r.entry.candidate)}: ${t("e_" + r.reason)}`); showNeeds(r.entry); }
     } else {
+      // A face that is not the person on screen: drop that person's card and message, so the
+      // two halves of the screen never disagree about who is in front of the camera.
+      // Auto leaves a typed check-in alone; pressing Identify is a new check-in and replaces it.
+      if ((!quiet || wSource !== "typed") && (wLast || $("wWho").innerHTML)) { newCheckin(); $("wWho").innerHTML = ""; }
       drawBox(r.box, f.w, f.h, `? ${r.score.toFixed(2)}`, false);
-      if (!quiet) msg("wMsg", "warn", r.reason === "nobody_enrolled" ? t("e_nobody_enrolled") : t("not_sure", { score: r.score.toFixed(2) }));
+      if (r.known) {
+        drawBox(r.box, f.w, f.h, `${cname(r.known)} ${r.known.score.toFixed(2)}`, false);
+        msg("wMsg", "warn", t("known_msg", { name: cname(r.known) }));
+        offerKnown(r.known);
+      } else {
+        // Auto: a steady message (no score, which changes every check); on request: with the score.
+        msg("wMsg", "warn", r.reason === "nobody_enrolled" ? t("e_nobody_enrolled") : quiet ? t("not_recognised") : t("not_sure", { score: r.score.toFixed(2) }));
+        offerRegister("");
+      }
     }
   } catch (e) { clearBox(); if (!quiet) msg("wMsg", "bad", err(e)); }
   finally { idBusy = false; }
 }
+// Enrol from the camera. Live webcam: three guided poses (straight, a little left, a little
+// right) so the stored templates cover what the desk camera will see; the server keeps the
+// newest 3. A photo or video file: the single frame on screen.
+const POSES = ["straight", "left", "right"];
+// Head turn (raw image, see faces.head_yaw): + is the person's own left. Thresholds from the
+// desk webcam: looking at the camera stays within 0.12; a comfortable turn reaches 0.25+.
+const POSE_OK = { straight: y => Math.abs(y) < 0.12, left: y => y > 0.22, right: y => y < -0.22 };
+const POSE_HOLD = 3, POSE_TIMEOUT_MS = 12000;
+
+// The guided capture works on any "view": a <video> showing the webcam, the <canvas> over it and
+// alive(), which turns false when the capture should stop (another check-in, window closed).
+// The weigh-in desk and the enrol window in the list use the same code.
+const deskView = seq => ({ video: $("camVideo"), canvas: $("camBox"), alive: () => seq === wSeq });
+
+function grabFrame(video, maxW, quality) {
+  const w = video.videoWidth, h = video.videoHeight; if (!w || !h) throw { code: "no_frame" };
+  const s = Math.min(1, maxW / w), c = document.createElement("canvas"); c.width = Math.round(w * s); c.height = Math.round(h * s);
+  c.getContext("2d").drawImage(video, 0, 0, c.width, c.height);
+  return new Promise(r => c.toBlob(r, "image/jpeg", quality));
+}
+
+// The guide over the mirrored video: dimmed surroundings, a face oval, one arc per pose,
+// a big arrow for the turns and the instruction in large type.
+function drawGuide(view, step, done, state, text) {
+  const cv = view.canvas, vw = cv.clientWidth, vh = cv.clientHeight; cv.width = vw; cv.height = vh;
+  const w = view.video.videoWidth || 4, h = view.video.videoHeight || 3;
+  const s = Math.min(vw / w, vh / h), oy = (vh - h * s) / 2, g = cv.getContext("2d");
+  const cx = vw / 2, cy = oy + h * s * 0.46, rx = h * s * 0.24, ry = h * s * 0.32;
+  const col = state === "hold" ? "#19d27a" : state === "turn" ? "#ffb000" : "#ffffff";
+  g.save(); g.fillStyle = "rgba(5,9,14,.55)"; g.beginPath(); g.rect(0, 0, vw, vh);
+  g.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); g.fill("evenodd"); g.restore();
+  g.lineWidth = 4; g.strokeStyle = col; g.beginPath(); g.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); g.stroke();
+  // three arcs around the oval: done (green), current (white/amber), to do (grey)
+  for (let i = 0; i < POSES.length; i++) {
+    const a0 = -Math.PI / 2 + i * (2 * Math.PI / 3) + 0.08, a1 = a0 + 2 * Math.PI / 3 - 0.16;
+    g.lineWidth = 8; g.strokeStyle = i < done ? "#19d27a" : i === step ? col : "rgba(255,255,255,.18)";
+    g.beginPath(); g.ellipse(cx, cy, rx + 14, ry + 14, 0, a0, a1); g.stroke();
+  }
+  // arrow on the side to turn to (the video is mirrored, so screen-left is the person's left)
+  const pose = POSES[step];
+  if (done < POSES.length && (pose === "left" || pose === "right")) {
+    const dir = pose === "left" ? -1 : 1, bob = Math.sin(performance.now() / 180) * 8;
+    const ax = cx + dir * (rx + 60 + bob), ay = cy;
+    g.fillStyle = col; g.beginPath();
+    g.moveTo(ax + dir * 34, ay); g.lineTo(ax - dir * 6, ay - 34); g.lineTo(ax - dir * 6, ay - 14);
+    g.lineTo(ax - dir * 40, ay - 14); g.lineTo(ax - dir * 40, ay + 14); g.lineTo(ax - dir * 6, ay + 14); g.lineTo(ax - dir * 6, ay + 34);
+    g.closePath(); g.fill();
+  }
+  g.font = "700 " + Math.max(20, Math.round(vh / 16)) + "px 'Barlow Condensed', sans-serif"; g.textAlign = "center";
+  g.fillStyle = "#fff"; g.strokeStyle = "rgba(0,0,0,.6)"; g.lineWidth = 5;
+  const ty = Math.min(vh - 14, cy + ry + 54); g.strokeText(text, cx, ty); g.fillText(text, cx, ty);
+}
+
+// One pose: poll the head turn, capture when it is right for POSE_HOLD checks in a row
+// (or after POSE_TIMEOUT_MS with any single face). Returns the enrol result, or null if stopped.
+async function capturePose(view, entryId, step) {
+  const pose = POSES[step], t0 = Date.now(); let streak = 0, last = null;
+  for (;;) {
+    if (!view.alive()) return null;
+    let state = "search", text = t("guide_" + pose);
+    try {
+      const r = await apiImage("/api/face/pose", await grabFrame(view.video, 480, 0.7));
+      last = r;
+      if (!r.face) { streak = 0; text = t("guide_no_face"); }
+      else if (r.faces > 1) { streak = 0; text = t("guide_one_face"); }
+      else if (r.too_small) { streak = 0; text = t("guide_closer"); }
+      else if (POSE_OK[pose](r.yaw)) { streak++; state = "hold"; text = t("pose_hold"); }
+      else { streak = 0; state = pose === "straight" ? "search" : "turn"; text = pose === "straight" ? t("guide_straight") : t("guide_more_" + pose); }
+    } catch { streak = 0; }
+    if (!view.alive()) return null;
+    drawGuide(view, step, step, state, text);
+    const timedOut = Date.now() - t0 > POSE_TIMEOUT_MS && last && last.face && last.faces === 1;
+    if (streak >= POSE_HOLD || timedOut) {
+      try { return await apiImage(`/api/entries/${entryId}/face`, await grabFrame(view.video, 1920, 0.92)); }
+      catch (x) { if (x.code === "face_belongs_to_other") throw x; streak = 0; }   // blurred / no face: keep trying
+    }
+    await new Promise(r => setTimeout(r, 120));
+  }
+}
+
+// All three poses. onStep(k) after each saved pose. Returns { ok, faces } (ok false if stopped).
+async function guidedEnrol(view, entryId, onStep) {
+  let faces = 0;
+  for (let i = 0; i < POSES.length; i++) {
+    if (onStep) onStep(i, false);
+    const r = await capturePose(view, entryId, i);
+    if (!r) return { ok: false };
+    faces = r.faces;
+    drawGuide(view, Math.min(i + 1, POSES.length - 1), i + 1, "hold", t("pose_saved", { k: i + 1, n: POSES.length }));
+    if (onStep) onStep(i, true);
+    await new Promise(r => setTimeout(r, 500));
+  }
+  return { ok: true, faces };
+}
+let enrolBusy = false;
 async function enrollFromCamera() {
-  const e = wEntry || wLast; if (!e) return;
-  try { const f = await Cam.frame(); const r = await apiImage(`/api/entries/${e.id}/face`, f.blob); msg("wMsg", "ok", t("enrolled", { n: r.faces })); $("wEnroll").classList.add("hidden"); refresh(); }
-  catch (x) { msg("wMsg", "bad", err(x)); }
+  const e = wEntry || wLast; if (!e || enrolBusy) return { ok: false };
+  enrolBusy = true; $("wEnrollBtn").disabled = true;
+  const seq = wSeq, tag = $("camTag");
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  try {
+    if (Cam.kind !== "webcam") {
+      const f = await Cam.frame(); const r = await apiImage(`/api/entries/${e.id}/face`, f.blob);
+      msg("wMsg", "ok", t("enrolled", { n: r.faces })); $("wEnroll").classList.add("hidden"); refresh(); return { ok: true, faces: r.faces };
+    }
+    tag.textContent = "";
+    const r = await guidedEnrol(deskView(seq), e.id, (i, saved) => { if (!saved) msg("wMsg", "warn", `${i + 1}/${POSES.length} · ${t("pose_" + POSES[i])}`); });
+    if (!r.ok) return r;                                         // someone else was checked in meanwhile
+    clearBox();
+    msg("wMsg", "ok", t("enrolled", { n: r.faces })); $("wEnroll").classList.add("hidden"); refresh();
+    return r;
+  } catch (x) { clearBox(); msg("wMsg", "bad", err(x)); return { ok: false, error: x }; }
+  finally { enrolBusy = false; $("wEnrollBtn").disabled = false; Cam.show(); }
+}
+
+// ---- enrol window, opened from a row of today's list: same guided capture as the desk
+const EnrolDlg = {
+  stream: null, run: 0,
+  async open(id) {
+    const e = S.entries.find(x => x.id === id); if (!e) return;
+    const run = ++this.run, dlg = $("enrolDlg"), video = $("enrolVideo");
+    $("enrolWho").innerHTML = whoHtml(e); msg("enrolMsg"); dlg.showModal();
+    try {
+      this.stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+      video.srcObject = this.stream; await video.play();
+    } catch (x) { msg("enrolMsg", "bad", t(x && x.name === "NotReadableError" ? "e_camera_busy" : "e_camera_denied")); return; }
+    const view = { video, canvas: $("enrolBox"), alive: () => run === this.run && dlg.open };
+    try {
+      const r = await guidedEnrol(view, id, (i, saved) => { if (!saved) msg("enrolMsg", "warn", `${i + 1}/${POSES.length} · ${t("pose_" + POSES[i])}`); });
+      if (r.ok) { msg("aMsg", "ok", `${cname(e.candidate)}: ${t("enrolled", { n: r.faces })}`); refresh(); setTimeout(() => this.close(), 700); }
+    } catch (x) { if (run === this.run) msg("enrolMsg", "bad", err(x)); }
+  },
+  close() {
+    this.run++;
+    if (this.stream) { this.stream.getTracks().forEach(tr => tr.stop()); this.stream = null; }
+    BgFx.stop($("enrolVideo"));
+    const cv = $("enrolBox"); cv.getContext("2d").clearRect(0, 0, cv.width, cv.height);
+    if ($("enrolDlg").open) $("enrolDlg").close();
+    refresh();
+  },
+};
+
+// ---- register a walk-in from the weigh-in desk: list entry -> face (3 poses) -> weigh-in
+function showRight(which) {   // "form" (measurements), "prompt", "register" or "known"
+  $("wForm").classList.toggle("hidden", which !== "form");
+  $("wKnown").classList.toggle("hidden", which !== "known");
+  $("wRegister").classList.toggle("hidden", which !== "prompt");
+  $("wNew").classList.toggle("hidden", which !== "register");
+}
+let wKnownCand = null;
+function offerKnown(c) {
+  if (!setting("walk_ins")) { showRight("form"); msg("wMsg", "bad", t("walk_ins_off")); return; }
+  wKnownCand = c;
+  $("wKnownWho").innerHTML = `<b style="font-size:20px">${esc(cname(c))}</b><div class="hint">${esc(c.external_id)} · ${t("bib")} ${esc(c.bib ?? "—")}</div>`;
+  showRight("known");
+}
+async function addKnownToday() {
+  const c = wKnownCand; if (!c) return;
+  $("wKnownAdd").disabled = true;
+  const body = { external_id: c.external_id, name: c.name, name_ar: c.name_ar, gender: c.gender, dob: c.dob, bib: c.bib };
+  try {
+    const entry = await api("POST", "/api/entries", { ...body, auto_bib: true, walk_in: true });   // old bib if free today, else the next one
+    newCheckin(); wLast = entry; $("wWho").innerHTML = whoHtml(entry);
+    msg("wMsg", "ok", t("give_bib", { name: cname(entry.candidate), bib: entry.candidate.bib }));
+    await refresh();
+    startWeigh(entry);
+  } catch (e) { msg("wMsg", "bad", err(e)); }
+  finally { $("wKnownAdd").disabled = false; }
+}
+function offerRegister(query) {
+  if (!setting("walk_ins")) { showRight("form"); msg("wMsg", "bad", t("walk_ins_off")); return; }
+  showRight("prompt");
+  $("wRegister").dataset.query = query || "";
+}
+function openRegister() {
+  const q = ($("wRegister").dataset.query || "").trim();
+  ["rName", "rNameAr", "rId", "rDob"].forEach(i => $(i).value = ""); $("rGender").value = setting("default_gender"); $("rUnit").value = setting("default_unit");
+  // What was typed at check-in and is not on the list is the ID card number (a walk-in has no bib yet).
+  $("rId").value = q;
+  showRight("register"); $("rName").focus();
+}
+function closeRegister() { showRight("form"); }
+async function registerNew() {
+  const body = { external_id: $("rId").value.trim(), name: $("rName").value.trim(), name_ar: $("rNameAr").value.trim() || null,
+                 gender: $("rGender").value || null, dob: $("rDob").value || null, unit: $("rUnit").value, bib: null, auto_bib: true, walk_in: true };
+  if (!body.external_id || !body.name) { msg("wMsg", "bad", t("e_missing_fields")); return; }
+  // The face is the point of registering here: no picture, nobody is added.
+  if (!(Cam.kind === "webcam" ? Cam.stream : Cam.fileName)) { msg("wMsg", "bad", t("register_need_camera")); return; }
+  $("rSave").disabled = true;
+  let entry = null;
+  try {
+    entry = await api("POST", "/api/entries", body);
+    newCheckin(); msg("wMsg"); clearBox();
+    wLast = entry; $("wWho").innerHTML = whoHtml(entry); closeRegister();
+    msg("wMsg", "ok", t("give_bib", { name: cname(entry.candidate), bib: entry.candidate.bib }));
+    await refresh();
+    const r = await enrollFromCamera();
+    if (!r.ok && r.error && r.error.code === "face_belongs_to_other") {
+      // The "new" person is already on file under another name: undo, never two people with one face.
+      await api("DELETE", `/api/entries/${entry.id}`).catch(() => {});
+      msg("wMsg", "bad", t("register_face_taken", { who: r.error.message || "" })); $("wWho").innerHTML = ""; wLast = null;
+      refresh(); return;
+    }
+    if (r.ok) { startWeigh(entry); msg("wMsg", "ok", t("give_bib", { name: cname(entry.candidate), bib: entry.candidate.bib })); }
+    else $("wEnroll").classList.remove("hidden");     // on the list; the face can be retried
+  } catch (e) { msg("wMsg", "bad", err(e)); }
+  finally { $("rSave").disabled = false; }
 }
 async function enrollFile(id, input) {
   const file = input.files[0]; if (!file) return;
@@ -671,13 +1456,13 @@ async function massStart() {
 }
 function renderStart() {
   const c = S.state.counts, started = !!S.state.run_started_at;
-  $("sAccepted").textContent = c.accepted; $("sLined").textContent = started ? c.running + c.run_passed + c.run_failed + c.dnf + c.complete : c.lined_up; $("sNotWeighed").textContent = c.expected;
+  $("sAccepted").textContent = c.accepted; $("sLined").textContent = started ? c.running + c.run_passed + c.run_failed + (c.run_done || 0) + c.dnf + c.complete : c.lined_up; $("sNotWeighed").textContent = c.expected;
   $("sBefore").classList.toggle("hidden", started); $("sAfter").classList.toggle("hidden", !started);
   $("sStart").disabled = c.lined_up === 0; $("sStart").textContent = startArmed ? t("confirm_start") : t("start");
   if (started) $("sAt").textContent = new Date(S.state.run_started_at).toLocaleTimeString(lang === "ar" ? "ar-EG" : "en-GB");
   const row = (e, cell) => `<tr><td class="t">${esc(e.candidate.bib ?? "—")}</td><td>${esc(cname(e.candidate))}</td><td style="text-align:end">${cell}</td></tr>`;
   const none = `<tr><td colspan="3" class="hint">—</td></tr>`;
-  const lined = S.entries.filter(e => started ? ["running", "run_passed", "run_failed", "dnf", "complete"].includes(e.status) : e.status === "lined_up");
+  const lined = S.entries.filter(e => started ? ["running", ...RAN, "complete"].includes(e.status) : e.status === "lined_up");
   $("sLinedTitle").textContent = started ? t("started_list") : t("at_line_list");
   setHTML("sLinedTable", lined.map(e => row(e, started ? statusPill(e.status)
     : `<button class="btn ghost sm" onclick="confirmClick('unline${e.id}', this, () => undoLineUp(${e.id}))">${t("remove_from_line")}</button>`)).join("") || none);
@@ -718,13 +1503,19 @@ async function closeRun() {
   closeArmed = false; $("fClose").textContent = t("close_run");
   try { await api("POST", "/api/run/close"); refresh(); } catch (e) { msg("fMsg", "bad", err(e)); }
 }
+// A crossing from the finish camera: badge with the OCR confidence and a link to its clip.
+function camHtml(c) {
+  if (c.source !== "camera") return "";
+  const conf = c.confidence != null ? ` ${Math.round(c.confidence * 100)}%` : "";
+  return ` <span class="pill">📷${conf}</span>` + (c.clip ? ` <a class="hint" href="/api/evidence/${encodeURI(c.clip)}" target="_blank">${t("clip")}</a>` : "");
+}
 function renderFinish() {
   const started = !!S.state.run_started_at, closed = !!S.state.run_closed_at;
   $("fNotStarted").classList.toggle("hidden", started); $("fLive").classList.toggle("hidden", !started || closed);
   const byId = Object.fromEntries(S.entries.map(e => [e.id, e]));
   const done = S.crossings.filter(c => !c.needs_review);
   $("fCount").textContent = done.length; $("fReview").textContent = S.state.review_queue;
-  setHTML("fTable", done.slice().reverse().map((c, i) => { const e = byId[c.entry_id]; return `<tr><td>${done.length - i}</td><td class="t">${esc(e?.candidate.bib ?? c.bib_read ?? "?")}</td><td>${esc(e ? cname(e.candidate) : "—")}</td><td class="t">${fmt(c.time_s)}</td><td>${e ? statusPill(e.status) : ""}</td><td style="text-align:end">${closed ? "" : `<button class="btn ghost sm" onclick="confirmClick('unassign${c.id}', this, () => unassignCrossing(${c.id}))">${t("wrong_bib")}</button>`}</td></tr>`; }).join("") || `<tr><td colspan="6" class="hint">—</td></tr>`);
+  setHTML("fTable", done.slice().reverse().map((c, i) => { const e = byId[c.entry_id]; return `<tr><td>${done.length - i}</td><td class="t">${esc(e?.candidate.bib ?? c.bib_read ?? "?")}</td><td>${esc(e ? cname(e.candidate) : "—")}</td><td class="t">${fmt(c.time_s)}</td><td>${e ? statusPill(e.status) : ""}${camHtml(c)}</td><td style="text-align:end">${closed ? "" : `<button class="btn ghost sm" onclick="confirmClick('unassign${c.id}', this, () => unassignCrossing(${c.id}))">${t("wrong_bib")}</button>`}</td></tr>`; }).join("") || `<tr><td colspan="6" class="hint">—</td></tr>`);
   $("fClose").disabled = S.state.review_queue > 0;
   $("fClose").title = S.state.review_queue > 0 ? t("e_review_pending") : "";
   $("fCloseHint").textContent = S.state.review_queue > 0 ? t("e_review_pending") : "";   // tablets show no tooltips
@@ -735,7 +1526,7 @@ function renderFinish() {
   if (sig === lastReviewSig) return;
   lastReviewSig = sig;
   const keep = Object.fromEntries(review.map(c => [c.id, $("rs-" + c.id)?.value]));
-  $("fReviewTable").innerHTML = review.map(c => `<tr><td class="t">${fmt(c.time_s)}</td><td class="hint">${esc(noteText(c))}</td><td><select id="rs-${c.id}"><option value="">—</option>${runners.map(e => `<option value="${e.id}" ${keep[c.id] == e.id ? "selected" : ""}>${esc(e.candidate.bib ?? "")} · ${esc(cname(e.candidate))}</option>`).join("")}</select></td><td style="white-space:nowrap"><button class="btn amber sm" onclick="resolveCrossing(${c.id})">${t("assign")}</button> <button class="btn ghost sm" onclick="confirmClick('discard${c.id}', this, () => discardCrossing(${c.id}))">${t("discard")}</button></td></tr>`).join("");
+  $("fReviewTable").innerHTML = review.map(c => `<tr><td class="t">${fmt(c.time_s)}</td><td class="hint">${esc(noteText(c))}${camHtml(c)}</td><td><select id="rs-${c.id}"><option value="">—</option>${runners.map(e => `<option value="${e.id}" ${keep[c.id] == e.id ? "selected" : ""}>${esc(e.candidate.bib ?? "")} · ${esc(cname(e.candidate))}</option>`).join("")}</select></td><td style="white-space:nowrap"><button class="btn amber sm" onclick="resolveCrossing(${c.id})">${t("assign")}</button> <button class="btn ghost sm" onclick="confirmClick('discard${c.id}', this, () => discardCrossing(${c.id}))">${t("discard")}</button></td></tr>`).join("");
 }
 // Review-queue note in the screen's language; the English server note is the fallback.
 function noteText(c) {
@@ -767,13 +1558,21 @@ function tickClocks() {
 
 /* ============================== exercise station ============================== */
 const limit = () => (S.rules ? S.rules.exercise_time_s : 120);
-const lanes = [1, 2, 3].map(n => ({ n, state: "empty", entry: null, reason: null, attempt: null, count: 0, rejected: 0, t0: 0, left: 0, result: null, error: null }));
+const newLane = n => ({ n, state: "empty", entry: null, reason: null, attempt: null, count: 0, rejected: 0, t0: 0, left: 0, result: null, error: null, auto: null, fix: 0, fixRej: 0, live: null, why: "", needWhy: false });
+const lanes = [1, 2, 3].map(newLane);
+function setLaneCount(n) {
+  // Never drop a lane with someone in it: the change waits until those lanes are free.
+  if (n === lanes.length || lanes.slice(n).some(l => l.entry || l.busy)) return;
+  if (n < lanes.length) lanes.length = n; else for (let i = lanes.length + 1; i <= n; i++) lanes.push(newLane(i));
+  const host = $("lanes"); host.innerHTML = ""; host.style.setProperty("--lanes", n);
+  if (role === "station" && mode === "simple") renderStation();
+}
 function setEvent(e) {
   // A running or stopped-but-unsaved lane would lose its count: refuse the switch.
   if (lanes.some(l => l.state === "running" || l.state === "stopped" || l.busy)) { lanes.filter(l => l.state === "stopped").forEach(l => { l.error = t("save_first"); renderLane(l); }); return; }
   event = e; save("event", e); lanes.forEach(l => resetLane(l.n, true)); renderStation();
 }
-function resetLane(n, quiet) { Object.assign(lanes[n - 1], { state: "empty", entry: null, reason: null, attempt: null, count: 0, rejected: 0, result: null, error: null }); if (!quiet) renderLane(lanes[n - 1]); }
+function resetLane(n, quiet) { Object.assign(lanes[n - 1], { state: "empty", entry: null, reason: null, attempt: null, count: 0, rejected: 0, result: null, error: null, auto: null, fix: 0, fixRej: 0, live: null, why: "", needWhy: false }); if (!quiet) renderLane(lanes[n - 1]); }
 async function laneCheckin(n, query) {
   const l = lanes[n - 1], q = (query ?? $("lq-" + n)?.value ?? "").trim(); if (!q) return;
   l.error = null;
@@ -792,7 +1591,7 @@ async function startLane(n) {
   l.busy = true; renderLane(l);
   try {
     l.attempt = await api("POST", "/api/attempts", { entry_id: l.entry.id, event, lane: String(n) });
-    Object.assign(l, { state: "running", count: 0, rejected: 0, t0: Date.now(), left: limit(), error: null });
+    Object.assign(l, { state: "running", count: 0, rejected: 0, t0: Date.now(), left: limit(), error: null, auto: null, fix: 0, fixRej: 0, live: null, why: "", needWhy: false });
   } catch (e) {
     if (e.code === "attempt_in_progress") l.reason = "attempt_in_progress"; else l.error = err(e);
   } finally { l.busy = false; }
@@ -807,17 +1606,61 @@ async function cancelOpen(n) {
 }
 function tap(n, which, d) {
   const l = lanes[n - 1]; if (l.state !== "running" && l.state !== "stopped") return;
-  l[which] = Math.max(0, l[which] + d);
-  $("lc-" + n).textContent = l.count; $("lr-" + n).textContent = l.rejected;   // no redraw: keeps the buttons under the finger
+  // With the camera counting, a tap is a correction on top of its number; without it, the count itself.
+  if (l.auto) l[which === "count" ? "fix" : "fixRej"] += d; else l[which] = Math.max(0, l[which] + d);
+  applyCounts(l);
+}
+function applyCounts(l) {
+  if (l.auto) { l.count = Math.max(0, l.auto.count + l.fix); l.rejected = Math.max(0, l.auto.rejected + l.fixRej); }
+  const c = $("lc-" + l.n), r = $("lr-" + l.n);                                  // no redraw: keeps the buttons under the finger
+  if (c) c.textContent = l.count; if (r) r.textContent = l.rejected;
+  const o = $("lo-" + l.n); if (o) o.classList.toggle("hidden", !corrected(l));
+}
+// The examiner saves a number the camera did not count: the server wants a reason.
+const corrected = l => l.needWhy || !!(l.auto && l.count !== l.auto.count);
+function liveHtml(l) {
+  const v = l.live; if (!l.auto || !v) return "";
+  if (!v.person) return `<span>${t("no_person")}</span>`;
+  const faults = (v.pending_faults || []).map(f => `<span class="fault">${t("f_" + f)}</span>`).join(" · ");
+  return `<span>${t("ph_" + v.phase)}${v.phase === "work" && v.work_seconds > 0.5 ? " " + v.work_seconds.toFixed(1) + "s" : ""}</span>${faults ? " · " + faults : ""}`;
+}
+// The live picture from the camera engine: 300 ms while a lane is running, 1 s otherwise.
+let liveBusy = false, liveLast = 0;
+async function pollLanes() {
+  if (role !== "station" || liveBusy) return;
+  const running = lanes.some(l => l.state === "running");
+  if (Date.now() - liveLast < (running ? 300 : 1000)) return;
+  liveBusy = true;
+  try {
+    const live = await api("GET", `/api/lanes?station=${event}`);
+    liveLast = Date.now();
+    S.live = live;
+    const cam = $("xCam");
+    cam.textContent = live.engine.online ? t("cam_live", { fps: Math.round(live.engine.fps || 0) }) : t("cam_off");
+    cam.className = "pill " + (live.engine.online ? "live" : "off");
+    lanes.forEach(l => {
+      if (l.state !== "running") return;                                         // stopped: the number is frozen for saving
+      const v = live.lanes[String(l.n)];
+      if (!live.engine.online || !v || !v.current) { if (l.live) { l.live = null; const p = $("lp-" + l.n); if (p) p.innerHTML = ""; } return; }
+      l.auto = { count: v.count, rejected: v.rejected }; l.live = v;
+      applyCounts(l);
+      const p = $("lp-" + l.n); if (p) p.innerHTML = liveHtml(l);
+      const fx = $("lf-" + l.n); if (fx) fx.classList.remove("hidden");
+    });
+  } catch (e) { /* connection pill already shows it */ }
+  finally { liveBusy = false; }
 }
 function stopLane(n) { const l = lanes[n - 1]; if (l.state === "running") { l.state = "stopped"; renderLane(l); } }
 async function saveLane(n) {
   const l = lanes[n - 1];
   if (l.busy) return;
+  const why = (l.why || "").trim();
+  if (corrected(l) && !why) { l.error = t("e_override_reason_required"); renderLane(l); $("lor-" + n)?.focus(); return; }
   l.busy = true;
-  try { l.result = await api("POST", `/api/attempts/${l.attempt.id}/finish`, { count: l.count, rejected: l.rejected }); l.state = "done"; l.error = null; refresh(); }
+  try { l.result = await api("POST", `/api/attempts/${l.attempt.id}/finish`, { count: l.count, rejected: l.rejected, override_reason: why || null }); l.state = "done"; l.error = null; refresh(); }
   catch (e) {
     l.error = err(e);
+    if (e.code === "override_reason_required") l.needWhy = true;   // the camera counted even if this tablet never saw it live
     if (e.code === "attempt_not_running") {
       // The save may have reached the server even though the answer was lost: show what it has.
       const fresh = await api("GET", `/api/entries/${l.entry.id}`).catch(() => null);
@@ -841,17 +1684,18 @@ function renderLane(l) {
     body = whoHtml(l.entry) + `<div class="msg bad">${t("e_" + l.reason)}</div>` + (l.reason === "attempt_in_progress" ? `<button class="btn" onclick="cancelOpen(${l.n})">${t("cancel_prev")}</button>` : "") + `<div class="row" style="margin-top:auto"><button class="btn" onclick="resetLane(${l.n})">${t("clear")}</button></div>`;
   } else if (l.state === "verified") {
     const open = l.reason === "attempt_in_progress";
-    body = whoHtml(l.entry) + `<div class="msg ok">${t("verified")} · ${t("run")} ${fmt(l.entry.run_time_s)}</div>`
+    body = whoHtml(l.entry) + `<div class="msg ok">${t("verified")} · ${t("run")} ${fmt(l.entry.run_time_s)}</div>` + targetHtml(l.entry, event)
       + (open ? `<div class="msg warn">${t("e_attempt_in_progress")}</div><button class="btn" onclick="cancelOpen(${l.n})">${t("cancel_prev")}</button>` : "")
       + `<div class="row" style="margin-top:auto"><button class="btn go xl" onclick="startLane(${l.n})" ${open || l.busy ? "disabled" : ""}>${t("start_test")}</button></div><button class="btn ghost sm" onclick="resetLane(${l.n})">${t("clear")}</button>`;
   } else if (l.state === "running" || l.state === "stopped") {
     const left = l.state === "running" ? l.left : 0;
-    body = whoHtml(l.entry) + `<div class="count"><span id="lc-${l.n}">${l.count}</span><small>${t("valid")} · <span id="lr-${l.n}">${l.rejected}</span> ${t("rejected_rep")}</small></div><div class="timer ${left <= 10 ? "low" : ""}" id="lt-${l.n}">${mmss(left)}</div>
-      <div class="tap"><button class="btn go" onclick="tap(${l.n},'count',1)">+1 ${t("valid")}</button><button class="btn" onclick="tap(${l.n},'count',-1)">−1</button><button class="btn stop" onclick="tap(${l.n},'rejected',1)">+1 ✗</button></div>
+    body = whoHtml(l.entry) + targetHtml(l.entry, event) + `<div class="count"><span id="lc-${l.n}">${l.count}</span><small>${t("valid")} · <span id="lr-${l.n}">${l.rejected}</span> ${t("rejected_rep")}</small></div><div class="timer ${left <= 10 ? "low" : ""}" id="lt-${l.n}">${mmss(left)}</div><div class="live" id="lp-${l.n}">${liveHtml(l)}</div>
+      <div class="fixlabel ${l.auto ? "" : "hidden"}" id="lf-${l.n}">${t("corrections")}</div><div class="tap"><button class="btn go" onclick="tap(${l.n},'count',1)">+1 ${t("valid")}</button><button class="btn" onclick="tap(${l.n},'count',-1)">−1</button><button class="btn stop" onclick="tap(${l.n},'rejected',1)">+1 ✗</button></div>
+      ${l.state === "stopped" ? `<div class="override ${corrected(l) ? "" : "hidden"}" id="lo-${l.n}"><label class="hint">${t("override_reason_label", { n: l.auto ? l.auto.count : "?" })}</label><input id="lor-${l.n}" placeholder="${t("ph_reason")}" value="${esc(l.why)}" oninput="lanes[${l.n - 1}].why = this.value" onkeydown="if(event.key==='Enter')saveLane(${l.n})"></div>` : ""}
       <div class="row" style="margin-top:auto">${l.state === "running" ? `<button class="btn stop" onclick="stopLane(${l.n})">${t("stop")}</button>` : `<button class="btn amber xl" onclick="saveLane(${l.n})">${t("finish_save")}</button>`}</div>`;
   } else if (l.state === "done") {
     const r = l.result;
-    body = whoHtml(l.entry) + `<div class="count">${r.count}<small>${t("valid")} · ${r.rejected} ${t("rejected_rep")}</small></div><div class="verdict ${r.passed ? "pass" : "fail"}">${r.passed ? t("pass") : t("fail")}</div><div class="row" style="margin-top:auto"><button class="btn amber xl" onclick="resetLane(${l.n})">${t("confirm_next")}</button></div>`;
+    body = whoHtml(l.entry) + `<div class="count">${r.count}<small>${t("valid")} · ${r.rejected} ${t("rejected_rep")}</small></div><div class="verdict ${r.passed == null ? "" : r.passed ? "pass" : "fail"}">${r.passed == null ? t("recorded_only") : (r.passed ? t("pass") : t("fail"))}${r.grade != null ? ` · ${gradeTxt(r.grade)}` : ""}</div><div class="row" style="margin-top:auto"><button class="btn amber xl" onclick="resetLane(${l.n})">${t("confirm_next")}</button></div>`;
   }
   const keep = $("lq-" + l.n)?.value;
   el.innerHTML = head + error + body;
@@ -859,17 +1703,96 @@ function renderLane(l) {
 }
 function renderStation() {
   for (const x of ["pushup", "crunch"]) $("ev-" + x).classList.toggle("active", x === event);
-  if (S.rules) { $("xLimit").textContent = mmss(S.rules.exercise_time_s).replace(/^0/, ""); $("xPass").textContent = S.rules[event + "_pass"]; }
-  $("xWaiting").textContent = S.entries.filter(e => e.status === "run_passed" && !(e.events[event] && e.events[event].status === "finished")).length;
+  if (S.rules) $("xLimit").textContent = mmss(S.rules.exercise_time_s).replace(/^0/, "");
+  $("xWaiting").textContent = S.entries.filter(e => RAN.includes(e.status) && !(e.events[event] && e.events[event].status === "finished")).length;
   const host = $("lanes");
   if (!host.children.length) lanes.forEach(l => { const d = document.createElement("div"); d.className = "lane"; d.id = "lane-" + l.n; host.appendChild(d); renderLane(l); });
 }
 
+// ---- the official table, as the screens need it
+const RAN = ["run_passed", "run_failed", "run_done", "dnf"];   // took the run: on to the exercises
+const GRADES = [60, 70, 100];
+const bandOf = e => S.rules && e.standard && e.standard.band ? [...S.rules.men, ...S.rules.women].find(b => `${b.age_min}-${b.age_max}` === e.standard.band) : null;
+const gradeTxt = g => (g ? `${g}%` : t("below_60"));
+function targetHtml(e, test) {
+  const b = bandOf(e);
+  if (!b) return `<div class="target hint">${t("recorded_only_hint")}</div>`;
+  return `<div class="target"><span class="hint">${t("std_age", { age: e.standard.age, band: e.standard.band.replace("-", "–") })} · ${t("std_needs", { level: e.standard.level })}</span>${gradeTable([[test, b[test === "run" ? "run_s" : test]]], e.standard.level)}</div>`;
+}
+// ---- correct a candidate's details (admin PIN when set). A change to date of birth, gender or
+// unit after weigh-in re-scores every saved result on the server.
+const EditDlg = {
+  entry: null,
+  async open(id) {
+    let e;
+    try { e = await api("GET", `/api/entries/${id}`); } catch (x) { msg("wMsg", "bad", err(x)); return; }
+    this.entry = e; const c = e.candidate;
+    $("eName").value = c.name; $("eNameAr").value = c.name_ar || ""; $("eId").value = c.external_id; $("eBib").value = c.bib || "";
+    $("eGender").value = c.gender || ""; $("eDob").value = c.dob || ""; $("eUnit").value = c.unit || setting("default_unit");
+    $("eBib").disabled = ["lined_up", "running"].includes(e.status);
+    $("eRegrade").classList.toggle("hidden", e.standard.age == null); msg("editMsg");
+    $("editDlg").showModal(); $("eName").focus();
+  },
+  close() { $("editDlg").close(); },
+  async save() {
+    const c = this.entry.candidate, body = {};
+    const now = { name: $("eName").value.trim(), name_ar: $("eNameAr").value.trim() || null, external_id: $("eId").value.trim(),
+                  bib: $("eBib").value.trim() || null, gender: $("eGender").value || null, dob: $("eDob").value || null, unit: $("eUnit").value };
+    for (const [k, v] of Object.entries(now)) if (v !== (c[k] ?? null)) body[k] = v;   // only what changed
+    if (!Object.keys(body).length) { this.close(); return; }
+    $("eSave").disabled = true;
+    try {
+      const e = await api("PATCH", `/api/entries/${this.entry.id}/candidate`, body);
+      this.close(); await refresh();
+      // the weigh-in desk shows this person: show the corrected details and targets
+      if ((wLast && wLast.id === e.id) || needsFor === e.id) {
+        if (wLast && wLast.id === e.id) wLast = e;
+        $("wWho").innerHTML = whoHtml(e);
+        if (wEntry && wEntry.id === e.id) startWeigh(e); else { needsFor = null; showNeeds(e); }
+      }
+      msg(mode === "advanced" ? "aMsg" : "wMsg", "ok", t("edit_saved", { name: cname(e.candidate) }) + (e.standard.age != null && body.dob ? " " + t("age_n", { age: e.standard.age }) : ""));
+    } catch (x) {
+      if (x.code === "admin_pin_required") PinDlg.open(() => this.save());
+      else msg("editMsg", "bad", err(x));
+    } finally { $("eSave").disabled = false; }
+  },
+};
+
+// ---- "What you need": the person's row of the pass table, at the desk where they can read it.
+let needsFor = null;
+function needsCard(entry, age, band, level, rows) {
+  needsFor = entry ? entry.id : null;
+  // Name and age large; the date of birth next to the age so a wrong record is caught at the desk.
+  const c = entry.candidate, unit = $("wUnit") && wEntry && wEntry.id === entry.id ? $("wUnit").value : c.unit;
+  const dob = c.dob || ($("wDob") && $("wDob").value) || "";
+  setHTML("wNeedsBody", `<div class="needs-who"><b>${esc(cname(c))}</b><span class="age">${t("age_n", { age })}</span><span class="spacer"></span><button class="btn ghost sm" onclick="EditDlg.open(${entry.id})">${t("edit_details")}</button></div>`
+    + `<div class="needs-sub">${dob ? `${t("born")} ${esc(fmtDate(dob))} · ` : ""}${t("band_n", { band: band.replace("-", "–") })}${unit ? ` · ${t("unit_" + unit)}` : ""} · <b>${t("std_needs", { level })}</b></div>`
+    + gradeTable(rows, level) + `<p class="hint" style="margin:8px 0 0">${t("needs_note")}</p>`);
+  $("wNeeds").classList.remove("hidden");
+}
+function showNeeds(entry) {
+  const b = bandOf(entry);
+  if (b) { needsCard(entry, entry.standard.age, entry.standard.band, entry.standard.level, ["run", "pushup", "crunch"].map(x => [x, b[x === "run" ? "run_s" : x]])); return; }
+  if (entry.status !== "expected" || needsFor === entry.id) return;   // weighed without a table: nothing to show
+  api("POST", `/api/entries/${entry.id}/standard`, { unit: entry.candidate.unit }).then(r => {
+    if (r.needs) needsCard(entry, r.age, r.band, r.level, ["run", "pushup", "crunch"].map(x => [x, GRADES.map(g => r.needs[x][String(g)])]));
+  }).catch(() => {});
+}
+const fmtDate = d => new Date(d + "T12:00:00").toLocaleDateString(lang === "ar" ? "ar-EG" : "en-GB", { day: "numeric", month: "short", year: "numeric" });
+// What each grade needs, one row per test; the column this person must reach is marked.
+function gradeTable(rows, level) {
+  const head = `<tr><th></th>${GRADES.map(g => `<th class="${g === level ? "need" : ""}">${g}%${g === level ? ` <small>${t("required")}</small>` : ""}</th>`).join("")}</tr>`;
+  const body = rows.map(([test, vals]) => `<tr><th>${t(test)} <small>${test === "run" ? "≤" : "≥"}</small></th>${vals.map((v, i) =>
+    `<td class="${GRADES[i] === level ? "need" : ""}">${test === "run" || test === "run_s" ? mmss0(v) : v}</td>`).join("")}</tr>`).join("");
+  return `<table class="grades">${head}${body}</table>`;
+}
+const verdictPill = v => v ? `<span class="pill ${v === "pass" ? "ok" : v === "fail" ? "bad" : ""}">${t("v_" + v)}</span>` : "—";
+
 /* ============================== advanced ============================== */
 async function addCandidate() {
   try {
-    await api("POST", "/api/entries", { external_id: $("nId").value, name: $("nName").value, name_ar: $("nNameAr").value || null, gender: $("nGender").value || null, dob: $("nDob").value || null, bib: $("nBib").value || null });
-    msg("aMsg", "ok", t("added")); ["nId", "nName", "nNameAr", "nDob", "nBib"].forEach(i => $(i).value = ""); $("nGender").value = ""; refresh();
+    await api("POST", "/api/entries", { external_id: $("nId").value, name: $("nName").value, name_ar: $("nNameAr").value || null, gender: $("nGender").value || null, dob: $("nDob").value || null, unit: $("nUnit").value, bib: $("nBib").value || null, auto_bib: true });
+    msg("aMsg", "ok", t("added")); ["nId", "nName", "nNameAr", "nDob", "nBib"].forEach(i => $(i).value = ""); $("nGender").value = setting("default_gender"); refresh();
   } catch (e) { msg("aMsg", "bad", err(e)); }
 }
 async function importCsv(input) {
@@ -883,41 +1806,258 @@ async function importCsv(input) {
   input.value = "";
 }
 function renderAdvanced() {
+  renderReview();
   const c = S.state.counts;
   $("aCounts").innerHTML = Object.entries(c).filter(([, v]) => v).map(([k, v]) => `${statusPill(k)} <b>${v}</b>`).join(" &nbsp; ") || "—";
-  const ev = (e, k) => { const a = e.events[k]; return !a ? "—" : a.status === "running" ? `<span class="pill info">…</span>` : `${a.count} ${a.passed ? "✓" : "✗"}`; };
-  const faceCell = e => `<td style="white-space:nowrap">${e.faces ? `<img class="thumb" src="/api/entries/${e.id}/face.jpg?n=${e.faces}" alt=""> <span class="hint">×${e.faces}</span> <button class="btn ghost sm" onclick="removeFace(${e.id})">✕</button>` : `<span class="pill warn">${t("no_face")}</span>`} <label class="btn sm">${t("enroll")}<input type="file" accept="image/*" class="hidden" onchange="enrollFile(${e.id}, this)"></label></td>`;
+  const ev = (e, k) => { const a = e.events[k]; return !a ? "—" : a.status === "running" ? `<span class="pill info">…</span>` : `${a.count}${a.grade != null ? ` <small class="hint">${gradeTxt(a.grade)}</small>` : ""}`; };
+  const runCell = e => e.run_time_s == null ? "—" : `${fmt(e.run_time_s)}${e.run_grade != null ? ` <small class="hint">${gradeTxt(e.run_grade)}</small>` : ""}`;
+  // Face: status (thumbnail and n/3, or "no face"), then camera capture (main), photo upload (fallback)
+  // and remove (confirmed: it deletes personal data).
+  const faceCell = e => {
+    const n = e.faces || 0, full = n >= 3;
+    const status = n ? `<img class="thumb" src="/api/entries/${e.id}/face.jpg?n=${n}" alt=""><span class="n ${full ? "" : "part"}" title="${t("face_count_hint")}">${n}/3</span>`
+                     : `<span class="pill warn">${t("no_face")}</span>`;
+    const cam = `<button class="btn sm ${full ? "ghost" : "amber"}" onclick="EnrolDlg.open(${e.id})" title="${t("face_camera_hint")}">${t("face_camera")}</button>`;
+    const up = `<label class="btn ghost sm" title="${t("face_upload_hint")}">${t("face_upload")}<input type="file" accept="image/*" class="hidden" onchange="enrollFile(${e.id}, this)"></label>`;
+    const rm = n ? `<button class="btn ghost sm danger" onclick="confirmClick('unface${e.id}', this, () => removeFace(${e.id}), 'sure_unface')" title="${t("face_remove_hint")}">✕</button>` : "";
+    return `<td><div class="facecell">${status}${cam}${up}${rm}</div></td>`;
+  };
   const started = !!S.state.run_started_at;
   const actions = e => {
-    const b = [];
+    const b = [`<button class="btn ghost sm" onclick="EditDlg.open(${e.id})">${t("edit")}</button>`];
     if (!started && ["accepted", "rejected"].includes(e.status)) b.push(`<button class="btn ghost sm" onclick="confirmClick('unweigh${e.id}', this, () => undoWeighIn(${e.id}))">${t("undo_weigh")}</button>`);
+    // Nothing recorded yet: remove. With results: delete them too, after a second press.
     if (e.status === "expected" && !Object.keys(e.events).length) b.push(`<button class="btn ghost sm" onclick="confirmClick('remove${e.id}', this, () => removeEntry(${e.id}))">${t("remove")}</button>`);
+    else b.push(`<button class="btn ghost sm danger" onclick="confirmClick('delete${e.id}', this, () => removeEntry(${e.id}, true), 'sure_delete')">${t("delete_entry")}</button>`);
     return `<td style="white-space:nowrap">${b.join(" ")}</td>`;
   };
-  setHTML("aTable", S.entries.map(e => `<tr>${faceCell(e)}<td>${esc(e.candidate.external_id)}</td><td>${esc(cname(e.candidate))}</td><td class="t">${esc(e.candidate.bib ?? "—")}</td><td>${e.bmi ?? "—"}</td><td>${statusPill(e.status)}</td><td class="t">${fmt(e.run_time_s)}</td><td>${ev(e, "pushup")}</td><td>${ev(e, "crunch")}</td>${actions(e)}</tr>`).join("") || `<tr><td colspan="10" class="hint">—</td></tr>`);
-  const r = S.rules;
-  if (r) $("rTable").innerHTML = [["rule_bmi", `${r.bmi_min} – ${r.bmi_max}`], ["rule_run", fmt(r.run_pass_s)], ["rule_cutoff", fmt(r.run_cutoff_s)], ["rule_pushup", r.pushup_pass], ["rule_crunch", r.crunch_pass], ["rule_time", `${r.exercise_time_s} s`], ["rule_version", r.version]].map(([k, v]) => `<tr><th>${t(k)}</th><td class="t">${esc(v)}</td></tr>`).join("");
+  setHTML("aTable", S.entries.map(e => `<tr>${faceCell(e)}<td>${esc(e.candidate.external_id)}</td><td>${esc(cname(e.candidate))}</td><td class="t">${esc(e.candidate.bib ?? "—")}</td><td>${e.bmi ?? "—"}</td><td>${statusPill(e.status)}</td><td class="t">${runCell(e)}</td><td>${ev(e, "pushup")}</td><td>${ev(e, "crunch")}</td><td>${verdictPill(e.verdict)}</td>${actions(e)}</tr>`).join("") || `<tr><td colspan="11" class="hint">—</td></tr>`);
+}
+
+/* ============================== review ============================== */
+const rvOpen = new Set();
+function toggleReps(id) { if (rvOpen.has(id)) rvOpen.delete(id); else rvOpen.add(id); renderReview(); }
+function playClip(btn) {
+  const v = $("rvVideo"); $("rvPlayer").classList.remove("hidden");
+  v.src = "/api/evidence/" + btn.dataset.clip.split("/").map(encodeURIComponent).join("/");
+  $("rvCaption").textContent = btn.dataset.label; v.play().catch(() => {}); $("rvPlayer").scrollIntoView({ block: "nearest" });
+}
+function renderReview() {
+  const hhmm = s => s ? new Date(s).toLocaleTimeString(lang === "ar" ? "ar-EG" : "en-GB", { hour: "2-digit", minute: "2-digit" }) : "—";
+  const rows = (S.attempts || []).map(a => {
+    const over = a.auto_count != null && a.count !== a.auto_count, open = rvOpen.has(a.id);
+    const cam = a.auto_count == null ? `<span class="hint">${t("no_camera")}</span>` : `${a.auto_count} / ${a.auto_rejected ?? 0}`;
+    const ov = (over ? `<span class="pill warn">${t("overridden")}</span> ` : "") + (a.override_reason ? esc(a.override_reason) : over ? "" : "—");
+    const main = `<tr><td>${hhmm(a.ended_at)}</td><td>${esc(cname(a.candidate))}</td><td class="t">${esc(a.candidate.bib ?? "—")}</td><td>${t(a.event)}</td><td>${esc(a.lane ?? "—")}</td><td class="t">${a.count} / ${a.rejected ?? 0} ${a.passed ? "✓" : "✗"}</td><td class="t">${cam}</td><td>${ov}</td><td style="white-space:nowrap"><button class="btn ghost sm" onclick="toggleReps(${a.id})">${open ? t("hide_reps") : t("show_reps", { n: a.reps.length })}</button></td></tr>`;
+    if (!open) return main;
+    const reps = a.reps.map(r => `<tr><td class="t">${r.index}</td><td>${r.valid ? `<span class="pill ok">${t("valid")}</span>` : `<span class="pill bad">${t("rejected_rep")}</span>`}</td><td>${(r.faults || []).map(f => `<span class="fault">${t("f_" + f)}</span>`).join(" · ") || "—"}</td><td>${r.t_start.toFixed(1)} – ${r.t_end.toFixed(1)} s</td><td>${r.clip ? `<button class="btn sm" data-clip="${esc(r.clip)}" data-label="${esc(t("clip_of", { name: cname(a.candidate), n: r.index }))}" onclick="playClip(this)">▶ ${t("play")}</button>` : `<span class="hint">${t("no_clip")}</span>`}</td></tr>`).join("");
+    return main + `<tr><td colspan="9" style="padding:0 0 0 28px">${reps ? `<table class="reps"><thead><tr><th>${t("rep")}</th><th>${t("status")}</th><th>${t("faults")}</th><th>${t("time")}</th><th></th></tr></thead><tbody>${reps}</tbody></table>` : `<p class="hint">${t("no_reps")}</p>`}</td></tr>`;
+  });
+  setHTML("rvTable", rows.join("") || `<tr><td colspan="9" class="hint">—</td></tr>`);
 }
 
 async function undoWeighIn(id) {
   try { const e = await api("POST", `/api/entries/${id}/weigh-in/undo`, { reason: null }); msg("aMsg", "ok", `${cname(e.candidate)} · ${t("weigh_undone")}`); refresh(); }
   catch (e) { msg("aMsg", "bad", err(e)); }
 }
-async function removeEntry(id) {
-  try { await api("DELETE", `/api/entries/${id}`); msg("aMsg", "ok", t("entry_removed")); refresh(); }
+async function removeEntry(id, deleteResults) {
+  try { await api("DELETE", `/api/entries/${id}${deleteResults ? "?delete_results=true" : ""}`); msg("aMsg", "ok", t("entry_removed")); refresh(); }
   catch (e) { msg("aMsg", "bad", err(e)); }
+}
+
+/* ============================== live camera ============================== */
+// The station camera's annotated picture, sent by the engine (src/testpoint/preview.py).
+const CamLive = {
+  busy: false, last: 0, misses: 0,
+  target() { return role === "station" ? { el: "camLive-station", station: event } : role === "finish" ? { el: "camLive-finish", station: "finish" } : null; },
+  tick() {
+    const tg = this.target(); if (!tg || this.busy || Date.now() - this.last < 300 || document.hidden) return;
+    const box = $(tg.el), img = box.querySelector("img");
+    this.busy = true; this.last = Date.now();
+    const next = new Image();
+    next.onload = () => { img.src = next.src; box.classList.remove("hidden"); this.busy = false; this.misses = 0; };
+    // One missed picture keeps the last one on screen; three in a row means no camera: hide, retry every 2 s.
+    next.onerror = () => { this.busy = false; if (++this.misses >= 3) { box.classList.add("hidden"); this.last = Date.now() + 1700; } };
+    next.src = `/api/engine/frame/${tg.station}.jpg?t=${this.last}`;
+  },
+};
+
+/* ============================== settings ============================== */
+// Station settings from the server (shared by every device); see service.SETTINGS.
+const SETTING_DEFAULTS = { auto_identify: true, camera_background: "off", backdrop_color: "#8a949e", background_image: null, face_match: "normal", face_required: false, walk_ins: true, default_gender: "M", default_unit: "combat",
+                           bib_start: 1, lanes: 3, site_name: "", default_language: "en", admin_pin_set: false };
+const setting = k => (S.settings && k in S.settings ? S.settings[k] : SETTING_DEFAULTS[k]);
+function applySettings(first) {
+  if (first && load("lang", null) == null && setting("default_language") !== lang) setLang(setting("default_language"), false);
+  if (first && setting("auto_identify") !== autoId) toggleAuto();
+  if (!$("nId").value && !$("nName").value) { $("nGender").value = setting("default_gender"); $("nUnit").value = setting("default_unit"); }
+  setLaneCount(setting("lanes"));
+  applySiteName();
+  if (setting("admin_pin_set") && !adminPin()) {   // a PIN set elsewhere locks this device too
+    if (settingsOpen) closeSettings();
+    if (mode === "advanced") setMode("simple");
+  }
+  BgFx.backdrop = setting("backdrop_color"); BgFx.setImage(setting("background_image"));
+  BgFx.setMode(setting("camera_background"));
+}
+function applySiteName() {
+  const site = setting("site_name");
+  $("tagline").textContent = site || t("tagline");
+  document.title = site ? `TestPoint · ${site}` : "TestPoint Station";
+}
+const SET_FIELDS = {   // input id -> [setting, read, write]
+  setAuto: ["auto_identify", v => v === "1", v => (v ? "1" : "0")], setBg: ["camera_background"], setMatch: ["face_match"], setFaceReq: ["face_required", v => v === "1", v => (v ? "1" : "0")],
+  setWalk: ["walk_ins", v => v === "1", v => (v ? "1" : "0")], setGender: ["default_gender"], setUnit: ["default_unit"], setBib: ["bib_start", v => parseInt(v, 10)],
+  setLanes: ["lanes", v => parseInt(v, 10), String], setSite: ["site_name", v => v.trim()], setLang: ["default_language"],
+};
+function showSettings() {
+  for (const [id, [k, , out]] of Object.entries(SET_FIELDS)) $(id).value = out ? out(setting(k)) : setting(k);
+  const col = setting("backdrop_color"), preset = [...$("setBgColor").options].some(o => o.value === col);
+  $("setBgColor").value = preset ? col : "custom"; $("setBgCustom").value = col;
+  bgColorPicked(); bgPreview(); bgRows();
+  msg("setMsg"); showRules(); showPin();
+}
+// The colour / picture controls appear under "Camera background" only when that choice needs them.
+function bgRows() {
+  const m = $("setBg").value;
+  document.querySelectorAll("#t-settings .bgc").forEach(el => el.classList.toggle("hidden", m !== "backdrop"));
+  document.querySelectorAll("#t-settings .bgi").forEach(el => el.classList.toggle("hidden", m !== "image"));
+}
+const bgColor = () => ($("setBgColor").value === "custom" ? $("setBgCustom").value : $("setBgColor").value);
+function bgColorPicked() {
+  $("setBgCustom").classList.toggle("hidden", $("setBgColor").value !== "custom");
+  $("setBgSwatch").style.background = bgColor();
+}
+function bgPreview() {
+  const ver = setting("background_image");
+  $("setBgPrev").classList.toggle("hidden", !ver); $("setBgDel").classList.toggle("hidden", !ver);
+  if (ver) $("setBgPrev").src = `/api/settings/background-image?v=${ver}`;
+}
+// The picture is scaled to at most 1920 x 1080 here, so a phone photo uploads in a moment.
+async function uploadBg(input) {
+  const f = input.files[0]; input.value = ""; if (!f) return;
+  try {
+    const img = await createImageBitmap(f), k = Math.min(1, 1920 / img.width, 1080 / img.height);
+    const c = document.createElement("canvas"); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    const blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.88));
+    const headers = { "content-type": "image/jpeg" }, pin = adminPin(); if (pin) headers["x-admin-pin"] = pin;
+    const r = await fetch("/api/settings/background-image", { method: "PUT", headers, body: blob });
+    if (!r.ok) { const d = await r.json().catch(() => ({})); throw d.detail || { code: "unknown" }; }
+    S.settings = await api("GET", "/api/settings"); applySettings(false); bgPreview();
+    $("setBg").value = "image"; bgRows();
+    msg("setMsg", "ok", t("bg_uploaded"));
+  } catch (e) { msg("setMsg", "bad", err(e.code ? e : { code: "bad_image" })); }
+}
+async function removeBg() {
+  try { await api("DELETE", "/api/settings/background-image"); S.settings = await api("GET", "/api/settings"); applySettings(false); bgPreview(); }
+  catch (e) { msg("setMsg", "bad", err(e)); }
+}
+async function saveSettings() {
+  const body = { backdrop_color: bgColor() };
+  for (const [id, [k, read]] of Object.entries(SET_FIELDS)) body[k] = read ? read($(id).value) : $(id).value;
+  if (!(body.bib_start >= 1)) { msg("setMsg", "bad", t("e_bad_input")); return; }
+  try {
+    const before = S.settings || SETTING_DEFAULTS;
+    S.settings = await api("PUT", "/api/settings", body);
+    if (S.settings.auto_identify !== before.auto_identify && S.settings.auto_identify !== autoId) toggleAuto();   // this device right away
+    applySettings(false); showSettings();
+    msg("setMsg", "ok", t("settings_saved") + (setting("lanes") !== lanes.length ? " " + t("lanes_wait") : ""));
+  } catch (e) { msg("setMsg", "bad", err(e)); }
+}
+
+// ---- test rules: a new version; today keeps its rules once anything has been scored
+const mmss0 = v => `${Math.floor(v / 60)}:${String(Math.round(v % 60)).padStart(2, "0")}`;
+const mmssIn = v => { const m = /^\s*(\d+)(?::(\d{1,2}))?\s*$/.exec(v); return m ? +m[1] * 60 + +(m[2] || 0) : NaN; };
+function showRules() {
+  const r = S.rules; if (!r) return;
+  const show = r.next || r;   // edit the newest version
+  const cell = (i, k, j, v) => `<td><input data-b="${i}" data-k="${k}" data-j="${j}" value="${k === "run_s" ? mmss0(v) : v}" inputmode="numeric"></td>`;
+  $("ruMen").innerHTML = show.men.map((b, i) => `<tr><td class="ages"><input data-b="${i}" data-k="age_min" value="${b.age_min}" inputmode="numeric"><span>–</span><input data-b="${i}" data-k="age_max" value="${b.age_max}" inputmode="numeric"></td>`
+    + ["run_s", "pushup", "crunch"].map(k => b[k].map((v, j) => cell(i, k, j, v)).join("")).join("") + `</tr>`).join("");
+  $("ruLvCombat").value = show.unit_level.combat; $("ruLvAdmin").value = show.unit_level.admin; $("ruLvSpecial").value = show.unit_level.special;
+  $("ruBmiMin").value = show.bmi_min; $("ruBmiMax").value = show.bmi_max; $("ruCut").value = mmss0(show.run_cutoff_s); $("ruTime").value = show.exercise_time_s;
+  $("ruleState").textContent = r.next ? t("rules_pending", { v: r.version, next: r.next.version }) : t("rules_today", { v: r.version });
+}
+async function saveRules() {
+  const show = S.rules.next || S.rules;
+  const men = show.men.map(b => ({ age_min: b.age_min, age_max: b.age_max, run_s: [...b.run_s], pushup: [...b.pushup], crunch: [...b.crunch] }));
+  let bad = false;
+  document.querySelectorAll("#ruMen input").forEach(inp => {
+    const b = men[+inp.dataset.b], k = inp.dataset.k, v = k === "run_s" ? mmssIn(inp.value) : parseInt(inp.value, 10);
+    inp.classList.toggle("invalid", !Number.isFinite(v)); if (!Number.isFinite(v)) bad = true;
+    if (inp.dataset.j != null) b[k][+inp.dataset.j] = v; else b[k] = v;
+  });
+  const body = { men, unit_level: { combat: +$("ruLvCombat").value, admin: +$("ruLvAdmin").value, special: +$("ruLvSpecial").value },
+                 bmi_min: parseFloat($("ruBmiMin").value), bmi_max: parseFloat($("ruBmiMax").value),
+                 run_cutoff_s: mmssIn($("ruCut").value), exercise_time_s: parseInt($("ruTime").value, 10) };
+  if (bad || [body.bmi_min, body.bmi_max, body.run_cutoff_s, body.exercise_time_s].some(v => !Number.isFinite(v))) { msg("ruMsg", "bad", t("e_bad_input")); return; }
+  try {
+    const res = await api("PUT", "/api/rules", body);
+    S.rules = await api("GET", "/api/rules"); showRules(); render();
+    msg("ruMsg", "ok", res.applies_today ? t("rules_saved_today", { v: res.rules.version }) : t("rules_saved_next", { v: res.next.version }));
+  } catch (e) { msg("ruMsg", "bad", err(e)); }
+}
+
+// ---- administrator PIN: guards Advanced and every admin action (checked by the server each time)
+const adminPin = () => { try { return sessionStorage.getItem("tp_admin_pin"); } catch { return null; } };
+const setAdminPin = v => { try { v ? sessionStorage.setItem("tp_admin_pin", v) : sessionStorage.removeItem("tp_admin_pin"); } catch {} };
+// Settings: one page from the header, over whichever screen this device shows; same PIN as Advanced.
+let settingsOpen = false;
+function openSettings() {
+  if (setting("admin_pin_set") && !adminPin()) { PinDlg.open(openSettings); return; }
+  settingsOpen = true; showSettings();
+  for (const x of ["simple", "advanced"]) $(x).classList.add("hidden");
+  $("settingsPage").classList.remove("hidden"); $("setBtn").classList.add("active"); window.scrollTo(0, 0);
+  for (const x of ["simple", "advanced"]) $("mode-" + x).classList.remove("active");
+}
+function closeSettings() { setMode(mode); }
+const PinDlg = {
+  next: null,
+  open(next) { this.next = next || (() => setMode("advanced")); const d = $("pinDlg"); if (d.open) return; $("pinIn").value = ""; msg("pinDlgMsg"); d.showModal(); $("pinIn").focus(); },
+  cancel() { $("pinDlg").close(); },
+  async submit() {
+    const pin = $("pinIn").value.trim(); if (!pin) return;
+    try {
+      const r = await fetch("/api/settings/admin-pin/check", { method: "POST", headers: { "x-admin-pin": pin } });
+      if (!r.ok) { msg("pinDlgMsg", "bad", t("e_admin_pin_required")); $("pinIn").select(); return; }
+      setAdminPin(pin); $("pinDlg").close(); this.next();
+    } catch { msg("pinDlgMsg", "bad", t("e_network")); }
+  },
+};
+function showPin() {
+  $("pinState").textContent = setting("admin_pin_set") ? t("pin_is_set") : t("pin_not_set");
+  $("pinRemove").classList.toggle("hidden", !setting("admin_pin_set")); $("setPin").value = ""; msg("pinMsg");
+}
+async function savePin(remove) {
+  const pin = remove ? "" : $("setPin").value.trim();
+  if (!remove && !/^\d{4,8}$/.test(pin)) { msg("pinMsg", "bad", t("e_bad_pin")); return; }
+  try {
+    const r = await api("PUT", "/api/settings/admin-pin", { pin });
+    setAdminPin(remove ? null : pin); S.settings = { ...S.settings, admin_pin_set: r.admin_pin_set };
+    showPin(); msg("pinMsg", "ok", remove ? t("pin_removed") : t("pin_saved"));
+  } catch (e) { msg("pinMsg", "bad", err(e)); }
 }
 
 /* ============================== boot ============================== */
 (async function boot() {
   applyI18n();
-  $("role").value = role; setMode(mode); setRole(role); setEvent(event);
+  try { S.settings = await api("GET", "/api/settings"); } catch {}
+  setLaneCount(setting("lanes"));
+  $("role").value = role; setMode(mode === "advanced" && setting("admin_pin_set") && !adminPin() ? "simple" : mode); setRole(role); setEvent(event);
   $("autoBtn").textContent = t("auto_off");
   if (Cam.kind === "webcam") Cam.use("webcam"); else Cam.show();
   try { S.rules = await api("GET", "/api/rules"); } catch {}
+  applySettings(true);
   await refresh();
   setInterval(refresh, 2000);
   setInterval(tickClocks, 250);
+  $("xCam").textContent = t("cam_off");
+  setInterval(pollLanes, 100);
+  setInterval(() => CamLive.tick(), 100);
+  BgFx.attach($("camVideo"), $("camFx")); BgFx.attach($("enrolVideo"), $("enrolFx"));
+  for (const v of BgFx.views.values()) BgFx.sync(v);
+  $("enrolDlg").addEventListener("close", () => { if (EnrolDlg.stream) EnrolDlg.close(); });   // Esc: release the camera too
 })();
 </script>
 </body>

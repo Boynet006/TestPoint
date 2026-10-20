@@ -25,7 +25,7 @@ from .vision.keypoints import SKELETON, Person
 from .vision.lanes import Lane, equal_strips, load_lanes
 from .vision.pose import make_backend
 from .vision.session import MultiLaneResult, MultiLaneSession
-from .vision.sources import SourceError, open_source
+from .vision.sources import SourceError, iter_frames, open_source
 
 GREEN = (0, 200, 0)
 GREY = (140, 140, 140)
@@ -131,18 +131,12 @@ def main(argv: list[str] | None = None) -> int:
     writer = None
     src_fps = source.fps or 30.0
     frame_idx = 0
-    t0 = time.monotonic()
-    last = t0
+    last = time.monotonic()
     lane_names = [lane.name for lane in lanes]
     print(f"lanes: {lane_names}  source: {getattr(source, 'display_url', args.source)}")
 
     try:
-        while True:
-            frame = source.read()
-            if frame is None:
-                break
-            # Video files use their own clock; live cameras use wall time.
-            t = frame_idx / src_fps if not source.is_live else time.monotonic() - t0
+        for frame, t in iter_frames(source):
             res = session.process(frame, t)
             for name, ev in res.events:
                 verdict = "VALID" if ev.valid else f"REJECTED {ev.faults}"

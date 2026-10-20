@@ -30,6 +30,8 @@ class Candidate(Base):
     gender: Mapped[str | None] = mapped_column(String(1))
     dob: Mapped[str | None] = mapped_column(String(10))
     bib: Mapped[str | None] = mapped_column(String(16))
+    unit: Mapped[str | None] = mapped_column(String(16))
+    """Unit type (rules.UNITS): sets the level needed in every test."""
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
@@ -53,6 +55,8 @@ class Day(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     date: Mapped[str] = mapped_column(String(10), unique=True)
     rules_version: Mapped[str] = mapped_column(String(32))
+    rules_json: Mapped[str | None] = mapped_column(Text)
+    """The rules this day is judged by (a copy taken when the day starts; see service.rules_for)."""
     run_started_at: Mapped[datetime | None] = mapped_column(DateTime)
     run_closed_at: Mapped[datetime | None] = mapped_column(DateTime)
 
@@ -73,6 +77,13 @@ class Entry(Base):
     lined_up_at: Mapped[datetime | None] = mapped_column(DateTime)
     run_time_s: Mapped[float | None] = mapped_column(Float)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime)
+    # The standard this person is judged by, fixed at weigh-in (age on the test day).
+    age: Mapped[int | None] = mapped_column(Integer)
+    band: Mapped[str | None] = mapped_column(String(8))
+    """Age band of the pass table ("17-22"); None when no table applies (e.g. no women's table yet)."""
+    level: Mapped[int | None] = mapped_column(Integer)
+    """Grade needed in every test (60 or 70), from the unit type."""
+    run_grade: Mapped[int | None] = mapped_column(Integer)
 
     candidate: Mapped[Candidate] = relationship(lazy="joined")
     attempts: Mapped[list["Attempt"]] = relationship(back_populates="entry", lazy="selectin",
@@ -96,6 +107,9 @@ class Crossing(Base):
     note_code: Mapped[str | None] = mapped_column(String(32))
     note_bib: Mapped[str | None] = mapped_column(String(16))
     note_status: Mapped[str | None] = mapped_column(String(16))
+    # From the finish camera: OCR vote share for the bib and the evidence clip (docs/ENGINE-LINK.md).
+    confidence: Mapped[float | None] = mapped_column(Float)
+    clip_path: Mapped[str | None] = mapped_column(String(300))
 
 
 class Attempt(Base):
@@ -108,10 +122,45 @@ class Attempt(Base):
     ended_at: Mapped[datetime | None] = mapped_column(DateTime)
     count: Mapped[int | None] = mapped_column(Integer)
     rejected: Mapped[int | None] = mapped_column(Integer)
+    # What the camera engine counted (see docs/ENGINE-LINK.md); ``count`` / ``rejected``
+    # are what the examiner saved, so a difference is an examiner override.
+    auto_count: Mapped[int | None] = mapped_column(Integer)
+    auto_rejected: Mapped[int | None] = mapped_column(Integer)
+    # Why the examiner saved a count different from the engine's (required then).
+    override_reason: Mapped[str | None] = mapped_column(String(300))
     passed: Mapped[bool | None] = mapped_column(Boolean)
+    grade: Mapped[int | None] = mapped_column(Integer)
+    """Column of the pass table reached: 100, 70, 60, or 0 below 60."""
     status: Mapped[str] = mapped_column(String(16), default="running")
 
     entry: Mapped[Entry] = relationship(back_populates="attempts")
+    reps: Mapped[list["Rep"]] = relationship(back_populates="attempt", order_by="Rep.index")
+
+
+class Rep(Base):
+    """One repetition seen by the engine, valid or rejected, with its evidence clip."""
+
+    __tablename__ = "rep"
+    __table_args__ = (UniqueConstraint("attempt_id", "index"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    attempt_id: Mapped[int] = mapped_column(ForeignKey("attempt.id"), index=True)
+    index: Mapped[int] = mapped_column(Integer)
+    valid: Mapped[bool] = mapped_column(Boolean)
+    faults: Mapped[str] = mapped_column(Text, default="[]")   # JSON list of fault names
+    t_start: Mapped[float] = mapped_column(Float)
+    t_end: Mapped[float] = mapped_column(Float)
+    clip_path: Mapped[str | None] = mapped_column(String(300))
+
+    attempt: Mapped[Attempt] = relationship(back_populates="reps")
+
+
+class Setting(Base):
+    """Station settings shared by every device (see service.SETTINGS). Value is JSON."""
+
+    __tablename__ = "setting"
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
 class AuditLog(Base):
@@ -139,9 +188,19 @@ def make_sessionmaker(db_url: str) -> sessionmaker:
     with engine.begin() as conn:
         # Columns added after the first release: add them to existing databases.
         have = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(crossing)")} if db_url.startswith("sqlite") else None
-        for col in ("note_code", "note_bib", "note_status"):
+        for col, typ in (("note_code", "VARCHAR"), ("note_bib", "VARCHAR"), ("note_status", "VARCHAR"),
+                         ("confidence", "FLOAT"), ("clip_path", "VARCHAR")):
             if have is not None and col not in have:
-                conn.exec_driver_sql(f"ALTER TABLE crossing ADD COLUMN {col} VARCHAR")
+                conn.exec_driver_sql(f"ALTER TABLE crossing ADD COLUMN {col} {typ}")
+        for table, cols in (("day", (("rules_json", "TEXT"),)),
+                            ("candidate", (("unit", "VARCHAR"),)),
+                            ("entry", (("age", "INTEGER"), ("band", "VARCHAR"), ("level", "INTEGER"), ("run_grade", "INTEGER"))),
+                            ("attempt", (("auto_count", "INTEGER"), ("auto_rejected", "INTEGER"),
+                                         ("override_reason", "VARCHAR"), ("grade", "INTEGER")))):
+            have = {row[1] for row in conn.exec_driver_sql(f"PRAGMA table_info({table})")} if db_url.startswith("sqlite") else None
+            for col, typ in cols:
+                if have is not None and col not in have:
+                    conn.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {col} {typ}")
         # At most one running attempt per candidate, enforced by the database itself
         # (a double tap or two devices cannot create two). IF NOT EXISTS also upgrades
         # databases created before this index existed.

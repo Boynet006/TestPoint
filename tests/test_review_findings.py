@@ -42,7 +42,7 @@ def entry_id(c, q):
 def test_bib_kept_from_another_day_cannot_clash(monkeypatch):
     app, box = make(monkeypatch, "2026-10-20")
     with TestClient(app) as c:
-        c.post("/api/entries", json={"external_id": "P-1", "name": "Pat", "bib": "21"})
+        c.post("/api/entries", json={"external_id": "P-1", "name": "Pat", "bib": "21", "gender": "M", "dob": "2000-01-01"})
         box["today"] = "2026-10-21"
         c.post("/api/entries", json={"external_id": "NEW-1", "name": "Newcomer", "bib": "21"})
         r = c.post("/api/entries", json={"external_id": "P-1", "name": "Pat"})   # no bib: would keep 21
@@ -95,14 +95,14 @@ def test_bib_normalisation_and_gender_dob(client):
 
 
 def test_input_errors_have_a_code(client):
-    client.post("/api/entries", json={"external_id": "V-1", "name": "Val", "bib": "1"})
+    client.post("/api/entries", json={"external_id": "V-1", "name": "Val", "bib": "1", "gender": "M", "dob": "2000-01-01"})
     r = client.post(f"/api/entries/{entry_id(client, '1')}/weigh-in", json={"weight_kg": 450, "height_cm": 175, "accept": True})
     assert r.status_code == 422 and code(r) == "bad_input" and "weight_kg" in r.json()["detail"]["message"]
     assert code(client.post("/api/checkin", json={"station": "weigh", "query": "  "})) == "empty_query"
 
 
 def test_rejecting_inside_the_bmi_range_needs_a_reason(client):
-    client.post("/api/entries", json={"external_id": "R-1", "name": "Rae", "bib": "1"})
+    client.post("/api/entries", json={"external_id": "R-1", "name": "Rae", "bib": "1", "gender": "M", "dob": "2000-01-01"})
     i = entry_id(client, "1")
     assert code(client.post(f"/api/entries/{i}/weigh-in", json=W | {"accept": False})) == "reason_required"
     r = client.post(f"/api/entries/{i}/weigh-in", json=W | {"accept": False, "override_reason": "injured knee"})
@@ -110,7 +110,7 @@ def test_rejecting_inside_the_bmi_range_needs_a_reason(client):
 
 
 def setup_runner(c, bib="1"):
-    c.post("/api/entries", json={"external_id": f"E-{bib}", "name": f"Runner {bib}", "bib": bib})
+    c.post("/api/entries", json={"external_id": f"E-{bib}", "name": f"Runner {bib}", "bib": bib, "gender": "M", "dob": "2000-01-01"})
     i = entry_id(c, bib)
     c.post(f"/api/entries/{i}/weigh-in", json=W)
     c.post(f"/api/entries/{i}/line-up")

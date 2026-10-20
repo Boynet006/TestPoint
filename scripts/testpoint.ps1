@@ -15,6 +15,7 @@
 .EXAMPLE
     .\scripts\testpoint.ps1 start
     .\scripts\testpoint.ps1 start -Engine
+    .\scripts\testpoint.ps1 start -Rebuild      # after a code update: rebuild the images (needs internet)
     .\scripts\testpoint.ps1 stop
 #>
 param(
@@ -22,6 +23,7 @@ param(
     [string]$Action = 'start',
     [switch]$Engine,
     [switch]$NoBrowser,
+    [switch]$Rebuild,
     [int]$TimeoutSeconds = 180
 )
 
@@ -41,8 +43,17 @@ function Find-Docker {
 $Docker = Find-Docker
 
 function Test-Engine {
-    $null = & $Docker version --format '{{.Server.Version}}' 2>$null
-    return ($LASTEXITCODE -eq 0)
+    # Windows PowerShell 5.1 turns a native command's stderr into an error record when it is
+    # redirected; with 'Stop' that aborts the script, so "engine not running" would crash the
+    # very check meant to start Docker Desktop. Relax it for this one call.
+    $old = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $null = & $Docker version --format '{{.Server.Version}}' 2>$null
+        return ($LASTEXITCODE -eq 0)
+    } finally {
+        $ErrorActionPreference = $old
+    }
 }
 
 function Start-DockerDesktop {
@@ -59,6 +70,17 @@ function Start-DockerDesktop {
         Start-Sleep -Seconds 3
     }
     throw "The Docker engine did not start within $TimeoutSeconds s. Open Docker Desktop to see why (a pending update or licence prompt, or WSL not running)."
+}
+
+function Test-Image([string]$Image) {
+    $old = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'     # see Test-Engine
+    try {
+        $null = & $Docker image inspect $Image 2>$null
+        return ($LASTEXITCODE -eq 0)
+    } finally {
+        $ErrorActionPreference = $old
+    }
 }
 
 function Get-EnvValue([string]$Name) {
@@ -99,8 +121,20 @@ switch ($Action) {
             $composeArgs += @('--profile', 'gpu')
             $services += 'engine'
         }
+        # Images do not travel with the folder: a PC that never built them (or loaded them
+        # with docker load) has none. Build the missing ones once; this needs internet.
+        $version = Get-EnvValue 'TESTPOINT_VERSION'
+        if (-not $version) { $version = '0.1.0' }
+        $images = @{ app = "testpoint/app:$version"; engine = "testpoint/engine-gpu:$version" }
+        $missing = @($services | Where-Object { $Rebuild -or -not (Test-Image $images[$_]) })
+        if ($missing.Count -gt 0) {
+            if ($Rebuild) { Say "Rebuilding $($missing -join ', ') with the current code (needs internet)..." 'Yellow' }
+            else { Say "First start on this PC: building $($missing -join ', ') (needs internet once; a few minutes, the GPU engine longer)..." 'Yellow' }
+            Invoke-Compose ($composeArgs + @('build') + $missing)
+        }
+
         Say "Starting: $($services -join ', ')"
-        # --no-build: use the images already on this PC (the site is offline).
+        # --no-build: use the images on this PC (the site is offline).
         Invoke-Compose ($composeArgs + @('up', '-d', '--no-build') + $services)
 
         $port = Get-EnvValue 'APP_PORT'

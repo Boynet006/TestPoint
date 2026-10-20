@@ -22,6 +22,7 @@ network).
 - [docs/RULES.md](docs/RULES.md) — proposed rule set v1 for sign-off (thresholds, time limits, retention)
 - [docs/DEMO.md](docs/DEMO.md) — running the demo on one PC with photos and videos instead of cameras
 - [docs/TEST-DAY.md](docs/TEST-DAY.md) — the test-day flow: weigh-in gate, mass-start run, exercises only after a run pass
+- [docs/CALIBRATION.md](docs/CALIBRATION.md) — push-up and crunch counters checked and recalibrated on public videos (2026-10-19)
 - [docs/RESEARCH.md](docs/RESEARCH.md) — existing products, libraries and the reasoning behind the choices
 
 ## Repository layout
@@ -32,6 +33,8 @@ TestPoint/
   src/testpoint/        Python package
     vision/             pose backends, geometry, rep counter, exercise rules
     cli.py              demo: count reps per lane on a webcam, video file or RTSP camera
+    engine.py           station engine: counts reps and reports them live to the station app
+    evidence.py         evidence video per attempt and per-rep clips
   scripts/bench_pose.py pose pipeline benchmark (cpu vs cuda, all rtmlib modes)
   tests/                unit tests (no camera or model needed)
   docker/               build helpers (model download for the offline images)
@@ -134,6 +137,11 @@ fell back to CPU):
 python scripts/bench_pose.py --device cuda
 ```
 
+Any later `pip install` that depends on `onnxruntime` (for example
+`rapidocr-onnxruntime` for the finish camera's bib OCR, `pip install -e ".[run]"`)
+pulls the CPU wheel back in and silently disables the GPU again: repeat the
+uninstall / force-reinstall pair above after such an install.
+
 The backend calls `onnxruntime.preload_dlls()` before creating a CUDA session.
 Without that call ONNX Runtime cannot find the DLLs inside the `nvidia` pip
 packages and silently runs on the CPU.
@@ -175,7 +183,7 @@ for every device on test day. Each device picks its role in the header:
 | Weigh-in | Check in by face (webcam, or a photo/video for demos) or by bib, enter weight and height, accept or reject on BMI |
 | Run · start line | Mark runners present, then START (press twice) for the mass start |
 | Run · finish line | Type each bib as the runner crosses; unread bibs go to a review queue |
-| Exercise station | Push-ups or crunches, 3 lanes, check-in per lane, tap-count, save |
+| Exercise station | Push-ups or crunches, 3 lanes, check-in per lane, live count from the camera (or tap-count without it), save |
 
 **Advanced** shows today's list with everyone's status, CSV import, face
 enrolment and the rules. To demonstrate on one PC with photos and videos
@@ -195,6 +203,55 @@ To run it without Docker while developing:
 A sample list to import is in `samples/candidates.csv` (columns
 `external_id,name,name_ar,gender,dob,bib`). The API is documented at
 http://localhost:8080/docs.
+
+### Live rep counting at the station
+
+The camera engine is a second process, one per camera, that counts reps and
+reports to the app every 250 ms; the app answers with the attempt each lane is
+counting for, so pressing *Start* on the tablet resets that lane's counter.
+The lane tile then shows the count, the phase (*get into position / up / down*)
+and the live faults, the examiner's tap buttons become corrections on top of
+the camera's number, and the saved result keeps both (`count` and
+`auto_count`). Every rep is stored with its times and faults, a recording of the
+attempt and a clip per rep go under `data/evidence/<day>/<attempt>/`. Design
+and protocol: [docs/ENGINE-LINK.md](docs/ENGINE-LINK.md).
+
+On the development PC (app from the command above, webcam 0, GPU):
+
+```bash
+.venv\Scripts\python.exe -m testpoint.engine --source 0 --exercise pushup --device cuda --app http://127.0.0.1:8000
+```
+
+### Live camera on the station screens
+
+Both engines also send their annotated picture (skeletons, lane boxes, counts;
+runner boxes, finish line, bib reads) to the app about three times a second
+(`POST /api/engine/frame/<station>`), and the exercise and finish screens show it
+above the lane tiles / finishers list, so the examiner sees what the camera
+sees. It disappears on its own when the engine stops; `--no-preview` turns it off.
+Screenshots of every screen are in [docs/screenshots/](docs/screenshots/).
+
+### Finish-line camera
+
+`testpoint-finishcam` times runners crossing a virtual line and reads their
+bib, then posts each crossing to the app (`POST /api/engine/crossing`): a known
+running bib is a result, anything else lands in the finish screen's review
+queue with a 📷 badge and a clip. Bib OCR needs `pip install -e ".[run]"`
+(RapidOCR; then redo the GPU swap in *GPU setup*). On a clip:
+
+```bash
+.venv\Scripts\python.exe -m testpoint.finishcam --source data/clips/run/clip.mp4 --line 0,0.85,1,0.85 --device cuda --app http://127.0.0.1:8000 --out annotated.mp4
+```
+
+`--line x0,y0,x1,y1` is the finish line in 0..1 image coordinates, `--direction`
+which way counts (default `down`: runners come towards the camera), `--crop`
+the camera part of a feed with side panels, `--no-app` for clip analysis only.
+
+With Docker, `Start TestPoint.cmd -Engine` (or `START_ENGINE=1` in `.env`)
+starts the engine on `CAMERA_URL` reporting to the app; the station bar shows
+*Camera live · N fps*, or *Camera offline · manual count* when no engine
+reports for 2 s. A USB webcam is not reachable from a container on Windows, so
+for webcam tests run the engine natively as above.
 
 ## Docker
 
@@ -240,7 +297,11 @@ plus the NVIDIA Container Toolkit.
 
 Double-click **Start TestPoint.cmd** in the project folder. It starts Docker
 Desktop if needed, waits for it, starts the station services from the images
-already on the PC (no internet needed) and opens the station UI. **Stop
+already on the PC (no internet needed) and opens the station UI. On a PC that
+has never built or loaded the images (copying the folder does not copy them),
+the first start builds them, which needs internet once: about 3 minutes for the
+app, much longer for the GPU engine (`-Engine`). Offline PCs get the images with
+`docker load` instead (see *Move to the offline site*). **Stop
 TestPoint.cmd** stops the services. Both call `scripts/testpoint.ps1`, which
 also works from a PowerShell prompt:
 
@@ -333,7 +394,14 @@ docker compose up -d --no-build app
 - The UI prototype loads its fonts from Google Fonts. Offline it falls back to
   system fonts; the Phase 2 UI bundles its fonts.
 
-## Status (2026-10-15)
+## Status (2026-10-19)
+
+- Live rep counting (2026-10-19): `testpoint-engine` reports lane counts, phase,
+  faults and rep events to the app (`POST /api/engine/report`, `GET /api/lanes`),
+  the station tile shows them live with examiner corrections, `Rep` rows and
+  `auto_count` are stored, evidence video and per-rep clips are written. Verified
+  on this PC with a webcam and the RTX 5090 (balanced, ~31 fps end to end).
+  103 tests passing.
 
 - Unit tests: 61 passing (`pytest`), including a full simulated test day through the API.
 - Station app (2026-10-19): weigh-in, run start, finish and exercise-lane screens

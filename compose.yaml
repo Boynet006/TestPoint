@@ -1,8 +1,11 @@
 # TestPoint services.
 #
 #   docker compose up -d app                          station app on http://localhost:8080
-#   docker compose --profile gpu up engine            count reps from CAMERA_URL on the GPU
+#   docker compose --profile gpu up engine            count reps from CAMERA_URL on the GPU and
+#                                                     report them live to the app (docs/ENGINE-LINK.md)
 #   docker compose --profile cpu up engine-cpu        same on the CPU (slow, for testing)
+#   docker compose --profile gpu run --rm --entrypoint testpoint-demo engine --exercise pushup --source /data/clip.mp4 --out /data/out.mp4
+#                                                     the stand-alone demo CLI (annotated video, no app)
 #   docker compose --profile test run --rm tests      unit tests
 #   docker compose --profile prototype up -d prototype  original mock-up on :8081
 #
@@ -10,10 +13,15 @@
 
 name: testpoint
 
-# Database, output videos and lane files live in ./data on the host (/data in the container).
+# Database, evidence videos and lane files live in ./data on the host (/data in the container).
+# The engine reports to the app over the compose network and records evidence under /data/evidence.
 x-engine: &engine
+  entrypoint: ["testpoint-engine"]
   volumes:
     - ./data:/data
+  depends_on:
+    - app
+  restart: unless-stopped
 
 services:
   app:
@@ -53,7 +61,8 @@ services:
       - --lanes=${LANES:-3}
       - --device=cuda
       - --mode=${POSE_MODE:-balanced}
-      - --out=/data/${EXERCISE:-pushup}-annotated.mp4
+      - --app=http://app:8000
+      - --evidence=/data/evidence
     deploy:
       resources:
         reservations:
@@ -77,7 +86,8 @@ services:
       - --lanes=${LANES:-3}
       - --device=cpu
       - --mode=lightweight
-      - --out=/data/${EXERCISE:-pushup}-annotated.mp4
+      - --app=http://app:8000
+      - --evidence=/data/evidence
 
   tests:
     profiles: [test]
