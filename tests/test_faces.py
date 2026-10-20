@@ -124,3 +124,55 @@ def test_without_models_face_endpoints_say_unavailable(monkeypatch):
         assert c.get("/api/face/status").json() == {"available": False}
         r = c.post("/api/face/identify", content=b"x")
         assert r.status_code == 503 and r.json()["detail"]["code"] == "face_unavailable"
+
+
+def test_removing_a_mistaken_entry_frees_the_face(client):
+    # Registered by mistake, removed again: the face must not block a fresh registration
+    i = ids(client)
+    client.post(f"/api/entries/{i['13']}/face", content=b"face:C")
+    assert client.delete(f"/api/entries/{i['13']}").status_code == 204
+    r = client.post("/api/entries", json={"external_id": "C-9", "name": "Charlie Again", "bib": "19"})
+    assert r.status_code == 201
+    assert client.post(f"/api/entries/{r.json()['id']}/face", content=b"face:C").json() == {"faces": 1}
+    # the removed person is gone too: re-adding the old ID is a new person, without the old face
+    assert client.post("/api/entries", json={"external_id": "C-3", "name": "Charlie", "bib": "13"}).status_code == 201
+    rows = {e["candidate"]["bib"]: e for e in client.get("/api/entries").json()}
+    assert rows["13"]["faces"] == 0
+
+
+def test_face_from_another_day_is_offered_as_returning_candidate(monkeypatch):
+    real = models.create_engine
+    monkeypatch.setattr(models, "create_engine", lambda url, **kw: real(url, poolclass=StaticPool, **kw))
+    day = {"d": "2026-10-20"}
+    app = create_app(db_url="sqlite:///:memory:", web_dir="none", today=lambda: day["d"], face_engine=FakeEngine)
+    with TestClient(app) as c:
+        c.post("/api/entries/import", content=CSV.encode())
+        i = ids(c)
+        c.post(f"/api/entries/{i['11']}/face", content=b"face:A")
+        day["d"] = "2026-10-27"                                  # a week later: today's list is empty
+        r = c.post("/api/face/identify?station=weigh", content=b"face:A").json()
+        assert r["entry"] is None and r["reason"] == "not_on_todays_list"
+        assert r["known"]["name"] == "Alpha" and r["known"]["bib"] == "11" and r["known"]["external_id"] == "C-1"
+        # adding them back keeps the person (and the face): they are recognised at once
+        e = c.post("/api/entries", json={k: r["known"][k] for k in ("external_id", "name", "bib")})
+        assert e.status_code == 201
+        r = c.post("/api/face/identify?station=weigh", content=b"face:A").json()
+        assert r["entry"]["candidate"]["name"] == "Alpha" and r["allowed"] is True
+        # a stranger is still a stranger
+        assert "known" not in c.post("/api/face/identify?station=weigh", content=b"face:C").json()
+        # removing a person who has another day keeps them (and their face) on file
+        assert c.delete(f"/api/entries/{e.json()['id']}").status_code == 204
+        assert c.post("/api/face/identify?station=weigh", content=b"face:A").json()["known"]["name"] == "Alpha"
+
+
+def test_head_yaw_from_landmarks():
+    import numpy as np
+
+    from testpoint.api.faces import head_yaw
+    # x, y, w, h, right eye (image left), left eye (image right), nose, mouth corners, score
+    straight = np.array([0, 0, 100, 120, 30, 40, 70, 40, 50, 65, 35, 90, 65, 90, 0.9], np.float32)
+    assert abs(head_yaw(straight)) < 1e-6
+    turned = straight.copy(); turned[8] = 62           # nose 12 px right of the eye midpoint
+    assert head_yaw(turned) == pytest.approx(0.3)      # 12 / 40 eye distance: their own left
+    turned[8] = 38
+    assert head_yaw(turned) == pytest.approx(-0.3)

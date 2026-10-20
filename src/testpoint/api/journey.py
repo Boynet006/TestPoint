@@ -2,9 +2,13 @@
 
     expected ─ weigh-in ─► accepted ─ line-up ─► lined_up ─ START ─► running
         │                                 │                            │
-        └──► rejected (BMI)               └──► absent (missed start)   ├─► run_passed ─► exercises ─► complete
-                                                                       ├─► run_failed
-                                                                       └─► dnf
+        └──► rejected (BMI)               └──► absent (missed start)   ├─► run_passed ─┐
+                                                                       ├─► run_failed ─┼─► exercises ─► complete
+                                                                       ├─► run_done ───┤   (no pass table for them)
+                                                                       └─► dnf ────────┘
+
+Everyone who ran takes all three tests (the pass table lists three separate tests); the final
+verdict needs every test at the person's required level (service.verdict).
 
 Each station asks ``check_gate`` before it lets a candidate in. The database
 layer applies the transitions; this module only decides, so it can be tested
@@ -25,12 +29,16 @@ ABSENT = "absent"
 RUNNING = "running"
 RUN_PASSED = "run_passed"
 RUN_FAILED = "run_failed"
+RUN_DONE = "run_done"
+"""Finished the run with no pass table to judge it (e.g. no women's table yet)."""
 DNF = "dnf"
 COMPLETE = "complete"
 
 STATUSES = (EXPECTED, ACCEPTED, REJECTED, LINED_UP, ABSENT, RUNNING,
-            RUN_PASSED, RUN_FAILED, DNF, COMPLETE)
-FINISHED_FOR_DAY = (REJECTED, ABSENT, RUN_FAILED, DNF, COMPLETE)
+            RUN_PASSED, RUN_FAILED, RUN_DONE, DNF, COMPLETE)
+RAN = (RUN_PASSED, RUN_FAILED, RUN_DONE, DNF)
+"""Took the run: may go on to the exercises."""
+FINISHED_FOR_DAY = (REJECTED, ABSENT, COMPLETE)
 
 STATIONS = ("weigh", "lineup", "pushup", "crunch")
 
@@ -78,7 +86,7 @@ def check_gate(status: str, station: str, done_events: set[str] | None = None,
 
     # exercise stations
     event = station
-    if status == RUN_PASSED:
+    if status in RAN:
         if event in done_events:
             return Gate(False, "event_already_done")
         return ALLOW
@@ -89,8 +97,6 @@ def check_gate(status: str, station: str, done_events: set[str] | None = None,
         RUNNING: "still_running",
         REJECTED: "rejected_at_weigh_in",
         ABSENT: "missed_the_run",
-        RUN_FAILED: "run_not_passed",
-        DNF: "run_not_finished",
         COMPLETE: "event_already_done",
     }
     return Gate(False, reasons[status])
@@ -109,10 +115,13 @@ def after_run_start(status: str) -> str:
     return status
 
 
-def after_finish(time_s: float, pass_s: float, cutoff_s: float | None = None) -> str:
-    """Passed within the pass time, DNF after the cut-off, failed in between."""
+def after_finish(time_s: float, pass_s: float | None, cutoff_s: float | None = None) -> str:
+    """Passed within the pass time, DNF after the cut-off, failed in between.
+    ``pass_s`` None: no pass table applies, the run is only recorded."""
     if cutoff_s is not None and time_s > cutoff_s:
         return DNF
+    if pass_s is None:
+        return RUN_DONE
     return RUN_PASSED if time_s <= pass_s else RUN_FAILED
 
 
@@ -121,6 +130,7 @@ def after_close(status: str) -> str:
     return DNF if status == RUNNING else status
 
 
-def after_event(done_events: set[str]) -> str:
-    """Status after an exercise result is saved (``done_events`` includes it)."""
-    return COMPLETE if set(EVENTS) <= done_events else RUN_PASSED
+def after_event(done_events: set[str], status: str) -> str:
+    """Status after an exercise result is saved (``done_events`` includes it); the run
+    outcome stays visible until both exercises are done."""
+    return COMPLETE if set(EVENTS) <= done_events else status

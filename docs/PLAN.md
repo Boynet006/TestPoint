@@ -133,9 +133,15 @@ service `app` on port 8080):
 - [ ] Face check-in on real hardware: USB webcam at the check-in desk,
   measure real accuracy, HTTPS for separate check-in devices, liveness check,
   retention job for face data.
-- [ ] Connect the rep-counting engine to the station lanes (live count and
-  faults instead of tapping), with evidence video and per-rep clips.
-- [ ] Examiner override of results with reason, review screen.
+- [x] Connect the rep-counting engine to the station lanes (live count and
+  faults instead of tapping), with evidence video and per-rep clips
+  ([ENGINE-LINK.md](ENGINE-LINK.md)): `testpoint-engine` reports to the app,
+  the lane tile shows count, phase and faults live, examiner taps become
+  corrections, `Rep` rows and `auto_count` are stored. Tried on a webcam.
+  Still to do: lanes/camera per station in the database, calibration on
+  real mats, review of clips in the UI.
+- [x] Examiner override of results with reason, review screen (a reason is required
+  when the saved count differs from the camera count; Advanced → Review replays rep clips).
 - [ ] Editable, versioned rules and score tables; CSV/PDF export.
 - [ ] Scanned-paper list import (OCR with review screen); Excel import.
 - [ ] Retention jobs for evidence video and face data.
@@ -180,6 +186,11 @@ Point-to-point course, up to 500 runners, in waves. Site design in
   + bib detection + OCR; crossing time interpolated between frames; the four
   points' reads are chained per runner for splits, a course-integrity check
   (every point, in order) and extra identification chances.
+  - [x] Finish line first slice (2026-10-19): detector + IoU tracker + virtual
+    line with interpolated instant + bib OCR vote, reporting to the app's
+    finish/review flow with a clip per crossing (`testpoint-finishcam`,
+    [ENGINE-LINK.md](ENGINE-LINK.md)). Verified on public clips; bib reading
+    needs our own camera distance.
 - Runner identification: bib primary, face secondary; the result is only
   published when the crossing chain is consistent and the identity is
   confirmed or reviewed.

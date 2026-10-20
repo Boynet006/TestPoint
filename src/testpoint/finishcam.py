@@ -1,0 +1,348 @@
+"""Finish-line camera: detect runners, track them, time the crossing, read the bib,
+report each crossing to the station app.
+
+    testpoint-finishcam --source rtsp://... --line 0,0.85,1,0.85 --device cuda --app http://127.0.0.1:8000
+    testpoint-finishcam --source clip.mp4 --crop 0.21,0,1,1 --out annotated.mp4 --no-app
+
+Per frame: person detector (``vision/detect.py``) -> IoU tracker -> finish line
+(``vision/line.py``, crossing instant interpolated between frames). The torso
+crops of each track are kept while it approaches; at the crossing they are read
+by OCR and voted (``vision/bib.py``). The crossing is POSTed to
+``/api/engine/crossing`` with the bib (or none), the OCR confidence, how long
+ago it happened (so the server stamps the true instant) and the evidence clip
+path. The app does the rest with its existing finish logic: a known running
+bib is a result, anything else is a review-queue entry with the clip.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+import threading
+import time
+import urllib.error
+import urllib.request
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, field
+
+os.environ.setdefault("OPENCV_FFMPEG_CAPTURE_OPTIONS", "rtsp_transport;tcp")
+
+import cv2
+import numpy as np
+
+from .evidence import EvidenceWriter
+from .preview import FramePublisher
+from .vision.bib import BibReader, BibResult, BibVote
+from .vision.detect import Box
+from .vision.lanes import whole_frame
+from .vision.line import CrossEvent, FinishLine, parse_line
+from .vision.sources import SourceError, iter_frames, open_source
+from .vision.tracker import IoUTracker, Track
+
+CROSSING_PATH = "/api/engine/crossing"
+
+
+@dataclass
+class Crossing:
+    t: float
+    bib: str | None
+    confidence: float
+    readings: list[tuple[str, float]]
+    clip: str | None = None
+    track_id: int = 0
+    wall: float = field(default_factory=time.time)
+    """Wall-clock time the crossing was detected (the frame after the line)."""
+
+    def payload(self, now: float | None = None) -> dict:
+        now = time.time() if now is None else now
+        return {"bib": self.bib, "confidence": self.confidence,
+                "readings": [{"text": s, "conf": round(c, 3)} for s, c in self.readings],
+                "latency_s": round(max(0.0, now - self.wall), 3), "t": round(self.t, 3),
+                "clip": self.clip, "track": self.track_id}
+
+
+class CrossingPoster:
+    """Sends crossings to the app from a thread, in order, retrying while unreachable."""
+
+    def __init__(self, app_url: str, timeout_s: float = 3.0, log: Callable[[str], None] = print) -> None:
+        self.url = app_url.rstrip("/") + CROSSING_PATH
+        self.timeout_s = timeout_s
+        self.log = log
+        self.queue: list[Crossing] = []
+        self.sent: list[dict] = []
+        self._cv = threading.Condition()
+        self._stop = False
+        self._thread = threading.Thread(target=self._run, name="finishcam-poster", daemon=True)
+        self._thread.start()
+
+    def post(self, crossing: Crossing) -> None:
+        with self._cv:
+            self.queue.append(crossing)
+            self._cv.notify()
+
+    def _send(self, c: Crossing) -> dict:
+        req = urllib.request.Request(self.url, data=json.dumps(c.payload()).encode(), method="POST",
+                                     headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=self.timeout_s) as resp:
+            return json.loads(resp.read().decode() or "{}")
+
+    def _run(self) -> None:
+        backoff = 1.0
+        while True:
+            with self._cv:
+                while not self.queue and not self._stop:
+                    self._cv.wait()
+                if self._stop and not self.queue:
+                    return
+                c = self.queue[0]
+            try:
+                reply = self._send(c)
+            except urllib.error.HTTPError as e:
+                body = e.read().decode(errors="replace")
+                self.log(f"crossing refused by the app ({e.code}): {body[:200]}")
+                reply = {"error": e.code, "detail": body[:200]}
+            except (urllib.error.URLError, OSError, ValueError) as e:
+                self.log(f"app unreachable at {self.url}: {getattr(e, 'reason', e)}; retrying in {backoff:g} s")
+                time.sleep(backoff)
+                backoff = min(backoff * 2, 30.0)
+                continue
+            backoff = 1.0
+            with self._cv:
+                self.queue.pop(0)
+                self.sent.append(reply)
+
+    def close(self, timeout_s: float = 10.0) -> None:
+        with self._cv:
+            self._stop = True
+            self._cv.notify()
+        self._thread.join(timeout_s)
+
+
+class FinishCam:
+    """The per-frame pipeline, independent of the video source and of the app."""
+
+    def __init__(self, detector, line: FinishLine, reader: BibReader | None,
+                 tracker: IoUTracker | None = None, evidence: EvidenceWriter | None = None,
+                 evidence_folder: str = "run", on_crossing: Callable[[Crossing], None] | None = None,
+                 log: Callable[[str], None] = print, ocr_async: bool = False) -> None:
+        """``ocr_async``: read bibs on a worker thread, so a crossing never stalls the frame
+        loop (OCR of eight crops takes about a second, and a runner close behind must still
+        be tracked). The crossing is then reported when its bib is decided, with its true
+        detection time; ``process`` returns only the crossings decided synchronously."""
+        self.detector = detector
+        self.line = line
+        self.reader = reader
+        self.tracker = tracker or IoUTracker()
+        self.evidence = evidence
+        self.evidence_folder = evidence_folder
+        self.on_crossing = on_crossing
+        self.log = log
+        self.crossings: list[Crossing] = []
+        self.last_boxes: list[Box] = []
+        self.last_tracks: list[Track] = []
+        self._ocr = ThreadPoolExecutor(1, thread_name_prefix="bib-ocr") if ocr_async else None
+        self._lock = threading.Lock()
+        self._pending_clips: list[tuple[float, float, str]] = []
+        """``(t_from, t_to, name)``: clips to cut once the frame clock passes ``t_to``."""
+
+    CLIP_BEFORE_S = 1.5
+    CLIP_AFTER_S = 1.0
+
+    def process(self, frame: np.ndarray, t: float) -> list[Crossing]:
+        h, w = frame.shape[:2]
+        if self.evidence is not None:
+            self.evidence.push(frame, t)
+            # A crossing clip is cut once the frames after the line are in the buffer.
+            due = [c for c in self._pending_clips if t >= c[1]]
+            for t0, t1, name in due:
+                self.evidence.clip_at(self.evidence_folder, name, t0, t1)
+            self._pending_clips = [c for c in self._pending_clips if t < c[1]]
+        boxes = self.detector.detect(frame)
+        tracks = self.tracker.update(boxes, t)
+        self.last_boxes, self.last_tracks = boxes, tracks
+        if self.reader is not None:
+            for tr in tracks:
+                self.reader.observe(tr.id, frame, tr.box)
+        out = []
+        for ev in self.line.check(tracks, w, h):
+            c = self._crossing(ev)
+            if c is not None:
+                out.append(c)
+        live = {tr.id for tr in self.tracker.tracks}
+        self.line.forget(live)
+        if self.reader is not None:
+            self.reader.forget(live)
+        return out
+
+    def _crossing(self, ev: CrossEvent) -> Crossing | None:
+        wall = time.time()
+        crops = self.reader.take(ev.track_id) if self.reader is not None else []
+        clip = None
+        if self.evidence is not None:
+            name = f"{int(ev.t * 1000):09d}-t{ev.track_id}"
+            self._pending_clips.append((ev.t - self.CLIP_BEFORE_S, ev.t + self.CLIP_AFTER_S, name))
+            clip = f"{self.evidence_folder}/{name}.mp4"      # written about a second from now
+        if self._ocr is not None:
+            self._ocr.submit(self._decide, ev, crops, clip, wall)
+            return None
+        return self._decide(ev, crops, clip, wall)
+
+    def _decide(self, ev: CrossEvent, crops: list[np.ndarray], clip: str | None, wall: float) -> Crossing:
+        result = self.reader.read_crops(crops) if self.reader is not None else BibResult(None, 0.0, [])
+        c = Crossing(t=ev.t, bib=result.bib, confidence=result.confidence, readings=result.readings,
+                     clip=clip, track_id=ev.track_id, wall=wall)
+        with self._lock:
+            self.crossings.append(c)
+        self.log(f"[{ev.t:8.3f}s] crossing track {ev.track_id}: bib {c.bib or '?'} "
+                 f"(confidence {c.confidence}, {len(c.readings)} readings)")
+        if self.on_crossing is not None:
+            self.on_crossing(c)
+        return c
+
+    def close(self) -> None:
+        """Cut the clips still waiting (the source ended) and wait for bibs still being read."""
+        if self.evidence is not None:
+            for t0, t1, name in self._pending_clips:
+                self.evidence.clip_at(self.evidence_folder, name, t0, t1)
+            self._pending_clips = []
+        if self._ocr is not None:
+            self._ocr.shutdown(wait=True)
+
+
+def draw(frame: np.ndarray, cam: FinishCam, fps: float) -> None:
+    h, w = frame.shape[:2]
+    x0, y0, x1, y1 = cam.line.to_pixels(w, h)
+    cv2.line(frame, (x0, y0), (x1, y1), (0, 0, 230), 2)
+    for tr in cam.last_tracks:
+        b = tr.box
+        colour = (0, 200, 0) if tr.id in cam.line._crossed else (255, 180, 0)
+        cv2.rectangle(frame, (int(b.x0), int(b.y0)), (int(b.x1), int(b.y1)), colour, 2)
+        cv2.putText(frame, f"#{tr.id}", (int(b.x0), max(14, int(b.y0) - 4)),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, colour, 1)
+    y = 20
+    for c in cam.crossings[-4:]:
+        cv2.putText(frame, f"{c.t:7.2f}s  bib {c.bib or '?'}  {c.confidence:.2f}", (8, y),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1)
+        y += 20
+    cv2.putText(frame, f"{fps:.0f} fps", (w - 70, h - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+
+
+def parse_crop(text: str | None) -> tuple[float, float, float, float] | None:
+    if not text:
+        return None
+    parts = [float(v) for v in text.split(",")]
+    if len(parts) != 4 or not all(0 <= v <= 1 for v in parts) or parts[0] >= parts[2] or parts[1] >= parts[3]:
+        raise ValueError("crop needs x0,y0,x1,y1 in 0..1 with x0<x1 and y0<y1")
+    return parts[0], parts[1], parts[2], parts[3]
+
+
+def main(argv: list[str] | None = None) -> int:
+    p = argparse.ArgumentParser(description="TestPoint finish-line camera")
+    p.add_argument("--source", default="0", help="camera index, video file or rtsp:// URL")
+    p.add_argument("--line", default="0,0.85,1,0.85", help="finish line x0,y0,x1,y1 in 0..1 (default 0,0.85,1,0.85)")
+    p.add_argument("--direction", default="down", choices=["down", "up", "left", "right", "any"],
+                   help="which way a crossing counts (default down: runners come towards the camera)")
+    p.add_argument("--crop", default=None, metavar="X0,Y0,X1,Y1",
+                   help="use only this part of the frame, in 0..1 (a feed with side panels)")
+    p.add_argument("--app", default="http://127.0.0.1:8000")
+    p.add_argument("--no-app", action="store_true", help="do not report crossings (clip analysis)")
+    p.add_argument("--no-ocr", action="store_true", help="skip bib reading")
+    p.add_argument("--device", default="cpu", choices=["cpu", "cuda"])
+    p.add_argument("--mode", default="balanced", choices=["lightweight", "balanced", "performance"])
+    p.add_argument("--min-share", type=float, default=0.5, help="OCR vote share needed to trust a bib (default 0.5)")
+    p.add_argument("--evidence", default="data/evidence", help="evidence folder ('' = none)")
+    p.add_argument("--out", help="write an annotated video here")
+    p.add_argument("--show", action="store_true", help="preview window (q quits)")
+    p.add_argument("--station", default="finish", help="screen this camera shows on (default finish)")
+    p.add_argument("--no-preview", action="store_true", help="do not send the live picture to the app")
+    p.add_argument("--connect-timeout", type=float, default=10.0)
+    p.add_argument("--connect-attempts", type=int, default=3)
+    args = p.parse_args(argv)
+
+    try:
+        line = FinishLine(parse_line(args.line), args.direction)
+        crop = parse_crop(args.crop)
+    except ValueError as e:
+        p.error(str(e))
+    try:
+        source = open_source(args.source, timeout_s=args.connect_timeout, max_attempts=args.connect_attempts)
+    except SourceError as e:
+        raise SystemExit(f"error: {e}") from None
+    try:
+        from .vision.detect import YOLOXPersonDetector
+        detector = YOLOXPersonDetector(device=args.device, mode=args.mode)
+    except (ImportError, OSError, RuntimeError, ValueError) as e:
+        source.release()
+        raise SystemExit(f"error: could not start the person detector: {e}") from None
+    reader = None
+    if not args.no_ocr:
+        try:
+            from .vision.bib import RapidOCRReader
+            reader = BibReader(RapidOCRReader().read, BibVote(min_share=args.min_share))
+        except ImportError:
+            print("bib OCR disabled: pip install rapidocr-onnxruntime", file=sys.stderr)
+
+    evidence = EvidenceWriter(args.evidence, [whole_frame("1")], fps=source.fps, keep_s=4.0, pad_s=0.0) if args.evidence else None
+    poster = None if args.no_app else CrossingPoster(args.app)
+    cam = FinishCam(detector, line, reader, evidence=evidence,
+                    on_crossing=(poster.post if poster else None), ocr_async=True)
+    print(f"finish cam: source {getattr(source, 'display_url', args.source)}  line {args.line} {args.direction}"
+          f"  crop {args.crop or 'full'}  app {'off' if args.no_app else args.app}  ocr {'off' if reader is None else 'on'}")
+
+    preview = None
+    if poster is not None and not args.no_preview:
+        preview = FramePublisher(args.app, args.station, lambda img, fps_now: draw(img, cam, fps_now))
+        preview.start()
+    writer = None
+    fps = 0.0
+    last = time.monotonic()
+    try:
+        for frame, t in iter_frames(source):
+            if crop is not None:
+                h, w = frame.shape[:2]
+                frame = frame[int(crop[1] * h):int(crop[3] * h), int(crop[0] * w):int(crop[2] * w)]
+            cam.process(frame, t)
+            now = time.monotonic()
+            inst = 1.0 / max(now - last, 1e-6)
+            fps = inst if not fps else 0.9 * fps + 0.1 * inst
+            last = now
+            if preview is not None:
+                preview.offer(frame, fps)
+            if args.out or args.show:
+                draw(frame, cam, fps)
+            if args.out:
+                if writer is None:
+                    h, w = frame.shape[:2]
+                    writer = cv2.VideoWriter(args.out, cv2.VideoWriter_fourcc(*"mp4v"), source.fps or 30.0, (w, h))
+                writer.write(np.ascontiguousarray(frame))
+            if args.show:
+                cv2.imshow("TestPoint finish", frame)
+                if cv2.waitKey(1) & 0xFF == ord("q"):
+                    break
+    except SourceError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    except KeyboardInterrupt:
+        pass
+    finally:
+        source.release()
+        if writer is not None:
+            writer.release()
+        if args.show:
+            cv2.destroyAllWindows()
+        cam.close()
+        if preview is not None:
+            preview.stop()
+        if poster is not None:
+            poster.close()
+        if evidence is not None:
+            evidence.close()
+    print(json.dumps({"crossings": [c.payload(c.wall) for c in cam.crossings]}, indent=1))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

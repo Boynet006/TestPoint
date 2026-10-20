@@ -10,7 +10,7 @@ from testpoint.api import app as app_mod
 from testpoint.api import models
 from testpoint.api.app import create_app
 
-CSV = "external_id,name,bib\nC-1,Alpha,11\nC-2,Bravo,12\nC-3,Charlie,13\n"
+CSV = "external_id,name,bib,gender,dob\nC-1,Alpha,11,M,2000-01-01\nC-2,Bravo,12,M,2000-01-01\nC-3,Charlie,13,M,2000-01-01\n"
 W = {"weight_kg": 70, "height_cm": 175, "accept": True}
 
 

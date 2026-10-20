@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from testpoint.vision import keypoints as K
 from testpoint.vision.exercises import CrunchAnalyzer, PushupAnalyzer, make_analyzer
@@ -82,43 +83,64 @@ def test_make_analyzer_names():
     assert make_analyzer("crunch").name == "crunch"
 
 
-def _pushup_bottom(knee_y: float) -> Person:
-    # side view facing left, ground is the wrist-ankle line at y=220
+def _pushup_low(knee: tuple[float, float], ankle: tuple[float, float]) -> Person:
+    # side view facing left, y grows downwards, elbows bent (bottom of the rep)
     return person_from({
         K.L_SHOULDER: (100, 180), K.L_ELBOW: (150, 200), K.L_WRIST: (110, 220),
-        K.L_HIP: (200, 190), K.L_KNEE: (265, knee_y), K.L_ANKLE: (330, 220),
+        K.L_HIP: (200, 190), K.L_KNEE: knee, K.L_ANKLE: ankle,
     })
 
 
-def test_knee_on_ground_in_the_down_position_is_faulted():
-    m = PushupAnalyzer().analyze(_pushup_bottom(knee_y=218))
-    assert m.metric is not None and m.metric < 95
+def test_straight_body_on_the_toes_is_not_a_knee_fault():
+    # knee half way between hip and ankle heights: knee lift ~0.5, knee straight
+    m = PushupAnalyzer().analyze(_pushup_low(knee=(265, 200), ankle=(330, 210)))
+    assert m.debug["knee_lift"] == pytest.approx(0.5)
+    assert m.debug["knee_deg"] > 170
+    assert "knee_on_ground" not in m.faults and "body_not_straight" not in m.faults
+
+
+def test_knee_push_up_with_shins_on_the_floor_is_faulted():
+    # knee lower than the ankle (shin on the floor, toes tucked): lift about -0.7, as measured on clips
+    m = PushupAnalyzer().analyze(_pushup_low(knee=(255, 228), ankle=(330, 212)))
+    assert m.debug["knee_lift"] < -0.3 and m.debug["knee_deg"] < 165
     assert "knee_on_ground" in m.faults
-    assert m.debug["knee_ground_ratio"] < 0.1
 
 
-def test_knee_clear_of_the_ground_is_not_faulted():
-    m = PushupAnalyzer().analyze(_pushup_bottom(knee_y=195))
-    assert "knee_on_ground" not in m.faults
-    assert "body_not_straight" not in m.faults
+def test_knee_push_up_with_feet_raised_is_faulted():
+    # ankle above the hip: the lift ratio is undefined, the knee is below hip and ankle
+    m = PushupAnalyzer().analyze(_pushup_low(knee=(250, 225), ankle=(300, 170)))
+    assert "knee_lift" not in m.debug and m.debug["knee_drop"] > 0.15
+    assert "knee_on_ground" in m.faults
 
 
-def test_knee_check_only_applies_in_the_down_position():
-    p = person_from({
-        K.L_SHOULDER: (100, 160), K.L_ELBOW: (105, 190), K.L_WRIST: (110, 220),
-        K.L_HIP: (200, 190), K.L_KNEE: (265, 219), K.L_ANKLE: (330, 220),
-    })
-    m = PushupAnalyzer().analyze(p)
-    assert m.metric > 155
+def test_low_knee_with_a_straight_leg_is_not_a_knee_fault():
+    # the knee-lift test only applies to a bent knee (camera angle can put a straight knee low)
+    m = PushupAnalyzer().analyze(_pushup_low(knee=(265, 214), ankle=(330, 238)))
+    assert m.debug["knee_deg"] > 165
     assert "knee_on_ground" not in m.faults
 
 
-def test_knee_check_uses_ankle_level_without_a_wrist_on_that_side():
-    p = person_from({
-        K.R_SHOULDER: (100, 180), K.R_ELBOW: (150, 200), K.R_WRIST: (110, 220),
-        K.L_HIP: (200, 190), K.L_KNEE: (265, 219), K.L_ANKLE: (330, 220),
-    })
-    assert "knee_on_ground" in PushupAnalyzer().analyze(p).faults
+def test_one_frame_fault_does_not_reject_but_a_sustained_one_does():
+    from testpoint.vision.counter import RepCounter
+
+    a = PushupAnalyzer()
+    cfg = a.counter_config()
+    assert cfg.min_fault_seconds == 0.2
+
+    def run(fault_frames: int) -> RepCounter:
+        c = RepCounter(cfg)
+        t = 0.0
+        seq = [170] * 3 + [120] * 3 + [80] * 6 + [120] * 3 + [170] * 3
+        for i, angle in enumerate(seq):
+            faults = ["body_not_straight"] if 6 <= i < 6 + fault_frames else []
+            c.update(angle, t, faults)
+            t += 1 / 30
+        return c
+
+    assert (run(1).count, run(1).rejected) == (1, 0)      # a single bad frame (pose jitter)
+    assert (run(5).count, run(5).rejected) == (1, 0)      # 0.13 s
+    c = run(8)                                             # 0.23 s: a real fault
+    assert (c.count, c.rejected) == (0, 1) and c.events[0].faults == ["body_not_straight"]
 
 
 def test_pushup_counter_config_carries_rest_limit():

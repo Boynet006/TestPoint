@@ -18,6 +18,7 @@ import hashlib
 import os
 import sys
 import threading
+import time
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -63,6 +64,26 @@ class Match:
     runner_up: float
     confident: bool
     ranking: list[tuple[int, float]]  # (candidate_id, score), best first
+
+
+def head_yaw(row: np.ndarray) -> float:
+    """Head turn from a YuNet detection row (x, y, w, h, right eye, left eye, nose, mouth...):
+    how far the nose tip sits from the midpoint between the eyes, in eye distances, in the
+    raw (not mirrored) image. About 0 looking at the camera; positive when the nose is to the
+    right in the image, which is the person turning to their own left."""
+    rex, rey, lex, ley, nx = (float(v) for v in row[4:9])
+    eye_dist = ((lex - rex) ** 2 + (ley - rey) ** 2) ** 0.5
+    if eye_dist <= 1e-6:
+        return 0.0
+    return (nx - (rex + lex) / 2) / eye_dist
+
+
+def head_yaw_box(row: np.ndarray) -> float:
+    """Head turn from where the nose tip sits across the face box: 0 in the middle, towards
+    +-0.5 at the edges. Same sign as ``head_yaw``. Keeps growing on strong turns, where the
+    far eye is hidden and the eye-based measure under-reads."""
+    x, w, nx = float(row[0]), float(row[2]), float(row[8])
+    return (nx - (x + w / 2)) / w if w > 0 else 0.0
 
 
 def decode_image(data: bytes) -> np.ndarray:
@@ -119,6 +140,26 @@ class FaceEngine:
         self._detector.setInputSize((w, h))
         _, faces = self._detector.detect(img)
         return np.zeros((0, 15), np.float32) if faces is None else faces
+
+    def pose_from_bytes(self, data: bytes) -> dict:
+        """Detection only, for the live guide while enrolling: the largest face's box and head
+        turn. Much cheaper than ``face_from_bytes`` (no recognition)."""
+        import cv2
+
+        img = decode_image(data)
+        h, w = img.shape[:2]
+        scale = min(1.0, 640.0 / max(h, w))
+        small = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA) if scale < 1 else img
+        with self._lock:
+            faces = self.detect(small).copy()
+        if len(faces) == 0:
+            return {"face": False, "faces": 0, "w": w, "h": h}
+        faces[:, :14] /= scale
+        f = max(faces, key=lambda r: r[2] * r[3])
+        x, y, bw, bh = (int(round(v)) for v in f[:4])
+        return {"face": True, "faces": int(len(faces)), "box": [x, y, bw, bh], "w": w, "h": h,
+                "yaw": round(head_yaw(f), 3), "yaw_box": round(head_yaw_box(f), 3),
+                "too_small": bool(min(bw, bh) < MIN_FACE_PX)}
 
     def face_from_bytes(self, data: bytes, require_single: bool = False) -> Face:
         return self.largest_face(decode_image(data), require_single)
@@ -178,7 +219,16 @@ def download(model_dir: str | Path) -> None:
             print(f"ok      {name}")
             continue
         print(f"fetch   {name}")
-        data = urllib.request.urlopen(url, timeout=120).read()
+        # A few tries: a fresh Docker Desktop often fails DNS for its first seconds.
+        for attempt in range(1, 6):
+            try:
+                data = urllib.request.urlopen(url, timeout=120).read()
+                break
+            except OSError as e:
+                if attempt == 5:
+                    raise
+                print(f"retry   {name} in {2 * attempt} s ({e})")
+                time.sleep(2 * attempt)
         got = hashlib.sha256(data).hexdigest()
         if got != sha:
             raise SystemExit(f"checksum mismatch for {name}: {got} (expected {sha})")

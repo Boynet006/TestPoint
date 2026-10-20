@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from typing import Protocol
 
 from .counter import RepCounterConfig
-from .geometry import angle_deg, distance, elevation_deg, point_line_distance
+from .geometry import angle_deg, distance, elevation_deg
 from .keypoints import Person
 
 
@@ -39,12 +39,22 @@ class PushupRules:
     """Elbow angle below which the bottom position is reached."""
     up_elbow_deg: float = 155.0
     """Elbow angle above which arms count as extended."""
-    min_body_line_deg: float = 160.0
-    """Shoulder-hip-ankle angle below which hips are sagging or piked."""
-    knee_ground_max_ratio: float = 0.10
-    """Knee height above the ground line (wrist-ankle line, or the ankle level when the
-    wrist is not visible) as a fraction of the hip-ankle length. Below this, in the
-    down position, the knee is on the ground ("knee_on_ground")."""
+    min_body_line_deg: float = 150.0
+    """Shoulder-hip-ankle angle below which hips are sagging or piked ("body_not_straight").
+    Calibrated 2026-10-19 on public clips: clean reps never stay below 150 for 0.05 s,
+    even from an oblique camera (docs/CALIBRATION.md)."""
+    max_knee_lift: float = -0.3
+    """Knee height above the ankle as a fraction of the hip's height above the ankle.
+    On the toes the knee sits about half way (0.1 .. 0.45 on the clips); on the knees it
+    is as low as the ankle or lower (-0.6 .. -0.8). Below this, with a bent knee, the knee
+    is on the ground ("knee_on_ground")."""
+    min_knee_drop: float = 0.15
+    """With the feet raised to hip height or above, how far below both hip and ankle the
+    knee must be (as a fraction of the thigh length) to count as on the ground."""
+    max_knee_deg: float = 165.0
+    """Hip-knee-ankle angle; the knee-lift test only applies when the knee is bent below this."""
+    fault_min_s: float = 0.2
+    """A form fault must last this long to reject the rep (pose jitter lasts a frame or two)."""
     rest_in_down_s: float = 3.0
     """Longest time allowed away from the top position before the rep is rejected for
     resting ("rest_in_down")."""
@@ -68,6 +78,7 @@ class PushupAnalyzer:
             min_rest_frames=self.rules.min_rest_frames,
             max_work_seconds=self.rules.rest_in_down_s,
             work_timeout_fault="rest_in_down",
+            min_fault_seconds=self.rules.fault_min_s,
         )
 
     def analyze(self, person: Person) -> FrameMetrics:
@@ -93,41 +104,65 @@ class PushupAnalyzer:
 
         leg_side = person.best_side("hip", "knee", "ankle", min_conf=self.rules.min_conf)
         if leg_side is not None:
-            ratio = self._knee_ground_ratio(person, leg_side)
-            if ratio is not None:
-                debug["knee_ground_ratio"] = ratio
-                if elbow <= self.rules.down_elbow_deg and ratio < self.rules.knee_ground_max_ratio:
-                    faults.append("knee_on_ground")
+            hip, knee, ankle = (person.point(leg_side[k]) for k in ("hip", "knee", "ankle"))
+            knee_deg = angle_deg(hip, knee, ankle)
+            debug["knee_deg"] = knee_deg
+            lift = knee_lift(hip, knee, ankle)
+            if lift is not None:
+                debug["knee_lift"] = lift
+                knee_down = lift < self.rules.max_knee_lift
+            else:
+                # Feet raised to hip height or above (a common knee push-up): the knee on the
+                # floor is then clearly lower than both the hip and the ankle.
+                drop = float(knee[1] - max(hip[1], ankle[1])) / max(distance(hip, knee), 1e-6)
+                debug["knee_drop"] = drop
+                knee_down = drop > self.rules.min_knee_drop
+            if knee_down and knee_deg < self.rules.max_knee_deg:
+                faults.append("knee_on_ground")
 
         return FrameMetrics(metric=elbow, faults=faults, debug=debug)
 
-    def _knee_ground_ratio(self, person: Person, side: dict[str, int]) -> float | None:
-        """Knee distance from the ground line divided by the hip-ankle length (scale-free)."""
-        hip = person.point(side["hip"])
-        knee = person.point(side["knee"])
-        ankle = person.point(side["ankle"])
-        body_len = distance(hip, ankle)
-        if body_len <= 0:
-            return None
-        if person.visible(side["wrist"], min_conf=self.rules.min_conf):
-            ground_a, ground_b = person.point(side["wrist"]), ankle
-        else:
-            # Only the feet are known to be on the floor: use a horizontal through the ankle.
-            ground_a, ground_b = ankle, (ankle[0] + 1.0, ankle[1])
-        return point_line_distance(knee, ground_a, ground_b) / body_len
+
+def knee_lift(hip, knee, ankle, min_rise: float = 0.05) -> float | None:
+    """Knee height above the ankle divided by the hip's height above the ankle (image y
+    grows downwards). About 0.5 for a straight body on the toes, 0 or below with the knee
+    on the floor. None when the hip is barely above the ankle (the ratio is meaningless)."""
+    rise = float(ankle[1] - hip[1])
+    if rise < min_rise * distance(hip, ankle):
+        return None
+    return float(ankle[1] - knee[1]) / rise
 
 
 # --------------------------------------------------------------------------- crunches
 
 @dataclass
 class CrunchRules:
-    up_torso_deg: float = 35.0
-    """Torso elevation (hip->shoulder above horizontal) that counts as crunched up."""
-    down_torso_deg: float = 15.0
-    """Torso elevation below which the candidate is back on the floor."""
-    knee_min_deg: float = 45.0
+    """Torso elevation is the hip->shoulder line above horizontal, measured from the
+    candidate's own lying level (``floor_window_s``), so the camera angle does not
+    matter. Calibrated 2026-10-19 on public clips (docs/CALIBRATION.md): a crunch with
+    the shoulder blades off the floor raises the torso 10-15 degrees; a full sit-up 60+.
+    For a full sit-up test set ``up_torso_deg`` to about 60."""
+
+    up_torso_deg: float = 7.0
+    """Rise above the lying level that counts as crunched up."""
+    down_torso_deg: float = 4.0
+    """Rise below which the candidate is back on the floor. Some candidates do not lie all
+    the way back between crunches; 3 merged two crunches into one on the clips."""
+    min_rep_s: float = 0.4
+    """Shorter movements are keypoint noise (0.2-0.4 s); real crunches take 0.8-1.4 s."""
+    floor_window_s: float = 6.0
+    """Seconds over which the lying level is taken (a low percentile of the elevation)."""
+    max_lying_deg: float = 40.0
+    """Absolute torso elevation above which the candidate is not lying (sitting, getting
+    up): never the rest position. Lying measures 0 from the side, up to 33 from a 3/4 view."""
+    knee_min_deg: float = 20.0
     knee_max_deg: float = 135.0
-    """Knee angle must stay within this range (legs bent, feet on the floor)."""
+    """Knee angle must stay within this range (legs bent, feet on the floor). The fault
+    worth catching is straight legs; feet tucked close in measure 30-40 degrees."""
+    fault_min_s: float = 0.2
+    """A fault must last this long to reject the rep (pose jitter)."""
+    arm_s: float = 1.0
+    """Lying still this long before counting starts (RULES.md); lying down is not a rep."""
     min_conf: float = 0.3
     min_work_frames: int = 2
     min_rest_frames: int = 2
@@ -146,6 +181,11 @@ class CrunchAnalyzer:
             work_is_below=False,
             min_work_frames=self.rules.min_work_frames,
             min_rest_frames=self.rules.min_rest_frames,
+            floor_window_s=self.rules.floor_window_s,
+            rest_limit=self.rules.max_lying_deg,
+            arm_seconds=self.rules.arm_s,
+            min_rep_seconds=self.rules.min_rep_s,
+            min_fault_seconds=self.rules.fault_min_s,
         )
 
     def analyze(self, person: Person) -> FrameMetrics:

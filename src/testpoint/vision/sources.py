@@ -147,3 +147,18 @@ def open_source(source: str, **rtsp_options) -> FileSource | RtspSource:
     if is_rtsp(source):
         return RtspSource(source, **rtsp_options)
     return FileSource(source)
+
+
+def iter_frames(source: FileSource | RtspSource, clock: Callable[[], float] = time.monotonic):
+    """Yield ``(frame, t)`` until the source ends. Video files use their own clock
+    (frame index / fps, so a clip scores the same every run); live cameras use
+    wall time, which is what the evidence and the rep times are stamped with."""
+    fps = source.fps or 30.0
+    t0 = clock()
+    idx = 0
+    while True:
+        frame = source.read()
+        if frame is None:
+            return
+        yield frame, (clock() - t0 if source.is_live else idx / fps)
+        idx += 1
