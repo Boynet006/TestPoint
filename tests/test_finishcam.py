@@ -148,7 +148,20 @@ def test_finishcam_pipeline_reports_a_crossing_with_bib(tmp_path):
     assert len(out) == 1 and out[0].bib == "21" and out[0].t == pytest.approx(0.1 + 0.1 * 2 / 3)
     payload = out[0].payload(out[0].wall + 0.4)
     assert payload["bib"] == "21" and payload["latency_s"] == 0.4 and payload["readings"][0]["text"] == "21"
-    assert payload["clip"] is None
+    assert payload["clip"] is None and "face" not in payload          # a confident bib: no face sent
+
+
+def test_finishcam_sends_the_face_when_no_bib_is_read():
+    frames = [[Box(100, 100, 300, 400)], [Box(100, 160, 300, 460)], [Box(100, 220, 300, 520)], [Box(100, 280, 300, 580)]]
+    cam = FinishCam(ScriptedDetector(frames), FinishLine((0, 0.5, 1, 0.5), "down"),
+                    BibReader(lambda crop: []), log=lambda _: None)
+    img = np.full((1000, 1000, 3), 128, np.uint8)
+    out = []
+    for i in range(4):
+        out.extend(cam.process(img, i * 0.1))
+    assert len(out) == 1 and out[0].bib is None and out[0].face_jpeg[:2] == bytes([0xFF, 0xD8])
+    import base64
+    assert base64.b64decode(out[0].payload()["face"])[:2] == bytes([0xFF, 0xD8])
 
 
 # ------------------------------------------------------------------------ app

@@ -1039,6 +1039,48 @@ def resolve_crossing(db: Session, day: Day, rules: DayRules, crossing_id: int,
     return crossing
 
 
+def face_for_crossing(db: Session, day: Day, rules: DayRules, crossing: Crossing, data: bytes, engine) -> dict | None:
+    """A finish crossing the camera could not tie to a runner by bib: compare the runner's face
+    with the runners still out on the course (nobody else can be crossing). A confident match
+    (the strict setting, whatever the desk uses) is recorded; a likely one is only suggested.
+    The face picture is not kept."""
+    if not crossing.needs_review:
+        return None
+    try:
+        face = engine.face_from_bytes(data, require_single=False)
+    except Exception:            # no face in the picture, a blurred frame: it stays in review
+        return None
+    live = [w.id for w in open_waves(db, day) if w.started_at <= crossing.at]
+    rows = db.execute(select(Entry.id, FaceTemplate.embedding).join(
+        FaceTemplate, FaceTemplate.candidate_id == Entry.candidate_id).where(
+        Entry.day_id == day.id, Entry.status == J.RUNNING, Entry.wave_id.in_(live))).all()
+    gallery: dict[int, list[np.ndarray]] = {}
+    for entry_id, emb in rows:
+        gallery.setdefault(entry_id, []).append(np.frombuffer(emb, np.float32))
+    if not gallery:
+        return None
+    threshold, margin = FACE_MATCH["strict"]
+    m = face_match(face.embedding, gallery, threshold=threshold, margin=margin)
+    best = face_match(face.embedding, gallery, threshold=FACE_MATCH["normal"][0], margin=0.0)
+    if m.candidate_id is not None:
+        entry = db.get(Entry, m.candidate_id)
+        resolve_crossing(db, day, rules, crossing.id, entry)
+        crossing.note = f"identified by face ({m.score:.2f})"
+        crossing.note_code, crossing.note_bib, crossing.note_status = "identified_by_face", entry.candidate.bib, None
+        crossing.confidence = round(float(m.score), 3)
+        _audit(db, day, "finish", "face_at_finish", entry, crossing_id=crossing.id, score=m.score, runner_up=m.runner_up)
+        db.commit()
+        return {"entry_id": entry.id, "score": m.score, "assigned": True}
+    if best.candidate_id is not None:
+        entry = db.get(Entry, best.candidate_id)
+        crossing.note = f"{crossing.note or ''} | face looks like bib {entry.candidate.bib} ({best.score:.2f})".strip(" |")
+        crossing.note_code, crossing.note_bib, crossing.note_status = "face_suggests", entry.candidate.bib, None
+        _audit(db, day, "finish", "face_at_finish", entry, crossing_id=crossing.id, score=best.score, suggested=True)
+        db.commit()
+        return {"entry_id": entry.id, "score": best.score, "assigned": False}
+    return None
+
+
 def tag_crossing(db: Session, day: Day, rules: DayRules, crossing_id: int, bib: str | None) -> Crossing:
     """Tap first, identify after: attach a bib to a time recorded at the instant of crossing."""
     bib = norm_bib(bib)

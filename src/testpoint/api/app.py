@@ -281,6 +281,8 @@ class CrossingIn(BaseModel):
     readings: list[dict] = []
     clip: str | None = None
     track: int | None = None
+    face: str | None = Field(default=None, max_length=700_000)
+    """The runner's head (base64 JPEG), sent when the bib was not read with confidence."""
 
 
 ENGINE_STALE_S = 2.0
@@ -741,8 +743,25 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         """The finish camera saw a runner cross: a result when the bib is a known runner,
         otherwise a review-queue entry; either way with the evidence clip."""
         at = S.utcnow() - timedelta(seconds=body.latency_s)
-        c = S.record_finish(db, day, S.rules_for(db, day, rules), body.bib, now=at, source="camera",
+        r = S.rules_for(db, day, rules)
+        c = S.record_finish(db, day, r, body.bib, now=at, source="camera",
                             confidence=body.confidence, clip_path=body.clip)
+        # No usable bib: the face, compared with the runners still out, as a second way to know them.
+        if c.needs_review and body.face:
+            import base64
+            import binascii
+            try:
+                data = base64.b64decode(body.face, validate=True)
+            except (binascii.Error, ValueError):
+                data = None
+            eng = None
+            try:
+                eng = engine()
+            except Exception:       # no face models on this install: the crossing stays in review
+                eng = None
+            if data and eng is not None:
+                S.face_for_crossing(db, day, r, c, data, eng)
+                db.refresh(c)
         return crossing_out(c)
 
     # ---------------------------------------------------------- finish camera

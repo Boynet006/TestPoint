@@ -153,7 +153,7 @@ class FinishCamProcess:
         tail = []
         if self.log.exists():
             lines = [clean(ln) for ln in self.log.read_text(encoding="utf-8", errors="replace").splitlines()]
-            tail = [ln for ln in lines if ln][-6:]
+            tail = [ln for ln in lines if ln and ":onnxruntime:" not in ln and not ln.startswith("onnxruntime::")][-6:]   # GPU-library chatter
         return {"running": running, "config": self.config, "since": self.since,
                 "exit_code": None if p is None or running else p.poll(), "log": tail}
 

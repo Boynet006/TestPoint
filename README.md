@@ -242,6 +242,12 @@ running direction, then *Start camera* / *Stop camera*. The service runs the fin
 camera on the GPU and writes its output to `data/logs/finishcam.log`; the page shows
 its state and last lines. A webcam can be used by one program at a time.
 
+Runners are identified by **bib**. When no bib is read (or only with low confidence), the
+camera also sends a snapshot of the runner's head; the app compares it only with the runners
+still out on the course and records the finish when the match is confident (the strict face
+setting), otherwise it goes to the review queue with the likely runner suggested. The snapshot
+is not stored.
+
 **By hand (development):**
 
 `testpoint-finishcam` times runners crossing a virtual line and reads their
