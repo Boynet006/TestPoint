@@ -460,7 +460,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         s["run_started_at"] = iso(s["run_started_at"])
         s["run_closed_at"] = iso(s["run_closed_at"])
         for w in s["waves"]:
-            w["started_at"], w["closed_at"] = iso(w["started_at"]), iso(w["closed_at"])
+            w["started_at"], w["closed_at"], w["settles_at"] = iso(w["started_at"]), iso(w["closed_at"]), iso(w["settles_at"])
         s["server_time"] = iso(S.utcnow())
         return s
 

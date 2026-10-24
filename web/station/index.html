@@ -603,7 +603,7 @@ const I18N = {
     waiting_line: "Accepted, not at the line", at_line: "At the line", not_weighed_yet: "Not weighed yet",
     mark_present: "At the line", start: "Start", confirm_start: "Press again: countdown and start", start_hint: "Mark everyone at the line (camera or bib), then press START twice: a countdown, 3-2-1 and the horn; the time starts at the horn. Anyone not here runs in the next wave.",
     wave_n: "Wave {n}", wave_short: "W{n}", wave_fill: "{n} / {max} at the line", wave_runners: "{n} runners", start_wave: "Start wave {n}", line_empty: "Nobody at the line yet",
-    on_course: "On the course", wave_counts: "{out} out · {fin} in", review_n: "{n} to review", cutoff_in: "cut-off in {t}", cutoff_passed: "cut-off passed: closes itself",
+    on_course: "On the course", wave_counts: "{out} out · {fin} in", review_n: "{n} to review", cutoff_in: "cut-off in {t}", cutoff_passed: "cut-off passed: closes itself", all_in_closing: "everyone in: closes itself in {t}",
     close_wave: "Close wave", close_wave_n: "Close wave {n}", wave_closed: "Wave {n} closed: anyone still out is DNF.",
     get_ready: "Get ready", go: "GO", waiting_list: "Waiting for a wave", waiting_hint: "Weighed in, not run yet. Tap Present, or let the camera mark them.",
     by_face: "face checked", by_typed: "typed", check_bib: "Check the bib they are wearing.", undo: "Undo",
@@ -776,7 +776,7 @@ const I18N = {
     waiting_line: "مقبولون لم يصلوا", at_line: "عند الخط", not_weighed_yet: "لم يُوزنوا",
     mark_present: "عند الخط", start: "انطلاق", confirm_start: "اضغط مرة أخرى: العد التنازلي والانطلاق", start_hint: "سجّل كل من عند الخط (بالكاميرا أو الرقم) ثم اضغط انطلاق مرتين: عدّ تنازلي، 3-2-1 والبوق؛ يبدأ الوقت عند البوق. من ليس هنا يجري في الموجة التالية.",
     wave_n: "الموجة {n}", wave_short: "م{n}", wave_fill: "{n} / {max} عند الخط", wave_runners: "{n} عدّاء", start_wave: "انطلاق الموجة {n}", line_empty: "لا أحد عند الخط بعد",
-    on_course: "في المسار", wave_counts: "{out} في المسار · {fin} وصلوا", review_n: "{n} للمراجعة", cutoff_in: "الحد الأقصى بعد {t}", cutoff_passed: "انتهى الحد الأقصى: تُغلق تلقائياً",
+    on_course: "في المسار", wave_counts: "{out} في المسار · {fin} وصلوا", review_n: "{n} للمراجعة", cutoff_in: "الحد الأقصى بعد {t}", cutoff_passed: "انتهى الحد الأقصى: تُغلق تلقائياً", all_in_closing: "وصل الجميع: تُغلق تلقائياً بعد {t}",
     close_wave: "إغلاق الموجة", close_wave_n: "إغلاق الموجة {n}", wave_closed: "أُغلقت الموجة {n}: من بقي في المسار لم يُكمل.",
     get_ready: "استعد", go: "انطلق", waiting_list: "بانتظار موجة", waiting_hint: "تم وزنهم ولم يجروا بعد. اضغط حاضر أو دع الكاميرا تسجّلهم.",
     by_face: "تم التحقق بالوجه", by_typed: "مكتوب", check_bib: "تحقق من الرقم الذي يرتديه.", undo: "تراجع",
@@ -1684,7 +1684,8 @@ function tickStart() {
   for (const w of openWaves()) {
     const age = (serverNow() - Date.parse(w.started_at)) / 1000, c = $("wc-" + w.id), k = $("wcut-" + w.id);
     if (c) c.textContent = mmss(age);
-    if (k) k.textContent = age < cut ? t("cutoff_in", { t: mmss(cut - age) }) : t("cutoff_passed");
+    if (k) k.textContent = w.settles_at ? t("all_in_closing", { t: mmss(Math.max(0, (Date.parse(w.settles_at) - serverNow()) / 1000)) })
+      : age < cut ? t("cutoff_in", { t: mmss(cut - age) }) : t("cutoff_passed");
   }
 }
 async function undoLineUp(id, fromLast) {
@@ -1871,7 +1872,7 @@ function renderFinish() {
   $("fIdle").classList.toggle("hidden", !!open.length);
   $("fIdle").textContent = cw ? t("next_wave_countdown", { n: cw.number }) : t("no_wave_out");
   $("fLive").classList.toggle("hidden", !open.length);
-  setHTML("fWaveClocks", open.map(w => `<div class="fwave"><b>${t("wave_n", { n: w.number })}</b><span class="fwclock" id="fwc-${w.id}"></span><span class="hint">${t("wave_counts", { out: w.running, fin: w.finished + w.dnf })}</span></div>`).join(""));
+  setHTML("fWaveClocks", open.map(w => `<div class="fwave"><b>${t("wave_n", { n: w.number })}</b><span class="fwclock" id="fwc-${w.id}"></span><span class="hint">${t("wave_counts", { out: w.running, fin: w.finished + w.dnf })}</span><span class="hint" id="fws-${w.id}" style="color:var(--go)"></span></div>`).join(""));
   // still on the course: every runner accounted for, with their target and a DNF button
   const out = S.entries.filter(e => e.status === "running").sort((a, b) => (a.wave - b.wave) || (bibNum(a) - bibNum(b)));
   const stopped = S.entries.filter(e => e.status === "dnf" && e.wave && open.some(w => w.number === e.wave));
@@ -1925,7 +1926,11 @@ function tickClocks() {
   const el = runElapsed();
   $("clock").textContent = new Date(serverNow()).toLocaleTimeString(lang === "ar" ? "ar-EG" : "en-GB");
   if (role === "start" && S.state) tickStart();
-  if (role === "finish" && S.state) for (const w of openWaves()) { const c = $("fwc-" + w.id); if (c) c.textContent = mmss((serverNow() - Date.parse(w.started_at)) / 1000); }
+  if (role === "finish" && S.state) for (const w of openWaves()) {
+    const c = $("fwc-" + w.id), k = $("fws-" + w.id);
+    if (c) c.textContent = mmss((serverNow() - Date.parse(w.started_at)) / 1000);
+    if (k) k.textContent = w.settles_at ? t("all_in_closing", { t: mmss(Math.max(0, (Date.parse(w.settles_at) - serverNow()) / 1000)) }) : "";
+  }
   // Only the timer text changes each second; the tap buttons are not redrawn, so no tap is lost.
   lanes.forEach(l => {
     if (l.state !== "running") return;

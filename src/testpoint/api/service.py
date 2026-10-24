@@ -134,7 +134,8 @@ def summary(db: Session, day: Day) -> dict:
         return {"id": w.id, "number": w.number, "started_at": w.started_at, "closed_at": w.closed_at,
                 "closed_by": w.closed_by, "runners": sum(c.values()), "lined_up": c.get(J.LINED_UP, 0),
                 "running": c.get(J.RUNNING, 0), "dnf": c.get(J.DNF, 0), "review": pend.get(w.id, 0),
-                "finished": sum(n for s, n in c.items() if s not in (J.LINED_UP, J.RUNNING, J.DNF))}
+                "finished": sum(n for s, n in c.items() if s not in (J.LINED_UP, J.RUNNING, J.DNF)),
+                "settles_at": wave_settles_at(db, w)}
     started = [w for w in ws if w.started_at is not None]
     return {
         "date": day.date,
@@ -764,6 +765,23 @@ def weigh_in(db: Session, day: Day, rules: DayRules, entry: Entry, *, weight_kg:
 
 WAVE_GRACE_S = 120
 """After the run cut-off, a wave waits this long for late finishers before it closes itself."""
+WAVE_SETTLE_S = 60
+"""Everyone of a wave is in (finished or DNF): it closes itself this long after the last finish,
+time enough to fix a wrong bib (which needs the wave open)."""
+
+
+def wave_settles_at(db: Session, w: Wave) -> datetime | None:
+    """When a wave whose runners are all in closes itself; None while someone is still out
+    or a crossing of it waits for review."""
+    if w.started_at is None or w.closed_at is not None:
+        return None
+    people = db.scalar(select(func.count()).select_from(Entry).where(Entry.wave_id == w.id)) or 0
+    out = db.scalar(select(func.count()).select_from(Entry).where(Entry.wave_id == w.id, Entry.status == J.RUNNING)) or 0
+    review = db.scalar(select(func.count()).select_from(Crossing).where(Crossing.wave_id == w.id, Crossing.needs_review.is_(True))) or 0
+    if not people or out or review:
+        return None
+    last = db.scalar(select(func.max(Crossing.at)).where(Crossing.wave_id == w.id))
+    return (last + timedelta(seconds=WAVE_SETTLE_S)) if last else w.started_at
 
 
 def list_waves(db: Session, day: Day) -> list[Wave]:
@@ -1169,12 +1187,15 @@ def void_wave(db: Session, day: Day, wave_id: int, abort: bool = False) -> dict:
 
 
 def auto_close(db: Session, day: Day, rules: DayRules, now: datetime | None = None) -> list[int]:
-    """Close every wave whose cut-off (plus a grace period) has passed, unless a crossing of it
-    still waits for review. Nobody has to remember to close the run."""
+    """Close every wave that is done: everyone in (finished or DNF) and the settle time passed,
+    or its cut-off (plus a grace period) passed; never while a crossing of it waits for review.
+    Nobody has to remember to close the run."""
     now = now or utcnow()
     closed = []
     for w in open_waves(db, day):
-        if now - w.started_at > timedelta(seconds=rules.run_cutoff_s + WAVE_GRACE_S):
+        settles = wave_settles_at(db, w)
+        if (settles is not None and now >= settles and now >= w.started_at) or \
+                now - w.started_at > timedelta(seconds=rules.run_cutoff_s + WAVE_GRACE_S):
             try:
                 close_run(db, day, wave_id=w.id, now=now, by="auto")
                 closed.append(w.number)
