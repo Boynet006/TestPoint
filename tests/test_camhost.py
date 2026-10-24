@@ -34,7 +34,9 @@ def svc(tmp_path, monkeypatch):
     vids = tmp_path / "run"
     vids.mkdir()
     (vids / "finish.mp4").write_bytes(b"x")
-    monkeypatch.setenv("TESTPOINT_VIDEO_DIRS", str(vids))
+    (tmp_path / "pushup").mkdir()
+    (tmp_path / "pushup" / "lanes.mp4").write_bytes(b"xy")
+    monkeypatch.setenv("TESTPOINT_VIDEO_DIRS", str(tmp_path))
     monkeypatch.setattr(camhost, "list_cameras", lambda max_index=4: [{"index": 0, "label": "Camera 1", "size": [1280, 720]}])
     return TestClient(camhost.create_service(log_dir=tmp_path / "logs", runner=FakeProc)), vids
 
@@ -42,8 +44,10 @@ def svc(tmp_path, monkeypatch):
 def test_sources_and_start_stop(svc):
     c, vids = svc
     src = c.get("/sources").json()
-    assert src["cameras"][0]["index"] == 0 and src["videos"][0]["label"] == "run/finish.mp4"
-    video = src["videos"][0]["path"]
+    assert src["cameras"][0]["index"] == 0
+    labels = {v["label"]: v for v in src["videos"]}
+    assert set(labels) == {"run/finish.mp4", "pushup/lanes.mp4"} and labels["pushup/lanes.mp4"]["group"] == "pushup"
+    video = labels["run/finish.mp4"]["path"]
     r = c.post("/finish/start", json={"kind": "video", "source": video, "line_y": 0.7, "direction": "down",
                                        "app_url": "http://127.0.0.1:8080"})
     assert r.status_code == 200 and r.json()["running"]
@@ -101,3 +105,26 @@ def test_app_talks_to_the_camera_service(svc, tmp_path):
     finally:
         server.should_exit = True
         th.join(timeout=5)
+
+
+
+def test_station_engine_with_lanes_drawn_on_the_picture(svc, tmp_path):
+    c, _ = svc
+    video = next(v["path"] for v in c.get("/sources").json()["videos"] if v["group"] == "pushup")
+    r = c.post("/station/start", json={"kind": "video", "source": video, "exercise": "pushup", "lanes": 3,
+                                        "dividers": [0.3, 0.62], "app_url": "http://127.0.0.1:8080"}).json()
+    assert r["running"] and [x["rect"] for x in r["config"]["rects"]] == [[0.0, 0.0, 0.3, 1.0], [0.3, 0.0, 0.62, 1.0], [0.62, 0.0, 1.0, 1.0]]
+    cmd = FakeProc.last.cmd
+    assert cmd[1:3] == ["-m", "testpoint.engine"] and cmd[cmd.index("--exercise") + 1] == "pushup" and "--realtime" in cmd
+    import json, pathlib
+    lanes = json.loads(pathlib.Path(cmd[cmd.index("--lanes-file") + 1]).read_text())["lanes"]
+    assert [x["name"] for x in lanes] == ["1", "2", "3"]
+    # equal strips when no dividers are given; bad dividers refused
+    r = c.post("/station/start", json={"kind": "webcam", "source": "0", "exercise": "crunch", "lanes": 2, "app_url": "http://127.0.0.1:8080"}).json()
+    assert [x["rect"][2] for x in r["config"]["rects"]] == [0.5, 1.0]
+    bad = c.post("/station/start", json={"kind": "webcam", "source": "0", "exercise": "crunch", "lanes": 3,
+                                          "dividers": [0.6, 0.3], "app_url": "http://127.0.0.1:8080"})
+    assert bad.status_code == 400
+    # the finish camera is a separate process: both can run (on different cameras)
+    assert c.get("/finish").json()["running"] is False and c.get("/station").json()["running"]
+    assert c.post("/station/stop").json()["running"] is False

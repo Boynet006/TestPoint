@@ -179,6 +179,19 @@
   .fcview { position: relative; margin-top: 10px; } .fcline { position: absolute; left: 0; right: 0; height: 0; border-top: 3px dashed var(--amber); pointer-events: none; }
   .fclog { background: var(--bg2); border: 1px solid var(--line); padding: 8px; font-size: 12px; max-height: 120px; overflow: auto; white-space: pre-wrap; margin-top: 8px; }
   #fcForm.dim { opacity: .45; }
+  .scgrid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(260px, 2fr); gap: 16px; }
+  @media (max-width: 1000px) { .scgrid { grid-template-columns: 1fr; } }
+  .scview { position: relative; display: inline-block; max-width: 100%; }
+  .scview .camlive { margin-bottom: 0; } .scview .camlive img { width: auto; max-width: 100%; max-height: 380px; }
+  .scdivs { position: absolute; inset: 0; } .scdivs.hidden { display: none; }
+  .lanediv { position: absolute; top: 0; bottom: 0; width: 22px; margin-left: -11px; cursor: ew-resize; touch-action: none; }
+  .lanediv::before { content: ""; position: absolute; left: 10px; top: 0; bottom: 0; border-left: 3px dashed var(--amber); }
+  .lanediv span { position: absolute; top: 50%; left: 0; transform: translateY(-50%); background: var(--amber); color: var(--amber-ink); font-size: 13px; padding: 2px 3px; }
+  .lanelbl { position: absolute; top: 6px; transform: translateX(-50%); background: rgba(0,0,0,.6); color: #fff; font-family: var(--cond); font-weight: 700; padding: 0 8px; }
+  .photocheck { display: grid; grid-template-columns: 96px 1fr; gap: 12px; align-items: center; }
+  .photocheck img, .photocheck .nophoto { width: 96px; height: 96px; object-fit: cover; border: 2px solid var(--amber); }
+  .photocheck .nophoto { display: grid; place-items: center; font-size: 11px; color: var(--muted); text-align: center; border-color: var(--line); }
+  #xCountdown { margin: 0 0 16px; }
   .pagetitle { font-family: var(--cond); font-size: 28px; letter-spacing: 1.5px; text-transform: uppercase; margin: 0; }
   .sec { font-family: var(--cond); font-size: 15px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin: 22px 0 0; border-top: 1px solid var(--line); padding-top: 14px; }
   .pair { display: flex; align-items: center; gap: 8px; } .pair input { min-width: 0; flex: 1; }
@@ -441,6 +454,10 @@
       </div>
     </div>
   </div>
+<dialog id="numDlg" class="dlg" style="max-width:320px">
+  <div class="dlg-head"><h2 id="numTitle"></h2><span class="spacer"></span><button class="btn ghost sm" type="button" onclick="$('numDlg').close()" data-t="enrol_cancel"></button></div>
+  <div class="numpad"><div class="npdisp"><span id="numDisp"></span></div><div class="npkeys"><button class="btn" onclick="NumDlg.key('1')">1</button><button class="btn" onclick="NumDlg.key('2')">2</button><button class="btn" onclick="NumDlg.key('3')">3</button><button class="btn" onclick="NumDlg.key('4')">4</button><button class="btn" onclick="NumDlg.key('5')">5</button><button class="btn" onclick="NumDlg.key('6')">6</button><button class="btn" onclick="NumDlg.key('7')">7</button><button class="btn" onclick="NumDlg.key('8')">8</button><button class="btn" onclick="NumDlg.key('9')">9</button><button class="btn" onclick="NumDlg.key('del')">⌫</button><button class="btn" onclick="NumDlg.key('0')">0</button><button class="btn go" onclick="NumDlg.key('ok')">OK</button></div></div>
+</dialog>
 <dialog id="dnfDlg" class="dlg" style="max-width:460px">
   <div class="dlg-head"><h2 id="dnfTitle"></h2><span class="spacer"></span><button class="btn ghost sm" type="button" onclick="$('dnfDlg').close()" data-t="enrol_cancel"></button></div>
   <p class="hint" data-t="dnf_hint"></p>
@@ -456,10 +473,41 @@
       <div class="seg"><button id="ev-pushup" onclick="setEvent('pushup')" data-t="pushup"></button><button id="ev-crunch" onclick="setEvent('crunch')" data-t="crunch"></button></div>
       <div class="kv"><span data-t="time_limit"></span> <b id="xLimit">2:00</b></div>
       <div class="kv"><span data-t="waiting_here"></span> <b id="xWaiting">0</b></div>
+      <button class="btn go sm hidden" style="flex:0 0 auto" id="xStartAll" onclick="StartAll.go()"></button>
       <span class="spacer"></span>
+      <button class="btn ghost sm" style="flex:0 0 auto" onclick="StationCam.toggle()" id="xCamBtn" data-t="sc_camera"></button>
       <span class="pill off" id="xCam"></span>
     </div>
-    <div class="camlive hidden" id="camLive-station"><img alt=""><div class="viewer-tag" data-t="cam_view"></div></div>
+    <div id="xCountdown" class="countdown hidden"><div class="cd-label" data-t="start_all_label"></div><div class="cd-num" id="xCdNum"></div></div>
+    <div class="card hidden" id="scCard" style="margin-bottom:16px">
+      <div class="scgrid">
+        <div>
+          <div class="scview"><div class="camlive hidden" id="camLive-station"><img alt=""><div class="viewer-tag" data-t="cam_view"></div></div><div class="scdivs" id="scDivs"></div></div>
+          <p class="hint" id="scDivHint" data-t="sc_div_hint"></p>
+        </div>
+        <div>
+          <div class="row" style="align-items:baseline"><h2 style="margin:0" data-t="sc_title"></h2><span class="spacer"></span><span class="pill" id="scState"></span></div>
+          <div id="scOffline" class="msg warn hidden" data-t="sc_offline"></div>
+          <div id="scForm">
+            <div class="seg" style="margin-top:10px"><button id="sck-webcam" onclick="StationCam.kind('webcam')" data-t="src_webcam"></button><button id="sck-video" onclick="StationCam.kind('video')" data-t="src_video"></button><button id="sck-url" onclick="StationCam.kind('url')" data-t="fc_ipcam"></button></div>
+            <div class="row" style="margin-top:8px">
+              <select id="scWebcam" class="scsrc"></select><select id="scVideo" class="scsrc hidden"></select>
+              <input id="scUrl" class="scsrc hidden" data-tp="ph_cam_url" autocomplete="off" style="flex:1">
+              <button class="btn ghost sm" style="flex:0 0 auto" onclick="StationCam.sources(true)" data-t="fc_refresh"></button>
+            </div>
+            <p class="hint" id="scWhat"></p>
+            <div class="row" style="margin-top:6px">
+              <button class="btn go" style="flex:0 0 auto" id="scStart" onclick="StationCam.start()"></button>
+              <button class="btn stop" style="flex:0 0 auto" id="scStop" onclick="StationCam.stop()" data-t="fc_stop"></button>
+              <button class="btn ghost sm" style="flex:0 0 auto" onclick="StationCam.resetDividers()" data-t="sc_equal"></button>
+              <span class="hint" id="scNote"></span>
+            </div>
+            <div id="scMsg"></div>
+            <pre class="fclog hidden" id="scLog"></pre>
+          </div>
+        </div>
+      </div>
+    </div>
     <div class="lanes" id="lanes"></div>
   </div>
 </section>
@@ -667,6 +715,11 @@ const I18N = {
     fcam_live: "Finish camera live", cam_last: "last read {bib}", cam_off_manual: "Finish camera off: time by hand",
     review_queue: "Review queue", clip: "clip", assign: "Assign", finishers: "Finishers", time: "Time", status: "Status", bib: "Bib", name: "Name", run: "Run",
     pushup: "Push-ups", crunch: "Crunches", time_limit: "Time limit", pass_mark: "Pass", waiting_here: "Ran, not done here",
+    sc_camera: "Camera", sc_title: "Station camera", sc_offline: "The camera service is not running on the station PC. Start TestPoint.cmd starts it (or run: python -m testpoint.camhost). Until then, count by hand.",
+    sc_what: "Counts {ex} in {n} lanes (the exercise and lanes on this page).", sc_running: "Running", sc_equal: "Equal lanes",
+    sc_div_hint: "Drag the dashed lines so each lane holds one person; then Restart with these settings.", sc_cpu: "CPU only: counting will be slow",
+    sc_followed: "Camera switched to {ex}, {n} lanes.", sc_started: "Station camera starting: the picture appears in a few seconds.", start_all: "Start all ({n})", start_all_label: "All lanes start together",
+    check_photo: "Check the photo: is this the person?", no_photo: "no photo on file", numpad: "Number pad", lane_bib: "Lane {n}: bib",
     cam_view: "Live camera", cam_off: "Camera offline · manual count", cam_live: "Camera live · {fps} fps", corrections: "Examiner corrections",
     ph_waiting: "Get into position", ph_rest: "Up", ph_work: "Down", no_person: "Nobody in the lane",
     f_body_not_straight: "Body not straight", f_knee_on_ground: "Knee on the ground", f_rest_in_down: "Resting down", f_knees_not_bent: "Knees not bent",
@@ -851,6 +904,11 @@ const I18N = {
     fcam_live: "كاميرا النهاية تعمل", cam_last: "آخر قراءة {bib}", cam_off_manual: "كاميرا النهاية متوقفة: التوقيت يدوي",
     review_queue: "قائمة المراجعة", clip: "مقطع", assign: "تعيين", finishers: "المنهون", time: "الزمن", status: "الحالة", bib: "الرقم", name: "الاسم", run: "الجري",
     pushup: "الضغط", crunch: "البطن", time_limit: "الحد الزمني", pass_mark: "النجاح", waiting_here: "أنهوا الجري ولم يختبروا هنا",
+    sc_camera: "الكاميرا", sc_title: "كاميرا المحطة", sc_offline: "خدمة الكاميرا لا تعمل على جهاز المحطة. Start TestPoint.cmd يشغّلها (أو: python -m testpoint.camhost). حتى ذلك الحين، العدّ يدوي.",
+    sc_what: "تعدّ {ex} في {n} مسارات (التمرين والمسارات في هذه الصفحة).", sc_running: "تعمل", sc_equal: "مسارات متساوية",
+    sc_div_hint: "اسحب الخطوط المتقطعة ليحوي كل مسار شخصاً واحداً، ثم أعد التشغيل بهذه الإعدادات.", sc_cpu: "المعالج فقط: العدّ سيكون بطيئاً",
+    sc_followed: "تحولت الكاميرا إلى {ex}، {n} مسارات.", sc_started: "كاميرا المحطة تبدأ: تظهر الصورة خلال ثوانٍ.", start_all: "ابدأ الجميع ({n})", start_all_label: "تبدأ كل المسارات معاً",
+    check_photo: "تحقق من الصورة: هل هذا هو الشخص؟", no_photo: "لا توجد صورة مسجلة", numpad: "لوحة الأرقام", lane_bib: "المسار {n}: الرقم",
     cam_view: "الكاميرا مباشرة", cam_off: "الكاميرا غير متصلة · عدّ يدوي", cam_live: "الكاميرا تعمل · {fps} إطار/ث", corrections: "تصحيحات الممتحن",
     ph_waiting: "خذ الوضعية", ph_rest: "أعلى", ph_work: "أسفل", no_person: "لا أحد في المسار",
     f_body_not_straight: "الجسم غير مستقيم", f_knee_on_ground: "الركبة على الأرض", f_rest_in_down: "استراحة في الأسفل", f_knees_not_bent: "الركبتان غير مثنيتين",
@@ -1902,7 +1960,7 @@ const FinishCam = {
     try {
       this.src = await api("GET", `/api/finishcam/sources${refresh ? "?refresh=true" : ""}`);
       $("fcWebcam").innerHTML = this.src.cameras.map(c => `<option value="${c.index}">${esc(c.label)} · ${c.size[0]}×${c.size[1]}</option>`).join("") || `<option value="">${t("fc_no_webcam")}</option>`;
-      $("fcVideo").innerHTML = this.src.videos.map(v => `<option value="${esc(v.path)}">${esc(v.label)} · ${v.mb} MB</option>`).join("") || `<option value="">${t("fc_no_video")}</option>`;
+      $("fcVideo").innerHTML = this.src.videos.filter(v => !v.group || v.group === "run").map(v => `<option value="${esc(v.path)}">${esc(v.label)} · ${v.mb} MB</option>`).join("") || `<option value="">${t("fc_no_video")}</option>`;
       if (this.pref.webcam != null) $("fcWebcam").value = this.pref.webcam;
       if (this.pref.video) $("fcVideo").value = this.pref.video;
       $("fcNote").textContent = this.src.gpu ? t("fc_gpu") : t("fc_cpu");
@@ -1953,6 +2011,162 @@ const FinishCam = {
     $("fcLineY").value = this.pref.line ?? 85; $("fcDir").value = this.pref.dir || "down";
     if (this.pref.url) $("fcUrl").value = this.pref.url;
   },
+};
+
+// ---- exercise station: start and time signals (one beep at the start, two at 10 s left, a long one at time)
+const Signal = {
+  start() { if (Sound.ctx) Sound.tone(Sound.ctx.currentTime, 880, 0.35, 0.3); },
+  warn() { if (Sound.ctx) { const t0 = Sound.ctx.currentTime; Sound.tone(t0, 990, 0.12, 0.25); Sound.tone(t0 + 0.2, 990, 0.12, 0.25); } },
+  end() { if (Sound.ctx) { const t0 = Sound.ctx.currentTime; Sound.tone(t0, 660, 1.2, 0.35); Sound.tone(t0, 440, 1.2, 0.2); } },
+};
+// ---- Start all: everyone checked in starts together after 3-2-1 (fair, like a single command)
+const StartAll = {
+  busy: false,
+  ready: () => lanes.filter(l => l.state === "verified" && l.reason !== "attempt_in_progress" && !l.busy),
+  render() {
+    const n = this.ready().length;
+    $("xStartAll").classList.toggle("hidden", n < 2 || this.busy);
+    $("xStartAll").textContent = t("start_all", { n });
+  },
+  async go() {
+    const ready = this.ready(); if (ready.length < 1 || this.busy) return;
+    Sound.unlock(); this.busy = true; this.render();
+    const go = serverNow() + 3200;
+    Sound.countdown(go);
+    $("xCountdown").classList.remove("hidden");
+    while (serverNow() < go) { $("xCdNum").textContent = Math.ceil((go - serverNow()) / 1000); await new Promise(r => setTimeout(r, 100)); }
+    $("xCdNum").textContent = t("go");
+    quietStart = true;
+    try { await Promise.all(ready.map(l => startLane(l.n))); } finally { quietStart = false; }
+    setTimeout(() => $("xCountdown").classList.add("hidden"), 800);
+    this.busy = false; this.render();
+  },
+};
+// ---- photo check at the lane: the enrolment photo, large, next to the name
+function photoCheck(e) {
+  return `<div class="photocheck"><img src="/api/entries/${e.id}/face.jpg?n=1" alt="" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'nophoto',textContent:t('no_photo')}))">${whoHtml(e)}</div>`;
+}
+// ---- number pad for a lane's bib (tablets)
+const NumDlg = {
+  lane: null, val: "",
+  open(n) { this.lane = n; this.val = ""; $("numTitle").textContent = t("lane_bib", { n }); this.show(); $("numDlg").showModal(); },
+  key(k) {
+    if (k === "del") this.val = this.val.slice(0, -1);
+    else if (k === "ok") { const v = this.val; $("numDlg").close(); if (v) laneCheckin(this.lane, v); return; }
+    else if (this.val.length < 6) this.val += k;
+    this.show();
+  },
+  show() { $("numDisp").textContent = this.val || t("ph_finish"); $("numDisp").classList.toggle("ph", !this.val); },
+};
+// ---- the station camera: picked here, run by the camera service on this PC (testpoint.engine)
+const StationCam = {
+  st: null, src: null, polled: 0, busy: false, open: null,
+  pref: (() => { try { return JSON.parse(localStorage.getItem("tp_stationcam") || "{}"); } catch { return {}; } })(),
+  save() { try { localStorage.setItem("tp_stationcam", JSON.stringify(this.pref)); } catch {} },
+  toggle() { this.open = !this.isOpen(); $("scCard").classList.toggle("hidden", !this.open); this.render(); },
+  isOpen() { return !$("scCard").classList.contains("hidden"); },
+  kind(k) {
+    this.pref.kind = k; this.save();
+    for (const x of ["webcam", "video", "url"]) { $("sck-" + x).classList.toggle("active", x === k); $("sc" + x[0].toUpperCase() + x.slice(1)).classList.toggle("hidden", x !== k); }
+  },
+  dividers() {
+    const n = lanes.length, d = (this.pref.dividers || {})[n];
+    return Array.isArray(d) && d.length === n - 1 ? d : Array.from({ length: n - 1 }, (_, i) => (i + 1) / n);
+  },
+  resetDividers() { if (this.pref.dividers) delete this.pref.dividers[lanes.length]; this.save(); this.drawDividers(); this.render(); },
+  drawDividers() {
+    const host = $("scDivs"), d = this.dividers(), xs = [0, ...d, 1];
+    host.innerHTML = d.map((x, i) => `<div class="lanediv" data-i="${i}" style="left:${x * 100}%"><span>⇔</span></div>`).join("")
+      + xs.slice(0, -1).map((x, i) => `<div class="lanelbl" style="left:${(x + xs[i + 1]) / 2 * 100}%">${i + 1}</div>`).join("");
+    host.querySelectorAll(".lanediv").forEach(el => el.addEventListener("pointerdown", ev => this.drag(ev, +el.dataset.i)));
+  },
+  drag(ev, i) {
+    ev.preventDefault();
+    const host = $("scDivs"), box = host.getBoundingClientRect(), d = this.dividers().slice();
+    const move = e => {
+      const x = Math.min(0.98, Math.max(0.02, (e.clientX - box.left) / box.width));
+      const lo = (i ? d[i - 1] : 0) + 0.05, hi = (i < d.length - 1 ? d[i + 1] : 1) - 0.05;
+      d[i] = Math.round(Math.min(hi, Math.max(lo, x)) * 1000) / 1000;
+      this.pref.dividers = { ...(this.pref.dividers || {}), [lanes.length]: d.slice() };
+      this.drawDividers();
+    };
+    const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); this.save(); this.render(); };
+    window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
+  },
+  async sources(refresh) {
+    try {
+      this.src = await api("GET", `/api/finishcam/sources${refresh ? "?refresh=true" : ""}`);
+      $("scWebcam").innerHTML = this.src.cameras.map(c => `<option value="${c.index}">${esc(c.label)} · ${c.size[0]}×${c.size[1]}</option>`).join("") || `<option value="">${t("fc_no_webcam")}</option>`;
+      const vids = this.src.videos.filter(v => v.group === event);
+      $("scVideo").innerHTML = vids.map(v => `<option value="${esc(v.path)}">${esc(v.label)} · ${v.mb} MB</option>`).join("") || `<option value="">${t("fc_no_video")}</option>`;
+      if (this.pref.webcam != null) $("scWebcam").value = this.pref.webcam;
+      const mine = this.pref["video_" + event] || this.pref.video;
+      if (mine && vids.some(v => v.path === mine)) $("scVideo").value = mine;
+      $("scNote").textContent = this.src.gpu ? t("fc_gpu") : t("sc_cpu");
+    } catch (e) { /* the state pill says the service is offline */ }
+  },
+  async poll(force) {
+    if (!force && (Date.now() - this.polled < 3000 || this.busy)) return;
+    this.polled = Date.now();
+    try { this.st = await api("GET", "/api/stationcam"); } catch { this.st = { available: false, running: false }; }
+    if (this.st.available && !this.src) this.sources(false);
+    // first visit: open the card when no camera runs, so the examiner sees how to start one
+    if (this.open === null) { this.open = !this.st.running; $("scCard").classList.toggle("hidden", !this.open); }
+    this.autoRestart();
+    this.render();
+  },
+  // The page decides the exercise and the lanes: when they change, the engine follows (when no lane is busy).
+  autoRestart() {
+    const st = this.st, c = st && st.config;
+    if (!st || !st.running || !c || this.busy) return;
+    if (lanes.some(l => ["running", "stopped"].includes(l.state) || l.busy)) return;
+    if (c.exercise !== event || c.lanes !== lanes.length) this.start(true);
+  },
+  render() {
+    const st = this.st || { available: false };
+    if (!st.running) $("camLive-station").classList.add("hidden");
+    const live = !$("camLive-station").classList.contains("hidden");
+    $("scOffline").classList.toggle("hidden", !!st.available);
+    $("scForm").classList.toggle("dim", !st.available);
+    document.querySelectorAll("#scForm button, #scForm select, #scForm input").forEach(el => { el.disabled = !st.available || this.busy; });
+    $("scState").className = "pill " + (st.running ? (live ? "ok" : "info") : st.exit_code ? "bad" : "");
+    $("scState").textContent = !st.available ? t("fc_state_offline") : st.running ? (live ? t("fc_state_live") : t("fc_state_starting")) : st.exit_code ? t("fc_state_error") : t("fc_state_stopped");
+    const c = st.config, changed = st.running && c && (c.exercise !== event || c.lanes !== lanes.length || JSON.stringify(c.dividers || []) !== JSON.stringify(this.dividers()));
+    $("scStart").textContent = st.running ? (changed ? t("fc_restart") : t("sc_running")) : t("fc_start");
+    $("scStart").disabled = $("scStart").disabled || (st.running && !changed);
+    $("scStop").classList.toggle("hidden", !st.running);
+    $("scWhat").textContent = t("sc_what", { ex: t(event), n: lanes.length });
+    const log = (st.log || []).join("\n");
+    $("scLog").textContent = log; $("scLog").classList.toggle("hidden", !log || (st.running && live));
+    $("scDivs").classList.toggle("hidden", !live); $("scDivHint").classList.toggle("hidden", !live);
+    if (live && !$("scDivs").children.length) this.drawDividers();
+  },
+  async start(auto) {
+    const k = this.pref.kind || "webcam", source = k === "webcam" ? $("scWebcam").value : k === "video" ? $("scVideo").value : $("scUrl").value.trim();
+    const c = this.st && this.st.config;
+    const use = auto && c ? { kind: c.kind, source: c.source } : { kind: k, source };
+    if (use.kind === "video" && this.src) {     // a video belongs to one exercise: switch with it
+      const v = this.src.videos.find(x => x.path === use.source);
+      const mine = this.pref["video_" + event];   // the video last picked for this exercise, else the first
+      if (v && v.group !== event) use.source = (this.src.videos.find(x => x.path === mine) || this.src.videos.find(x => x.group === event) || {}).path || "";
+    }
+    if (use.source === "" || use.source == null) { msg("scMsg", "bad", t("fc_pick_source")); return; }
+    if (!auto) { Object.assign(this.pref, { [k]: source }, k === "video" ? { ["video_" + event]: source } : {}); this.save(); }
+    this.busy = true; this.render();
+    try {
+      this.st = { available: true, ...(await api("POST", "/api/stationcam/start", { ...use, exercise: event, lanes: lanes.length, dividers: this.dividers(), app_url: location.origin })) };
+      msg("scMsg", "ok", t(auto ? "sc_followed" : "sc_started", { ex: t(event), n: lanes.length }));
+      $("scDivs").innerHTML = "";
+    } catch (e) { msg("scMsg", "bad", err(e)); }
+    finally { this.busy = false; this.render(); }
+  },
+  async stop() {
+    this.busy = true; this.render();
+    try { this.st = { available: true, ...(await api("POST", "/api/stationcam/stop")) }; msg("scMsg", "ok", t("fc_stopped")); }
+    catch (e) { msg("scMsg", "bad", err(e)); }
+    finally { this.busy = false; this.render(); }
+  },
+  init() { this.kind(this.pref.kind || "webcam"); if (this.pref.url) $("scUrl").value = this.pref.url; },
 };
 
 // ---- DNF for one runner, with the reason (audited)
@@ -2085,7 +2299,8 @@ function tickClocks() {
     const left = Math.max(0, limit() - Math.floor((Date.now() - l.t0) / 1000));
     if (left === l.left) return;
     l.left = left;
-    if (left === 0) { stopLane(l.n); return; }
+    if (left === 10 && !l.warned) { l.warned = true; Signal.warn(); }
+    if (left === 0) { Signal.end(); stopLane(l.n); return; }
     const tm = $("lt-" + l.n); if (tm) { tm.textContent = mmss(left); tm.classList.toggle("low", left <= 10); }
   });
 }
@@ -2104,7 +2319,7 @@ function setLaneCount(n) {
 function setEvent(e) {
   // A running or stopped-but-unsaved lane would lose its count: refuse the switch.
   if (lanes.some(l => l.state === "running" || l.state === "stopped" || l.busy)) { lanes.filter(l => l.state === "stopped").forEach(l => { l.error = t("save_first"); renderLane(l); }); return; }
-  event = e; save("event", e); lanes.forEach(l => resetLane(l.n, true)); renderStation();
+  event = e; save("event", e); lanes.forEach(l => resetLane(l.n, true)); if (StationCam.src) StationCam.sources(false); renderStation();
 }
 function resetLane(n, quiet) { Object.assign(lanes[n - 1], { state: "empty", entry: null, reason: null, attempt: null, count: 0, rejected: 0, result: null, error: null, auto: null, fix: 0, fixRej: 0, live: null, why: "", needWhy: false }); if (!quiet) renderLane(lanes[n - 1]); }
 async function laneCheckin(n, query) {
@@ -2119,13 +2334,16 @@ async function laneCheckin(n, query) {
   } catch (e) { l.error = err(e); }
   renderLane(l);
 }
+let quietStart = false;   // Start all plays one signal for every lane
 async function startLane(n) {
+  Sound.unlock();
   const l = lanes[n - 1];
   if (l.busy) return;                        // double tap: only one request
   l.busy = true; renderLane(l);
   try {
     l.attempt = await api("POST", "/api/attempts", { entry_id: l.entry.id, event, lane: String(n) });
-    Object.assign(l, { state: "running", count: 0, rejected: 0, t0: Date.now(), left: limit(), error: null, auto: null, fix: 0, fixRej: 0, live: null, why: "", needWhy: false });
+    Object.assign(l, { state: "running", count: 0, rejected: 0, t0: Date.now(), left: limit(), error: null, auto: null, fix: 0, fixRej: 0, live: null, why: "", needWhy: false, warned: false });
+    if (!quietStart) Signal.start();
   } catch (e) {
     if (e.code === "attempt_in_progress") l.reason = "attempt_in_progress"; else l.error = err(e);
   } finally { l.busy = false; }
@@ -2213,12 +2431,12 @@ function renderLane(l) {
   const error = l.error ? `<div class="msg bad">${esc(l.error)}</div>` : "";
   let body = "";
   if (l.state === "empty") {
-    body = `<div class="search"><input id="lq-${l.n}" placeholder="${t("ph_bib")}" autocomplete="off" onkeydown="if(event.key==='Enter')laneCheckin(${l.n})"><button class="btn amber" onclick="laneCheckin(${l.n})">${t("checkin")}</button></div>`;
+    body = `<div class="search"><input id="lq-${l.n}" placeholder="${t("ph_bib")}" autocomplete="off" onkeydown="if(event.key==='Enter')laneCheckin(${l.n})" onfocus="if(matchMedia('(pointer: coarse)').matches){this.blur();NumDlg.open(${l.n})}"><button class="btn ghost" style="flex:0 0 auto" onclick="NumDlg.open(${l.n})" title="${t("numpad")}">123</button><button class="btn amber" onclick="laneCheckin(${l.n})">${t("checkin")}</button></div>`;
   } else if (l.state === "refused") {
     body = whoHtml(l.entry) + `<div class="msg bad">${t("e_" + l.reason)}</div>` + (l.reason === "attempt_in_progress" ? `<button class="btn" onclick="cancelOpen(${l.n})">${t("cancel_prev")}</button>` : "") + `<div class="row" style="margin-top:auto"><button class="btn" onclick="resetLane(${l.n})">${t("clear")}</button></div>`;
   } else if (l.state === "verified") {
     const open = l.reason === "attempt_in_progress";
-    body = whoHtml(l.entry) + `<div class="msg ok">${t("verified")} · ${t("run")} ${fmt(l.entry.run_time_s)}</div>` + targetHtml(l.entry, event)
+    body = photoCheck(l.entry) + `<div class="msg ok">${t("check_photo")} · ${t("run")} ${fmt(l.entry.run_time_s)}</div>` + targetHtml(l.entry, event)
       + (open ? `<div class="msg warn">${t("e_attempt_in_progress")}</div><button class="btn" onclick="cancelOpen(${l.n})">${t("cancel_prev")}</button>` : "")
       + `<div class="row" style="margin-top:auto"><button class="btn go xl" onclick="startLane(${l.n})" ${open || l.busy ? "disabled" : ""}>${t("start_test")}</button></div><button class="btn ghost sm" onclick="resetLane(${l.n})">${t("clear")}</button>`;
   } else if (l.state === "running" || l.state === "stopped") {
@@ -2233,9 +2451,11 @@ function renderLane(l) {
   }
   const keep = $("lq-" + l.n)?.value;
   el.innerHTML = head + error + body;
+  StartAll.render();
   if (keep && $("lq-" + l.n)) $("lq-" + l.n).value = keep;
 }
 function renderStation() {
+  StationCam.poll(); StartAll.render();
   for (const x of ["pushup", "crunch"]) $("ev-" + x).classList.toggle("active", x === event);
   if (S.rules) $("xLimit").textContent = mmss(S.rules.exercise_time_s).replace(/^0/, "");
   $("xWaiting").textContent = S.entries.filter(e => RAN.includes(e.status) && !(e.events[event] && e.events[event].status === "finished")).length;
@@ -2592,7 +2812,7 @@ async function savePin(remove) {
   setInterval(pollLanes, 100);
   setInterval(() => CamLive.tick(), 100);
   BgFx.attach($("camVideo"), $("camFx")); BgFx.attach($("enrolVideo"), $("enrolFx"));
-  FinishCam.init();
+  FinishCam.init(); StationCam.init();
   for (const v of BgFx.views.values()) BgFx.sync(v);
   $("enrolDlg").addEventListener("close", () => { if (EnrolDlg.stream) EnrolDlg.close(); });   // Esc: release the camera too
 })();

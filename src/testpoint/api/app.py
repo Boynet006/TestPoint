@@ -173,6 +173,15 @@ class FinishCamIn(BaseModel):
     """The app as the station PC sees it (the browser's own address), for the camera's reports."""
 
 
+class StationCamIn(BaseModel):
+    kind: Literal["webcam", "video", "url"]
+    source: str = Field(min_length=1, max_length=500)
+    exercise: Literal["pushup", "crunch"]
+    lanes: int = Field(default=3, ge=1, le=4)
+    dividers: list[float] = Field(default=[], max_length=3)
+    app_url: str = Field(max_length=100)
+
+
 class TagIn(BaseModel):
     bib: str
 
@@ -801,6 +810,22 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     @app.post("/api/finishcam/stop")
     def finishcam_stop() -> dict:
         return _camhost("POST", "/finish/stop", {}, timeout=10.0)
+
+    # the exercise-station engine: same service, its own process
+    @app.get("/api/stationcam")
+    def stationcam_status() -> dict:
+        try:
+            return {"available": True, **_camhost("GET", "/station", timeout=2.0)}
+        except S.ServiceError as e:
+            return {"available": False, "running": False, "reason": e.code}
+
+    @app.post("/api/stationcam/start")
+    def stationcam_start(body: StationCamIn) -> dict:
+        return _camhost("POST", "/station/start", body.model_dump(), timeout=10.0)
+
+    @app.post("/api/stationcam/stop")
+    def stationcam_stop() -> dict:
+        return _camhost("POST", "/station/stop", {}, timeout=10.0)
 
     @app.get("/api/lanes")
     def lanes(station: str, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:

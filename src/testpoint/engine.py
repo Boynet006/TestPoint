@@ -220,12 +220,20 @@ def build_lanes(args: argparse.Namespace) -> list[Lane]:
 def run(session: MultiLaneSession, source, reporter: Reporter, sender: Sender,
         cfg: RepCounterConfig, log: Callable[[str], None] = print,
         should_stop: Callable[[], bool] = lambda: False,
-        evidence: EvidenceWriter | None = None, preview: FramePublisher | None = None) -> int:
-    """The frame loop. Returns the number of frames processed."""
+        evidence: EvidenceWriter | None = None, preview: FramePublisher | None = None,
+        realtime: bool = False) -> int:
+    """The frame loop. Returns the number of frames processed. ``realtime``: a video file is
+    played at its own speed (demos: reps arrive as they happen, the lane timer stays honest)."""
     frames = 0
     fps = 0.0
     last = time.monotonic()
+    pace = realtime and not getattr(source, "is_live", True)
+    t_play = time.monotonic()
     for frame, t in iter_frames(source):
+        if pace:
+            wait = t_play + t - time.monotonic()
+            if wait > 0:
+                time.sleep(wait)
         for name, attempt_id in reporter.sync(session, cfg):
             log(f"lane {name}: " + (f"counting for attempt {attempt_id}" if attempt_id else "free"))
             if evidence is not None:
@@ -275,6 +283,8 @@ def main(argv: list[str] | None = None) -> int:
                    help="RTSP open/read timeout in seconds (default 10)")
     p.add_argument("--connect-attempts", type=int, default=3, metavar="N",
                    help="RTSP connection attempts before giving up, 0 = for ever (default 3)")
+    p.add_argument("--realtime", action="store_true",
+                   help="play a video file at its own speed, as a live camera would (demos, training)")
     p.add_argument("--no-preview", action="store_true",
                    help="do not send the live camera picture to the station screen")
     args = p.parse_args(argv)
@@ -322,7 +332,8 @@ def main(argv: list[str] | None = None) -> int:
         preview.start()
     sender.start()
     try:
-        run(session, source, reporter, sender, analyzer.counter_config(), evidence=evidence, preview=preview)
+        run(session, source, reporter, sender, analyzer.counter_config(), evidence=evidence, preview=preview,
+            realtime=args.realtime)
     except SourceError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
