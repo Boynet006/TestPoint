@@ -231,6 +231,17 @@ above the lane tiles / finishers list, so the examiner sees what the camera
 sees. It disappears on its own when the engine stops; `--no-preview` turns it off.
 Screenshots of every screen are in [docs/screenshots/](docs/screenshots/).
 
+### Exercise-station camera
+
+On the exercise station page, *Camera* opens the station camera card: pick a webcam on this PC,
+a video (`data/clips/pushup|crunch`, or the Desktop *TestPoint test videos*) or an IP camera, then
+*Start camera*. The camera service runs the counting engine (`testpoint.engine`) for the
+exercise and the number of lanes on the page, and follows them when they change (while no lane
+is testing). Drag the dashed lane dividers on the live picture so each lane holds one person,
+then *Restart with these settings*. The station plays a beep at the start, two at 10 s left and
+a long tone at time; *Start all* starts every checked-in lane together after 3-2-1. A lane shows
+the person's enrolment photo for the examiner to check before the start.
+
 ### Finish-line camera
 
 **From the finish page (normal use).** *Start TestPoint.cmd* also starts the camera
