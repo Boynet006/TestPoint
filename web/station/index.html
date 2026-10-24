@@ -161,6 +161,21 @@
   .waverow .wclock { font-family: var(--cond); font-size: 40px; font-weight: 700; text-align: end; }
   .waverow .wbtns { grid-column: 1 / -1; display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
   .waverow .wblock { grid-column: 1 / -1; display: flex; gap: 10px; align-items: center; justify-content: flex-end; color: var(--amber); font-size: 14px; }
+  .tapbtn { width: 100%; min-height: 150px; margin-top: 12px; font-size: 44px; letter-spacing: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+  .tapbtn small { font-size: 14px; letter-spacing: 1px; opacity: .75; }
+  .tagbox { display: grid; grid-template-columns: 1fr 260px; gap: 12px; margin-top: 12px; }
+  @media (max-width: 900px) { .tagbox { grid-template-columns: 1fr; } }
+  .tagq { display: flex; flex-direction: column; gap: 6px; max-height: 300px; overflow: auto; }
+  .tagitem { display: flex; justify-content: space-between; align-items: baseline; background: var(--bg2); color: var(--text); border: 1px solid var(--line); padding: 8px 12px; cursor: pointer; font-family: var(--cond); font-size: 22px; }
+  .tagitem.sel { border-color: var(--amber); box-shadow: inset 4px 0 0 var(--amber); }
+  .numpad .npdisp { display: flex; justify-content: space-between; align-items: baseline; background: var(--bg2); border: 1px solid var(--line); padding: 8px 12px; margin-bottom: 6px; }
+  .numpad .npdisp span { font-family: var(--cond); font-size: 34px; font-weight: 700; } .numpad .npdisp span.ph { color: var(--dim); font-size: 22px; }
+  .numpad .npdisp small { color: var(--muted); }
+  .npkeys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .npkeys .btn { font-size: 26px; padding: 14px 0; }
+  .fwave { display: flex; align-items: baseline; gap: 14px; margin-top: 10px; }
+  .fwave .fwclock { font-family: var(--cond); font-size: 44px; font-weight: 700; }
+  tr.newest td { background: rgba(25, 210, 122, .08); } tr.dim td { opacity: .6; }
   .pagetitle { font-family: var(--cond); font-size: 28px; letter-spacing: 1.5px; text-transform: uppercase; margin: 0; }
   .sec { font-family: var(--cond); font-size: 15px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin: 22px 0 0; border-top: 1px solid var(--line); padding-top: 14px; }
   .pair { display: flex; align-items: center; gap: 8px; } .pair input { min-width: 0; flex: 1; }
@@ -359,28 +374,50 @@
     </div>
   </div>
 
-  <!-- RUN FINISH -->
+  <!-- RUN FINISH: tap the instant someone crosses, identify the bib after (number pad);
+       every runner accounted for (still on the course, DNF with a reason). -->
   <div id="v-finish" class="grid2 hidden">
     <div class="card">
-      <h2 data-t="r_finish"></h2>
-      <div class="tiles"><div><b id="fClock">--:--</b><span id="fClockLabel" data-t="elapsed"></span></div><div><b class="go" id="fCount">0</b><span data-t="finished"></span></div><div><b class="warn" id="fReview">0</b><span data-t="needs_review"></span></div></div>
-      <div class="hint" id="fWaves" style="margin-top:6px"></div>
-      <div id="fNotStarted" class="msg warn" data-t="run_not_started"></div>
-      <div id="fLive" class="hidden" style="margin-top:12px">
-        <div class="search"><input id="fBib" data-tp="ph_finish" autocomplete="off" inputmode="numeric" onkeydown="if(event.key==='Enter')finish(true)"><button class="btn go" onclick="finish(true)" data-t="record_finish"></button></div>
-        <div class="row" style="margin-top:8px"><button class="btn" onclick="finish(false)" data-t="no_bib"></button><button class="btn stop" id="fClose" onclick="closeRun()" data-t="close_run"></button></div>
-        <p class="hint" id="fCloseHint" style="color:var(--amber)"></p>
+      <div class="row" style="align-items:center"><h2 style="margin:0" data-t="r_finish"></h2><span class="spacer"></span><span class="pill" id="fCam"></span></div>
+      <div id="fIdle" class="msg warn" style="margin-top:10px"></div>
+      <div id="fWaveClocks"></div>
+      <div id="fLive" class="hidden">
+        <button class="btn go tapbtn" id="fTap" onclick="tapCrossing()"><span data-t="crossing"></span><small data-t="crossing_key"></small></button>
+        <div class="row" style="margin-top:6px"><button class="btn ghost sm" id="fUndoTap" style="flex:0 0 auto" onclick="undoTap()" disabled data-t="undo_tap"></button><span class="spacer"></span><span class="hint" data-t="tap_hint"></span></div>
+        <div class="tagbox">
+          <div class="tagq" id="fTagQ"></div>
+          <div class="numpad">
+            <div class="npdisp"><span id="fBibDisp"></span><small id="fBibFor"></small></div>
+            <div class="npkeys"><button class="btn" onclick="npKey('1')">1</button><button class="btn" onclick="npKey('2')">2</button><button class="btn" onclick="npKey('3')">3</button><button class="btn" onclick="npKey('4')">4</button><button class="btn" onclick="npKey('5')">5</button><button class="btn" onclick="npKey('6')">6</button><button class="btn" onclick="npKey('7')">7</button><button class="btn" onclick="npKey('8')">8</button><button class="btn" onclick="npKey('9')">9</button><button class="btn" onclick="npKey('del')">⌫</button><button class="btn" onclick="npKey('0')">0</button><button class="btn go" onclick="npKey('ok')">OK</button></div>
+          </div>
+        </div>
         <div id="fMsg"></div>
-        <p class="hint" data-t="finish_hint"></p>
+        <div class="row" style="margin-top:10px"><span class="hint" id="fCloseHint" style="color:var(--amber)"></span><span class="spacer"></span><button class="btn stop sm" style="flex:0 0 auto" id="fClose" onclick="closeRun()" data-t="close_run"></button></div>
       </div>
-      <div id="fReviewBox" class="hidden" style="margin-top:12px"><h2 data-t="review_queue"></h2><table><tbody id="fReviewTable"></tbody></table></div>
+      <div id="fReviewBox" class="hidden" style="margin-top:14px"><h2 data-t="review_queue"></h2><p class="hint" data-t="review_hint2"></p>
+        <div id="fClipBox" class="hidden" style="margin-bottom:8px"><video id="fClip" controls playsinline muted style="width:100%"></video></div>
+        <table><tbody id="fReviewTable"></tbody></table></div>
     </div>
-    <div class="card">
-      <div class="camlive hidden" id="camLive-finish"><img alt=""><div class="viewer-tag" data-t="cam_view"></div></div>
-      <h2 data-t="finishers"></h2>
-      <div class="scroll"><table><thead><tr><th>#</th><th data-t="bib"></th><th data-t="name"></th><th data-t="time"></th><th data-t="status"></th><th></th></tr></thead><tbody id="fTable"></tbody></table></div>
+    <div>
+      <div class="card">
+        <div class="camlive hidden" id="camLive-finish"><img alt=""><div class="viewer-tag" data-t="cam_view"></div></div>
+        <div class="row" style="align-items:baseline"><h2 style="margin:0" data-t="on_course_list"></h2><span class="spacer"></span><b class="wavefill" id="fOutCount"></b></div>
+        <div class="scroll" style="max-height:300px"><table><tbody id="fOut"></tbody></table></div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="row" style="align-items:baseline"><h2 style="margin:0" data-t="finishers"></h2><span class="spacer"></span><b class="wavefill" id="fCount"></b></div>
+        <div class="scroll"><table><thead><tr><th>#</th><th data-t="bib"></th><th data-t="name"></th><th data-t="time"></th><th data-t="result"></th><th></th></tr></thead><tbody id="fTable"></tbody></table></div>
+      </div>
     </div>
   </div>
+<dialog id="dnfDlg" class="dlg" style="max-width:460px">
+  <div class="dlg-head"><h2 id="dnfTitle"></h2><span class="spacer"></span><button class="btn ghost sm" type="button" onclick="$('dnfDlg').close()" data-t="enrol_cancel"></button></div>
+  <p class="hint" data-t="dnf_hint"></p>
+  <div class="row" style="flex-wrap:wrap;gap:8px" id="dnfReasons"></div>
+  <input id="dnfOther" style="width:100%;margin-top:8px" data-tp="ph_dnf_other">
+  <div id="dnfMsg"></div>
+  <div class="row" style="margin-top:10px"><button class="btn stop" style="flex:0 0 auto" onclick="DnfDlg.save()" data-t="mark_dnf"></button></div>
+</dialog>
 
   <!-- EXERCISE STATION -->
   <div id="v-station" class="hidden">
@@ -579,6 +616,14 @@ const I18N = {
     finished: "Finished", needs_review: "Need review", run_not_started: "Waiting for the start.", record_finish: "Finish",
     no_bib: "Crossing, bib not seen", close_run: "Close run", confirm_close: "Press again: remaining runners become DNF",
     finish_hint: "Type the bib as each runner crosses and press Enter. The time is taken when you press.",
+    crossing: "CROSSING", crossing_key: "tap as the runner crosses · space bar", undo_tap: "Undo last tap", tap_hint: "Tap first, type the bib after: the time is the instant of the tap.",
+    tapped: "Time {t} recorded: type the bib.", tap_undone: "Last tap removed.", to_identify: "{n} time(s) to identify", none_to_identify: "No times waiting for a bib.",
+    bib_for: "for {t}", bib_now: "time taken at OK", no_wave_out: "No wave on the course: waiting for the next start.", next_wave_countdown: "Wave {n} is counting down…",
+    on_course_list: "Still on the course", all_in: "Everyone is in.", needs_le: "needs ≤ {t}", review_hint2: "Camera reads and crossings that need a decision. ★ = likely runner.",
+    dnf_title: "Did not finish: {bib} · {name}", dnf_hint: "The runner stopped on the course. Pick the reason; it is kept with the result.",
+    dnf_injured: "Injured", dnf_gave_up: "Gave up", dnf_left_course: "Left the course", dnf_unwell: "Unwell", ph_dnf_other: "Other / details", mark_dnf: "Mark DNF",
+    dnf_saved: "{name}: DNF recorded.", dnf_undone: "{name} is running again.", e_reason_required_dnf: "Pick or type the reason", e_not_dnf: "Not marked DNF",
+    cam_live: "Finish camera live", cam_last: "last read {bib}", cam_off_manual: "Finish camera off: time by hand",
     review_queue: "Review queue", clip: "clip", assign: "Assign", finishers: "Finishers", time: "Time", status: "Status", bib: "Bib", name: "Name", run: "Run",
     pushup: "Push-ups", crunch: "Crunches", time_limit: "Time limit", pass_mark: "Pass", waiting_here: "Ran, not done here",
     cam_view: "Live camera", cam_off: "Camera offline · manual count", cam_live: "Camera live · {fps} fps", corrections: "Examiner corrections",
@@ -744,6 +789,14 @@ const I18N = {
     finished: "أنهوا", needs_review: "للمراجعة", run_not_started: "بانتظار الانطلاق.", record_finish: "وصول",
     no_bib: "عبور دون رقم", close_run: "إغلاق الجري", confirm_close: "اضغط مرة أخرى: الباقون لم يكملوا",
     finish_hint: "اكتب رقم كل عدّاء عند عبوره واضغط Enter. يُسجّل الزمن لحظة الضغط.",
+    crossing: "عبور", crossing_key: "اضغط لحظة عبور العدّاء · مفتاح المسافة", undo_tap: "تراجع عن آخر ضغطة", tap_hint: "اضغط أولاً ثم اكتب الرقم: الوقت هو لحظة الضغط.",
+    tapped: "سُجّل الوقت {t}: اكتب الرقم.", tap_undone: "أُزيلت آخر ضغطة.", to_identify: "{n} وقت بانتظار الرقم", none_to_identify: "لا أوقات بانتظار رقم.",
+    bib_for: "للوقت {t}", bib_now: "يُؤخذ الوقت عند OK", no_wave_out: "لا موجة في المسار: بانتظار الانطلاق التالي.", next_wave_countdown: "الموجة {n} في العد التنازلي…",
+    on_course_list: "ما زالوا في المسار", all_in: "وصل الجميع.", needs_le: "يحتاج ≤ {t}", review_hint2: "قراءات الكاميرا وعبورات تحتاج قراراً. ★ = العدّاء المرجح.",
+    dnf_title: "لم يُكمل: {bib} · {name}", dnf_hint: "توقف العدّاء في المسار. اختر السبب؛ يُحفظ مع النتيجة.",
+    dnf_injured: "إصابة", dnf_gave_up: "انسحب", dnf_left_course: "خرج من المسار", dnf_unwell: "متوعك", ph_dnf_other: "سبب آخر / تفاصيل", mark_dnf: "تسجيل لم يُكمل",
+    dnf_saved: "{name}: سُجّل لم يُكمل.", dnf_undone: "{name} يجري مجدداً.", e_reason_required_dnf: "اختر السبب أو اكتبه", e_not_dnf: "غير مسجّل لم يُكمل",
+    cam_live: "كاميرا النهاية تعمل", cam_last: "آخر قراءة {bib}", cam_off_manual: "كاميرا النهاية متوقفة: التوقيت يدوي",
     review_queue: "قائمة المراجعة", clip: "مقطع", assign: "تعيين", finishers: "المنهون", time: "الزمن", status: "الحالة", bib: "الرقم", name: "الاسم", run: "الجري",
     pushup: "الضغط", crunch: "البطن", time_limit: "الحد الزمني", pass_mark: "النجاح", waiting_here: "أنهوا الجري ولم يختبروا هنا",
     cam_view: "الكاميرا مباشرة", cam_off: "الكاميرا غير متصلة · عدّ يدوي", cam_live: "الكاميرا تعمل · {fps} إطار/ث", corrections: "تصحيحات الممتحن",
@@ -1688,53 +1741,172 @@ async function lineIdentify(quiet) {
 
 /* ============================== run finish ============================== */
 let closeArmed = false, lastReviewSig = "";
-async function finish(withBib) {
-  const bib = withBib ? $("fBib").value.trim() : null;
-  if (withBib && !bib) return;
+// ---- finish line: tap first (the time is the instant of the tap), identify after
+let npBib = "", npSel = null, lastTapId = null;
+const untagged = () => S.crossings.filter(c => c.needs_review && c.note_code === "no_bib_read" && c.source === "manual");
+async function tapCrossing() {
+  Sound.unlock();
   try {
-    const c = await api("POST", "/api/run/finish", { bib });
-    const e = S.entries.find(x => x.id === c.entry_id);
-    msg("fMsg", c.needs_review ? "warn" : "ok", `${fmt(c.time_s)} · ` + (c.needs_review ? `${t("needs_review")}: ${noteText(c)}` : cname(e ? e.candidate : { name: bib })));
-    $("fBib").value = ""; $("fBib").focus(); refresh();
+    const c = await api("POST", "/api/run/finish", { bib: null });
+    Sound.tone(Sound.ctx ? Sound.ctx.currentTime : 0, 1200, 0.05, 0.15);
+    lastTapId = c.id; msg("fMsg", "ok", t("tapped", { t: fmt(c.time_s) })); await refresh();
   } catch (e) { msg("fMsg", "bad", err(e)); }
 }
+async function undoTap() {
+  if (!lastTapId) return;
+  try { await api("DELETE", `/api/run/crossings/${lastTapId}`); lastTapId = null; msg("fMsg", "ok", t("tap_undone")); refresh(); }
+  catch (e) { msg("fMsg", "bad", err(e)); }
+}
+// The number pad: the bib goes to the selected tapped time (the oldest by default). With no tapped
+// time waiting, OK records the bib now (the time is taken at OK, less exact: tap first when you can).
+function npKey(k) {
+  if (k === "del") npBib = npBib.slice(0, -1);
+  else if (k === "ok") { npSubmit(); return; }
+  else if (npBib.length < 6) npBib += k;
+  renderNumpad();
+}
+async function npSubmit() {
+  const bib = npBib.trim(); if (!bib) return;
+  const q = untagged(), target = q.find(c => c.id === npSel) || q[0];
+  try {
+    const c = target ? await api("POST", `/api/run/crossings/${target.id}/tag`, { bib }) : await api("POST", "/api/run/finish", { bib });
+    npBib = ""; npSel = null;
+    const e = S.entries.find(x => x.id === c.entry_id);
+    if (c.needs_review) msg("fMsg", "warn", `${fmt(c.time_s)} · ${t("needs_review")}: ${noteText(c)}`);
+    else { Sound.chime(); msg("fMsg", "ok", `${fmt(c.time_s)} · ${esc(bib)} · ${e ? cname(e.candidate) : ""}`); }
+    await refresh();
+  } catch (e) { msg("fMsg", "bad", err(e)); }
+  renderNumpad();
+}
+function renderNumpad() {
+  const q = untagged(), target = q.find(c => c.id === npSel) || q[0];
+  $("fBibDisp").textContent = npBib || t("ph_finish");
+  $("fBibDisp").classList.toggle("ph", !npBib);
+  $("fBibFor").textContent = target ? t("bib_for", { t: fmt(target.time_s) }) : t("bib_now");
+  setHTML("fTagQ", q.length ? `<div class="hint" style="margin-bottom:4px">${t("to_identify", { n: q.length })}</div>` + q.map(c =>
+    `<button class="tagitem ${target && c.id === target.id ? "sel" : ""}" onclick="npSel=${c.id}; renderNumpad()"><b>${fmt(c.time_s)}</b><small>${t("wave_short", { n: waveNo(c.wave_id) })}</small></button>`).join("")
+    : `<div class="hint">${t("none_to_identify")}</div>`);
+}
+const waveNo = id => (waves().find(w => w.id === id) || {}).number ?? "?";
+// Keyboard at the finish: space = crossing, digits / Backspace / Enter = number pad.
+document.addEventListener("keydown", ev => {
+  if (role !== "finish" || mode !== "simple" || settingsOpen || document.querySelector("dialog[open]")) return;
+  if (ev.target.closest && ev.target.closest("input,select,textarea")) return;
+  if (ev.key === " " && !$("fTap").disabled && !$("fLive").classList.contains("hidden")) { ev.preventDefault(); tapCrossing(); }
+  else if (/^[0-9]$/.test(ev.key)) npKey(ev.key);
+  else if (ev.key === "Backspace") { ev.preventDefault(); npKey("del"); }
+  else if (ev.key === "Enter") { ev.preventDefault(); npKey("ok"); }
+});
 async function resolveCrossing(cid) {
   const id = parseInt($("rs-" + cid).value); if (!id) return;
-  try { await api("POST", `/api/run/crossings/${cid}/resolve`, { entry_id: id }); refresh(); } catch (e) { msg("fMsg", "bad", err(e)); }
+  try { await api("POST", `/api/run/crossings/${cid}/resolve`, { entry_id: id }); Sound.chime(); refresh(); } catch (e) { msg("fMsg", "bad", err(e)); }
 }
+function playClip2(btn) { const v = $("fClip"); $("fClipBox").classList.remove("hidden"); v.src = "/api/evidence/" + btn.dataset.clip.split("/").map(encodeURIComponent).join("/"); v.play().catch(() => {}); }
 async function closeRun() {
-  if (!closeArmed) { closeArmed = true; $("fClose").textContent = t("confirm_close"); setTimeout(() => { closeArmed = false; $("fClose").textContent = t("close_run"); }, 4000); return; }
-  closeArmed = false; $("fClose").textContent = t("close_run");
-  try { await api("POST", "/api/run/close"); refresh(); } catch (e) { msg("fMsg", "bad", err(e)); }
+  if (!closeArmed) { closeArmed = true; renderFinish(); setTimeout(() => { closeArmed = false; renderFinish(); }, 4000); return; }
+  closeArmed = false;
+  const oldest = openWaves()[0];
+  try { const r = await api("POST", "/api/run/close", oldest ? { wave_id: oldest.id } : {}); msg("fMsg", "ok", t("wave_closed", { n: r.wave })); refresh(); }
+  catch (e) { msg("fMsg", "bad", err(e)); }
 }
-// A crossing from the finish camera: badge with the OCR confidence and a link to its clip.
+// ---- DNF for one runner, with the reason (audited)
+const DnfDlg = {
+  entry: null, reason: "",
+  open(id) {
+    const e = S.entries.find(x => x.id === id); if (!e) return;
+    this.entry = e; this.reason = "";
+    $("dnfTitle").textContent = t("dnf_title", { bib: e.candidate.bib ?? "—", name: cname(e.candidate) });
+    $("dnfReasons").innerHTML = ["injured", "gave_up", "left_course", "unwell"].map(r => `<button class="btn sm" data-r="${r}" onclick="DnfDlg.pick('${r}')">${t("dnf_" + r)}</button>`).join("");
+    $("dnfOther").value = ""; msg("dnfMsg"); $("dnfDlg").showModal();
+  },
+  pick(r) { this.reason = r; document.querySelectorAll("#dnfReasons button").forEach(b => b.classList.toggle("amber", b.dataset.r === r)); },
+  async save() {
+    const other = $("dnfOther").value.trim(), reason = [this.reason ? t("dnf_" + this.reason) : "", other].filter(Boolean).join(": ");
+    if (!reason) { msg("dnfMsg", "bad", t("e_reason_required_dnf")); return; }
+    try { const e = await api("POST", `/api/entries/${this.entry.id}/dnf`, { reason }); $("dnfDlg").close(); msg("fMsg", "warn", t("dnf_saved", { name: cname(e.candidate) })); refresh(); }
+    catch (x) { msg("dnfMsg", "bad", err(x)); }
+  },
+};
+async function undoDnf(id) {
+  try { const e = await api("POST", `/api/entries/${id}/dnf/undo`); msg("fMsg", "ok", t("dnf_undone", { name: cname(e.candidate) })); refresh(); }
+  catch (e) { msg("fMsg", "bad", err(e)); }
+}
+// Likely runner for a crossing in review: a near-miss of the bib the camera read, then runners of
+// that crossing's wave. A suggestion only: the examiner still presses Assign.
+function suggestFor(c, runners) {
+  const read = c.bib_read || "", near = (a, b) => {
+    if (!a || !b) return false;
+    if (a.length === b.length) return [...a].filter((ch, i) => ch !== b[i]).length === 1;
+    const [x, y] = a.length < b.length ? [a, b] : [b, a];
+    return y.length - x.length === 1 && [...y].some((_, i) => y.slice(0, i) + y.slice(i + 1) === x);
+  };
+  const w = waveNo(c.wave_id);
+  const close = runners.filter(e => near(read, e.candidate.bib || ""));
+  if (close.length === 1) return close[0].id;
+  const inWave = runners.filter(e => e.wave === w);
+  return inWave.length === 1 ? inWave[0].id : null;
+}
+function resultPill(e) {
+  if (!e) return "";
+  if (e.status === "dnf") return `<span class="pill bad">DNF</span>`;
+  if (e.run_grade == null) return `<span class="pill">${t("recorded_only")}</span>`;
+  const ok = e.run_grade >= (e.standard.level || 0);
+  return `<span class="pill ${ok ? "ok" : "bad"}">${gradeTxt(e.run_grade)} ${ok ? "✓" : "✗"}</span>`;
+}
+function camStatus() {
+  const live = !$("camLive-finish").classList.contains("hidden");
+  const last = S.crossings.filter(c => c.source === "camera").slice(-1)[0];
+  $("fCam").className = "pill " + (live ? "ok" : "");
+  $("fCam").textContent = live ? t("cam_live") + (last ? " · " + t("cam_last", { bib: last.bib_read ?? "?" }) : "") : t("cam_off_manual");
+}
+
 function camHtml(c) {
   if (c.source !== "camera") return "";
   const conf = c.confidence != null ? ` ${Math.round(c.confidence * 100)}%` : "";
   return ` <span class="pill">📷${conf}</span>` + (c.clip ? ` <a class="hint" href="/api/evidence/${encodeURI(c.clip)}" target="_blank">${t("clip")}</a>` : "");
 }
 function renderFinish() {
-  const started = !!S.state.run_started_at, closed = !!S.state.run_closed_at;
-  $("fNotStarted").classList.toggle("hidden", started); $("fLive").classList.toggle("hidden", !started || closed);
-  const byId = Object.fromEntries(S.entries.map(e => [e.id, e]));
+  const open = openWaves(), cw = countdownWave(), byId = Object.fromEntries(S.entries.map(e => [e.id, e]));
+  // state, said in words: nothing out, a countdown, or the waves on the course with their clocks
+  $("fIdle").classList.toggle("hidden", !!open.length);
+  $("fIdle").textContent = cw ? t("next_wave_countdown", { n: cw.number }) : t("no_wave_out");
+  $("fLive").classList.toggle("hidden", !open.length);
+  setHTML("fWaveClocks", open.map(w => `<div class="fwave"><b>${t("wave_n", { n: w.number })}</b><span class="fwclock" id="fwc-${w.id}"></span><span class="hint">${t("wave_counts", { out: w.running, fin: w.finished + w.dnf })}</span></div>`).join(""));
+  // still on the course: every runner accounted for, with their target and a DNF button
+  const out = S.entries.filter(e => e.status === "running").sort((a, b) => (a.wave - b.wave) || (bibNum(a) - bibNum(b)));
+  const stopped = S.entries.filter(e => e.status === "dnf" && e.wave && open.some(w => w.number === e.wave));
+  $("fOutCount").textContent = out.length;
+  setHTML("fOut", out.map(e => {
+    const b = bandOf(e), need = b && e.standard.level ? mmss0(b.run_s[GRADES.indexOf(e.standard.level)]) : null;
+    return `<tr><td class="t">${esc(e.candidate.bib ?? "—")}</td><td>${esc(cname(e.candidate))}</td><td class="hint">${t("wave_short", { n: e.wave })}${need ? " · " + t("needs_le", { t: need }) : ""}</td><td style="text-align:end"><button class="btn ghost sm danger" onclick="DnfDlg.open(${e.id})">DNF</button></td></tr>`;
+  }).join("") + stopped.map(e => `<tr class="dim"><td class="t">${esc(e.candidate.bib ?? "—")}</td><td>${esc(cname(e.candidate))}</td><td><span class="pill bad">DNF</span></td><td style="text-align:end"><button class="btn ghost sm" onclick="undoDnf(${e.id})">${t("undo")}</button></td></tr>`).join("")
+    || `<tr><td class="hint">${open.length ? t("all_in") : "—"}</td></tr>`);
+  // finishers, newest first, with the result against the runner's own required level
   const done = S.crossings.filter(c => !c.needs_review);
-  $("fCount").textContent = done.length; $("fReview").textContent = S.state.review_queue;
-  setHTML("fTable", done.slice().reverse().map((c, i) => { const e = byId[c.entry_id]; return `<tr><td>${done.length - i}</td><td class="t">${esc(e?.candidate.bib ?? c.bib_read ?? "?")}</td><td>${esc(e ? cname(e.candidate) : "—")}</td><td class="t">${fmt(c.time_s)}${e && e.wave ? ` <small class="hint">${t("wave_short", { n: e.wave })}</small>` : ""}</td><td>${e ? statusPill(e.status) : ""}${camHtml(c)}</td><td style="text-align:end">${closed ? "" : `<button class="btn ghost sm" onclick="confirmClick('unassign${c.id}', this, () => unassignCrossing(${c.id}))">${t("wrong_bib")}</button>`}</td></tr>`; }).join("") || `<tr><td colspan="6" class="hint">—</td></tr>`);
-  // Close the oldest wave on the course (they close themselves after the cut-off as well).
-  const oldest = openWaves()[0], newest = openWaves().slice(-1)[0];
-  $("fClockLabel").textContent = openWaves().length > 1 && newest ? `${t("elapsed")} · ${t("wave_n", { n: newest.number })}` : t("elapsed");
+  $("fCount").textContent = done.length;
+  setHTML("fTable", done.slice().reverse().map((c, i) => { const e = byId[c.entry_id]; const live = e && e.wave && open.some(w => w.number === e.wave);
+    return `<tr class="${i === 0 ? "newest" : ""}"><td>${done.length - i}</td><td class="t">${esc(e?.candidate.bib ?? c.bib_read ?? "?")}</td><td>${esc(e ? cname(e.candidate) : "—")}</td><td class="t">${fmt(c.time_s)} <small class="hint">${e && e.wave ? t("wave_short", { n: e.wave }) : ""}</small></td><td>${resultPill(e)}${camHtml(c)}</td><td style="text-align:end">${live ? `<button class="btn ghost sm" onclick="confirmClick('unassign${c.id}', this, () => unassignCrossing(${c.id}))">${t("wrong_bib")}</button>` : ""}</td></tr>`; }).join("") || `<tr><td colspan="6" class="hint">—</td></tr>`);
+  // close the oldest wave (they also close themselves after the cut-off)
+  const oldest = open[0];
   $("fClose").textContent = closeArmed ? t("confirm_close") : oldest ? t("close_wave_n", { n: oldest.number }) : t("close_run");
   $("fClose").disabled = !oldest || oldest.review > 0;
-  $("fClose").title = oldest && oldest.review > 0 ? t("e_review_pending") : "";
-  $("fCloseHint").textContent = oldest && oldest.review > 0 ? t("e_review_pending") : "";   // tablets show no tooltips
-  const review = S.crossings.filter(c => c.needs_review), runners = S.entries.filter(e => e.status === "running");
+  $("fCloseHint").textContent = oldest && oldest.review > 0 ? t("close_blocked", { n: oldest.review }) : "";
+  $("fUndoTap").disabled = !lastTapId || !untagged().some(c => c.id === lastTapId);
+  renderNumpad(); camStatus();
+  // review queue: camera reads and other questions (plain taps are identified with the number pad)
+  const review = S.crossings.filter(c => c.needs_review && !(c.note_code === "no_bib_read" && c.source === "manual")), runners = S.entries.filter(e => e.status === "running");
   $("fReviewBox").classList.toggle("hidden", review.length === 0);
   // Redraw only when the queue or the runner list changed, so an open dropdown is not closed under the examiner.
   const sig = lang + "|" + review.map(c => c.id).join(",") + "|" + runners.map(e => e.id).join(",");
   if (sig === lastReviewSig) return;
   lastReviewSig = sig;
   const keep = Object.fromEntries(review.map(c => [c.id, $("rs-" + c.id)?.value]));
-  $("fReviewTable").innerHTML = review.map(c => `<tr><td class="t">${fmt(c.time_s)}</td><td class="hint">${esc(noteText(c))}${camHtml(c)}</td><td><select id="rs-${c.id}"><option value="">—</option>${runners.map(e => `<option value="${e.id}" ${keep[c.id] == e.id ? "selected" : ""}>${esc(e.candidate.bib ?? "")} · ${esc(cname(e.candidate))} · ${t("wave_short", { n: e.wave })}</option>`).join("")}</select></td><td style="white-space:nowrap"><button class="btn amber sm" onclick="resolveCrossing(${c.id})">${t("assign")}</button> <button class="btn ghost sm" onclick="confirmClick('discard${c.id}', this, () => discardCrossing(${c.id}))">${t("discard")}</button></td></tr>`).join("");
+  $("fReviewTable").innerHTML = review.map(c => {
+    const pick = keep[c.id] || suggestFor(c, runners);
+    return `<tr><td class="t">${fmt(c.time_s)} <small class="hint">${t("wave_short", { n: waveNo(c.wave_id) })}</small></td><td class="hint">${esc(noteText(c))}${camHtml(c)}${c.clip ? ` <button class="btn ghost sm" data-clip="${esc(c.clip)}" onclick="playClip2(this)">▶</button>` : ""}</td>`
+      + `<td><select id="rs-${c.id}"><option value="">—</option>${runners.map(e => `<option value="${e.id}" ${pick == e.id ? "selected" : ""}>${esc(e.candidate.bib ?? "")} · ${esc(cname(e.candidate))} · ${t("wave_short", { n: e.wave })}${!keep[c.id] && pick == e.id ? " ★" : ""}</option>`).join("")}</select></td>`
+      + `<td style="white-space:nowrap"><button class="btn amber sm" onclick="resolveCrossing(${c.id})">${t("assign")}</button> <button class="btn ghost sm" onclick="confirmClick('discard${c.id}', this, () => discardCrossing(${c.id}))">${t("discard")}</button></td></tr>`;
+  }).join("");
 }
 // Review-queue note in the screen's language; the English server note is the fallback.
 function noteText(c) {
@@ -1752,9 +1924,8 @@ async function discardCrossing(cid) {
 function tickClocks() {
   const el = runElapsed();
   $("clock").textContent = new Date(serverNow()).toLocaleTimeString(lang === "ar" ? "ar-EG" : "en-GB");
-  if (el != null && !(S.state && S.state.run_closed_at)) $("fClock").textContent = mmss(el);
   if (role === "start" && S.state) tickStart();
-  if (role === "finish" && S.state) $("fWaves").textContent = openWaves().map(w => `${t("wave_short", { n: w.number })} ${mmss((serverNow() - Date.parse(w.started_at)) / 1000)}`).join("  ·  ");
+  if (role === "finish" && S.state) for (const w of openWaves()) { const c = $("fwc-" + w.id); if (c) c.textContent = mmss((serverNow() - Date.parse(w.started_at)) / 1000); }
   // Only the timer text changes each second; the tap buttons are not redrawn, so no tap is lost.
   lanes.forEach(l => {
     if (l.state !== "running") return;

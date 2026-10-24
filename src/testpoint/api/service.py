@@ -1021,6 +1021,42 @@ def resolve_crossing(db: Session, day: Day, rules: DayRules, crossing_id: int,
     return crossing
 
 
+def tag_crossing(db: Session, day: Day, rules: DayRules, crossing_id: int, bib: str | None) -> Crossing:
+    """Tap first, identify after: attach a bib to a time recorded at the instant of crossing."""
+    bib = norm_bib(bib)
+    if not bib:
+        raise ServiceError("empty_query", "type the bib", 400)
+    entry = db.scalar(select(Entry).join(Candidate).where(Entry.day_id == day.id, Candidate.bib == bib))
+    if entry is None:
+        raise ServiceError("bib_not_on_list", f"bib {bib} is not on today's list", 404)
+    return resolve_crossing(db, day, rules, crossing_id, entry)
+
+
+def mark_dnf(db: Session, day: Day, entry: Entry, reason: str | None) -> Entry:
+    """One runner stops (injured, gave up, left the course): DNF now, with the reason."""
+    reason = " ".join((reason or "").split())
+    if entry.status != J.RUNNING:
+        raise ServiceError("not_running", f"{entry.candidate.name} is {entry.status}, not running")
+    if not reason:
+        raise ServiceError("reason_required", "say why the runner did not finish", 400)
+    entry.status = J.DNF
+    _audit(db, day, "finish", "mark_dnf", entry, reason=reason, wave=entry.wave.number if entry.wave else None)
+    db.commit()
+    return entry
+
+
+def undo_dnf(db: Session, day: Day, entry: Entry) -> Entry:
+    """DNF marked by mistake while the wave is still out: running again."""
+    if entry.status != J.DNF or entry.run_time_s is not None:
+        raise ServiceError("not_dnf", f"{entry.candidate.name} is not marked DNF", 409)
+    if entry.wave is None or entry.wave.closed_at is not None:
+        raise ServiceError("run_already_closed", "the wave is closed")
+    entry.status = J.RUNNING
+    _audit(db, day, "finish", "undo_dnf", entry)
+    db.commit()
+    return entry
+
+
 def unassign_crossing(db: Session, day: Day, crossing_id: int) -> Crossing:
     """Wrong bib typed at the finish: the crossing goes back to the review queue and
     the runner back to running (their real crossing can then be assigned)."""

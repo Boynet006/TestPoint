@@ -218,3 +218,25 @@ def test_void_a_wave_started_and_closed_by_mistake(client, monkeypatch):
     assert status(client, i["12"]) == "accepted" and client.get(f"/api/entries/{i['11']}").json()["run_time_s"] is not None
     st = client.get("/api/state").json()
     assert st["review_queue"] == 0 and st["waves"][0]["closed_by"] == "abort"
+
+
+def test_tap_first_then_tag_the_bib_and_individual_dnf(client, monkeypatch):
+    i = ids(client)
+    for b in ("11", "12"):
+        client.post(f"/api/entries/{i[b]}/weigh-in", json=W)
+        client.post(f"/api/entries/{i[b]}/line-up")
+    t0 = models.utcnow()
+    monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0)
+    client.post("/api/run/start")
+    # the examiner taps at the instant of crossing (16:40.0), types the bib a few seconds later
+    monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0 + timedelta(seconds=1000))
+    tap = client.post("/api/run/finish", json={"bib": None}).json()
+    monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0 + timedelta(seconds=1006))
+    assert code(client.post(f"/api/run/crossings/{tap['id']}/tag", json={"bib": "99"})) == "bib_not_on_list"
+    r = client.post(f"/api/run/crossings/{tap['id']}/tag", json={"bib": "11"}).json()
+    assert r["entry_id"] == i["11"] and r["time_s"] == 1000.0 and not r["needs_review"]
+    # 12 stops on the course: DNF with a reason, undone, then again
+    assert code(client.post(f"/api/entries/{i['12']}/dnf", json={"reason": "  "})) == "reason_required"
+    assert client.post(f"/api/entries/{i['12']}/dnf", json={"reason": "ankle injury"}).json()["status"] == "dnf"
+    assert client.post(f"/api/entries/{i['12']}/dnf/undo").json()["status"] == "running"
+    assert code(client.post(f"/api/entries/{i['11']}/dnf", json={"reason": "x"})) == "not_running"
