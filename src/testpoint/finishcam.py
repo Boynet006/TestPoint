@@ -258,6 +258,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--show", action="store_true", help="preview window (q quits)")
     p.add_argument("--station", default="finish", help="screen this camera shows on (default finish)")
     p.add_argument("--no-preview", action="store_true", help="do not send the live picture to the app")
+    p.add_argument("--realtime", action="store_true",
+                   help="play a video file at its own speed, as a live camera would (demos, training)")
     p.add_argument("--connect-timeout", type=float, default=10.0)
     p.add_argument("--connect-attempts", type=int, default=3)
     args = p.parse_args(argv)
@@ -299,8 +301,14 @@ def main(argv: list[str] | None = None) -> int:
     writer = None
     fps = 0.0
     last = time.monotonic()
+    pace = args.realtime and not getattr(source, "is_live", True)
+    t_play = time.monotonic()
     try:
         for frame, t in iter_frames(source):
+            if pace:   # a crossing in the video is reported when it happens on screen
+                wait = t_play + t - time.monotonic()
+                if wait > 0:
+                    time.sleep(wait)
             if crop is not None:
                 h, w = frame.shape[:2]
                 frame = frame[int(crop[1] * h):int(crop[3] * h), int(crop[0] * w):int(crop[2] * w)]

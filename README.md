@@ -233,6 +233,17 @@ Screenshots of every screen are in [docs/screenshots/](docs/screenshots/).
 
 ### Finish-line camera
 
+**From the finish page (normal use).** *Start TestPoint.cmd* also starts the camera
+service on the station PC (`python -m testpoint.camhost`, listening on 127.0.0.1:8099
+only). On the finish page, *Finish camera* picks the source (a webcam on this PC, a
+video file from `data/clips/run` or the Desktop *TestPoint test videos* folder, or an IP
+camera's `rtsp://` address), the finish-line position on the live picture and the
+running direction, then *Start camera* / *Stop camera*. The service runs the finish
+camera on the GPU and writes its output to `data/logs/finishcam.log`; the page shows
+its state and last lines. A webcam can be used by one program at a time.
+
+**By hand (development):**
+
 `testpoint-finishcam` times runners crossing a virtual line and reads their
 bib, then posts each crossing to the app (`POST /api/engine/crossing`): a known
 running bib is a result, anything else lands in the finish screen's review

@@ -47,6 +47,7 @@ testpoint-demo = "testpoint.cli:main"
 testpoint-app = "testpoint.api.app:main"
 testpoint-engine = "testpoint.engine:main"
 testpoint-finishcam = "testpoint.finishcam:main"
+testpoint-camhost = "testpoint.camhost:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

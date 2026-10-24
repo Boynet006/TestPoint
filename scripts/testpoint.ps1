@@ -12,6 +12,10 @@
     The rep-counting engine starts only with -Engine, or when .env contains
     START_ENGINE=1, because it needs a real camera address in CAMERA_URL.
 
+    start also starts the camera service on this PC (python -m testpoint.camhost,
+    127.0.0.1:8099) when the Python environment (.venv) is installed: the finish
+    page uses it to start and stop the finish camera. stop stops it too.
+
 .EXAMPLE
     .\scripts\testpoint.ps1 start
     .\scripts\testpoint.ps1 start -Engine
@@ -53,6 +57,35 @@ function Test-Engine {
         return ($LASTEXITCODE -eq 0)
     } finally {
         $ErrorActionPreference = $old
+    }
+}
+
+$CamHostPid = Join-Path $Root 'data\camhost.pid'
+
+function Test-CamHost {
+    try { $null = Invoke-WebRequest 'http://127.0.0.1:8099/health' -UseBasicParsing -TimeoutSec 1; return $true } catch { return $false }
+}
+
+function Start-CamHost {
+    # The finish camera needs this PC's cameras and GPU, which the Docker app cannot reach.
+    $py = Join-Path $Root '.venv\Scripts\python.exe'
+    if (-not (Test-Path $py)) { Say 'Finish camera service: not installed on this PC (no .venv). Time finishes by hand.' 'Yellow'; return }
+    if (Test-CamHost) { Say 'Finish camera service: running' 'Green'; return }
+    $p = Start-Process -FilePath $py -ArgumentList @('-m', 'testpoint.camhost') -WorkingDirectory $Root -WindowStyle Hidden -PassThru
+    Set-Content -Path $CamHostPid -Value $p.Id
+    for ($i = 0; $i -lt 20; $i++) { if (Test-CamHost) { Say 'Finish camera service: started' 'Green'; return }; Start-Sleep -Milliseconds 500 }
+    Say 'Finish camera service: started, but not answering yet.' 'Yellow'
+}
+
+function Stop-CamHost {
+    if (Test-Path $CamHostPid) {
+        $id = Get-Content $CamHostPid
+        # /T: the finish camera it started goes too
+        $old = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+        & taskkill.exe /PID $id /T /F 2>$null | Out-Null
+        $ErrorActionPreference = $old
+        Remove-Item $CamHostPid -ErrorAction SilentlyContinue
+        Say 'Finish camera service stopped.' 'Green'
     }
 }
 
@@ -145,10 +178,12 @@ switch ($Action) {
             try { $null = Invoke-WebRequest $url -UseBasicParsing -TimeoutSec 2; $ready = $true; break } catch { Start-Sleep -Milliseconds 500 }
         }
         if ($ready) { Say "TestPoint is running: $url" 'Green' } else { Say "Started, but $url is not answering yet." 'Yellow' }
+        Start-CamHost
         if ($startEngine) { Say 'Engine output: .\scripts\testpoint.ps1 logs   (annotated video goes to the data folder)' }
         if (-not $NoBrowser) { Start-Process $url }
     }
     'stop' {
+        Stop-CamHost
         if (-not (Test-Engine)) { Say 'Docker engine is not running; nothing to stop.' 'Yellow'; break }
         Invoke-Compose @('--profile', 'gpu', '--profile', 'cpu', '--profile', 'test', '--profile', 'prototype', 'down')
         Say 'TestPoint stopped.' 'Green'

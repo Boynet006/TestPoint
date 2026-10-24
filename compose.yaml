@@ -35,6 +35,8 @@ services:
       - ./data:/data
     environment:
       TESTPOINT_TZ: ${TESTPOINT_TZ:-Asia/Dubai}
+      # the camera service on the station PC (python -m testpoint.camhost), for the finish camera
+      TESTPOINT_CAMHOST: http://host.docker.internal:8099
     restart: unless-stopped
 
   prototype:

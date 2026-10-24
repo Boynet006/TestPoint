@@ -164,6 +164,15 @@ class StartIn(BaseModel):
     """Seconds of countdown before the time starts; default: the start_countdown_s setting."""
 
 
+class FinishCamIn(BaseModel):
+    kind: Literal["webcam", "video", "url"]
+    source: str = Field(min_length=1, max_length=500)
+    line_y: float = Field(default=0.85, ge=0.05, le=0.95)
+    direction: Literal["down", "up", "any"] = "down"
+    app_url: str = Field(max_length=100)
+    """The app as the station PC sees it (the browser's own address), for the camera's reports."""
+
+
 class TagIn(BaseModel):
     bib: str
 
@@ -299,7 +308,7 @@ def default_face_engine():
 def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules | None = None,
                web_dir: str | Path | None = None, today: callable | None = None,
                face_engine: callable | None = None, clock: callable = time.monotonic,
-               evidence_dir: str | Path | None = None) -> FastAPI:
+               evidence_dir: str | Path | None = None, camhost_url: str | None = None) -> FastAPI:
     db_url = db_url or os.environ.get("TESTPOINT_DB", "sqlite:///data/testpoint.db")
     # Where the engine writes its clips (``testpoint-engine --evidence``); rep clip paths
     # in the database are relative to it.
@@ -735,6 +744,44 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         c = S.record_finish(db, day, S.rules_for(db, day, rules), body.bib, now=at, source="camera",
                             confidence=body.confidence, clip_path=body.clip)
         return crossing_out(c)
+
+    # ---------------------------------------------------------- finish camera
+    # The camera runs on the station PC (testpoint.camhost): this app has no camera access or
+    # vision libraries in Docker. The finish page picks the source here; the service starts it.
+    camhost = (camhost_url or os.environ.get("TESTPOINT_CAMHOST", "http://127.0.0.1:8099")).rstrip("/")
+
+    def _camhost(method: str, path: str, body: dict | None = None, timeout: float = 4.0) -> dict:
+        import urllib.error
+        import urllib.request
+        req = urllib.request.Request(camhost + path, method=method, data=json.dumps(body).encode() if body is not None else None,
+                                     headers={"content-type": "application/json"} if body is not None else {})
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return json.loads(r.read() or b"{}")
+        except urllib.error.HTTPError as e:
+            detail = json.loads(e.read() or b"{}").get("detail", "refused")
+            raise S.ServiceError("camera_refused", detail if isinstance(detail, str) else str(detail), 400) from None
+        except (urllib.error.URLError, OSError, TimeoutError):
+            raise S.ServiceError("camera_service_offline", "the camera service is not running on the station PC", 503) from None
+
+    @app.get("/api/finishcam")
+    def finishcam_status() -> dict:
+        try:
+            return {"available": True, **_camhost("GET", "/finish", timeout=2.0)}
+        except S.ServiceError as e:
+            return {"available": False, "running": False, "reason": e.code}
+
+    @app.get("/api/finishcam/sources")
+    def finishcam_sources(refresh: bool = False) -> dict:
+        return _camhost("GET", f"/sources{'?refresh=true' if refresh else ''}", timeout=15.0)
+
+    @app.post("/api/finishcam/start")
+    def finishcam_start(body: FinishCamIn) -> dict:
+        return _camhost("POST", "/finish/start", body.model_dump(), timeout=10.0)
+
+    @app.post("/api/finishcam/stop")
+    def finishcam_stop() -> dict:
+        return _camhost("POST", "/finish/stop", {}, timeout=10.0)
 
     @app.get("/api/lanes")
     def lanes(station: str, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
