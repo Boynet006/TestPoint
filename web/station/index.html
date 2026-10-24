@@ -663,6 +663,7 @@ const I18N = {
     fc_no_webcam: "No free webcam (in use by another program?)", fc_no_video: "No videos found", fc_gpu: "GPU", fc_cpu: "CPU only: slower",
     fc_pick_source: "Pick a source first", fc_started: "Finish camera starting: the picture appears in a few seconds.", fc_stopped: "Finish camera stopped.",
     e_camera_service_offline: "The camera service is not running on the station PC", e_camera_refused: "The camera service refused",
+    by_face_finish: "🙂 face", n_identified_by_face: "identified by face", n_face_suggests: "no bib read; the face looks like bib {bib}",
     fcam_live: "Finish camera live", cam_last: "last read {bib}", cam_off_manual: "Finish camera off: time by hand",
     review_queue: "Review queue", clip: "clip", assign: "Assign", finishers: "Finishers", time: "Time", status: "Status", bib: "Bib", name: "Name", run: "Run",
     pushup: "Push-ups", crunch: "Crunches", time_limit: "Time limit", pass_mark: "Pass", waiting_here: "Ran, not done here",
@@ -846,6 +847,7 @@ const I18N = {
     fc_no_webcam: "لا توجد كاميرا متاحة (مستخدمة من برنامج آخر؟)", fc_no_video: "لا توجد فيديوهات", fc_gpu: "GPU", fc_cpu: "المعالج فقط: أبطأ",
     fc_pick_source: "اختر المصدر أولاً", fc_started: "كاميرا النهاية تبدأ: تظهر الصورة خلال ثوانٍ.", fc_stopped: "أُوقفت كاميرا النهاية.",
     e_camera_service_offline: "خدمة الكاميرا لا تعمل على جهاز المحطة", e_camera_refused: "رفضت خدمة الكاميرا",
+    by_face_finish: "🙂 بالوجه", n_identified_by_face: "تم التعرف بالوجه", n_face_suggests: "لم يُقرأ الرقم؛ الوجه يشبه الرقم {bib}",
     fcam_live: "كاميرا النهاية تعمل", cam_last: "آخر قراءة {bib}", cam_off_manual: "كاميرا النهاية متوقفة: التوقيت يدوي",
     review_queue: "قائمة المراجعة", clip: "مقطع", assign: "تعيين", finishers: "المنهون", time: "الزمن", status: "الحالة", bib: "الرقم", name: "الاسم", run: "الجري",
     pushup: "الضغط", crunch: "البطن", time_limit: "الحد الزمني", pass_mark: "النجاح", waiting_here: "أنهوا الجري ولم يختبروا هنا",
@@ -1914,7 +1916,9 @@ const FinishCam = {
     this.render();
   },
   render() {
-    const st = this.st || { available: false }, live = !$("camLive-finish").classList.contains("hidden");
+    const st = this.st || { available: false };
+    if (!st.running) $("camLive-finish").classList.add("hidden");   // no camera: no old picture
+    const live = !$("camLive-finish").classList.contains("hidden");
     $("fcOffline").classList.toggle("hidden", !!st.available);
     $("fcForm").classList.toggle("dim", !st.available);
     document.querySelectorAll("#fcForm button, #fcForm select, #fcForm input").forEach(el => { el.disabled = !st.available || this.busy; });
@@ -1983,6 +1987,7 @@ function suggestFor(c, runners) {
     return y.length - x.length === 1 && [...y].some((_, i) => y.slice(0, i) + y.slice(i + 1) === x);
   };
   const w = waveNo(c.wave_id);
+  if (c.note_code === "face_suggests") { const f = runners.find(e => e.candidate.bib === c.note_bib); if (f) return f.id; }
   const close = runners.filter(e => near(read, e.candidate.bib || ""));
   if (close.length === 1) return close[0].id;
   const inWave = runners.filter(e => e.wave === w);
@@ -1999,11 +2004,13 @@ function camStatus() {
   const live = !$("camLive-finish").classList.contains("hidden");
   const last = S.crossings.filter(c => c.source === "camera").slice(-1)[0];
   $("fCam").className = "pill " + (live ? "ok" : "");
-  $("fCam").textContent = live ? t("fcam_live") + (last ? " · " + t("cam_last", { bib: last.bib_read ?? "?" }) : "") : t("cam_off_manual");
+  const lastBib = last && (last.bib_read || (last.note_code === "identified_by_face" ? last.note_bib : null));
+  $("fCam").textContent = live ? t("fcam_live") + (lastBib ? " · " + t("cam_last", { bib: lastBib }) : "") : t("cam_off_manual");
 }
 
 function camHtml(c) {
   if (c.source !== "camera") return "";
+  if (c.note_code === "identified_by_face") return ` <span class="pill info">${t("by_face_finish")} ${Math.round((c.confidence || 0) * 100)}%</span>` + (c.clip ? ` <a class="hint" href="/api/evidence/${encodeURI(c.clip)}" target="_blank">${t("clip")}</a>` : "");
   const conf = c.confidence != null ? ` ${Math.round(c.confidence * 100)}%` : "";
   return ` <span class="pill">📷${conf}</span>` + (c.clip ? ` <a class="hint" href="/api/evidence/${encodeURI(c.clip)}" target="_blank">${t("clip")}</a>` : "");
 }

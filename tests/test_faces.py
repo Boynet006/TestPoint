@@ -176,3 +176,38 @@ def test_head_yaw_from_landmarks():
     assert head_yaw(turned) == pytest.approx(0.3)      # 12 / 40 eye distance: their own left
     turned[8] = 38
     assert head_yaw(turned) == pytest.approx(-0.3)
+
+
+
+def test_finish_camera_face_fallback(client, monkeypatch):
+    """No bib read at the finish: the face picks the runner among those still out."""
+    import base64
+    from datetime import timedelta
+
+    from testpoint.api import app as app_mod
+    i = ids(client)
+    for bib, who in (("11", b"A"), ("12", b"B")):
+        client.post(f"/api/entries/{i[bib]}/face", content=b"face:" + who, headers={"content-type": "image/jpeg"})
+        client.patch(f"/api/entries/{i[bib]}/candidate", json={"gender": "M", "dob": "2000-01-01"})
+        client.post(f"/api/entries/{i[bib]}/weigh-in", json={"weight_kg": 70, "height_cm": 175, "accept": True})
+        client.post(f"/api/entries/{i[bib]}/line-up")
+    t0 = models.utcnow()
+    monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0)
+    client.post("/api/run/start")
+    monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0 + timedelta(minutes=15))
+    face = lambda b: base64.b64encode(b).decode()
+    # A crosses, bib unreadable: recorded for 11 by face
+    c = client.post("/api/engine/crossing", json={"bib": None, "face": face(b"face:A")}).json()
+    assert not c["needs_review"] and c["entry_id"] == i["11"] and c["note_code"] == "identified_by_face"
+    # a stranger (not enrolled): stays in review
+    c = client.post("/api/engine/crossing", json={"bib": None, "face": face(b"face:C")}).json()
+    assert c["needs_review"]
+    # no face in the picture: review, no error
+    c = client.post("/api/engine/crossing", json={"bib": None, "face": face(b"none")}).json()
+    assert c["needs_review"]
+    # 11 already finished: their face no longer matches anyone still out
+    c = client.post("/api/engine/crossing", json={"bib": None, "face": face(b"face:A")}).json()
+    assert c["needs_review"]
+    # a readable bib wins; the face is not used
+    c = client.post("/api/engine/crossing", json={"bib": "12", "face": face(b"face:A")}).json()
+    assert c["entry_id"] == i["12"] and c["note_code"] is None
