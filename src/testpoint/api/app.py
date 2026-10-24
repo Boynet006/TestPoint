@@ -781,7 +781,18 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--port", type=int, default=int(os.environ.get("TESTPOINT_PORT", "8000")))
     p.add_argument("--db", default=None, help="SQLAlchemy URL (default $TESTPOINT_DB or sqlite:///data/testpoint.db)")
     p.add_argument("--web", default=None, help="station UI folder (default $TESTPOINT_WEB or web/station)")
+    p.add_argument("--reload", action="store_true",
+                   help="development: restart by itself whenever the Python code changes")
     args = p.parse_args(argv)
+    if args.reload:
+        # The reloader imports the app afresh in a child process: hand the options over by environment.
+        if args.db:
+            os.environ["TESTPOINT_DB"] = args.db
+        if args.web:
+            os.environ["TESTPOINT_WEB"] = args.web
+        uvicorn.run("testpoint.api.app:create_app", factory=True, reload=True,
+                    reload_dirs=[str(Path(__file__).resolve().parents[1])], host=args.host, port=args.port)
+        return
     uvicorn.run(create_app(db_url=args.db, web_dir=args.web), host=args.host, port=args.port)
 
 
