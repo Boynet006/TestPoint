@@ -782,6 +782,7 @@ const I18N = {
     face_camera_hint: "Capture the face with the camera: 3 guided poses", face_upload_hint: "Add a face from a photo file (a passport photo)",
     face_remove_hint: "Delete this person's face photos", face_count_hint: "Face photos on file (3 poses is complete)",
     enrol_title: "Enrol face", enrol_cancel: "Cancel", e_camera_busy: "The camera is in use by another tab or app",
+    cam_taken_finish: "The webcam is in use by the finish camera.", cam_take_back: "Stop the finish camera and use the webcam here",
     e_not_lined_up: "Not at the line", e_remove_from_line_first: "At the line: remove from the line first", e_cannot_undo_weigh_in: "The weigh-in can no longer be undone",
     e_cannot_remove: "Cannot be removed any more", e_too_late_to_cancel: "This start can now only be cancelled by an administrator",
     e_finishers_exist: "Runners of this wave have already finished: it cannot be cancelled", e_not_assigned: "This crossing is not assigned", e_results_exist: "This runner already has exercise results",
@@ -964,6 +965,7 @@ const I18N = {
     face_camera_hint: "التقاط الوجه بالكاميرا: 3 أوضاع موجّهة", face_upload_hint: "إضافة وجه من ملف صورة (صورة جواز)",
     face_remove_hint: "حذف صور وجه هذا الشخص", face_count_hint: "صور الوجه المحفوظة (3 أوضاع = مكتمل)",
     enrol_title: "تسجيل الوجه", enrol_cancel: "إلغاء", e_camera_busy: "الكاميرا مستخدمة في تبويب أو تطبيق آخر",
+    cam_taken_finish: "كاميرا الويب مستخدمة من كاميرا النهاية.", cam_take_back: "أوقف كاميرا النهاية واستخدم الكاميرا هنا",
     e_not_lined_up: "ليس عند الخط", e_remove_from_line_first: "عند الخط: أزله من الخط أولاً", e_cannot_undo_weigh_in: "لم يعد ممكناً التراجع عن الوزن",
     e_cannot_remove: "لم يعد ممكناً إزالته", e_too_late_to_cancel: "يلغي هذا الانطلاق الآن المسؤول فقط",
     e_finishers_exist: "وصل عدّاؤون من هذه الموجة: لا يمكن الإلغاء", e_not_assigned: "هذا العبور غير معيّن", e_results_exist: "لهذا العدّاء نتائج تمارين",
@@ -1071,7 +1073,14 @@ function render() {
 }
 function setRole(r) { if (settingsOpen) closeSettings(); role = r;
   /* one camera, moved to the station in use */ const slot = $("camSlot-" + r); if (slot && !slot.contains($("camBlock"))) { slot.appendChild($("camBlock")); clearBox(); const v = $("camVideo"); if (v.srcObject || v.getAttribute("src")) v.play().catch(() => {}); }   /* moving a video pauses it */
-   save("role", r); $("role").value = r; for (const x of ["weigh", "start", "finish", "station"]) $("v-" + x).classList.toggle("hidden", x !== r); refresh(); }
+   save("role", r); $("role").value = r; for (const x of ["weigh", "start", "finish", "station"]) $("v-" + x).classList.toggle("hidden", x !== r);
+  if (booted) {
+    if (!CAM_ROLES.includes(r) && Cam.stream) { Cam.stop(); Cam.show(); }
+    else if (CAM_ROLES.includes(r) && Cam.kind === "webcam" && !Cam.stream) Cam.use("webcam");
+  }
+  refresh(); }
+const CAM_ROLES = ["weigh", "start"];   // stations that use this device's camera
+let booted = false;
 function setMode(m) {
   if (m === "advanced" && setting("admin_pin_set") && !adminPin()) { PinDlg.open(); return; }
   if (settingsOpen) { settingsOpen = false; $("settingsPage").classList.add("hidden"); $("setBtn").classList.remove("active"); }
@@ -1196,14 +1205,33 @@ const Cam = {
   },
   stop() { if (this.stream) { this.stream.getTracks().forEach(tr => tr.stop()); this.stream = null; } BgFx.stop($("camVideo")); },
   async use(kind) {
+    if (this.opening) return;
     this.stop(); this.kind = kind; save("camKind", kind); this.fileName = "";
     if (kind === "webcam") {
+      this.opening = true;
+      const box = role === "start" ? "sMsg" : "wMsg";
       try {
         this.stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
         const v = $("camVideo"); v.srcObject = this.stream; v.removeAttribute("src"); await v.play();
-      } catch { msg("wMsg", "bad", t("e_camera_denied")); }
+        msg(box);
+      } catch (e) {
+        if (e && e.name === "NotReadableError") await this.busy(box);
+        else msg(box, "bad", t("e_camera_denied"));
+      } finally { this.opening = false; }
     }
     this.show();
+  },
+  // The webcam is held by another program. When it is the finish camera on this PC, offer to take it back.
+  async busy(box) {
+    let fc = null;
+    try { fc = await api("GET", "/api/finishcam"); } catch {}
+    if (fc && fc.running && fc.config && fc.config.kind === "webcam")
+      $(box).innerHTML = `<div class="msg bad">${esc(t("cam_taken_finish"))} <button class="btn sm amber" onclick="Cam.takeBack()">${esc(t("cam_take_back"))}</button></div>`;
+    else msg(box, "bad", t("e_camera_busy"));
+  },
+  async takeBack() {
+    try { await api("POST", "/api/finishcam/stop"); } catch (e) { msg(role === "start" ? "sMsg" : "wMsg", "bad", err(e)); return; }
+    for (let i = 0; i < 4 && !this.stream; i++) { await new Promise(r => setTimeout(r, 700)); await this.use("webcam"); }
   },
   pick(kind) { const f = $("camFile"); f.accept = kind === "video" ? "video/*" : "image/*"; f.dataset.kind = kind; f.click(); },
   fileChosen(input) {
@@ -2546,7 +2574,8 @@ async function savePin(remove) {
   setLaneCount(setting("lanes"));
   $("role").value = role; setMode(mode === "advanced" && setting("admin_pin_set") && !adminPin() ? "simple" : mode); setRole(role); setEvent(event);
   $("autoBtn").textContent = t("auto_off");
-  if (Cam.kind === "webcam") Cam.use("webcam"); else Cam.show();
+  if (Cam.kind === "webcam" && CAM_ROLES.includes(role)) Cam.use("webcam"); else Cam.show();
+  booted = true;
   try { S.rules = await api("GET", "/api/rules"); } catch {}
   applySettings(true);
   await refresh();
