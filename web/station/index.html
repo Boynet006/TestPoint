@@ -176,6 +176,9 @@
   .fwave { display: flex; align-items: baseline; gap: 14px; margin-top: 10px; }
   .fwave .fwclock { font-family: var(--cond); font-size: 44px; font-weight: 700; }
   tr.newest td { background: rgba(25, 210, 122, .08); } tr.dim td { opacity: .6; }
+  .fcview { position: relative; margin-top: 10px; } .fcline { position: absolute; left: 0; right: 0; height: 0; border-top: 3px dashed var(--amber); pointer-events: none; }
+  .fclog { background: var(--bg2); border: 1px solid var(--line); padding: 8px; font-size: 12px; max-height: 120px; overflow: auto; white-space: pre-wrap; margin-top: 8px; }
+  #fcForm.dim { opacity: .45; }
   .pagetitle { font-family: var(--cond); font-size: 28px; letter-spacing: 1.5px; text-transform: uppercase; margin: 0; }
   .sec { font-family: var(--cond); font-size: 15px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin: 22px 0 0; border-top: 1px solid var(--line); padding-top: 14px; }
   .pair { display: flex; align-items: center; gap: 8px; } .pair input { min-width: 0; flex: 1; }
@@ -399,8 +402,36 @@
         <table><tbody id="fReviewTable"></tbody></table></div>
     </div>
     <div>
-      <div class="card">
-        <div class="camlive hidden" id="camLive-finish"><img alt=""><div class="viewer-tag" data-t="cam_view"></div></div>
+      <div class="card" id="fcCard">
+        <div class="row" style="align-items:baseline"><h2 style="margin:0" data-t="fc_title"></h2><span class="spacer"></span><span class="pill" id="fcState"></span></div>
+        <div class="camlive fcview hidden" id="camLive-finish"><img alt=""><div class="fcline" id="fcLine"></div><div class="viewer-tag" data-t="cam_view"></div></div>
+        <div id="fcOffline" class="msg warn hidden" data-t="fc_offline"></div>
+        <div id="fcForm">
+          <div class="seg" style="margin-top:10px"><button id="fck-webcam" onclick="FinishCam.kind('webcam')" data-t="src_webcam"></button><button id="fck-video" onclick="FinishCam.kind('video')" data-t="src_video"></button><button id="fck-url" onclick="FinishCam.kind('url')" data-t="fc_ipcam"></button></div>
+          <div class="row" style="margin-top:8px">
+            <select id="fcWebcam" class="fcsrc"></select>
+            <select id="fcVideo" class="fcsrc hidden"></select>
+            <input id="fcUrl" class="fcsrc hidden" data-tp="ph_cam_url" autocomplete="off" style="flex:1">
+            <button class="btn ghost sm" style="flex:0 0 auto" onclick="FinishCam.sources(true)" data-t="fc_refresh"></button>
+          </div>
+          <div class="settings" style="margin-top:8px">
+            <label for="fcLineY" data-t="fc_line"></label>
+            <input id="fcLineY" type="range" min="5" max="95" step="1" oninput="FinishCam.showLine()">
+            <span class="hint" data-t="fc_line_hint"></span>
+            <label for="fcDir" data-t="fc_dir"></label>
+            <select id="fcDir"><option value="down" data-t="fc_dir_down"></option><option value="up" data-t="fc_dir_up"></option><option value="any" data-t="fc_dir_any"></option></select>
+            <span class="hint" data-t="fc_dir_hint"></span>
+          </div>
+          <div class="row" style="margin-top:10px">
+            <button class="btn go" style="flex:0 0 auto" id="fcStart" onclick="FinishCam.start()"></button>
+            <button class="btn stop" style="flex:0 0 auto" id="fcStop" onclick="FinishCam.stop()" data-t="fc_stop"></button>
+            <span class="hint" id="fcNote"></span>
+          </div>
+          <div id="fcMsg"></div>
+          <pre class="fclog hidden" id="fcLog"></pre>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px">
         <div class="row" style="align-items:baseline"><h2 style="margin:0" data-t="on_course_list"></h2><span class="spacer"></span><b class="wavefill" id="fOutCount"></b></div>
         <div class="scroll" style="max-height:300px"><table><tbody id="fOut"></tbody></table></div>
       </div>
@@ -623,7 +654,16 @@ const I18N = {
     dnf_title: "Did not finish: {bib} · {name}", dnf_hint: "The runner stopped on the course. Pick the reason; it is kept with the result.",
     dnf_injured: "Injured", dnf_gave_up: "Gave up", dnf_left_course: "Left the course", dnf_unwell: "Unwell", ph_dnf_other: "Other / details", mark_dnf: "Mark DNF",
     dnf_saved: "{name}: DNF recorded.", dnf_undone: "{name} is running again.", e_reason_required_dnf: "Pick or type the reason", e_not_dnf: "Not marked DNF",
-    cam_live: "Finish camera live", cam_last: "last read {bib}", cam_off_manual: "Finish camera off: time by hand",
+    fc_title: "Finish camera", fc_ipcam: "IP camera", ph_cam_url: "rtsp://user:password@192.168.1.64:554/Streaming/Channels/101", fc_refresh: "Refresh",
+    fc_line: "Finish line position", fc_line_hint: "The dashed line on the picture: put it where the runners cross.",
+    fc_dir: "Runners come", fc_dir_down: "Towards the camera (down)", fc_dir_up: "Away from the camera (up)", fc_dir_any: "Either way",
+    fc_dir_hint: "A crossing counts only in this direction.", fc_start: "Start camera", fc_restart: "Restart with these settings", fc_stop: "Stop camera",
+    fc_offline: "The camera service is not running on the station PC. Start TestPoint.cmd starts it (or run: python -m testpoint.camhost). Until then, time by hand with CROSSING.",
+    fc_state_offline: "service off", fc_state_live: "live", fc_state_starting: "starting…", fc_state_error: "stopped with an error", fc_state_stopped: "off",
+    fc_no_webcam: "No free webcam (in use by another program?)", fc_no_video: "No videos found", fc_gpu: "GPU", fc_cpu: "CPU only: slower",
+    fc_pick_source: "Pick a source first", fc_started: "Finish camera starting: the picture appears in a few seconds.", fc_stopped: "Finish camera stopped.",
+    e_camera_service_offline: "The camera service is not running on the station PC", e_camera_refused: "The camera service refused",
+    fcam_live: "Finish camera live", cam_last: "last read {bib}", cam_off_manual: "Finish camera off: time by hand",
     review_queue: "Review queue", clip: "clip", assign: "Assign", finishers: "Finishers", time: "Time", status: "Status", bib: "Bib", name: "Name", run: "Run",
     pushup: "Push-ups", crunch: "Crunches", time_limit: "Time limit", pass_mark: "Pass", waiting_here: "Ran, not done here",
     cam_view: "Live camera", cam_off: "Camera offline · manual count", cam_live: "Camera live · {fps} fps", corrections: "Examiner corrections",
@@ -796,7 +836,16 @@ const I18N = {
     dnf_title: "لم يُكمل: {bib} · {name}", dnf_hint: "توقف العدّاء في المسار. اختر السبب؛ يُحفظ مع النتيجة.",
     dnf_injured: "إصابة", dnf_gave_up: "انسحب", dnf_left_course: "خرج من المسار", dnf_unwell: "متوعك", ph_dnf_other: "سبب آخر / تفاصيل", mark_dnf: "تسجيل لم يُكمل",
     dnf_saved: "{name}: سُجّل لم يُكمل.", dnf_undone: "{name} يجري مجدداً.", e_reason_required_dnf: "اختر السبب أو اكتبه", e_not_dnf: "غير مسجّل لم يُكمل",
-    cam_live: "كاميرا النهاية تعمل", cam_last: "آخر قراءة {bib}", cam_off_manual: "كاميرا النهاية متوقفة: التوقيت يدوي",
+    fc_title: "كاميرا النهاية", fc_ipcam: "كاميرا IP", ph_cam_url: "rtsp://user:password@192.168.1.64:554/Streaming/Channels/101", fc_refresh: "تحديث",
+    fc_line: "موضع خط النهاية", fc_line_hint: "الخط المتقطع على الصورة: ضعه حيث يعبر العدّاؤون.",
+    fc_dir: "اتجاه العدّائين", fc_dir_down: "نحو الكاميرا (لأسفل)", fc_dir_up: "بعيداً عن الكاميرا (لأعلى)", fc_dir_any: "أي اتجاه",
+    fc_dir_hint: "يُحتسب العبور في هذا الاتجاه فقط.", fc_start: "تشغيل الكاميرا", fc_restart: "إعادة التشغيل بهذه الإعدادات", fc_stop: "إيقاف الكاميرا",
+    fc_offline: "خدمة الكاميرا لا تعمل على جهاز المحطة. Start TestPoint.cmd يشغّلها (أو: python -m testpoint.camhost). حتى ذلك الحين، وقّت يدوياً بزر عبور.",
+    fc_state_offline: "الخدمة متوقفة", fc_state_live: "تعمل", fc_state_starting: "تبدأ…", fc_state_error: "توقفت بخطأ", fc_state_stopped: "متوقفة",
+    fc_no_webcam: "لا توجد كاميرا متاحة (مستخدمة من برنامج آخر؟)", fc_no_video: "لا توجد فيديوهات", fc_gpu: "GPU", fc_cpu: "المعالج فقط: أبطأ",
+    fc_pick_source: "اختر المصدر أولاً", fc_started: "كاميرا النهاية تبدأ: تظهر الصورة خلال ثوانٍ.", fc_stopped: "أُوقفت كاميرا النهاية.",
+    e_camera_service_offline: "خدمة الكاميرا لا تعمل على جهاز المحطة", e_camera_refused: "رفضت خدمة الكاميرا",
+    fcam_live: "كاميرا النهاية تعمل", cam_last: "آخر قراءة {bib}", cam_off_manual: "كاميرا النهاية متوقفة: التوقيت يدوي",
     review_queue: "قائمة المراجعة", clip: "مقطع", assign: "تعيين", finishers: "المنهون", time: "الزمن", status: "الحالة", bib: "الرقم", name: "الاسم", run: "الجري",
     pushup: "الضغط", crunch: "البطن", time_limit: "الحد الزمني", pass_mark: "النجاح", waiting_here: "أنهوا الجري ولم يختبروا هنا",
     cam_view: "الكاميرا مباشرة", cam_off: "الكاميرا غير متصلة · عدّ يدوي", cam_live: "الكاميرا تعمل · {fps} إطار/ث", corrections: "تصحيحات الممتحن",
@@ -939,7 +988,7 @@ const I18N = {
 };
 let lang = load("lang", "en");      // an explicit choice on this device; else the station default (applySettings)
 const t = (k, vars) => { let s = I18N[lang][k] ?? I18N.en[k] ?? k; for (const [a, b] of Object.entries(vars || {})) s = s.replace(`{${a}}`, b); return s; };
-const SHOW_DETAIL = new Set(["face_belongs_to_other", "dob_required", "gender_required", "bad_rules", "no_standard_for_age", "bad_unit", "bib_in_use", "bad_input", "external_id_in_use", "ambiguous_query", "bad_gender", "bad_dob"]);   // the server's message names the other person
+const SHOW_DETAIL = new Set(["face_belongs_to_other", "camera_refused", "dob_required", "gender_required", "bad_rules", "no_standard_for_age", "bad_unit", "bib_in_use", "bad_input", "external_id_in_use", "ambiguous_query", "bad_gender", "bad_dob"]);   // the server's message names the other person
 const err = e => t("e_" + (e.code || "unknown")) + ((!I18N.en["e_" + e.code] || SHOW_DETAIL.has(e.code)) && e.message ? ` (${e.message})` : "");
 function applyI18n() {
   document.documentElement.lang = lang; document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
@@ -1810,6 +1859,70 @@ async function closeRun() {
   try { const r = await api("POST", "/api/run/close", oldest ? { wave_id: oldest.id } : {}); msg("fMsg", "ok", t("wave_closed", { n: r.wave })); refresh(); }
   catch (e) { msg("fMsg", "bad", err(e)); }
 }
+// ---- the finish camera: picked here, run by the camera service on the station PC
+const FinishCam = {
+  st: null, src: null, polled: 0, busy: false,
+  pref: (() => { try { return JSON.parse(localStorage.getItem("tp_finishcam") || "{}"); } catch { return {}; } })(),
+  save() { try { localStorage.setItem("tp_finishcam", JSON.stringify(this.pref)); } catch {} },
+  kind(k) {
+    this.pref.kind = k; this.save();
+    for (const x of ["webcam", "video", "url"]) { $("fck-" + x).classList.toggle("active", x === k); $("fc" + x[0].toUpperCase() + x.slice(1)).classList.toggle("hidden", x !== k); }
+  },
+  async sources(refresh) {
+    try {
+      this.src = await api("GET", `/api/finishcam/sources${refresh ? "?refresh=true" : ""}`);
+      $("fcWebcam").innerHTML = this.src.cameras.map(c => `<option value="${c.index}">${esc(c.label)} · ${c.size[0]}×${c.size[1]}</option>`).join("") || `<option value="">${t("fc_no_webcam")}</option>`;
+      $("fcVideo").innerHTML = this.src.videos.map(v => `<option value="${esc(v.path)}">${esc(v.label)} · ${v.mb} MB</option>`).join("") || `<option value="">${t("fc_no_video")}</option>`;
+      if (this.pref.webcam != null) $("fcWebcam").value = this.pref.webcam;
+      if (this.pref.video) $("fcVideo").value = this.pref.video;
+      $("fcNote").textContent = this.src.gpu ? t("fc_gpu") : t("fc_cpu");
+    } catch (e) { /* the status line says the service is offline */ }
+  },
+  async poll(force) {
+    if (!force && (Date.now() - this.polled < 3000 || this.busy)) return;
+    this.polled = Date.now();
+    try { this.st = await api("GET", "/api/finishcam"); } catch { this.st = { available: false, running: false }; }
+    if (this.st.available && !this.src) this.sources(false);
+    this.render();
+  },
+  render() {
+    const st = this.st || { available: false }, live = !$("camLive-finish").classList.contains("hidden");
+    $("fcOffline").classList.toggle("hidden", !!st.available);
+    $("fcForm").classList.toggle("dim", !st.available);
+    document.querySelectorAll("#fcForm button, #fcForm select, #fcForm input").forEach(el => { el.disabled = !st.available || this.busy; });
+    $("fcState").className = "pill " + (st.running ? (live ? "ok" : "info") : st.exit_code ? "bad" : "");
+    $("fcState").textContent = !st.available ? t("fc_state_offline") : st.running ? (live ? t("fc_state_live") : t("fc_state_starting")) : st.exit_code ? t("fc_state_error") : t("fc_state_stopped");
+    $("fcStart").textContent = st.running ? t("fc_restart") : t("fc_start");
+    $("fcStop").classList.toggle("hidden", !st.running);
+    const log = (st.log || []).join("\n");
+    $("fcLog").textContent = log; $("fcLog").classList.toggle("hidden", !log || (st.running && live));
+    this.showLine();
+  },
+  showLine() { $("fcLine").style.top = $("fcLineY").value + "%"; },
+  async start() {
+    const k = this.pref.kind || "webcam", source = k === "webcam" ? $("fcWebcam").value : k === "video" ? $("fcVideo").value : $("fcUrl").value.trim();
+    if (source === "") { msg("fcMsg", "bad", t("fc_pick_source")); return; }
+    Object.assign(this.pref, { [k]: source, line: +$("fcLineY").value, dir: $("fcDir").value }); this.save();
+    this.busy = true; this.render();
+    try {
+      this.st = { available: true, ...(await api("POST", "/api/finishcam/start", { kind: k, source, line_y: $("fcLineY").value / 100, direction: $("fcDir").value, app_url: location.origin })) };
+      msg("fcMsg", "ok", t("fc_started"));
+    } catch (e) { msg("fcMsg", "bad", err(e)); }
+    finally { this.busy = false; this.render(); }
+  },
+  async stop() {
+    this.busy = true; this.render();
+    try { this.st = { available: true, ...(await api("POST", "/api/finishcam/stop")) }; msg("fcMsg", "ok", t("fc_stopped")); }
+    catch (e) { msg("fcMsg", "bad", err(e)); }
+    finally { this.busy = false; this.render(); }
+  },
+  init() {
+    this.kind(this.pref.kind || "webcam");
+    $("fcLineY").value = this.pref.line ?? 85; $("fcDir").value = this.pref.dir || "down";
+    if (this.pref.url) $("fcUrl").value = this.pref.url;
+  },
+};
+
 // ---- DNF for one runner, with the reason (audited)
 const DnfDlg = {
   entry: null, reason: "",
@@ -1858,7 +1971,7 @@ function camStatus() {
   const live = !$("camLive-finish").classList.contains("hidden");
   const last = S.crossings.filter(c => c.source === "camera").slice(-1)[0];
   $("fCam").className = "pill " + (live ? "ok" : "");
-  $("fCam").textContent = live ? t("cam_live") + (last ? " · " + t("cam_last", { bib: last.bib_read ?? "?" }) : "") : t("cam_off_manual");
+  $("fCam").textContent = live ? t("fcam_live") + (last ? " · " + t("cam_last", { bib: last.bib_read ?? "?" }) : "") : t("cam_off_manual");
 }
 
 function camHtml(c) {
@@ -1893,7 +2006,7 @@ function renderFinish() {
   $("fClose").disabled = !oldest || oldest.review > 0;
   $("fCloseHint").textContent = oldest && oldest.review > 0 ? t("close_blocked", { n: oldest.review }) : "";
   $("fUndoTap").disabled = !lastTapId || !untagged().some(c => c.id === lastTapId);
-  renderNumpad(); camStatus();
+  renderNumpad(); camStatus(); FinishCam.poll();
   // review queue: camera reads and other questions (plain taps are identified with the number pad)
   const review = S.crossings.filter(c => c.needs_review && !(c.note_code === "no_bib_read" && c.source === "manual")), runners = S.entries.filter(e => e.status === "running");
   $("fReviewBox").classList.toggle("hidden", review.length === 0);
@@ -2443,6 +2556,7 @@ async function savePin(remove) {
   setInterval(pollLanes, 100);
   setInterval(() => CamLive.tick(), 100);
   BgFx.attach($("camVideo"), $("camFx")); BgFx.attach($("enrolVideo"), $("enrolFx"));
+  FinishCam.init();
   for (const v of BgFx.views.values()) BgFx.sync(v);
   $("enrolDlg").addEventListener("close", () => { if (EnrolDlg.stream) EnrolDlg.close(); });   // Esc: release the camera too
 })();
