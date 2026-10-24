@@ -56,9 +56,10 @@ class Crossing:
     track_id: int = 0
     wall: float = field(default_factory=time.time)
     """Wall-clock time the crossing was detected (the frame after the line)."""
-    face_jpeg: bytes | None = field(default=None, repr=False)
-    """The runner's head, sent only when the bib was not read with confidence: the app then
-    compares it with the runners still out (it is not stored)."""
+    face_jpegs: list[bytes] = field(default_factory=list, repr=False)
+    """Snapshots of the runner's upper body just before the line, sent only when the bib was not
+    read with confidence: the app looks for the face in each and compares it with the runners
+    still out (they are not stored)."""
 
     def payload(self, now: float | None = None) -> dict:
         now = time.time() if now is None else now
@@ -66,7 +67,7 @@ class Crossing:
                 "readings": [{"text": s, "conf": round(c, 3)} for s, c in self.readings],
                 "latency_s": round(max(0.0, now - self.wall), 3), "t": round(self.t, 3),
                 "clip": self.clip, "track": self.track_id,
-                **({"face": base64.b64encode(self.face_jpeg).decode("ascii")} if self.face_jpeg else {})}
+                **({"faces": [base64.b64encode(j).decode("ascii") for j in self.face_jpegs]} if self.face_jpegs else {})}
 
 
 class CrossingPoster:
@@ -153,8 +154,8 @@ class FinishCam:
         self._pending_clips: list[tuple[float, float, str]] = []
         """``(t_from, t_to, name)``: clips to cut once the frame clock passes ``t_to``."""
         self.faces = faces
-        self._heads: dict[int, tuple[float, np.ndarray]] = {}
-        """Per track, the head from the frame where the runner looked biggest (closest)."""
+        self._heads: dict[int, list[tuple[float, np.ndarray]]] = {}
+        """Per track, the last few upper-body snapshots, spaced in time (newest last)."""
 
     CLIP_BEFORE_S = 1.5
     CLIP_AFTER_S = 1.0
@@ -176,7 +177,7 @@ class FinishCam:
                 self.reader.observe(tr.id, frame, tr.box)
         if self.faces:
             for tr in tracks:
-                self._keep_head(tr.id, frame, tr.box)
+                self._keep_head(tr.id, frame, tr.box, t)
         out = []
         for ev in self.line.check(tracks, w, h):
             c = self._crossing(ev)
@@ -190,49 +191,57 @@ class FinishCam:
             self.reader.forget(live)
         return out
 
-    HEAD_SHARE = 0.4
-    """The top part of a person box where the head is."""
+    UPPER_SHARE = 0.7
+    """The part of a person box kept for the face: the upper body, so a raised arm (which makes
+    the box taller) does not push the face out of the snapshot; the face detector finds it."""
+    FACE_SNAPSHOTS = 3
+    FACE_SPACING_S = 0.3
+    """Snapshots kept per runner, at least this far apart: the last moments before the line, from
+    different angles (one where they look down or an arm covers the face is not the only one)."""
     FACE_SEND_BELOW = 0.9
     """A bib read with less confidence than this also sends the face, as a second opinion."""
 
-    def _keep_head(self, track_id: int, frame: np.ndarray, box) -> None:
-        area = box.width * box.height
-        if track_id in self._heads and self._heads[track_id][0] >= area:
+    def _keep_head(self, track_id: int, frame: np.ndarray, box, t: float = 0.0) -> None:
+        shots = self._heads.setdefault(track_id, [])
+        if shots and t - shots[-1][0] < self.FACE_SPACING_S:
             return
         h, w = frame.shape[:2]
         x0, x1 = max(0, int(box.x0 - 0.1 * box.width)), min(w, int(box.x1 + 0.1 * box.width))
-        y0, y1 = max(0, int(box.y0 - 0.05 * box.height)), min(h, int(box.y0 + self.HEAD_SHARE * box.height))
+        y0, y1 = max(0, int(box.y0 - 0.05 * box.height)), min(h, int(box.y0 + self.UPPER_SHARE * box.height))
         if x1 - x0 < 24 or y1 - y0 < 24:
             return
         crop = frame[y0:y1, x0:x1]
         if crop.shape[1] > 480:
             k = 480 / crop.shape[1]
             crop = cv2.resize(crop, (480, int(crop.shape[0] * k)))
-        self._heads[track_id] = (area, crop.copy())
+        shots.append((t, crop.copy()))
+        del shots[:-self.FACE_SNAPSHOTS]
 
     def _crossing(self, ev: CrossEvent) -> Crossing | None:
         wall = time.time()
         crops = self.reader.take(ev.track_id) if self.reader is not None else []
-        head = self._heads.pop(ev.track_id, (0, None))[1]
+        heads = [crop for _t, crop in self._heads.pop(ev.track_id, [])]
         clip = None
         if self.evidence is not None:
             name = f"{int(ev.t * 1000):09d}-t{ev.track_id}"
             self._pending_clips.append((ev.t - self.CLIP_BEFORE_S, ev.t + self.CLIP_AFTER_S, name))
             clip = f"{self.evidence_folder}/{name}.mp4"      # written about a second from now
         if self._ocr is not None:
-            self._ocr.submit(self._decide, ev, crops, clip, wall, head)
+            self._ocr.submit(self._decide, ev, crops, clip, wall, heads)
             return None
-        return self._decide(ev, crops, clip, wall, head)
+        return self._decide(ev, crops, clip, wall, heads)
 
     def _decide(self, ev: CrossEvent, crops: list[np.ndarray], clip: str | None, wall: float,
-                head: np.ndarray | None = None) -> Crossing:
+                heads: list[np.ndarray] | None = None) -> Crossing:
         result = self.reader.read_crops(crops) if self.reader is not None else BibResult(None, 0.0, [])
-        face = None
-        if head is not None and (result.bib is None or result.confidence < self.FACE_SEND_BELOW):
-            ok, buf = cv2.imencode(".jpg", head, [cv2.IMWRITE_JPEG_QUALITY, 88])
-            face = buf.tobytes() if ok else None
+        faces = []
+        if heads and (result.bib is None or result.confidence < self.FACE_SEND_BELOW):
+            for head in heads:
+                ok, buf = cv2.imencode(".jpg", head, [cv2.IMWRITE_JPEG_QUALITY, 88])
+                if ok:
+                    faces.append(buf.tobytes())
         c = Crossing(t=ev.t, bib=result.bib, confidence=result.confidence, readings=result.readings,
-                     clip=clip, track_id=ev.track_id, wall=wall, face_jpeg=face)
+                     clip=clip, track_id=ev.track_id, wall=wall, face_jpegs=faces)
         with self._lock:
             self.crossings.append(c)
         self.log(f"[{ev.t:8.3f}s] crossing track {ev.track_id}: bib {c.bib or '?'} "

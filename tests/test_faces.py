@@ -208,6 +208,9 @@ def test_finish_camera_face_fallback(client, monkeypatch):
     # 11 already finished: their face no longer matches anyone still out
     c = client.post("/api/engine/crossing", json={"bib": None, "face": face(b"face:A")}).json()
     assert c["needs_review"]
+    # several snapshots: the one with a face counts (12 = B is still out)
+    c = client.post("/api/engine/crossing", json={"bib": None, "faces": [face(b"none"), face(b"face:B")]}).json()
+    assert not c["needs_review"] and c["entry_id"] == i["12"]
     # a readable bib wins; the face is not used
     c = client.post("/api/engine/crossing", json={"bib": "12", "face": face(b"face:A")}).json()
-    assert c["entry_id"] == i["12"] and c["note_code"] is None
+    assert c["needs_review"] and c["note_code"] == "bib_not_running"            # 12 already finished above

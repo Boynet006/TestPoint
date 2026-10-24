@@ -159,9 +159,11 @@ def test_finishcam_sends_the_face_when_no_bib_is_read():
     out = []
     for i in range(4):
         out.extend(cam.process(img, i * 0.1))
-    assert len(out) == 1 and out[0].bib is None and out[0].face_jpeg[:2] == bytes([0xFF, 0xD8])
+    # several snapshots, spaced in time, the newest last
+    assert len(out) == 1 and out[0].bib is None and 1 <= len(out[0].face_jpegs) <= FinishCam.FACE_SNAPSHOTS
+    assert all(j[:2] == bytes([0xFF, 0xD8]) for j in out[0].face_jpegs)
     import base64
-    assert base64.b64decode(out[0].payload()["face"])[:2] == bytes([0xFF, 0xD8])
+    assert all(base64.b64decode(f)[:2] == bytes([0xFF, 0xD8]) for f in out[0].payload()["faces"])
 
 
 # ------------------------------------------------------------------------ app
