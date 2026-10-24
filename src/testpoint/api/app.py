@@ -71,7 +71,7 @@ def entry_out(e: Entry, day: Day | None = None, faces: int | None = None) -> dic
 
 
 def crossing_out(c: Crossing) -> dict:
-    return {"id": c.id, "entry_id": c.entry_id, "at": iso(c.at), "time_s": c.time_s,
+    return {"id": c.id, "entry_id": c.entry_id, "wave_id": c.wave_id, "at": iso(c.at), "time_s": c.time_s,
             "bib_read": c.bib_read, "source": c.source, "needs_review": c.needs_review,
             "note": c.note, "note_code": c.note_code, "note_bib": c.note_bib,
             "note_status": c.note_status, "confidence": c.confidence, "clip": c.clip_path}
@@ -162,6 +162,14 @@ class PinIn(BaseModel):
 class StartIn(BaseModel):
     countdown_s: int | None = Field(default=None, ge=0, le=30)
     """Seconds of countdown before the time starts; default: the start_countdown_s setting."""
+
+
+class TagIn(BaseModel):
+    bib: str
+
+
+class DnfIn(BaseModel):
+    reason: str
 
 
 class CloseIn(BaseModel):
@@ -452,7 +460,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         s["run_started_at"] = iso(s["run_started_at"])
         s["run_closed_at"] = iso(s["run_closed_at"])
         for w in s["waves"]:
-            w["started_at"], w["closed_at"] = iso(w["started_at"]), iso(w["closed_at"])
+            w["started_at"], w["closed_at"], w["settles_at"] = iso(w["started_at"]), iso(w["closed_at"]), iso(w["settles_at"])
         s["server_time"] = iso(S.utcnow())
         return s
 
@@ -605,6 +613,19 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
             S.check_admin_pin(db, request.headers.get("x-admin-pin"))
         w = S.cancel_start(db, day, late=late)
         return {"wave": w.number, "run_started_at": None}
+
+    @app.post("/api/run/crossings/{crossing_id}/tag")
+    def run_tag(crossing_id: int, body: TagIn, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        """Attach a bib to a time tapped at the instant of crossing."""
+        return crossing_out(S.tag_crossing(db, day, S.rules_for(db, day, rules), crossing_id, body.bib))
+
+    @app.post("/api/entries/{entry_id}/dnf")
+    def entry_dnf(entry_id: int, body: DnfIn, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        return entry_out(S.mark_dnf(db, day, S.get_entry(db, day, entry_id), body.reason), day)
+
+    @app.post("/api/entries/{entry_id}/dnf/undo")
+    def entry_dnf_undo(entry_id: int, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        return entry_out(S.undo_dnf(db, day, S.get_entry(db, day, entry_id)), day)
 
     @app.post("/api/run/crossings/{crossing_id}/unassign")
     def run_unassign(crossing_id: int, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:

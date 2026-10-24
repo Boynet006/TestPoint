@@ -438,3 +438,28 @@ def test_wave_with_a_pending_review_waits_for_the_examiner(client, monkeypatch):
     monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0 + timedelta(hours=1))
     st = ok(client.get("/api/state"))
     assert st["waves"][0]["closed_at"] is None and st["waves"][0]["review"] == 1
+
+
+def test_wave_closes_itself_once_everyone_is_in(client, monkeypatch):
+    rows = "external_id,name,bib,gender,dob\n" + "".join(f"A-{b},Runner {b},{b},M,2000-01-01\n" for b in (41, 42, 43))
+    ok(client.post("/api/entries/import", content=rows.encode()))
+    ids = {b: entry_by_bib(client, b)["id"] for b in (41, 42, 43)}
+    for b in ids:
+        ok(client.post(f"/api/entries/{ids[b]}/weigh-in", json={"weight_kg": 70, "height_cm": 175, "accept": True}))
+        ok(client.post(f"/api/entries/{ids[b]}/line-up"))
+    t0 = models.utcnow()
+    clock = {"t": t0}
+    monkeypatch.setattr(app_mod.S, "utcnow", lambda: clock["t"])
+    ok(client.post("/api/run/start"))
+    clock["t"] = t0 + timedelta(minutes=15)
+    ok(client.post("/api/run/finish", json={"bib": "41"}), 201)
+    ok(client.post(f"/api/entries/{ids[42]}/dnf", json={"reason": "injured"}))
+    assert ok(client.get("/api/state"))["waves"][0]["settles_at"] is None          # 43 still out
+    clock["t"] = t0 + timedelta(minutes=16)
+    ok(client.post("/api/run/finish", json={"bib": "43"}), 201)
+    w = ok(client.get("/api/state"))["waves"][0]
+    assert w["closed_at"] is None and w["settles_at"]                           # all in: a minute to fix a wrong bib
+    clock["t"] = t0 + timedelta(minutes=16, seconds=61)
+    w = ok(client.get("/api/state"))["waves"][0]
+    assert w["closed_at"] and w["closed_by"] == "auto"
+    assert ok(client.get(f"/api/entries/{ids[42]}"))["status"] == "dnf"
