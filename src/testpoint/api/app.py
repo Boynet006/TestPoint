@@ -291,7 +291,10 @@ class CrossingIn(BaseModel):
     clip: str | None = None
     track: int | None = None
     face: str | None = Field(default=None, max_length=700_000)
-    """The runner's head (base64 JPEG), sent when the bib was not read with confidence."""
+    """One snapshot (base64 JPEG): older finish cameras."""
+    faces: list[str] = Field(default=[], max_length=5)
+    """Snapshots of the runner just before the line (base64 JPEG), sent when the bib was not read
+    with confidence."""
 
 
 ENGINE_STALE_S = 2.0
@@ -756,13 +759,17 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         c = S.record_finish(db, day, r, body.bib, now=at, source="camera",
                             confidence=body.confidence, clip_path=body.clip)
         # No usable bib: the face, compared with the runners still out, as a second way to know them.
-        if c.needs_review and body.face:
+        shots_b64 = [*body.faces, *([body.face] if body.face else [])]
+        if c.needs_review and shots_b64:
             import base64
             import binascii
-            try:
-                data = base64.b64decode(body.face, validate=True)
-            except (binascii.Error, ValueError):
-                data = None
+            data = []
+            for b in shots_b64:
+                try:
+                    if len(b) <= 700_000:
+                        data.append(base64.b64decode(b, validate=True))
+                except (binascii.Error, ValueError):
+                    pass
             eng = None
             try:
                 eng = engine()
