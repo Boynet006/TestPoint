@@ -499,7 +499,7 @@
             <div class="row" style="margin-top:6px">
               <button class="btn go" style="flex:0 0 auto" id="scStart" onclick="StationCam.start()"></button>
               <button class="btn stop" style="flex:0 0 auto" id="scStop" onclick="StationCam.stop()" data-t="fc_stop"></button>
-              <button class="btn ghost sm" style="flex:0 0 auto" onclick="StationCam.resetDividers()" data-t="sc_equal"></button>
+              <button class="btn ghost sm" style="flex:0 0 auto" id="scEqual" onclick="StationCam.resetDividers()" data-t="sc_equal"></button>
               <span class="hint" id="scNote"></span>
             </div>
             <div id="scMsg"></div>
@@ -716,7 +716,7 @@ const I18N = {
     review_queue: "Review queue", clip: "clip", assign: "Assign", finishers: "Finishers", time: "Time", status: "Status", bib: "Bib", name: "Name", run: "Run",
     pushup: "Push-ups", crunch: "Crunches", time_limit: "Time limit", pass_mark: "Pass", waiting_here: "Ran, not done here",
     sc_camera: "Camera", sc_title: "Station camera", sc_offline: "The camera service is not running on the station PC. Start TestPoint.cmd starts it (or run: python -m testpoint.camhost). Until then, count by hand.",
-    sc_what: "Counts {ex} in {n} lanes (the exercise and lanes on this page).", sc_running: "Running", sc_equal: "Equal lanes",
+    sc_what: "Counts {ex} in {n} lanes (the exercise and lanes on this page).", sc_what_1: "Counts {ex} for one person (the whole picture).", sc_running: "Running", sc_equal: "Equal lanes",
     sc_div_hint: "Drag the dashed lines so each lane holds one person; then Restart with these settings.", sc_cpu: "CPU only: counting will be slow",
     sc_followed: "Camera switched to {ex}, {n} lanes.", sc_started: "Station camera starting: the picture appears in a few seconds.", start_all: "Start all ({n})", start_all_label: "All lanes start together",
     check_photo: "Check the photo: is this the person?", no_photo: "no photo on file", numpad: "Number pad", lane_bib: "Lane {n}: bib",
@@ -905,7 +905,7 @@ const I18N = {
     review_queue: "قائمة المراجعة", clip: "مقطع", assign: "تعيين", finishers: "المنهون", time: "الزمن", status: "الحالة", bib: "الرقم", name: "الاسم", run: "الجري",
     pushup: "الضغط", crunch: "البطن", time_limit: "الحد الزمني", pass_mark: "النجاح", waiting_here: "أنهوا الجري ولم يختبروا هنا",
     sc_camera: "الكاميرا", sc_title: "كاميرا المحطة", sc_offline: "خدمة الكاميرا لا تعمل على جهاز المحطة. Start TestPoint.cmd يشغّلها (أو: python -m testpoint.camhost). حتى ذلك الحين، العدّ يدوي.",
-    sc_what: "تعدّ {ex} في {n} مسارات (التمرين والمسارات في هذه الصفحة).", sc_running: "تعمل", sc_equal: "مسارات متساوية",
+    sc_what: "تعدّ {ex} في {n} مسارات (التمرين والمسارات في هذه الصفحة).", sc_what_1: "تعدّ {ex} لشخص واحد (الصورة كاملة).", sc_running: "تعمل", sc_equal: "مسارات متساوية",
     sc_div_hint: "اسحب الخطوط المتقطعة ليحوي كل مسار شخصاً واحداً، ثم أعد التشغيل بهذه الإعدادات.", sc_cpu: "المعالج فقط: العدّ سيكون بطيئاً",
     sc_followed: "تحولت الكاميرا إلى {ex}، {n} مسارات.", sc_started: "كاميرا المحطة تبدأ: تظهر الصورة خلال ثوانٍ.", start_all: "ابدأ الجميع ({n})", start_all_label: "تبدأ كل المسارات معاً",
     check_photo: "تحقق من الصورة: هل هذا هو الشخص؟", no_photo: "لا توجد صورة مسجلة", numpad: "لوحة الأرقام", lane_bib: "المسار {n}: الرقم",
@@ -2135,7 +2135,8 @@ const StationCam = {
     $("scStart").textContent = st.running ? (changed ? t("fc_restart") : t("sc_running")) : t("fc_start");
     $("scStart").disabled = $("scStart").disabled || (st.running && !changed);
     $("scStop").classList.toggle("hidden", !st.running);
-    $("scWhat").textContent = t("sc_what", { ex: t(event), n: lanes.length });
+    $("scWhat").textContent = t(lanes.length === 1 ? "sc_what_1" : "sc_what", { ex: t(event), n: lanes.length });
+    $("scEqual").classList.toggle("hidden", lanes.length < 2);   // one lane: the whole picture, nothing to divide
     const log = (st.log || []).join("\n");
     $("scLog").textContent = log; $("scLog").classList.toggle("hidden", !log || (st.running && live));
     $("scDivs").classList.toggle("hidden", !live); $("scDivHint").classList.toggle("hidden", !live);
