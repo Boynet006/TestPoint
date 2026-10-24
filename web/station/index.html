@@ -35,7 +35,7 @@
   .seg button.active { background: var(--amber); color: var(--amber-ink); font-weight: 700; }
   .conn { font-family: var(--cond); font-size: 14px; letter-spacing: 1px; text-transform: uppercase; }
   .conn.ok { color: var(--go); } .conn.bad { color: var(--stop); }
-  main { padding: 18px 20px 40px; max-width: 1500px; margin: 0 auto; }
+  main { padding: 14px 20px 14px; max-width: 1500px; margin: 0 auto; }
   .hidden { display: none !important; }
   .grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
   .lanes { display: grid; grid-template-columns: repeat(var(--lanes, 3), minmax(0, 1fr)); gap: 16px; }
@@ -91,7 +91,7 @@
   th { color: var(--muted); font-family: var(--cond); font-size: 14px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600; }
   td.t { font-family: var(--cond); font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .scroll { max-height: 460px; overflow: auto; }
-  .lane { background: var(--panel); border: 1px solid var(--line); border-top: 4px solid var(--dim); padding: 14px; display: flex; flex-direction: column; gap: 8px; min-height: 470px; }
+  .lane { background: var(--panel); border: 1px solid var(--line); border-top: 4px solid var(--dim); padding: 14px; display: flex; flex-direction: column; gap: 8px; min-height: 420px; }
   .lane[data-state=verified] { border-top-color: var(--info); } .lane[data-state=running] { border-top-color: var(--go); }
   .lane[data-state=done] { border-top-color: var(--text); } .lane[data-state=refused] { border-top-color: var(--stop); }
   .lane-head { display: flex; align-items: center; gap: 10px; }
@@ -179,10 +179,15 @@
   .fcview { position: relative; margin-top: 10px; } .fcline { position: absolute; left: 0; right: 0; height: 0; border-top: 3px dashed var(--amber); pointer-events: none; }
   .fclog { background: var(--bg2); border: 1px solid var(--line); padding: 8px; font-size: 12px; max-height: 120px; overflow: auto; white-space: pre-wrap; margin-top: 8px; }
   #fcForm.dim { opacity: .45; }
+  .stbody { display: block; } .stbody > #scCard { margin-bottom: 14px; }
+  .stbody.one { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(360px, 1fr); gap: 16px; align-items: start; }
+  .stbody.one > #scCard { margin-bottom: 0; } .stbody.one .scgrid { grid-template-columns: 1fr; }
+  .stbody.one .lane { min-height: 0; }
+  @media (max-width: 1100px) { .stbody.one { display: block; } .stbody.one > #scCard { margin-bottom: 14px; } }
   .scgrid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(260px, 2fr); gap: 16px; }
   @media (max-width: 1000px) { .scgrid { grid-template-columns: 1fr; } }
   .scview { position: relative; display: inline-block; max-width: 100%; }
-  .scview .camlive { margin-bottom: 0; } .scview .camlive img { width: auto; max-width: 100%; max-height: 380px; }
+  .scview .camlive { margin-bottom: 0; } .scview .camlive img { width: auto; max-width: 100%; max-height: 300px; }
   .scdivs { position: absolute; inset: 0; } .scdivs.hidden { display: none; }
   .lanediv { position: absolute; top: 0; bottom: 0; width: 22px; margin-left: -11px; cursor: ew-resize; touch-action: none; }
   .lanediv::before { content: ""; position: absolute; left: 10px; top: 0; bottom: 0; border-left: 3px dashed var(--amber); }
@@ -479,7 +484,8 @@
       <span class="pill off" id="xCam"></span>
     </div>
     <div id="xCountdown" class="countdown hidden"><div class="cd-label" data-t="start_all_label"></div><div class="cd-num" id="xCdNum"></div></div>
-    <div class="card hidden" id="scCard" style="margin-bottom:16px">
+    <div class="stbody" id="stBody">
+    <div class="card hidden" id="scCard">
       <div class="scgrid">
         <div>
           <div class="scview"><div class="camlive hidden" id="camLive-station"><img alt=""><div class="viewer-tag" data-t="cam_view"></div></div><div class="scdivs" id="scDivs"></div></div>
@@ -508,8 +514,11 @@
         </div>
       </div>
     </div>
-    <div id="xIdle" class="msg hidden" style="margin-bottom:16px"></div>
+    <div id="stLanes">
+    <div id="xIdle" class="msg hidden" style="margin-bottom:12px"></div>
     <div class="lanes" id="lanes"></div>
+    </div>
+    </div>
   </div>
 </section>
 
@@ -2086,7 +2095,7 @@ const StationCam = {
   st: null, src: null, polled: 0, busy: false, open: null,
   pref: (() => { try { return JSON.parse(localStorage.getItem("tp_stationcam") || "{}"); } catch { return {}; } })(),
   save() { try { localStorage.setItem("tp_stationcam", JSON.stringify(this.pref)); } catch {} },
-  toggle() { this.open = !this.isOpen(); $("scCard").classList.toggle("hidden", !this.open); this.render(); },
+  toggle() { this.open = !this.isOpen(); this.manual = this.open; $("scCard").classList.toggle("hidden", !this.open); this.render(); },
   isOpen() { return !$("scCard").classList.contains("hidden"); },
   kind(k) {
     this.pref.kind = k; this.save();
@@ -2161,7 +2170,13 @@ const StationCam = {
     $("scWhat").textContent = t(lanes.length === 1 ? "sc_what_1" : "sc_what", { ex: t(event), n: lanes.length });
     $("scEqual").classList.toggle("hidden", lanes.length < 2);   // one lane: the whole picture, nothing to divide
     const log = (st.log || []).join("\n");
-    $("scLog").textContent = log; $("scLog").classList.toggle("hidden", !log || (st.running && live));
+    $("scLog").textContent = log; $("scLog").classList.toggle("hidden", !log || st.running || !st.exit_code);
+    $("stBody").classList.toggle("one", lanes.length === 1 && this.isOpen());
+    // Several lanes: the camera is set up once; when it is live and someone checks in, the card folds
+    // away so the lanes fit the screen (the Camera button brings it back).
+    if (lanes.length > 1 && this.isOpen() && !this.manual && live && lanes.some(l => l.state !== "empty")) {
+      this.open = false; $("scCard").classList.add("hidden"); $("stBody").classList.remove("one");
+    }
     $("scDivs").classList.toggle("hidden", !live); $("scDivHint").classList.toggle("hidden", !live);
     if (live && !$("scDivs").children.length) this.drawDividers();
   },
