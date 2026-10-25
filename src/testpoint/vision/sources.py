@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import re
+import sys
 import threading
 import time
 from collections.abc import Callable
@@ -39,7 +40,19 @@ class FileSource:
     def __init__(self, source: str) -> None:
         self.source = source
         self.is_live = source.isdigit()
-        self.cap = cv2.VideoCapture(int(source)) if self.is_live else cv2.VideoCapture(source)
+        if self.is_live and sys.platform == "win32":
+            # DirectShow opens at once and adds less delay than Windows' default (Media Foundation),
+            # and MJPG lets USB webcams send 720p at full frame rate. A camera without MJPG keeps
+            # its default size: raw 720p would cost it frame rate (often 20 a second or fewer).
+            self.cap = cv2.VideoCapture(int(source), cv2.CAP_DSHOW)
+            mjpg = cv2.VideoWriter_fourcc(*"MJPG")
+            self.cap.set(cv2.CAP_PROP_FOURCC, mjpg)
+            if int(self.cap.get(cv2.CAP_PROP_FOURCC)) == mjpg:
+                self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+                self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+                self.cap.set(cv2.CAP_PROP_FPS, 30)
+        else:
+            self.cap = cv2.VideoCapture(int(source)) if self.is_live else cv2.VideoCapture(source)
         if not self.cap.isOpened():
             raise SourceError(f"could not open video source {source!r}")
         if self.is_live:

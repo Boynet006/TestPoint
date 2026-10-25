@@ -65,3 +65,39 @@ def test_app_serves_latest_frame_until_stale(app_client):
     assert c.get("/api/engine/frame/pushup.jpg").status_code == 404      # engine stopped
     assert c.post("/api/engine/frame/pushup", content=b"not a jpeg").status_code == 400
     assert c.post("/api/engine/frame/Bad!", content=jpeg).status_code in (400, 404)
+
+
+
+def test_app_streams_frames_as_they_arrive(app_client):
+    c, clock = app_client
+    jpeg = cv2.imencode(".jpg", np.zeros((8, 8, 3), np.uint8))[1].tobytes()
+    c.post("/api/engine/frame/finish", content=jpeg, headers={"content-type": "image/jpeg"})
+    # the stream ends by itself once the camera's picture is stale: make it stale after the first frame
+    import threading
+    t = threading.Timer(0.2, lambda: setattr(clock, "t", clock.t + 10))
+    t.start()
+    with c.stream("GET", "/api/engine/stream/finish") as r:
+        assert r.headers["content-type"].startswith("multipart/x-mixed-replace")
+        body = b"".join(r.iter_bytes())
+    assert body.startswith(b"--frame") and jpeg in body
+    assert c.get("/api/engine/stream/Bad!").status_code in (400, 404)
+
+
+def test_publisher_sends_each_new_frame_soon_but_capped():
+    import time
+    sent = []
+    pub = FramePublisher("http://app", "finish", lambda img, st: None, interval=0.05, post=sent.append)
+    pub.start()
+    try:
+        t0 = time.monotonic()
+        pub.offer(np.zeros((20, 20, 3), np.uint8), None)
+        while not sent and time.monotonic() - t0 < 1:
+            time.sleep(0.005)
+        assert sent and time.monotonic() - t0 < 0.2            # sent at once, not after a fixed tick
+        for _ in range(20):                                     # a burst of frames: at most one per 50 ms
+            pub.offer(np.zeros((20, 20, 3), np.uint8), None)
+            time.sleep(0.005)
+        time.sleep(0.12)
+        assert len(sent) <= 1 + 4
+    finally:
+        pub.stop()

@@ -11,6 +11,7 @@ The app keeps the last picture per station in memory and the tablet polls it.
 from __future__ import annotations
 
 import threading
+import time
 import urllib.error
 import urllib.request
 from collections.abc import Callable
@@ -23,7 +24,7 @@ FRAME_PATH = "/api/engine/frame/"
 
 class FramePublisher(threading.Thread):
     def __init__(self, app_url: str, station: str, draw: Callable[[np.ndarray, object], None],
-                 interval: float = 0.15, max_width: int = 960, quality: int = 75,
+                 interval: float = 1 / 15, max_width: int = 960, quality: int = 75,
                  timeout_s: float = 2.0, post: Callable[[bytes], None] | None = None) -> None:
         super().__init__(name="preview-publisher", daemon=True)
         self.url = app_url.rstrip("/") + FRAME_PATH + station
@@ -36,6 +37,7 @@ class FramePublisher(threading.Thread):
         self._latest: tuple[np.ndarray, object] | None = None
         self._lock = threading.Lock()
         self._stopping = threading.Event()
+        self._new = threading.Event()
         self.sent = 0
         self.failed = 0
 
@@ -43,6 +45,7 @@ class FramePublisher(threading.Thread):
         """Called by the frame loop for every frame: just keeps a reference to the newest one."""
         with self._lock:
             self._latest = (frame, state)
+        self._new.set()
 
     def render(self) -> bytes | None:
         with self._lock:
@@ -77,8 +80,19 @@ class FramePublisher(threading.Thread):
         return True
 
     def run(self) -> None:
-        while not self._stopping.wait(self.interval):
+        # Send each frame as soon as it is ready, at most once per ``interval`` (15 a second):
+        # the picture on the page is as fresh as the analysis, without flooding the network.
+        last = 0.0
+        while not self._stopping.is_set():
+            if not self._new.wait(0.5):
+                continue
+            wait = last + self.interval - time.monotonic()
+            if wait > 0 and self._stopping.wait(wait):
+                break
+            self._new.clear()
+            last = time.monotonic()
             self.publish_once()
 
     def stop(self) -> None:
         self._stopping.set()
+        self._new.set()
