@@ -212,13 +212,16 @@
     .setnav .grp { display: none; } .setnav button { border-inline-start: 0; border-bottom: 3px solid transparent; white-space: nowrap; padding: 8px 10px; }
     .settings { grid-template-columns: 1fr; } .settings .hint { margin-top: -6px; } .themepick { grid-column: 1; }
   }
-  .applies { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0 8px; }
-  .applies > div { border: 1px solid var(--line); padding: 10px 14px; background: var(--bg2); }
-  .applies b { font-family: var(--cond); letter-spacing: 1px; text-transform: uppercase; font-size: 14px; color: var(--muted); }
-  .applies ul { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
-  .applies li::before { content: "✓"; color: var(--go); font-weight: 700; margin-inline-end: 8px; }
-  .applies ul.no li::before { content: "✕"; color: var(--stop); }
-  @media (max-width: 860px) { .applies { grid-template-columns: 1fr; } }
+  .places { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; margin: 10px 0; }
+  .places label { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--line); background: var(--bg2); padding: 10px 12px; cursor: pointer; }
+  .places label:has(input:checked) { border-color: var(--amber); }
+  .places input { width: 20px; height: 20px; flex: 0 0 auto; margin: 1px 0 0; accent-color: var(--amber); }
+  .places b { display: block; font-family: var(--cond); letter-spacing: .5px; font-size: 16px; }
+  .places small { color: var(--muted); font-size: 12px; }
+  .never { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 4px; color: var(--muted); font-size: 14px; }
+  .never li::before { content: "✕"; color: var(--stop); font-weight: 700; margin-inline-end: 8px; }
+  .camlive canvas.fx { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: none; }
+  .camlive.fxon canvas.fx { display: block; } .camlive.fxon img { opacity: 0; }
   .themepick { grid-column: 2 / 4; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
   .themecard { all: unset; cursor: pointer; border: 2px solid var(--line); background: var(--bg2); display: flex; flex-direction: column; }
   .themecard:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
@@ -705,7 +708,7 @@
     <div>
       <div class="card" id="fcCard">
         <div class="row" style="align-items:baseline"><h2 style="margin:0" data-t="fc_title"></h2><span class="spacer"></span><span class="pill" id="fcState"></span></div>
-        <div class="camlive fcview hidden" id="camLive-finish"><img alt=""><div class="fcline" id="fcLine"></div><div class="viewer-tag" data-t="cam_view"></div></div>
+        <div class="camlive fcview hidden" id="camLive-finish"><img alt=""><canvas class="fx" id="fxFinish"></canvas><div class="fcline" id="fcLine"></div><div class="viewer-tag" data-t="cam_view"></div></div>
         <div id="fcOffline" class="msg warn hidden" data-t="fc_offline"></div>
         <div id="fcForm">
           <div class="seg" style="margin-top:10px"><button id="fck-webcam" onclick="FinishCam.kind('webcam')" data-t="src_webcam"></button><button id="fck-video" onclick="FinishCam.kind('video')" data-t="src_video"></button><button id="fck-url" onclick="FinishCam.kind('url')" data-t="fc_ipcam"></button></div>
@@ -771,7 +774,7 @@
     <div class="card hidden" id="scCard">
       <div class="scgrid">
         <div>
-          <div class="scview"><div class="camlive hidden" id="camLive-station"><img alt=""><div class="viewer-tag" data-t="cam_view"></div></div><div class="scdivs" id="scDivs"></div></div>
+          <div class="scview"><div class="camlive hidden" id="camLive-station"><img alt=""><canvas class="fx" id="fxStation"></canvas><div class="viewer-tag" data-t="cam_view"></div></div><div class="scdivs" id="scDivs"></div></div>
           <p class="hint" id="scDivHint" data-t="sc_div_hint"></p>
         </div>
         <div>
@@ -941,11 +944,17 @@
         <div class="bgi bgpick"><img id="setBgPrev" class="hidden" alt=""><label class="btn sm" style="flex:0 0 auto"><span data-t="bg_choose"></span><input type="file" accept="image/jpeg,image/png" class="hidden" onchange="uploadBg(this)"></label><button class="btn ghost sm danger hidden" id="setBgDel" onclick="confirmClick('bgdel', this, removeBg)" data-t="bg_remove"></button></div>
         <span class="hint bgi" data-t="set_bg_image_hint"></span>
       </div>
-      <div class="applies">
-        <div><b data-t="cam_applies"></b><ul><li data-t="cam_a_weigh"></li><li data-t="cam_a_start"></li><li data-t="cam_a_photo"></li></ul></div>
-        <div><b data-t="cam_not"></b><ul class="no"><li data-t="cam_n_engine"></li><li data-t="cam_n_files"></li></ul></div>
+      <h3 class="sec" data-t="cam_applies"></h3>
+      <input type="hidden" id="setBgPlaces">
+      <div class="places" id="bgPlaces">
+        <label><input type="checkbox" value="weigh" onchange="bgPlacesPicked()"><span><b data-t="cam_p_weigh"></b><small data-t="cam_p_weigh_d"></small></span></label>
+        <label><input type="checkbox" value="start" onchange="bgPlacesPicked()"><span><b data-t="cam_p_start"></b><small data-t="cam_p_start_d"></small></span></label>
+        <label><input type="checkbox" value="photo" onchange="bgPlacesPicked()"><span><b data-t="cam_p_photo"></b><small data-t="cam_p_photo_d"></small></span></label>
+        <label><input type="checkbox" value="finish" onchange="bgPlacesPicked()"><span><b data-t="cam_p_finish"></b><small data-t="cam_p_screen_d"></small></span></label>
+        <label><input type="checkbox" value="station" onchange="bgPlacesPicked()"><span><b data-t="cam_p_station"></b><small data-t="cam_p_screen_d"></small></span></label>
       </div>
-      <p class="hint" data-t="cam_original"></p>
+      <p class="msg warn hidden" id="bgPlacesWarn" data-t="cam_screen_warn"></p>
+      <ul class="never"><li data-t="cam_n_files"></li><li data-t="cam_n_evidence"></li></ul>
     </div>
     <div class="card setpanel" data-p="register" data-scope="station">
       <h2 data-t="sec_register"></h2>
@@ -1144,7 +1153,7 @@ const I18N = {
     set_bg_image: "Background picture", bg_choose: "Choose picture…", bg_remove: "Remove",
     set_bg_image_hint: "JPEG or PNG; landscape works best. The same picture on every desk. Without one, the backdrop colour is used.",
     bg_uploaded: "Picture saved. Save settings to keep Picture as the camera background.", e_bad_image: "Use a JPEG or PNG picture",
-    set_bg_hint: "What is shown behind the person on the cameras listed below, like a video call.",
+    set_bg_hint: "What is shown behind the person, like a video call, on the places ticked below.",
     set_auto: "Auto-identify faces at weigh-in", set_auto_hint: "On: the camera keeps checking who is in front; off: the examiner presses Identify.",
     set_gender: "Default gender for new candidates", set_gender_hint: "Pre-selected in the registration form; the examiner can change it.",
     set_bib: "First automatic bib number", set_bib_hint: "Walk-ins get the next free bib from here on (e.g. 500, clear of the printed list).",
@@ -1244,10 +1253,12 @@ const I18N = {
     rg_never: "Not tested yet", rg_history: "History", rg_person: "Candidate", rg_close: "Close", rg_days: "Test days", rg_no_days: "Not on any test day yet.",
     rg_date: "Date", rg_verdict: "Result", rg_delete: "Delete person",
     rg_deleted: "{name} deleted.",
-    sec_camera: "Camera", cam_applies: "Applies to", cam_not: "Never changed",
-    cam_a_weigh: "The weigh-in desk camera", cam_a_start: "The start-line camera", cam_a_photo: "Face photo windows (enrol, register a person)",
-    cam_n_engine: "Finish line and exercise station pictures: the camera service sends them, and they are evidence",
-    cam_n_files: "Demo video files and photos: they show as they are",
+    sec_camera: "Camera", cam_applies: "Use it on",
+    cam_p_weigh: "Weigh-in desk", cam_p_weigh_d: "This device's camera at weigh-in.", cam_p_start: "Start line", cam_p_start_d: "The same camera at the start line.",
+    cam_p_photo: "Face photo windows", cam_p_photo_d: "Enrol face, register a person.", cam_p_finish: "Finish line screen", cam_p_station: "Exercise station screen",
+    cam_p_screen_d: "The live picture from the camera service, on screen only.",
+    cam_screen_warn: "Finish line and exercise station: on screen only; timing, counting and the evidence clips keep the original picture. The effect is made for one person close to the camera: runners further away or people lying on the mats can be cut off.",
+    cam_n_files: "Never on demo video files and photos: they show as they are.", cam_n_evidence: "Never on evidence clips, saved face photos or recognition: they always use the original picture.",
     cam_original: "Face recognition and saved face photos always use the camera's original picture, whatever is chosen here.",
     nav_station: "Station · every device", nav_device: "This screen", nav_admin: "Security",
     set_dots: "Dots in the moving background", set_dots_hint: "Neural Aurora, Mirage and Desert Stars. Fewer dots are calmer and lighter on the PC.", dots_auto: "Auto",
@@ -1399,7 +1410,7 @@ const I18N = {
     set_bg_image: "صورة الخلفية", bg_choose: "اختر صورة…", bg_remove: "إزالة",
     set_bg_image_hint: "JPEG أو PNG؛ الصورة الأفقية أفضل. نفس الصورة على كل مكتب. بدونها يُستخدم لون الخلفية.",
     bg_uploaded: "تم حفظ الصورة. احفظ الإعدادات لاعتماد الصورة كخلفية للكاميرا.", e_bad_image: "استخدم صورة JPEG أو PNG",
-    set_bg_hint: "ما يُعرض خلف الشخص في الكاميرات المذكورة أدناه، كما في مكالمات الفيديو.",
+    set_bg_hint: "ما يُعرض خلف الشخص، كما في مكالمات الفيديو، في الأماكن المحددة أدناه.",
     set_auto: "التعرف التلقائي على الوجه عند الوزن", set_auto_hint: "تشغيل: تتحقق الكاميرا باستمرار ممن أمامها؛ إيقاف: يضغط الممتحن زر التعرف.",
     set_gender: "الجنس الافتراضي للمتقدمين الجدد", set_gender_hint: "يُختار مسبقاً في نموذج التسجيل؛ يمكن للممتحن تغييره.",
     set_bib: "أول رقم تلقائي", set_bib_hint: "يأخذ المتقدمون الجدد الرقم المتاح التالي بدءاً من هنا (مثلاً 500، بعيداً عن القائمة المطبوعة).",
@@ -1499,10 +1510,12 @@ const I18N = {
     rg_never: "لم يُختبر بعد", rg_history: "السجل", rg_person: "المرشح", rg_close: "إغلاق", rg_days: "أيام الاختبار", rg_no_days: "ليس في أي يوم اختبار بعد.",
     rg_date: "التاريخ", rg_verdict: "النتيجة", rg_delete: "حذف الشخص",
     rg_deleted: "حُذف {name}.",
-    sec_camera: "الكاميرا", cam_applies: "يُطبّق على", cam_not: "لا يتغير أبداً",
-    cam_a_weigh: "كاميرا مكتب الوزن", cam_a_start: "كاميرا خط الانطلاق", cam_a_photo: "نوافذ صورة الوجه (تسجيل الوجه، تسجيل شخص)",
-    cam_n_engine: "صور خط الوصول ومحطة التمارين: ترسلها خدمة الكاميرا، وهي دليل",
-    cam_n_files: "ملفات الفيديو والصور التجريبية: تُعرض كما هي",
+    sec_camera: "الكاميرا", cam_applies: "استخدمه في",
+    cam_p_weigh: "مكتب الوزن", cam_p_weigh_d: "كاميرا هذا الجهاز عند الوزن.", cam_p_start: "خط الانطلاق", cam_p_start_d: "الكاميرا نفسها عند خط الانطلاق.",
+    cam_p_photo: "نوافذ صورة الوجه", cam_p_photo_d: "تسجيل الوجه، تسجيل شخص.", cam_p_finish: "شاشة خط الوصول", cam_p_station: "شاشة محطة التمارين",
+    cam_p_screen_d: "الصورة المباشرة من خدمة الكاميرا، على الشاشة فقط.",
+    cam_screen_warn: "خط الوصول ومحطة التمارين: على الشاشة فقط؛ التوقيت والعد ومقاطع الدليل تبقى بالصورة الأصلية. التأثير مصمم لشخص واحد قريب من الكاميرا: قد يُقطع العداؤون البعيدون أو المستلقون على الحصائر.",
+    cam_n_files: "أبداً على ملفات الفيديو والصور التجريبية: تُعرض كما هي.", cam_n_evidence: "أبداً على مقاطع الدليل أو صور الوجوه المحفوظة أو التعرف: تستخدم دائماً الصورة الأصلية.",
     cam_original: "التعرف على الوجه وصور الوجوه المحفوظة تستخدم دائماً الصورة الأصلية للكاميرا، مهما كان الاختيار هنا.",
     nav_station: "المحطة · كل الأجهزة", nav_device: "هذه الشاشة", nav_admin: "الأمان",
     set_dots: "عدد النقاط في الخلفية المتحركة", set_dots_hint: "الشفق الذكي والسراب ونجوم الصحراء. نقاط أقل أهدأ وأخف على الجهاز.", dots_auto: "تلقائي",
@@ -1654,7 +1667,7 @@ function render() {
 }
 function setRole(r) { if (settingsOpen) closeSettings(); role = r;
   /* one camera, moved to the station in use */ const slot = $("camSlot-" + r); if (slot && !slot.contains($("camBlock"))) { slot.appendChild($("camBlock")); clearBox(); const v = $("camVideo"); if (v.srcObject || v.getAttribute("src")) v.play().catch(() => {}); }   /* moving a video pauses it */
-   save("role", r); $("role").value = r; for (const x of ["weigh", "start", "finish", "station"]) $("v-" + x).classList.toggle("hidden", x !== r);
+   save("role", r); $("role").value = r; BgFx.refresh(); for (const x of ["weigh", "start", "finish", "station"]) $("v-" + x).classList.toggle("hidden", x !== r);
   if (booted) {
     if (!CAM_ROLES.includes(r) && Cam.stream) { Cam.stop(); Cam.show(); }
     else if (CAM_ROLES.includes(r) && Cam.kind === "webcam" && !Cam.stream) Cam.use("webcam");
@@ -1854,7 +1867,14 @@ const BgFx = {
     im.onload = () => { if (this.imgVer === ver) this.img = im; };
     im.src = `/api/settings/background-image?v=${ver}`;
   },
-  setMode(m) { if (m === this.mode) return; this.mode = m; for (const v of this.views.values()) this.sync(v); },
+  places: new Set(["weigh", "start", "photo"]),
+  setMode(m) { if (m === this.mode) return; this.mode = m; this.refresh(); },
+  setPlaces(list) {
+    const next = new Set(Array.isArray(list) ? list : ["weigh", "start", "photo"]);
+    if ([...next].sort().join() === [...this.places].sort().join()) return;
+    this.places = next; this.refresh();
+  },
+  refresh() { for (const v of this.views.values()) this.sync(v); },
   ensureWorker() {
     if (this.worker || this.failed) return this.worker;
     const fail = e => { console.warn("camera background unavailable:", e); this.failed = true; this.worker = null; for (const v of this.views.values()) this.stop(v.video); };
@@ -1870,32 +1890,42 @@ const BgFx = {
     } catch (e) { fail(e); }
     return this.worker;
   },
-  attach(video, canvas) {
+  // place: where this picture is (a settings tick), as a function for the desk camera, which serves
+  // weigh-in and the start line. An <img> is a live picture from the camera service (display only).
+  attach(video, canvas, place) {
     const v = { video, canvas, viewer: video.parentElement, gen: 0, img: null, mask: null, fresh: false, prev: null,
+                place: typeof place === "function" ? place : () => place, isImg: video.tagName === "IMG", lastAt: 0,
                 maskC: document.createElement("canvas"), personC: document.createElement("canvas"),
                 cutC: document.createElement("canvas"), bgC: document.createElement("canvas") };
     this.views.set(video, v);
-    video.addEventListener("playing", () => this.sync(v));
+    video.addEventListener(v.isImg ? "load" : "playing", () => this.sync(v));
   },
-  wanted(v) { return this.mode !== "off" && !this.failed && !!v.video.srcObject; },   // live camera only; demo files show as they are
+  // Live cameras and live pictures only; demo files show as they are.
+  wanted(v) {
+    return this.mode !== "off" && !this.failed && this.places.has(v.place())
+      && (v.isImg ? !!v.video.getAttribute("src") : !!v.video.srcObject);
+  },
+  size(v) { const s = v.video; return v.isImg ? [s.naturalWidth, s.naturalHeight] : [s.videoWidth, s.videoHeight]; },
   sync(v) {
     if (!this.wanted(v) || !this.ensureWorker()) { this.stop(v.video); return; }
     const gen = ++v.gen, vid = v.video;
     const step = () => {
       if (gen !== v.gen) return;
       if (!this.wanted(v)) { this.stop(vid); return; }
-      if (vid.readyState >= 2 && vid.videoWidth) {
+      const [vw, vh] = this.size(v), live = v.isImg ? vid.complete && vw > 0 : vid.readyState >= 2 && vw > 0;
+      if (live && (!v.isImg || performance.now() - v.lastAt > 60)) {   // a live picture: about 15 a second
+        v.lastAt = performance.now();
         if (this.pending && performance.now() - this.pendingAt > 2000) this.pending = null;   // a lost frame never stalls it
         if (!this.pending) {
           // The model works at 256 px: a 512-px copy is plenty and cheap to send.
           this.pending = v; this.pendingAt = performance.now();
-          createImageBitmap(vid, { resizeWidth: 512, resizeHeight: Math.round(vid.videoHeight * 512 / vid.videoWidth), resizeQuality: "medium" })
+          createImageBitmap(vid, { resizeWidth: 512, resizeHeight: Math.round(vh * 512 / vw), resizeQuality: "medium" })
             .then(frame => this.worker ? this.worker.postMessage({ frame, ts: performance.now() }, [frame]) : frame.close())
             .catch(() => { this.pending = null; });
         }
         if (v.mask) this.draw(v);
       }
-      if (vid.requestVideoFrameCallback) vid.requestVideoFrameCallback(step); else requestAnimationFrame(step);
+      if (!v.isImg && vid.requestVideoFrameCallback) vid.requestVideoFrameCallback(step); else requestAnimationFrame(step);
     };
     step();
   },
@@ -1920,7 +1950,7 @@ const BgFx = {
     }
     // Full camera resolution for the person; the background is blurred small and scaled up
     // (looks the same, a fraction of the work).
-    const vid = v.video, k = Math.min(1, 1920 / vid.videoWidth), w = Math.round(vid.videoWidth * k), h = Math.round(vid.videoHeight * k);
+    const vid = v.video, [vw, vh] = this.size(v), k = Math.min(1, 1920 / vw), w = Math.round(vw * k), h = Math.round(vh * k);
     const out = v.canvas, pc = v.personC;
     if (out.width !== w || out.height !== h) { out.width = pc.width = w; out.height = pc.height = h; }
     const p = pc.getContext("2d");
@@ -3643,7 +3673,7 @@ const CamLive = {
         // (re)start the stream when there is none, or it ended (the server ends it when the camera pauses)
         if (!this.streaming || this.streaming.ended) {
           this.streaming = { el: tg.el, station: tg.station };
-          img.src = `/api/engine/stream/${tg.station}?t=${Date.now()}`;
+          img.src = `/api/engine/stream/${tg.station}?t=${Date.now()}`; BgFx.refresh();
         }
       } else {
         if (this.streaming) this.streaming.ended = true;
@@ -3669,7 +3699,7 @@ function applySettings(first) {
     if (mode === "advanced") setMode("simple");
   }
   BgFx.backdrop = setting("backdrop_color"); BgFx.setImage(setting("background_image"));
-  BgFx.setMode(setting("camera_background"));
+  BgFx.setPlaces(setting("camera_bg_places")); BgFx.setMode(setting("camera_background"));
   applyTheme();
 }
 
@@ -3814,13 +3844,13 @@ const SET_FIELDS = {   // input id -> [setting, read, write]
   setAuto: ["auto_identify", v => v === "1", v => (v ? "1" : "0")], setBg: ["camera_background"], setMatch: ["face_match"], setFaceReq: ["face_required", v => v === "1", v => (v ? "1" : "0")],
   setWalk: ["walk_ins", v => v === "1", v => (v ? "1" : "0")], setGender: ["default_gender"], setUnit: ["default_unit"], setBib: ["bib_start", v => parseInt(v, 10)],
   setLanes: ["lanes", v => parseInt(v, 10), String], setWave: ["wave_size", v => parseInt(v, 10)],
-  setCountdown: ["start_countdown_s", v => parseInt(v, 10), String], setCancelWin: ["cancel_window_s", v => parseInt(v, 10), String], setSite: ["site_name", v => v.trim()], setLang: ["default_language"], setTheme: ["theme"],
+  setCountdown: ["start_countdown_s", v => parseInt(v, 10), String], setCancelWin: ["cancel_window_s", v => parseInt(v, 10), String], setSite: ["site_name", v => v.trim()], setBgPlaces: ["camera_bg_places", v => (v ? v.split(",") : []), a => (a || []).join(",")], setLang: ["default_language"], setTheme: ["theme"],
 };
 function showSettings() {
   for (const [id, [k, , out]] of Object.entries(SET_FIELDS)) $(id).value = out ? out(setting(k)) : setting(k);
   const col = setting("backdrop_color"), preset = [...$("setBgColor").options].some(o => o.value === col);
   $("setBgColor").value = preset ? col : "custom"; $("setBgCustom").value = col;
-  bgColorPicked(); bgPreview(); bgRows(); themeCards();
+  bgColorPicked(); bgPreview(); bgRows(); themeCards(); bgPlacesShow();
   msg("setMsg"); showRules(); showPin(); SetNav.check();
 }
 // The colour / picture controls appear under "Camera background" only when that choice needs them.
@@ -3828,6 +3858,17 @@ function bgRows() {
   const m = $("setBg").value;
   document.querySelectorAll("#t-settings .bgc").forEach(el => el.classList.toggle("hidden", m !== "backdrop"));
   document.querySelectorAll("#t-settings .bgi").forEach(el => el.classList.toggle("hidden", m !== "image"));
+}
+const BG_PLACES = ["weigh", "start", "photo", "finish", "station"];
+function bgPlacesShow() {
+  const on = new Set(($("setBgPlaces").value || "").split(",").filter(Boolean));
+  document.querySelectorAll("#bgPlaces input").forEach(c => { c.checked = on.has(c.value); });
+  $("bgPlacesWarn").classList.toggle("hidden", !(on.has("finish") || on.has("station")));
+}
+function bgPlacesPicked() {   // kept in a fixed order, so "changed or not" compares like for like
+  const on = new Set([...document.querySelectorAll("#bgPlaces input:checked")].map(c => c.value));
+  $("setBgPlaces").value = BG_PLACES.filter(p => on.has(p)).join(",");
+  bgPlacesShow(); SetNav.check();
 }
 const bgColor = () => ($("setBgColor").value === "custom" ? $("setBgCustom").value : $("setBgColor").value);
 function bgColorPicked() {
@@ -4025,7 +4066,10 @@ async function savePin(remove) {
   setInterval(pollLanes, 100);
   setInterval(() => CamLive.tick(), 100);
   for (const ev of ["input", "change"]) $("t-settings").addEventListener(ev, e => { if (e.target.closest('.setpanel[data-scope="station"]')) SetNav.check(); });
-  BgFx.attach($("camVideo"), $("camFx")); BgFx.attach($("enrolVideo"), $("enrolFx")); BgFx.attach($("regVideo"), $("regFx"));
+  BgFx.attach($("camVideo"), $("camFx"), () => (role === "start" ? "start" : "weigh"));
+  BgFx.attach($("enrolVideo"), $("enrolFx"), "photo"); BgFx.attach($("regVideo"), $("regFx"), "photo");
+  BgFx.attach($("camLive-finish").querySelector("img"), $("fxFinish"), "finish");
+  BgFx.attach($("camLive-station").querySelector("img"), $("fxStation"), "station");
   FinishCam.init(); StationCam.init();
   for (const v of BgFx.views.values()) BgFx.sync(v);
   $("enrolDlg").addEventListener("close", () => { if (EnrolDlg.stream) EnrolDlg.close(); });   // Esc: release the camera too
