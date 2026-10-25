@@ -159,3 +159,20 @@ def test_realtime_video_waits_when_the_analysis_is_fast():
     vid = _Video(5)
     out = [t for _f, t in iter_frames(vid, clock=lambda: now["t"], realtime=True, sleep=sleep)]
     assert out == [0.0, 0.1, 0.2, 0.3, 0.4] and vid.skipped == 0 and all(abs(s - 0.1) < 1e-9 for s in slept)
+
+
+
+def test_realtime_video_plays_like_a_camera():
+    from testpoint.vision.sources import RealtimeVideo
+    now = {"t": 0.0}
+
+    def sleep(s):
+        now["t"] += s
+
+    class Inner(_Video):
+        source = "clip.mp4"
+
+    vid = RealtimeVideo(Inner(100), clock=lambda: now["t"], sleep=sleep)
+    assert [vid.read() for _ in range(3)] == [0, 1, 2] and abs(now["t"] - 0.2) < 1e-9   # paced at 10 fps
+    now["t"] += 0.55                                    # the reader was held up: skip, don't fall behind
+    assert vid.read() == 7 and vid.inner.skipped == 4

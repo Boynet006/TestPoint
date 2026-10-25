@@ -236,11 +236,49 @@ class LatestFrame:
         self.inner.release()
 
 
-def open_source(source: str, latest: bool = True, **rtsp_options):
+class RealtimeVideo:
+    """A video file that hands out its frames at its own speed, as a camera would: ``read()``
+    waits for the next frame's time and, if decoding fell behind, skips frames without
+    decoding them. Wrapped in ``LatestFrame`` a demo video behaves exactly like a live camera:
+    the picture shows every frame, the analysis takes the newest."""
+
+    is_live = False
+
+    def __init__(self, inner: FileSource, clock: Callable[[], float] = time.monotonic,
+                 sleep: Callable[[float], None] = time.sleep) -> None:
+        self.inner = inner
+        self.source = inner.source
+        self.fps = inner.fps or 30.0
+        self.clock, self.sleep = clock, sleep
+        self._t0: float | None = None
+        self._idx = 0
+
+    def read(self) -> np.ndarray | None:
+        if self._t0 is None:
+            self._t0 = self.clock()
+        due = (self.clock() - self._t0) * self.fps
+        while self._idx + 1 < due:
+            if not self.inner.skip():
+                return None
+            self._idx += 1
+        wait = self._t0 + self._idx / self.fps - self.clock()
+        if wait > 0:
+            self.sleep(wait)
+        self._idx += 1
+        return self.inner.read()
+
+    def release(self) -> None:
+        self.inner.release()
+
+
+def open_source(source: str, latest: bool = True, realtime: bool = False, **rtsp_options):
     """A webcam index, a video file or an RTSP address. Live cameras come with only their newest
-    frame (``LatestFrame``) unless ``latest`` is False."""
+    frame (``LatestFrame``) unless ``latest`` is False. ``realtime``: a video file is played like
+    a camera (``RealtimeVideo`` in a ``LatestFrame``)."""
     src = RtspSource(source, **rtsp_options) if is_rtsp(source) else FileSource(source)
-    return LatestFrame(src) if latest and src.is_live else src
+    if src.is_live:
+        return LatestFrame(src) if latest else src
+    return LatestFrame(RealtimeVideo(src)) if realtime else src
 
 
 def iter_frames(source, clock: Callable[[], float] = time.monotonic, realtime: bool = False,

@@ -15,10 +15,12 @@ standard split of video and analytics overlay).
 
 from __future__ import annotations
 
+import http.client
+import socket
 import threading
 import time
 import urllib.error
-import urllib.request
+import urllib.parse
 from collections.abc import Callable
 
 import cv2
@@ -40,6 +42,7 @@ class FramePublisher(threading.Thread):
         self.quality = quality
         self.timeout_s = timeout_s
         self._post = post or self._http_post
+        self._conn: http.client.HTTPConnection | None = None
         self._frame: np.ndarray | None = None
         self._state: object = _NO_STATE
         self.live = False
@@ -91,10 +94,29 @@ class FramePublisher(threading.Thread):
         return buf.tobytes() if ok else None
 
     def _http_post(self, jpeg: bytes) -> None:
-        req = urllib.request.Request(self.url, data=jpeg, method="POST",
-                                     headers={"Content-Type": "image/jpeg"})
-        with urllib.request.urlopen(req, timeout=self.timeout_s) as resp:
-            resp.read()
+        # One connection kept open (a new one per picture costs a TCP set-up each time); a
+        # connection the app closed meanwhile is opened again once.
+        u = urllib.parse.urlsplit(self.url)
+        for attempt in (0, 1):
+            if self._conn is None:
+                kind = http.client.HTTPSConnection if u.scheme == "https" else http.client.HTTPConnection
+                self._conn = kind(u.hostname, u.port, timeout=self.timeout_s)
+            try:
+                if self._conn.sock is None:
+                    self._conn.connect()
+                    # no Nagle: a picture leaves at once instead of waiting ~40 ms for an ACK
+                    self._conn.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                self._conn.request("POST", u.path, body=jpeg, headers={"Content-Type": "image/jpeg"})
+                resp = self._conn.getresponse()
+                resp.read()
+                if resp.status >= 400:
+                    raise OSError(f"app answered {resp.status}")
+                return
+            except (http.client.HTTPException, OSError):
+                self._conn.close()
+                self._conn = None
+                if attempt:
+                    raise
 
     def publish_once(self) -> bool:
         jpeg = self.render()
@@ -116,7 +138,9 @@ class FramePublisher(threading.Thread):
             if not self._new.wait(0.5):
                 continue
             wait = last + self.interval - time.monotonic()
-            if wait > 0 and self._stopping.wait(wait):
+            if wait > 0:
+                time.sleep(wait)        # precise; Event.wait moves in ~16 ms steps on Windows
+            if self._stopping.is_set():
                 break
             self._new.clear()
             last = time.monotonic()

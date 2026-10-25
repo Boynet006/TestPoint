@@ -128,3 +128,11 @@ def test_station_engine_with_lanes_drawn_on_the_picture(svc, tmp_path):
     # the finish camera is a separate process: both can run (on different cameras)
     assert c.get("/finish").json()["running"] is False and c.get("/station").json()["running"]
     assert c.post("/station/stop").json()["running"] is False
+
+
+def test_camera_processes_reach_the_app_over_ipv4():
+    from testpoint.camhost import app_address
+    assert app_address("http://localhost:8080") == "http://127.0.0.1:8080"
+    assert app_address("http://localhost") == "http://127.0.0.1"
+    assert app_address("http://127.0.0.1:8000") == "http://127.0.0.1:8000"
+    assert app_address("http://localhostile:8080") == "http://localhostile:8080"

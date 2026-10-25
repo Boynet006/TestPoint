@@ -318,7 +318,8 @@ def main(argv: list[str] | None = None) -> int:
     except ValueError as e:
         p.error(str(e))
     try:
-        source = open_source(args.source, timeout_s=args.connect_timeout, max_attempts=args.connect_attempts)
+        source = open_source(args.source, realtime=args.realtime, timeout_s=args.connect_timeout,
+                             max_attempts=args.connect_attempts)
     except SourceError as e:
         raise SystemExit(f"error: {e}") from None
     try:

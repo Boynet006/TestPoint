@@ -345,6 +345,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     _last_report: dict[str, tuple[float, EngineReportIn]] = {}
     # The engines' live pictures (src/testpoint/preview.py): newest JPEG per station.
     _last_frame: dict[str, tuple[float, bytes]] = {}
+    _frame_waiters: dict[str, asyncio.Event] = {}   # wakes the open streams when a new picture comes
 
     def engine():
         if "e" not in _engine_cache:
@@ -740,6 +741,9 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         if not data.startswith(JPEG_SOI):
             raise S.ServiceError("bad_image", "expected a JPEG", 400)
         _last_frame[station] = (clock(), data)
+        waiters = _frame_waiters.pop(station, None)
+        if waiters is not None:
+            waiters.set()
 
     @app.get("/api/engine/frame/{station}.jpg")
     def engine_frame_jpg(station: str) -> Response:
@@ -758,20 +762,21 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
             raise S.ServiceError("unknown_station", f"bad station name {station!r}", 400)
 
         async def frames():
-            last, checked = None, clock()
+            last = None
             while True:
+                new = _frame_waiters.setdefault(station, asyncio.Event())
                 seen = _last_frame.get(station)
                 if seen is None or clock() - seen[0] > FRAME_STALE_S:
                     return                                   # no camera: the page goes back to checking
-                if seen[0] != last:
-                    last = seen[0]
+                if seen is not last:
+                    last = seen
                     yield (b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: " + str(len(seen[1])).encode()
                            + b"\r\n\r\n" + seen[1] + b"\r\n")
-                if clock() - checked > 1.0:
-                    checked = clock()
+                try:                                         # sleep until the next picture arrives
+                    await asyncio.wait_for(new.wait(), 0.5)
+                except asyncio.TimeoutError:
                     if await request.is_disconnected():
                         return
-                await asyncio.sleep(0.01)
 
         return StreamingResponse(frames(), media_type="multipart/x-mixed-replace; boundary=frame",
                                  headers={"Cache-Control": "no-store"})
