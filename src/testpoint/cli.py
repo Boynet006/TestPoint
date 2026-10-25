@@ -13,6 +13,8 @@ import json
 import os
 import sys
 import time
+from collections.abc import Callable
+from dataclasses import dataclass
 
 # Must be in the environment before OpenCV loads its FFmpeg plugin (see vision/sources.py).
 os.environ.setdefault("OPENCV_FFMPEG_CAPTURE_OPTIONS", "rtsp_transport;tcp")
@@ -33,6 +35,59 @@ RED = (0, 0, 230)
 WHITE = (255, 255, 255)
 YELLOW = (0, 220, 255)
 LANE_COLOURS = [(255, 180, 0), (0, 200, 255), (200, 0, 255), (0, 255, 160), (255, 80, 160)]
+AMBER = (0, 176, 255)
+
+
+@dataclass
+class Meter:
+    """How one live measurement is drawn on the picture: a bar from ``lo`` to ``hi`` with the
+    rule's limits marked, its number beside it, green when within the rule, red when not."""
+    label: str
+    lo: float
+    hi: float
+    marks: tuple[float, ...]
+    ok: Callable[[float], bool | None]
+    """True within the rule, False a fault, None for information only."""
+    unit: str = "°"
+
+
+def meters_for(analyzer) -> dict[str, Meter]:
+    """The bars for an exercise, from its own rules (so a calibrated limit shows as it is)."""
+    r = getattr(analyzer, "rules", None)
+    if analyzer.name == "pushup" and r is not None:
+        return {
+            "elbow_deg": Meter("Elbow", 60, 180, (r.down_elbow_deg, r.up_elbow_deg), lambda v: True if v <= r.down_elbow_deg else None),
+            "body_line_deg": Meter("Body line", 120, 180, (r.min_body_line_deg,), lambda v: v >= r.min_body_line_deg),
+            "knee_deg": Meter("Knee", 90, 180, (r.max_knee_deg,), lambda v: None),
+            "knee_lift": Meter("Knee lift", -1.0, 1.0, (r.max_knee_lift,), lambda v: v >= r.max_knee_lift, ""),
+            "knee_drop": Meter("Knee drop", 0.0, 1.0, (r.min_knee_drop,), lambda v: v <= r.min_knee_drop, ""),
+        }
+    if analyzer.name == "crunch" and r is not None:
+        return {
+            "torso_deg": Meter("Torso", 0, max(30.0, r.up_torso_deg * 3), (r.down_torso_deg, r.up_torso_deg), lambda v: True if v >= r.up_torso_deg else None),
+            "knee_deg": Meter("Knee", 0, 180, (r.knee_min_deg, r.knee_max_deg), lambda v: r.knee_min_deg <= v <= r.knee_max_deg),
+        }
+    return {}
+
+
+def draw_meter(frame: np.ndarray, x: int, y: int, width: int, m: Meter, v: float, k: float = 1.0) -> int:
+    """One bar at (x, y); returns the height used."""
+    label_w, bar_h, num_w = int(78 * k), max(6, int(10 * k)), int(52 * k)
+    bw = max(30, width - label_w - num_w)
+    ok = m.ok(v)
+    colour = GREEN if ok is True else RED if ok is False else AMBER
+    fs = 0.42 * k
+    cv2.putText(frame, m.label, (x, y + bar_h), cv2.FONT_HERSHEY_SIMPLEX, fs, WHITE, 1, cv2.LINE_AA)
+    bx = x + label_w
+    cv2.rectangle(frame, (bx, y), (bx + bw, y + bar_h), (60, 60, 60), -1)
+    frac = min(1.0, max(0.0, (v - m.lo) / (m.hi - m.lo)))
+    cv2.rectangle(frame, (bx, y), (bx + int(bw * frac), y + bar_h), colour, -1)
+    for mark in m.marks:   # the rule's limits
+        mx = bx + int(bw * min(1.0, max(0.0, (mark - m.lo) / (m.hi - m.lo))))
+        cv2.line(frame, (mx, y - int(3 * k)), (mx, y + bar_h + int(3 * k)), WHITE, max(1, int(2 * k)))
+    text = f"{v:.0f}{m.unit}" if m.unit else f"{v:.2f}"
+    cv2.putText(frame, text, (bx + bw + int(6 * k), y + bar_h), cv2.FONT_HERSHEY_SIMPLEX, fs * 1.1, colour, 1, cv2.LINE_AA)
+    return bar_h + int(12 * k)
 
 
 def draw_person(frame: np.ndarray, person: Person, colour=GREEN, min_conf: float = 0.3) -> None:
@@ -46,8 +101,10 @@ def draw_person(frame: np.ndarray, person: Person, colour=GREEN, min_conf: float
             cv2.circle(frame, tuple(int(v) for v in person.xy[i]), 4, YELLOW, -1)
 
 
-def draw_lanes(frame: np.ndarray, lanes: list[Lane], res: MultiLaneResult) -> None:
-    """One rectangle per lane with its name, count, phase and live faults."""
+def draw_lanes(frame: np.ndarray, lanes: list[Lane], res: MultiLaneResult,
+               meters: dict[str, Meter] | None = None) -> None:
+    """One rectangle per lane with its name, count, phase, the live measurements (as bars when
+    ``meters`` describes them, else as numbers) and live faults."""
     h, w = frame.shape[:2]
     for i, lane in enumerate(lanes):
         colour = LANE_COLOURS[i % len(LANE_COLOURS)]
@@ -63,7 +120,20 @@ def draw_lanes(frame: np.ndarray, lanes: list[Lane], res: MultiLaneResult) -> No
             status += f"  {r.work_seconds:.1f}s"
         cv2.putText(frame, status, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, WHITE, 1)
         y += 24
+        shown = {k: v for k, v in r.metrics.debug.items() if meters and k in meters}
+        if shown:
+            sc = max(0.8, min(1.6, w / 960))
+            width = min(x1 - x - 8, int(300 * sc))
+            top = y - int(14 * sc)
+            panel = frame[max(0, top):min(h, top + len(shown) * int(22 * sc) + int(8 * sc)), max(0, x - 6):min(w, x + width + 6)]
+            if panel.size:   # a dark glass behind the bars, so they read on any background
+                panel[:] = (panel * 0.45).astype(panel.dtype)
+            for k, v in shown.items():
+                y += draw_meter(frame, x, y - int(10 * sc), width, meters[k], v, sc)
+            y += int(10 * sc)
         for k, v in r.metrics.debug.items():
+            if k in shown:
+                continue
             cv2.putText(frame, f"{k} {v:.2f}" if abs(v) < 2 else f"{k} {v:.0f}", (x, y),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.55, WHITE, 1)
             y += 22
@@ -126,7 +196,9 @@ def main(argv: list[str] | None = None) -> int:
     except (ImportError, OSError, RuntimeError, ValueError) as e:
         source.release()
         raise SystemExit(f"error: could not start the pose backend: {e}") from None
-    session = MultiLaneSession(backend, make_analyzer(args.exercise), lanes)
+    analyzer = make_analyzer(args.exercise)
+    session = MultiLaneSession(backend, analyzer, lanes)
+    meters = meters_for(analyzer)
 
     writer = None
     src_fps = source.fps or 30.0
@@ -150,7 +222,7 @@ def main(argv: list[str] | None = None) -> int:
                 assigned = {id(r.person) for r in res.lanes.values() if r.person is not None}
                 for person in res.people:
                     draw_person(frame, person, GREEN if id(person) in assigned else GREY)
-                draw_lanes(frame, lanes, res)
+                draw_lanes(frame, lanes, res, meters)
                 note = f"reconnects {source.reconnects}" if hasattr(source, "reconnects") else ""
                 draw_hud(frame, args.exercise, fps, note)
             if args.out:

@@ -276,6 +276,7 @@ class EngineLaneIn(BaseModel):
     person: bool = False
     pending_faults: list[str] = []
     work_seconds: float = 0.0
+    depth: float | None = Field(default=None, ge=0, le=2)
     events: list[EngineEventIn] = []
 
 
@@ -961,7 +962,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
             for name, lane in seen[1].lanes.items():
                 out[name] = {"count": lane.count, "rejected": lane.rejected, "phase": lane.phase,
                              "person": lane.person, "pending_faults": lane.pending_faults,
-                             "work_seconds": lane.work_seconds, "attempt_id": lane.attempt_id,
+                             "work_seconds": lane.work_seconds, "depth": lane.depth, "attempt_id": lane.attempt_id,
                              # The engine counts for this attempt only once it has heard of it.
                              "current": name in running and lane.attempt_id == running[name].id}
         return {"station": station,

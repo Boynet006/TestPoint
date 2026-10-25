@@ -313,6 +313,44 @@
   th { color: var(--muted); font-family: var(--cond); font-size: 14px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600; }
   td.t { font-family: var(--cond); font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .scroll { max-height: 460px; overflow: auto; }
+  /* ---- the running lane, drawn: depth gauge, rep ring with the grade marks, time ring, rep strip */
+  .lvis { display: grid; grid-template-columns: 34px 1fr 86px; gap: 12px; align-items: center; margin: 4px 0; }
+  .gauge { position: relative; height: 150px; width: 26px; justify-self: center; border: 1px solid var(--line); background: var(--bg2); overflow: hidden; }
+  .gauge i { position: absolute; left: 0; right: 0; top: 0; height: 0; background: linear-gradient(var(--info), color-mix(in srgb, var(--info) 40%, var(--amber))); transition: height .15s linear; }
+  .gauge b { position: absolute; left: -4px; right: -4px; top: 80%; height: 2px; background: var(--text); box-shadow: 0 0 0 1px var(--bg); }
+  .gauge.deep i { background: var(--go); } .gauge.off { opacity: .35; }
+  .gauge small { position: absolute; left: 50%; bottom: 2px; transform: translateX(-50%); font-size: 10px; color: var(--muted); font-family: var(--cond); }
+  .repring { position: relative; width: 100%; max-width: 190px; aspect-ratio: 1; justify-self: center; }
+  .repring svg, .timering svg { width: 100%; height: 100%; transform: rotate(-90deg); overflow: visible; }
+  .repring .track, .timering .track { fill: none; stroke: var(--bg2); stroke-width: 9; }
+  .repring .arc { fill: none; stroke: var(--amber); stroke-width: 9; stroke-linecap: round; transition: stroke-dashoffset .35s ease, stroke .3s; }
+  .repring.pass .arc { stroke: var(--go); } .repring.full .arc { stroke: #f2c14e; filter: drop-shadow(0 0 6px #f2c14e); }
+  .repring .tick { stroke: var(--muted); stroke-width: 3; } .repring .tick.need { stroke: var(--text); stroke-width: 4; } .repring .tick.hit { stroke: var(--panel); stroke-width: 4; }
+  .repring .mid { position: absolute; inset: 0; display: grid; place-items: center; align-content: center; text-align: center; }
+  .repring .mid .num { font-family: var(--cond); font-weight: 800; font-size: clamp(54px, 7vw, 84px); line-height: .9; font-variant-numeric: tabular-nums; }
+  .repring .mid small { font-size: 12px; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; }
+  .repring .mid .rej { color: var(--bad-text); }
+  .repring .grade { position: absolute; left: 50%; bottom: -6px; transform: translateX(-50%); font-family: var(--cond); font-weight: 700; letter-spacing: 1px;
+    padding: 1px 8px; background: var(--bg2); border: 1px solid var(--line); white-space: nowrap; font-size: 13px; }
+  .repring.pass .grade { border-color: var(--go); color: var(--ok-text); } .repring.full .grade { border-color: #f2c14e; color: #f2c14e; }
+  .timering { position: relative; width: 86px; aspect-ratio: 1; }
+  .timering .arc { fill: none; stroke: var(--info); stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
+  .timering.low .arc { stroke: var(--stop); } .timering.low { animation: lowpulse 1s ease-in-out infinite; }
+  .timering span { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--cond); font-weight: 700; font-size: 22px; font-variant-numeric: tabular-nums; }
+  @keyframes lowpulse { 50% { transform: scale(1.06); } }
+  .repstrip { display: flex; flex-wrap: wrap; gap: 4px; min-height: 16px; }
+  .repstrip i { width: 12px; height: 12px; border-radius: 50%; background: var(--go); animation: dotin .35s cubic-bezier(.2, 1.6, .4, 1) both; }
+  .repstrip i.bad { background: transparent; border: 2px solid var(--stop); border-radius: 2px; transform: rotate(45deg); }
+  .repstrip i.man { box-shadow: 0 0 0 2px var(--amber); }
+  @keyframes dotin { from { transform: scale(0); } }
+  .lane.flash-ok { animation: flashok .6s ease; } .lane.flash-bad { animation: flashbad .5s ease; }
+  @keyframes flashok { 0% { box-shadow: inset 0 0 0 3px var(--go), 0 0 30px -4px var(--go); } 100% { box-shadow: none; } }
+  @keyframes flashbad { 0%, 100% { transform: none; } 20% { transform: translateX(-6px); box-shadow: inset 0 0 0 3px var(--stop); } 60% { transform: translateX(5px); } }
+  .plusone { position: absolute; left: 50%; top: 30%; transform: translateX(-50%); font-family: var(--cond); font-weight: 800; font-size: 34px; color: var(--go); pointer-events: none; animation: floatup .9s ease-out forwards; }
+  .plusone.bad { color: var(--stop); font-size: 22px; }
+  @keyframes floatup { to { transform: translate(-50%, -70px); opacity: 0; } }
+  .lane { position: relative; }
+  @media (prefers-reduced-motion: reduce) { .repstrip i, .lane.flash-ok, .lane.flash-bad, .plusone, .timering.low { animation: none; } }
   .lane { background: var(--panel); border: 1px solid var(--line); border-top: 4px solid var(--dim); padding: 14px; display: flex; flex-direction: column; gap: 8px; min-height: 420px; }
   .lane[data-state=verified] { border-top-color: var(--info); } .lane[data-state=running] { border-top-color: var(--go); }
   .lane[data-state=done] { border-top-color: var(--text); } .lane[data-state=refused] { border-top-color: var(--stop); }
@@ -1141,7 +1179,7 @@ const I18N = {
     sc_followed: "Camera switched to {ex}, {n} lanes.", sc_started: "Station camera starting: the picture appears in a few seconds.", sc_stopped: "Station camera stopped.",
     idle_none_here: "Nobody is waiting for {ex}.", idle_need_other: "{n} still need {ex}.", idle_switch: "Switch to {ex}",
     idle_coming: "{n} not through the run yet: they come here after it.", idle_all_done: "Everyone today is done: no tests left.", start_all: "Start all ({n})", start_all_label: "All lanes start together",
-    check_photo: "Check the photo: is this the person?", no_photo: "no photo on file", numpad: "Number pad", hand_title: "Time by hand", hand_hint: "Backup when the camera is off or misses someone: tap, then type the bib.", fc_log: "Camera messages", lane_bib: "Lane {n}: bib",
+    check_photo: "Check the photo: is this the person?", no_photo: "no photo on file", numpad: "Number pad", vis_depth: "How deep the rep in progress is: the line is deep enough to count", vis_depth_s: "depth", vis_to_go: "{n} to 60%", hand_title: "Time by hand", hand_hint: "Backup when the camera is off or misses someone: tap, then type the bib.", fc_log: "Camera messages", lane_bib: "Lane {n}: bib",
     cam_view: "Live camera", cam_off: "Camera offline · manual count", cam_live: "Camera live · {fps} fps", corrections: "Examiner corrections",
     ph_waiting: "Get into position", ph_rest: "Up", ph_work: "Down", no_person: "Nobody in the lane",
     f_body_not_straight: "Body not straight", f_knee_on_ground: "Knee on the ground", f_rest_in_down: "Resting down", f_knees_not_bent: "Knees not bent",
@@ -1404,7 +1442,7 @@ const I18N = {
     sc_followed: "تحولت الكاميرا إلى {ex}، {n} مسارات.", sc_started: "كاميرا المحطة تبدأ: تظهر الصورة خلال ثوانٍ.", sc_stopped: "أُوقفت كاميرا المحطة.",
     idle_none_here: "لا أحد بانتظار {ex}.", idle_need_other: "{n} ما زالوا يحتاجون {ex}.", idle_switch: "التبديل إلى {ex}",
     idle_coming: "{n} لم ينهوا الجري بعد: يأتون إلى هنا بعده.", idle_all_done: "انتهى الجميع اليوم: لا اختبارات متبقية.", start_all: "ابدأ الجميع ({n})", start_all_label: "تبدأ كل المسارات معاً",
-    check_photo: "تحقق من الصورة: هل هذا هو الشخص؟", no_photo: "لا توجد صورة مسجلة", numpad: "لوحة الأرقام", hand_title: "التوقيت اليدوي", hand_hint: "احتياطي عند إيقاف الكاميرا أو فواتها لأحد: اضغط ثم اكتب الرقم.", fc_log: "رسائل الكاميرا", lane_bib: "المسار {n}: الرقم",
+    check_photo: "تحقق من الصورة: هل هذا هو الشخص؟", no_photo: "لا توجد صورة مسجلة", numpad: "لوحة الأرقام", vis_depth: "عمق التكرار الجاري: الخط هو العمق الكافي للعد", vis_depth_s: "العمق", vis_to_go: "{n} حتى 60%", hand_title: "التوقيت اليدوي", hand_hint: "احتياطي عند إيقاف الكاميرا أو فواتها لأحد: اضغط ثم اكتب الرقم.", fc_log: "رسائل الكاميرا", lane_bib: "المسار {n}: الرقم",
     cam_view: "الكاميرا مباشرة", cam_off: "الكاميرا غير متصلة · عدّ يدوي", cam_live: "الكاميرا تعمل · {fps} إطار/ث", corrections: "تصحيحات الممتحن",
     ph_waiting: "خذ الوضعية", ph_rest: "أعلى", ph_work: "أسفل", no_person: "لا أحد في المسار",
     f_body_not_straight: "الجسم غير مستقيم", f_knee_on_ground: "الركبة على الأرض", f_rest_in_down: "استراحة في الأسفل", f_knees_not_bent: "الركبتان غير مثنيتين",
@@ -3041,6 +3079,7 @@ function tickClocks() {
     if (left === 10 && !l.warned) { l.warned = true; Signal.warn(); }
     if (left === 0) { Signal.end(); stopLane(l.n); return; }
     const tm = $("lt-" + l.n); if (tm) { tm.textContent = mmss(left); tm.classList.toggle("low", left <= 10); }
+    laneTimer(l);
   });
 }
 
@@ -3081,7 +3120,7 @@ async function startLane(n) {
   l.busy = true; renderLane(l);
   try {
     l.attempt = await api("POST", "/api/attempts", { entry_id: l.entry.id, event, lane: String(n) });
-    Object.assign(l, { state: "running", count: 0, rejected: 0, t0: Date.now(), left: limit(), error: null, auto: null, fix: 0, fixRej: 0, live: null, why: "", needWhy: false, warned: false });
+    Object.assign(l, { state: "running", count: 0, rejected: 0, t0: Date.now(), left: limit(), error: null, auto: null, fix: 0, fixRej: 0, live: null, why: "", needWhy: false, warned: false, dots: [], seen: null, lastFault: null });
     if (!quietStart) Signal.start();
   } catch (e) {
     if (e.code === "attempt_in_progress") l.reason = "attempt_in_progress"; else l.error = err(e);
@@ -3099,28 +3138,94 @@ function tap(n, which, d) {
   const l = lanes[n - 1]; if (l.state !== "running" && l.state !== "stopped") return;
   // With the camera counting, a tap is a correction on top of its number; without it, the count itself.
   if (l.auto) l[which === "count" ? "fix" : "fixRej"] += d; else l[which] = Math.max(0, l[which] + d);
+  l.manual = true;   // the strip marks reps the examiner added
   applyCounts(l);
 }
 function applyCounts(l) {
   if (l.auto) { l.count = Math.max(0, l.auto.count + l.fix); l.rejected = Math.max(0, l.auto.rejected + l.fixRej); }
   const c = $("lc-" + l.n), r = $("lr-" + l.n);                                  // no redraw: keeps the buttons under the finger
   if (c) c.textContent = l.count; if (r) r.textContent = l.rejected;
+  laneVisUpdate(l);
   const o = $("lo-" + l.n); if (o) o.classList.toggle("hidden", !corrected(l));
 }
 // The examiner saves a number the camera did not count: the server wants a reason.
 const corrected = l => l.needWhy || !!(l.auto && l.count !== l.auto.count);
+// ---- the running lane, drawn. The ring fills toward the 100% count with a mark at each grade (the
+// needed one bold), the gauge shows how deep the rep in progress is (the line = deep enough), the
+// time ring empties, and every rep drops a dot on the strip (green valid, red rejected).
+const RING_R = 52, RING_C = 2 * Math.PI * RING_R, TIME_R = 36, TIME_C = 2 * Math.PI * TIME_R;
+function laneMarks(l) {   // the counts for 60/70/100% for this person, if a pass table applies
+  const b = l.entry && bandOf(l.entry);
+  return b ? b[event] : null;
+}
+function laneVisHtml(l) {
+  const marks = laneMarks(l), max = marks ? marks[2] : 40, need = l.entry && l.entry.standard ? l.entry.standard.level : null;
+  const ticks = (marks || []).map((m, i) => {
+    const a = (m / max) * 2 * Math.PI, x1 = 60 + (RING_R - 9) * Math.cos(a), y1 = 60 + (RING_R - 9) * Math.sin(a), x2 = 60 + (RING_R + 9) * Math.cos(a), y2 = 60 + (RING_R + 9) * Math.sin(a);
+    return `<line class="tick${GRADES[i] === need ? " need" : ""}" data-m="${m}" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}"/>`;
+  }).join("");
+  return `<div class="lvis">
+    <div class="gauge off" id="lg-${l.n}" title="${t("vis_depth")}"><i></i><b></b><small>${t("vis_depth_s")}</small></div>
+    <div class="repring" id="lv-${l.n}"><svg viewBox="0 0 120 120"><circle class="track" cx="60" cy="60" r="${RING_R}"/>
+      <circle class="arc" cx="60" cy="60" r="${RING_R}" stroke-dasharray="${RING_C.toFixed(1)}" stroke-dashoffset="${RING_C.toFixed(1)}"/>${ticks}</svg>
+      <div class="mid"><span class="num" id="lc-${l.n}">${l.count}</span><small>${t("valid")} · <span class="rej" id="lr-${l.n}">${l.rejected}</span> ✗</small></div>
+      <span class="grade" id="lgr-${l.n}"></span></div>
+    <div class="timering" id="ltr-${l.n}"><svg viewBox="0 0 86 86"><circle class="track" cx="43" cy="43" r="${TIME_R}"/>
+      <circle class="arc" cx="43" cy="43" r="${TIME_R}" stroke-dasharray="${TIME_C.toFixed(1)}" stroke-dashoffset="0"/></svg><span id="lt-${l.n}">${mmss(l.state === "running" ? l.left : 0)}</span></div>
+  </div><div class="repstrip" id="ls-${l.n}">${(l.dots || []).map(d => `<i class="${d}"></i>`).join("")}</div>`;
+}
+function laneVisUpdate(l) {
+  const ring = $("lv-" + l.n); if (!ring) return;
+  const marks = laneMarks(l), max = marks ? marks[2] : Math.max(40, l.count), frac = Math.min(1, l.count / max);
+  ring.querySelector(".arc").style.strokeDashoffset = (RING_C * (1 - frac)).toFixed(1);
+  const need = l.entry && l.entry.standard ? l.entry.standard.level : null;
+  let grade = null;
+  if (marks) marks.forEach((m, i) => { if (l.count >= m) grade = GRADES[i]; });
+  ring.classList.toggle("pass", !!(grade && need && grade >= need)); ring.classList.toggle("full", grade === 100);
+  ring.querySelectorAll(".tick").forEach(tk => tk.classList.toggle("hit", l.count >= +tk.dataset.m));
+  const g = $("lgr-" + l.n);
+  if (g) g.textContent = !marks ? "" : grade ? `${grade}%` : t("vis_to_go", { n: marks[0] - l.count });
+  // a new rep: a dot, a flash and a +1 (only from the second update on, not when the card is drawn)
+  const prev = l.seen || { count: l.count, rejected: l.rejected };
+  const addOk = Math.max(0, l.count - prev.count), addBad = Math.max(0, l.rejected - prev.rejected);
+  if (addOk || addBad) {
+    l.dots = (l.dots || []).concat(Array(addOk).fill(l.manual ? "man" : ""), Array(addBad).fill(l.manual ? "bad man" : "bad")).slice(-80);
+    const strip = $("ls-" + l.n);
+    if (strip) strip.insertAdjacentHTML("beforeend", [...Array(addOk).fill(l.manual ? "man" : ""), ...Array(addBad).fill(l.manual ? "bad man" : "bad")].map(c => `<i class="${c}"></i>`).join(""));
+    const card = $("lane-" + l.n);
+    if (card) {
+      card.classList.remove("flash-ok", "flash-bad"); void card.offsetWidth; card.classList.add(addOk ? "flash-ok" : "flash-bad");
+      card.insertAdjacentHTML("beforeend", `<span class="plusone${addOk ? "" : " bad"}">${addOk ? "+" + addOk : esc(l.lastFault ? t("f_" + l.lastFault) : "✗")}</span>`);
+      setTimeout(() => card.querySelector(".plusone")?.remove(), 950);
+    }
+  } else if (l.count < prev.count && l.dots) { l.dots = l.dots.slice(0, l.dots.length - (prev.count - l.count)); const s = $("ls-" + l.n); if (s) s.innerHTML = l.dots.map(d => `<i class="${d}"></i>`).join(""); }
+  l.seen = { count: l.count, rejected: l.rejected }; l.manual = false;
+}
+function laneGauge(l, v) {
+  const g = $("lg-" + l.n); if (!g) return;
+  const d = v && v.person && v.depth != null ? v.depth : null;
+  g.classList.toggle("off", d == null); g.classList.toggle("deep", d != null && d >= 1);
+  g.querySelector("i").style.height = d == null ? "0" : `${Math.min(100, (d / 1.25) * 100).toFixed(0)}%`;
+  if (v && v.pending_faults && v.pending_faults.length) l.lastFault = v.pending_faults[0];
+}
+function laneTimer(l) {
+  const r = $("ltr-" + l.n); if (!r) return;
+  const frac = l.state === "running" ? Math.max(0, l.left) / limit() : 0;
+  r.querySelector(".arc").style.strokeDashoffset = (TIME_C * (1 - frac)).toFixed(1);
+  r.classList.toggle("low", l.state === "running" && l.left <= 10);
+}
 function liveHtml(l) {
   const v = l.live; if (!l.auto || !v) return "";
   if (!v.person) return `<span>${t("no_person")}</span>`;
   const faults = (v.pending_faults || []).map(f => `<span class="fault">${t("f_" + f)}</span>`).join(" · ");
   return `<span>${t("ph_" + v.phase)}${v.phase === "work" && v.work_seconds > 0.5 ? " " + v.work_seconds.toFixed(1) + "s" : ""}</span>${faults ? " · " + faults : ""}`;
 }
-// The live picture from the camera engine: 300 ms while a lane is running, 1 s otherwise.
+// The live picture from the camera engine: 150 ms while a lane is running (the depth gauge moves), 1 s otherwise.
 let liveBusy = false, liveLast = 0;
 async function pollLanes() {
   if (role !== "station" || liveBusy) return;
   const running = lanes.some(l => l.state === "running");
-  if (Date.now() - liveLast < (running ? 300 : 1000)) return;
+  if (Date.now() - liveLast < (running ? 150 : 1000)) return;
   liveBusy = true;
   try {
     const live = await api("GET", `/api/lanes?station=${event}`);
@@ -3133,7 +3238,7 @@ async function pollLanes() {
       if (l.state !== "running") return;                                         // stopped: the number is frozen for saving
       const v = live.lanes[String(l.n)];
       if (!live.engine.online || !v || !v.current) { if (l.live) { l.live = null; const p = $("lp-" + l.n); if (p) p.innerHTML = ""; } return; }
-      l.auto = { count: v.count, rejected: v.rejected }; l.live = v;
+      l.auto = { count: v.count, rejected: v.rejected }; l.live = v; laneGauge(l, v);
       applyCounts(l);
       const p = $("lp-" + l.n); if (p) p.innerHTML = liveHtml(l);
       const fx = $("lf-" + l.n); if (fx) fx.classList.remove("hidden");
@@ -3180,7 +3285,7 @@ function renderLane(l) {
       + `<div class="row" style="margin-top:auto"><button class="btn go xl" onclick="startLane(${l.n})" ${open || l.busy ? "disabled" : ""}>${t("start_test")}</button></div><button class="btn ghost sm" onclick="resetLane(${l.n})">${t("clear")}</button>`;
   } else if (l.state === "running" || l.state === "stopped") {
     const left = l.state === "running" ? l.left : 0;
-    body = whoHtml(l.entry) + targetHtml(l.entry, event) + `<div class="count"><span id="lc-${l.n}">${l.count}</span><small>${t("valid")} · <span id="lr-${l.n}">${l.rejected}</span> ${t("rejected_rep")}</small></div><div class="timer ${left <= 10 ? "low" : ""}" id="lt-${l.n}">${mmss(left)}</div><div class="live" id="lp-${l.n}">${liveHtml(l)}</div>
+    body = whoHtml(l.entry) + laneVisHtml(l) + `<div class="live" id="lp-${l.n}">${liveHtml(l)}</div>
       <div class="fixlabel ${l.auto ? "" : "hidden"}" id="lf-${l.n}">${t("corrections")}</div><div class="tap"><button class="btn go" onclick="tap(${l.n},'count',1)">+1 ${t("valid")}</button><button class="btn" onclick="tap(${l.n},'count',-1)">−1</button><button class="btn stop" onclick="tap(${l.n},'rejected',1)">+1 ✗</button></div>
       ${l.state === "stopped" ? `<div class="override ${corrected(l) ? "" : "hidden"}" id="lo-${l.n}"><label class="hint">${t("override_reason_label", { n: l.auto ? l.auto.count : "?" })}</label><input id="lor-${l.n}" placeholder="${t("ph_reason")}" value="${esc(l.why)}" oninput="lanes[${l.n - 1}].why = this.value" onkeydown="if(event.key==='Enter')saveLane(${l.n})"></div>` : ""}
       <div class="row" style="margin-top:auto">${l.state === "running" ? `<button class="btn stop" onclick="stopLane(${l.n})">${t("stop")}</button>` : `<button class="btn amber xl" onclick="saveLane(${l.n})">${t("finish_save")}</button>`}</div>`;

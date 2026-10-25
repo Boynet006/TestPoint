@@ -47,7 +47,7 @@ def test_report_keeps_events_until_acked_and_resets_on_new_attempt():
     snap = rp.snapshot()
     assert snap["station"] == "pushup" and snap["t"] == 1.0 and snap["fps"] == 30.0 and snap["source"] == "0"
     assert snap["lanes"]["1"] == {"attempt_id": None, "count": 1, "rejected": 0, "phase": "work",
-                                  "person": False, "pending_faults": ["knee_down"], "work_seconds": 1.25,
+                                  "person": False, "pending_faults": ["knee_down"], "work_seconds": 1.25, "depth": None,
                                   "events": [{"index": 1, "valid": True, "faults": [], "t_start": 0.2, "t_end": 0.9}]}
     assert snap["lanes"]["2"]["events"] == []
 
