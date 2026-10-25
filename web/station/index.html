@@ -120,7 +120,6 @@
   header::after { content: ""; position: absolute; inset-inline: 0; bottom: 0; height: var(--bar-h); background: var(--bar); }
   [dir=rtl] header::after { transform: scaleX(-1); }
   .regbar { gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
-  #rgForm { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); } #rgForm > * { min-width: 0; }
   .regbar input[type=search] { min-width: 0; }
   #rgTable td { vertical-align: middle; }
   #rgTable tr.sel td { background: color-mix(in srgb, var(--amber) 10%, transparent); }
@@ -129,6 +128,63 @@
   .pd-head img, .pd-head .avatar { width: 72px; height: 72px; object-fit: cover; border: 1px solid var(--line); }
   .pd-head dl { display: grid; grid-template-columns: auto auto; gap: 2px 12px; margin: 0; font-size: 14px; }
   .pd-head dt { color: var(--muted); } .pd-head dd { margin: 0; }
+  /* ---- register a person: a three-step card (details, face, ready) beside a live ID card */
+  .dlg.regdlg { width: min(1040px, 96vw); max-width: none; }
+  .steps { display: flex; gap: 6px; list-style: none; margin: 4px 0 14px; padding: 0; counter-reset: st; flex-wrap: wrap; }
+  .steps li { counter-increment: st; display: flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; border: 1px solid var(--line);
+    font-family: var(--cond); letter-spacing: 1px; text-transform: uppercase; color: var(--muted); font-size: 14px; }
+  .steps li::before { content: counter(st); display: grid; place-items: center; width: 22px; height: 22px; border: 1px solid var(--line); font-weight: 700; }
+  .steps li.on { border-color: var(--amber); color: var(--text); } .steps li.on::before { background: var(--amber); color: var(--amber-ink); border-color: var(--amber); }
+  .steps li.done { color: var(--ok-text); } .steps li.done::before { content: "✓"; background: var(--go); color: var(--go-ink); border-color: var(--go); }
+  .regwrap { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
+  @media (max-width: 820px) { .regwrap { grid-template-columns: 1fr; } .regwrap .idcard { order: -1; } }
+  .regform { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; }
+  .regform .full { grid-column: 1 / -1; }
+  .regform .lbl { display: flex; flex-direction: column; gap: 5px; font-family: var(--cond); letter-spacing: .5px; color: var(--muted); font-size: 14px; text-transform: uppercase; }
+  .regform .lbl input { font-size: 18px; padding: 10px 12px; text-transform: none; letter-spacing: 0; font-family: var(--sans); color: var(--text); }
+  .regform .lbl input:focus, .seg2 button:focus-visible, .unitpick button:focus-visible { outline: 2px solid var(--amber); outline-offset: 1px; }
+  .regform .bad input { border-color: var(--stop); }
+  .seg2 { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); }
+  .seg2 button { all: unset; cursor: pointer; text-align: center; padding: 10px; font-family: var(--cond); font-size: 16px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); background: var(--bg2); }
+  .seg2 button.on { background: var(--amber); color: var(--amber-ink); }
+  .unitpick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .unitpick button { all: unset; cursor: pointer; border: 1px solid var(--line); background: var(--bg2); padding: 10px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+  .unitpick button svg { width: 26px; height: 26px; color: var(--muted); }
+  .unitpick button b { font-family: var(--cond); font-size: 16px; letter-spacing: .5px; text-transform: uppercase; color: var(--text); }
+  .unitpick button small { color: var(--muted); font-size: 12px; }
+  .unitpick button.on { border-color: var(--amber); box-shadow: inset 0 0 0 1px var(--amber); } .unitpick button.on svg { color: var(--amber); }
+  .chip { display: inline-block; padding: 2px 8px; border: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+  .chip.ok { border-color: var(--go); color: var(--ok-text); } .chip.warn { border-color: var(--amber); color: var(--warn-text); }
+  .dupe { border: 1px solid var(--amber); background: color-mix(in srgb, var(--amber) 8%, transparent); padding: 10px 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .regactions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; } .regactions .spacer { flex: 1; }
+  /* the ID card */
+  .idcard { position: relative; overflow: hidden; border: 1px solid var(--line); background: linear-gradient(140deg, var(--bg2), var(--panel) 60%, var(--bg2));
+    box-shadow: 0 18px 40px -18px rgba(0,0,0,.55); aspect-ratio: 0.72; display: flex; flex-direction: column; padding: 0 0 12px; }
+  .idcard .band { height: 10px; background: var(--bar); }
+  .idcard .top { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px 6px; font-family: var(--cond); letter-spacing: 2px; font-size: 12px; color: var(--muted); text-transform: uppercase; }
+  .idcard .top b { color: var(--amber); font-size: 14px; }
+  .idcard .photo { position: relative; margin: 6px auto 10px; width: 62%; aspect-ratio: 4/5; border: 2px solid var(--amber); background: var(--view); overflow: hidden; display: grid; place-items: center; }
+  .idcard .photo img { width: 100%; height: 100%; object-fit: cover; }
+  .idcard .photo .rcmono { font-family: var(--cond); font-size: 54px; font-weight: 800; color: var(--amber); opacity: .85; }
+  .idcard .nm { text-align: center; padding: 0 12px; }
+  .idcard .nm b { display: block; font-family: var(--cond); font-size: 24px; letter-spacing: .5px; line-height: 1.1; min-height: 1.1em; }
+  .idcard .nm span { display: block; font-family: "Cairo", var(--sans); font-size: 17px; color: var(--muted); min-height: 1.4em; }
+  .idcard dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; margin: 10px 16px 0; font-size: 13px; }
+  .idcard dt { color: var(--dim); font-family: var(--cond); letter-spacing: 1px; text-transform: uppercase; } .idcard dd { margin: 0; font-weight: 600; }
+  .idcard .bib { position: absolute; right: 12px; top: 46px; font-family: var(--cond); font-weight: 800; font-size: 30px; color: var(--amber); line-height: 1; text-align: center; }
+  .idcard .bib small { display: block; font-size: 10px; letter-spacing: 2px; color: var(--muted); }
+  [dir=rtl] .idcard .bib { right: auto; left: 12px; }
+  .idcard .code { margin: auto 16px 0; height: 30px; opacity: .8; }
+  .idcard .unitbadge { display: inline-block; padding: 0 6px; background: var(--amber); color: var(--amber-ink); font-family: var(--cond); letter-spacing: 1px; text-transform: uppercase; font-size: 12px; }
+  .idcard::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(115deg, transparent 35%, rgba(255,255,255,.16) 47%, rgba(255,255,255,.04) 53%, transparent 62%);
+    background-size: 260% 100%; animation: sheen 7s ease-in-out infinite; mix-blend-mode: soft-light; }
+  @keyframes sheen { 0%, 55% { background-position: 130% 0; } 100% { background-position: -130% 0; } }
+  .idcard .stamp { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%) rotate(-12deg) scale(1); border: 3px solid var(--go); color: var(--go);
+    font-family: var(--cond); font-weight: 800; letter-spacing: 3px; font-size: 26px; padding: 4px 14px; text-transform: uppercase; background: color-mix(in srgb, var(--panel) 70%, transparent);
+    animation: stampIn .45s cubic-bezier(.2, 1.6, .4, 1) both; }
+  @keyframes stampIn { from { transform: translate(-50%, -50%) rotate(-12deg) scale(2.4); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .idcard::after, .idcard .stamp { animation: none; } }
+  .regcam { position: relative; aspect-ratio: 4/3; }
   .themepick { grid-column: 2 / 4; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
   .themecard { all: unset; cursor: pointer; border: 2px solid var(--line); background: var(--bg2); display: flex; flex-direction: column; }
   .themecard:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
@@ -374,6 +430,54 @@
   <div id="enrolWho" style="margin:6px 0 10px"></div>
   <div class="viewer mirror" style="aspect-ratio:4/3"><video id="enrolVideo" muted playsinline></video><canvas id="enrolFx" class="fx"></canvas><canvas id="enrolBox"></canvas></div>
   <div id="enrolMsg"></div>
+</dialog>
+<dialog id="regDlg" class="dlg regdlg" aria-labelledby="regTitle" oncancel="event.preventDefault(); RegDlg.close()">
+  <div class="dlg-head"><h2 id="regTitle" data-t="rd_title"></h2><span class="spacer"></span><button class="btn ghost sm" type="button" onclick="RegDlg.close()" data-t="rg_close"></button></div>
+  <ol class="steps" id="regSteps"><li data-t="rd_step_details"></li><li data-t="rd_step_face"></li><li data-t="rd_step_ready"></li></ol>
+  <div class="regwrap">
+    <div>
+      <form id="regStep1" class="regform" onsubmit="event.preventDefault(); RegDlg.next()" novalidate>
+        <label class="lbl full" id="regIdL"><span data-t="rd_id"></span><input id="regId" autocomplete="off" inputmode="text" oninput="RegDlg.typed('id')" required></label>
+        <div class="full hidden" id="regDupe"></div>
+        <label class="lbl" id="regNameL"><span data-t="lbl_name_en"></span><input id="regName" autocomplete="off" lang="en" dir="ltr" oninput="RegDlg.typed()" required></label>
+        <label class="lbl"><span data-t="lbl_name_ar"></span><input id="regNameAr" autocomplete="off" lang="ar" dir="rtl" oninput="RegDlg.typed()"></label>
+        <div class="lbl"><span data-t="lbl_gender"></span><div class="seg2" role="radiogroup" id="regGender"><button type="button" data-v="M" role="radio" onclick="RegDlg.set('gender', 'M')" data-t="male"></button><button type="button" data-v="F" role="radio" onclick="RegDlg.set('gender', 'F')" data-t="female"></button></div></div>
+        <label class="lbl"><span data-t="lbl_dob"></span><input id="regDob" type="date" oninput="RegDlg.typed()"></label>
+        <div class="full" id="regAgeNote"></div>
+        <div class="lbl full"><span data-t="lbl_unit"></span><div class="unitpick" role="radiogroup" id="regUnit">
+          <button type="button" data-v="combat" role="radio" onclick="RegDlg.set('unit', 'combat')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5z"/><path d="m9 12 2 2 4-4"/></svg><b data-t="unit_combat"></b><small id="regLvl-combat"></small></button>
+          <button type="button" data-v="admin" role="radio" onclick="RegDlg.set('unit', 'admin')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="1"/><path d="M8 7V4h8v3M3 12h18"/></svg><b data-t="unit_admin"></b><small id="regLvl-admin"></small></button>
+          <button type="button" data-v="special" role="radio" onclick="RegDlg.set('unit', 'special')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 3 6.5 7 .8-5.2 4.8 1.4 7L12 17.7 5.8 21.1l1.4-7L2 9.3l7-.8z"/></svg><b data-t="unit_special"></b><small id="regLvl-special"></small></button>
+        </div></div>
+        <label class="lbl"><span data-t="ph_usual_bib"></span><input id="regBib" autocomplete="off" inputmode="numeric" oninput="RegDlg.typed()"></label>
+        <div class="regactions full"><button class="btn ghost" type="button" onclick="RegDlg.save(false)" data-t="rd_save_only"></button><span class="spacer"></span><button class="btn amber" type="submit" data-t="rd_next_face"></button></div>
+      </form>
+      <div id="regStep2" class="hidden">
+        <div class="viewer mirror regcam"><video id="regVideo" muted playsinline></video><canvas id="regFx" class="fx"></canvas><canvas id="regBox"></canvas></div>
+        <p class="hint" data-t="rd_face_hint"></p>
+        <div class="regactions"><label class="btn ghost"><span data-t="face_upload"></span><input type="file" accept="image/*" class="hidden" onchange="RegDlg.upload(this)"></label><span class="spacer"></span><button class="btn ghost" type="button" onclick="RegDlg.finish()" data-t="rd_skip_face"></button></div>
+      </div>
+      <div id="regStep3" class="hidden">
+        <p style="font-size:18px" id="regDoneText"></p>
+        <div class="regactions">
+          <button class="btn amber" type="button" id="regToday" onclick="RegDlg.today()" data-t="rg_add_today"></button>
+          <button class="btn" type="button" onclick="RegDlg.again()" data-t="rd_another"></button>
+          <span class="spacer"></span>
+          <button class="btn ghost" type="button" onclick="RegDlg.close()" data-t="rd_done"></button>
+        </div>
+      </div>
+      <div id="regMsg"></div>
+    </div>
+    <div class="idcard" id="regCard" aria-live="polite">
+      <div class="band"></div>
+      <div class="top"><b>TestPoint</b><span id="rcSite"></span></div>
+      <div class="bib"><small data-t="bib"></small><span id="rcBib">—</span></div>
+      <div class="photo" id="rcPhoto"><span class="rcmono">?</span></div>
+      <div class="nm"><b id="rcName"></b><span id="rcNameAr" dir="rtl"></span></div>
+      <dl><dt>ID</dt><dd id="rcId">—</dd><dt data-t="lbl_dob"></dt><dd id="rcDob">—</dd><dt data-t="lbl_gender"></dt><dd id="rcGender">—</dd><dt data-t="lbl_unit"></dt><dd><span class="unitbadge" id="rcUnit"></span></dd></dl>
+      <svg class="code" id="rcCode" preserveAspectRatio="none" aria-hidden="true"></svg>
+    </div>
+  </div>
 </dialog>
 <dialog id="personDlg" class="dlg" style="max-width:860px">
   <div class="dlg-head"><h2 data-t="rg_person"></h2><span class="spacer"></span><button class="btn ghost sm" type="button" onclick="$('personDlg').close()" data-t="rg_close"></button></div>
@@ -684,18 +788,10 @@
     <div class="row regbar">
       <input id="rgQ" type="search" data-tp="ph_search_people" oninput="Register.search()" autocomplete="off" style="flex:1 1 220px">
       <select id="rgShow" onchange="Register.load()" style="flex:0 0 auto"><option value="all" data-t="rg_all"></option><option value="not_today" data-t="rg_not_today"></option><option value="today" data-t="rg_today"></option><option value="no_face" data-t="rg_no_face"></option></select>
-      <button class="btn amber sm" style="flex:0 0 auto" onclick="Register.toggleForm()" data-t="rg_new"></button>
+      <button class="btn amber sm" style="flex:0 0 auto" onclick="RegDlg.open()" data-t="rg_new"></button>
       <label class="btn sm" style="flex:0 0 auto" title=""><span data-t="import_csv"></span><input type="file" accept=".csv,text/csv" class="hidden" onchange="Register.importCsv(this)"></label>
       <button class="btn ghost sm" style="flex:0 0 auto" onclick="Register.exportCsv()" data-t="rg_export"></button>
     </div>
-    <form id="rgForm" class="form hidden" onsubmit="event.preventDefault(); Register.save(false)">
-      <input id="rgId" data-tp="ph_id" autocomplete="off"><input id="rgName" data-tp="ph_name_en" lang="en" dir="ltr" autocomplete="off"><input id="rgNameAr" data-tp="ph_name_ar" lang="ar" dir="rtl" autocomplete="off">
-      <select id="rgGender"><option value="">—</option><option value="M" data-t="male"></option><option value="F" data-t="female"></option></select>
-      <input id="rgDob" type="date"><select id="rgUnit"><option value="combat" data-t="unit_combat"></option><option value="admin" data-t="unit_admin"></option><option value="special" data-t="unit_special"></option></select>
-      <input id="rgBib" data-tp="ph_usual_bib" inputmode="numeric" autocomplete="off">
-      <button class="btn amber sm" type="submit" data-t="rg_save"></button>
-      <button class="btn sm" type="button" onclick="Register.save(true)" data-t="rg_save_today"></button>
-    </form>
     <div id="rgMsg"></div>
     <div class="row selbar"><span class="kv" id="rgCount"></span><span class="spacer"></span><button id="rgAddSel" class="btn amber sm" style="flex:0 0 auto" onclick="Register.addSelected()" disabled></button></div>
     <div class="scroll" style="max-height:none"><table><thead><tr><th><input type="checkbox" id="rgAll" onchange="Register.selectAll(this.checked)" data-tl="rg_select_all"></th><th data-t="face"></th><th>ID</th><th data-t="name"></th><th data-t="age_h"></th><th data-t="lbl_unit"></th><th data-t="rg_bib"></th><th data-t="rg_last"></th><th data-t="rg_today_h"></th><th></th></tr></thead><tbody id="rgTable"></tbody></table></div>
@@ -1032,6 +1128,15 @@ const I18N = {
     rg_never: "Not tested yet", rg_history: "History", rg_person: "Candidate", rg_close: "Close", rg_days: "Test days", rg_no_days: "Not on any test day yet.",
     rg_date: "Date", rg_verdict: "Result", rg_delete: "Delete person", sure_delete_person: "Delete this person and their face? Press again",
     rg_deleted: "{name} deleted.", rg_has_results: "This person has test results.", rg_delete_all: "Delete with their results",
+    rd_title: "Register a person", rd_step_details: "Details", rd_step_face: "Face photo", rd_step_ready: "Ready",
+    rd_id: "ID number", rd_save_only: "Save without photo", rd_next_face: "Next: face photo", rd_needs: "Needs {n}%", rd_name_here: "Full name",
+    rd_dupe: "Already saved: <b>{name}</b>.", rd_use_saved: "Use saved details", rd_age_check: "Check the date of birth",
+    rd_no_women_table: "No women's pass table yet: measured, no verdict", rd_band: "Age {age}: pass table {a}–{b}", rd_no_band: "Age {age}: no pass table for this age",
+    rd_face_hint: "Look at the camera, then turn a little left and right when asked. Three photos help recognition at the desk.",
+    rd_skip_face: "Skip the photo", rd_camera_starting: "Starting the camera…", rd_use_upload: "Or upload a photo instead.",
+    rd_ready_face: "<b>{name}</b> is registered with their face. Add them to today's list now, or later from Candidates.",
+    rd_ready_noface: "<b>{name}</b> is registered, without a face photo yet. They can be added to today's list now, or later from Candidates.",
+    rd_stamp: "Registered", rd_another: "Register another", rd_done: "Done", rd_on_today: "<b>{name}</b> is on today's list with bib <b>{bib}</b>.",
     rg_import_not_today: "Nobody was put on today's list.", rg_empty: "Nobody saved yet. Register people or import a CSV.", rg_none_found: "Nobody matches.",
     e_not_registered: "Not in Candidates", e_has_results: "Has test results", e_in_progress: "Being tested right now",
     delete_entry: "Delete", sure_delete: "Delete with results?",
@@ -1247,6 +1352,15 @@ const I18N = {
     rg_never: "لم يُختبر بعد", rg_history: "السجل", rg_person: "المرشح", rg_close: "إغلاق", rg_days: "أيام الاختبار", rg_no_days: "ليس في أي يوم اختبار بعد.",
     rg_date: "التاريخ", rg_verdict: "النتيجة", rg_delete: "حذف الشخص", sure_delete_person: "حذف هذا الشخص وصورة وجهه؟ اضغط مرة أخرى",
     rg_deleted: "حُذف {name}.", rg_has_results: "لهذا الشخص نتائج اختبار.", rg_delete_all: "حذف مع نتائجه",
+    rd_title: "تسجيل شخص", rd_step_details: "البيانات", rd_step_face: "صورة الوجه", rd_step_ready: "جاهز",
+    rd_id: "الرقم الشخصي", rd_save_only: "حفظ بلا صورة", rd_next_face: "التالي: صورة الوجه", rd_needs: "يحتاج {n}%", rd_name_here: "الاسم الكامل",
+    rd_dupe: "محفوظ مسبقاً: <b>{name}</b>.", rd_use_saved: "استخدام البيانات المحفوظة", rd_age_check: "تحقق من تاريخ الميلاد",
+    rd_no_women_table: "لا يوجد جدول نجاح للنساء بعد: يُقاس دون حكم", rd_band: "العمر {age}: جدول النجاح {a}–{b}", rd_no_band: "العمر {age}: لا يوجد جدول نجاح لهذا العمر",
+    rd_face_hint: "انظر إلى الكاميرا، ثم استدر قليلاً يساراً ويميناً عند الطلب. ثلاث صور تساعد على التعرف عند المكتب.",
+    rd_skip_face: "تخطي الصورة", rd_camera_starting: "جارٍ تشغيل الكاميرا…", rd_use_upload: "أو ارفع صورة بدلاً من ذلك.",
+    rd_ready_face: "سُجّل <b>{name}</b> مع صورة وجهه. أضفه إلى قائمة اليوم الآن، أو لاحقاً من المرشحين.",
+    rd_ready_noface: "سُجّل <b>{name}</b> دون صورة وجه بعد. يمكن إضافته إلى قائمة اليوم الآن، أو لاحقاً من المرشحين.",
+    rd_stamp: "مُسجّل", rd_another: "تسجيل آخر", rd_done: "تم", rd_on_today: "<b>{name}</b> في قائمة اليوم برقم الصدر <b>{bib}</b>.",
     rg_import_not_today: "لم يُضف أحد إلى قائمة اليوم.", rg_empty: "لا أحد محفوظ بعد. سجّل أشخاصاً أو استورد ملف CSV.", rg_none_found: "لا يوجد تطابق.",
     e_not_registered: "غير موجود في المرشحين", e_has_results: "له نتائج اختبار", e_in_progress: "يُختبر الآن",
     delete_entry: "حذف", sure_delete: "حذف مع النتائج؟",
@@ -2931,25 +3045,6 @@ const Register = {
     } catch (e) { msg("rgMsg", "bad", err(e)); }
   },
   addSelected() { if (this.sel.size) this.addToday([...this.sel.keys()]); },
-  toggleForm() {
-    const f = $("rgForm"), show = f.classList.contains("hidden");
-    f.classList.toggle("hidden", !show);
-    if (show) { ["rgId", "rgName", "rgNameAr", "rgDob", "rgBib"].forEach(i => $(i).value = ""); $("rgGender").value = setting("default_gender"); $("rgUnit").value = setting("default_unit"); $("rgId").focus(); }
-  },
-  async save(today) {
-    const body = { external_id: $("rgId").value.trim(), name: $("rgName").value.trim(), name_ar: $("rgNameAr").value.trim() || null,
-                   gender: $("rgGender").value || null, dob: $("rgDob").value || null, unit: $("rgUnit").value, bib: $("rgBib").value.trim() || null };
-    if (!body.external_id || !body.name) { msg("rgMsg", "bad", t("e_missing_fields")); return; }
-    try {
-      const c = await api("POST", "/api/candidates", body);
-      if (today) await api("POST", "/api/candidates/today", { ids: [c.id] });
-      ["rgId", "rgName", "rgNameAr", "rgDob", "rgBib"].forEach(i => $(i).value = ""); $("rgId").focus();
-      // The face is what lets the desk recognise them later: offer it right away.
-      msg("rgMsg", "ok", t(c.outcome === "added" ? "rg_saved" : c.outcome === "updated" ? "rg_updated" : "rg_unchanged", { name: esc(cname(c)) })
-        + (today ? " " + t("rg_and_today") : "") + ` <button class="btn amber sm" onclick="Register.face(${c.id})">${t("rg_take_face")}</button>`, true);
-      this.load(); if (today) refresh();
-    } catch (e) { msg("rgMsg", "bad", err(e)); }
-  },
   async face(id) {
     let c = this.rows.find(x => x.id === id);
     if (!c) { try { c = await api("GET", `/api/candidates/${id}`); } catch (e) { msg("rgMsg", "bad", err(e)); return; } }
@@ -3023,6 +3118,158 @@ const Register = {
     }
   },
 };
+
+/* ============================== register a person ============================== */
+// Three steps beside a live ID card: details (saved in the register, nobody put on a test day),
+// the guided face photo (what lets the weigh-in desk recognise them later), then ready, with
+// "Add to today" for someone who is here now. An ID already on file is shown, never saved twice.
+const RegDlg = {
+  step: 1, person: null, v: { gender: null, unit: null }, run: 0, stream: null, dupeT: 0, dupe: null,
+  open() {
+    this.again(); $("regDlg").showModal(); $("regId").focus();
+  },
+  again() {
+    this.stopCam(); this.person = null; this.dupe = null; $("regCard").querySelector(".stamp")?.remove();
+    ["regId", "regName", "regNameAr", "regDob", "regBib"].forEach(i => $(i).value = "");
+    this.v = { gender: setting("default_gender") || null, unit: setting("default_unit") };
+    const lv = S.rules ? (S.rules.next || S.rules).unit_level : null;
+    for (const u of ["combat", "admin", "special"]) $("regLvl-" + u).textContent = lv ? t("rd_needs", { n: lv[u] }) : "";
+    $("rcSite").textContent = setting("site_name") || "";
+    msg("regMsg"); $("regDupe").classList.add("hidden");
+    this.go(1); this.card(); $("regId").focus();
+  },
+  go(n) {
+    this.step = n;
+    [1, 2, 3].forEach(k => $("regStep" + k).classList.toggle("hidden", k !== n));
+    [...$("regSteps").children].forEach((li, i) => { li.classList.toggle("on", i + 1 === n); li.classList.toggle("done", i + 1 < n); });
+  },
+  set(k, v) { this.v[k] = v; this.card(); },
+  typed(which) {
+    this.card();
+    if (which === "id") { clearTimeout(this.dupeT); this.dupeT = setTimeout(() => this.checkId(), 350); }
+  },
+  async checkId() {
+    const q = $("regId").value.trim(), box = $("regDupe");
+    if (!q) { this.dupe = null; box.classList.add("hidden"); return; }
+    try {
+      const c = await api("GET", `/api/candidates/lookup?q=${encodeURIComponent(q)}`);
+      if ($("regId").value.trim() !== q) return;
+      this.dupe = c;
+      box.innerHTML = `<div class="dupe"><span>${t("rd_dupe", { name: esc(cname(c)) })}</span><span class="spacer"></span>`
+        + `<button class="btn sm" type="button" onclick="RegDlg.fill()">${t("rd_use_saved")}</button>`
+        + `<button class="btn ghost sm" type="button" onclick="RegDlg.close(); Register.open(${c.id})">${t("rg_history")}</button></div>`;
+      box.classList.remove("hidden");
+    } catch { this.dupe = null; box.classList.add("hidden"); }
+  },
+  fill() {   // the ID is on file: show their saved details instead of typing them again
+    const c = this.dupe; if (!c) return;
+    $("regName").value = c.name; $("regNameAr").value = c.name_ar || ""; $("regDob").value = c.dob || ""; $("regBib").value = c.bib || "";
+    this.v = { gender: c.gender, unit: c.unit || this.v.unit }; $("regDupe").classList.add("hidden"); this.card();
+  },
+  card() {
+    const id = $("regId").value.trim(), name = $("regName").value.trim(), ar = $("regNameAr").value.trim(), dob = $("regDob").value, bib = $("regBib").value.trim();
+    const age = ageOf(dob);
+    $("rcName").textContent = name || t("rd_name_here"); $("rcName").style.opacity = name ? 1 : .35;
+    $("rcNameAr").textContent = ar;
+    $("rcId").textContent = id || "—"; $("rcBib").textContent = bib || "—";
+    $("rcDob").textContent = dob ? `${dob}${age != null ? ` · ${age}` : ""}` : "—";
+    $("rcGender").textContent = this.v.gender ? t(this.v.gender === "M" ? "male" : "female") : "—";
+    $("rcUnit").textContent = this.v.unit ? t("unit_" + this.v.unit) : "—";
+    if (!this.person || !this.person.faces) $("rcPhoto").innerHTML = `<span class="rcmono">${(name || ar) ? initials({ name: name || ar, name_ar: ar }) : "?"}</span>`;
+    $("rcCode").innerHTML = barcode(id || "TESTPOINT");
+    [...$("regGender").children].forEach(b => { const on = b.dataset.v === this.v.gender; b.classList.toggle("on", on); b.setAttribute("aria-checked", on); });
+    [...$("regUnit").children].forEach(b => { const on = b.dataset.v === this.v.unit; b.classList.toggle("on", on); b.setAttribute("aria-checked", on); });
+    // the age decides the pass table: say at once whether one applies
+    const bands = S.rules ? (S.rules.next || S.rules).men : null; let note = "";
+    if (dob && age != null) {
+      if (age < 10 || age > 90) note = `<span class="chip warn">${t("rd_age_check")}</span>`;
+      else if (this.v.gender === "F") note = `<span class="chip warn">${t("rd_no_women_table")}</span>`;
+      else if (bands && bands.length) {
+        const b = bands.find(x => age >= x.age_min && age <= x.age_max);
+        note = b ? `<span class="chip ok">${t("rd_band", { age, a: b.age_min, b: b.age_max })}</span>` : `<span class="chip warn">${t("rd_no_band", { age })}</span>`;
+      }
+    }
+    $("regAgeNote").innerHTML = note;
+  },
+  body() {
+    return { external_id: $("regId").value.trim(), name: $("regName").value.trim(), name_ar: $("regNameAr").value.trim() || null,
+             gender: this.v.gender, dob: $("regDob").value || null, unit: this.v.unit, bib: $("regBib").value.trim() || null };
+  },
+  async save(withFace) {
+    const b = this.body();
+    $("regIdL").classList.toggle("bad", !b.external_id); $("regNameL").classList.toggle("bad", !b.name);
+    if (!b.external_id || !b.name) { msg("regMsg", "bad", t("e_missing_fields")); (b.external_id ? $("regName") : $("regId")).focus(); return; }
+    try {
+      const c = await api("POST", "/api/candidates", b);
+      this.person = { ...c, faces: this.dupe && this.dupe.id === c.id ? null : 0 };
+      msg("regMsg"); Register.load();
+      if (withFace) { this.go(2); this.camera(); } else this.finish();
+    } catch (e) { msg("regMsg", "bad", err(e)); }
+  },
+  next() { this.save(true); },
+  async camera() {
+    const run = ++this.run, video = $("regVideo");
+    msg("regMsg", "warn", t("rd_camera_starting"));
+    try {
+      this.stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+      video.srcObject = this.stream; await video.play();
+    } catch (x) {
+      const why = t(x && x.name === "NotReadableError" ? "e_camera_busy" : "e_camera_denied");
+      msg("regMsg", "bad", why + (/[.!?…]$/.test(why) ? " " : ". ") + t("rd_use_upload")); return;
+    }
+    const view = { video, canvas: $("regBox"), alive: () => run === this.run && $("regDlg").open && this.step === 2 };
+    try {
+      const r = await guidedEnrol(view, `/api/candidates/${this.person.id}/face`, (i, saved) => {
+        if (saved) this.photo(i + 1); else msg("regMsg", "warn", `${i + 1}/${POSES.length} · ${t("pose_" + POSES[i])}`);
+      });
+      if (r.ok) { this.person.faces = r.faces; this.finish(); }
+    } catch (x) { if (run === this.run) msg("regMsg", "bad", err(x)); }
+  },
+  photo(n) {
+    this.person.faces = n;
+    $("rcPhoto").innerHTML = `<img src="/api/candidates/${this.person.id}/face.jpg?n=${n}&t=${Date.now()}" alt="">`;
+  },
+  async upload(input) {
+    const f = input.files[0]; input.value = ""; if (!f) return;
+    try { const r = await apiImage(`/api/candidates/${this.person.id}/face`, f); this.photo(r.faces); this.finish(); }
+    catch (e) { msg("regMsg", "bad", err(e)); }
+  },
+  async finish() {
+    this.stopCam(); this.go(3); msg("regMsg");
+    const c = this.person, onToday = (S.entries || []).some(e => e.candidate.id === c.id);
+    if (c.faces) this.photo(c.faces);
+    $("regDoneText").innerHTML = t(c.faces ? "rd_ready_face" : "rd_ready_noface", { name: esc(cname(c)) });
+    $("regToday").classList.toggle("hidden", onToday);
+    $("regCard").querySelector(".stamp")?.remove();
+    $("regCard").insertAdjacentHTML("beforeend", `<div class="stamp">${t("rd_stamp")}</div>`);
+    Register.load();
+  },
+  async today() {
+    try {
+      const r = await api("POST", "/api/candidates/today", { ids: [this.person.id] });
+      if (r.errors.length) { msg("regMsg", "bad", r.errors[0].message); return; }
+      const e = (await api("GET", "/api/entries")).find(x => x.candidate.id === this.person.id);
+      msg("regMsg", "ok", t("rd_on_today", { name: esc(cname(this.person)), bib: esc(e ? e.candidate.bib : "—") }), true);
+      if (e) $("rcBib").textContent = e.candidate.bib;
+      $("regToday").classList.add("hidden"); refresh(); Register.load();
+    } catch (e) { msg("regMsg", "bad", err(e)); }
+  },
+  stopCam() {
+    this.run++;
+    if (this.stream) { this.stream.getTracks().forEach(tr => tr.stop()); this.stream = null; }
+    BgFx.stop($("regVideo")); const cv = $("regBox"); cv.getContext("2d").clearRect(0, 0, cv.width, cv.height);
+  },
+  close() { this.stopCam(); $("regCard").querySelector(".stamp")?.remove(); if ($("regDlg").open) $("regDlg").close(); },
+};
+// A barcode drawn from the ID (decoration: the same ID always gives the same bars).
+function barcode(text) {
+  let x = 0, bars = "", h = 2166136261;
+  for (const ch of text + "*") {
+    h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+    for (let k = 0; k < 4; k++) { const w = 1 + ((h >> (k * 3)) & 3), gap = 1 + ((h >> (k * 3 + 2)) & 1); bars += `<rect x="${x}" y="0" width="${w}" height="30"/>`; x += w + gap; }
+  }
+  return `<g fill="currentColor">${bars}</g>`.replace("<g", `<g transform="scale(${(300 / x).toFixed(4)},1)"`) ;
+}
 
 /* ============================== review ============================== */
 const rvOpen = new Set();
@@ -3385,7 +3632,7 @@ async function savePin(remove) {
   $("xCam").textContent = t("cam_off");
   setInterval(pollLanes, 100);
   setInterval(() => CamLive.tick(), 100);
-  BgFx.attach($("camVideo"), $("camFx")); BgFx.attach($("enrolVideo"), $("enrolFx"));
+  BgFx.attach($("camVideo"), $("camFx")); BgFx.attach($("enrolVideo"), $("enrolFx")); BgFx.attach($("regVideo"), $("regFx"));
   FinishCam.init(); StationCam.init();
   for (const v of BgFx.views.values()) BgFx.sync(v);
   $("enrolDlg").addEventListener("close", () => { if (EnrolDlg.stream) EnrolDlg.close(); });   // Esc: release the camera too
