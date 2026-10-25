@@ -189,3 +189,14 @@ def test_existing_database_gets_the_new_columns(tmp_path):
     cols = {r[1] for r in con.execute("PRAGMA table_info(attempt)")}
     assert {"auto_count", "auto_rejected"} <= cols
     assert con.execute("SELECT name FROM sqlite_master WHERE name='rep'").fetchone()
+
+
+
+def test_reset_today_with_an_open_attempt_needs_a_yes(client, passed):
+    ok(client.post("/api/attempts", json={"entry_id": passed[11], "event": "pushup", "lane": "1"}), 201)
+    today = ok(client.get("/api/state"))["date"]
+    r = client.post("/api/day/reset", json={"confirm": today})
+    assert r.status_code == 409 and r.json()["detail"]["code"] == "in_progress" and r.json()["detail"]["open"]
+    done = ok(client.post("/api/day/reset", json={"confirm": today, "stop_running": True}))
+    assert done["attempts"] == 1
+    assert all(e["status"] == "expected" for e in ok(client.get("/api/entries")))
