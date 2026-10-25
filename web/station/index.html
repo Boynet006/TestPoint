@@ -212,6 +212,13 @@
     .setnav .grp { display: none; } .setnav button { border-inline-start: 0; border-bottom: 3px solid transparent; white-space: nowrap; padding: 8px 10px; }
     .settings { grid-template-columns: 1fr; } .settings .hint { margin-top: -6px; } .themepick { grid-column: 1; }
   }
+  .applies { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0 8px; }
+  .applies > div { border: 1px solid var(--line); padding: 10px 14px; background: var(--bg2); }
+  .applies b { font-family: var(--cond); letter-spacing: 1px; text-transform: uppercase; font-size: 14px; color: var(--muted); }
+  .applies ul { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
+  .applies li::before { content: "✓"; color: var(--go); font-weight: 700; margin-inline-end: 8px; }
+  .applies ul.no li::before { content: "✕"; color: var(--stop); }
+  @media (max-width: 860px) { .applies { grid-template-columns: 1fr; } }
   .themepick { grid-column: 2 / 4; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
   .themecard { all: unset; cursor: pointer; border: 2px solid var(--line); background: var(--bg2); display: flex; flex-direction: column; }
   .themecard:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
@@ -854,6 +861,7 @@
       <div class="grp" data-t="nav_station"></div>
       <button type="button" data-p="rules" onclick="SetNav.show('rules')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4h6v3H9z"/><path d="M8 5H5v16h14V5h-3"/><path d="m9 14 2 2 4-4"/></svg><span data-t="sec_rules"></span><i class="dot"></i></button>
       <button type="button" data-p="checkin" onclick="SetNav.show('checkin')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg><span data-t="sec_checkin"></span><i class="dot"></i></button>
+      <button type="button" data-p="camera" onclick="SetNav.show('camera')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span data-t="sec_camera"></span><i class="dot"></i></button>
       <button type="button" data-p="register" onclick="SetNav.show('register')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="8" r="4"/><path d="M3 21c0-4 3-6 7-6 1.6 0 3 .3 4.2.9"/><path d="M19 14v6M16 17h6"/></svg><span data-t="sec_register"></span><i class="dot"></i></button>
       <button type="button" data-p="run" onclick="SetNav.show('run')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/></svg><span data-t="sec_run"></span><i class="dot"></i></button>
       <button type="button" data-p="station" onclick="SetNav.show('station')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8v8M18 8v8M3 10v4M21 10v4M6 12h12"/></svg><span data-t="sec_station"></span><i class="dot"></i></button>
@@ -908,6 +916,18 @@
         <label for="setAuto" data-t="set_auto"></label>
         <select id="setAuto"><option value="1" data-t="on"></option><option value="0" data-t="off"></option></select>
         <span class="hint" data-t="set_auto_hint"></span>
+        <label for="setMatch" data-t="set_match"></label>
+        <select id="setMatch"><option value="normal" data-t="match_normal"></option><option value="strict" data-t="match_strict"></option></select>
+        <span class="hint" data-t="set_match_hint"></span>
+        <label for="setFaceReq" data-t="set_face_req"></label>
+        <select id="setFaceReq"><option value="0" data-t="off"></option><option value="1" data-t="on"></option></select>
+        <span class="hint" data-t="set_face_req_hint"></span>
+      </div>
+    </div>
+    <div class="card setpanel" data-p="camera" data-scope="station">
+      <h2 data-t="sec_camera"></h2>
+      <p class="hint" data-t="settings_hint"></p>
+      <div class="settings">
         <label for="setBg" data-t="set_bg"></label>
         <select id="setBg" onchange="bgRows()"><option value="off" data-t="off"></option><option value="blur" data-t="bg_blur"></option><option value="backdrop" data-t="bg_backdrop"></option><option value="image" data-t="bg_image"></option></select>
         <span class="hint" data-t="set_bg_hint"></span>
@@ -920,13 +940,12 @@
         <label class="sub bgi" data-t="set_bg_image"></label>
         <div class="bgi bgpick"><img id="setBgPrev" class="hidden" alt=""><label class="btn sm" style="flex:0 0 auto"><span data-t="bg_choose"></span><input type="file" accept="image/jpeg,image/png" class="hidden" onchange="uploadBg(this)"></label><button class="btn ghost sm danger hidden" id="setBgDel" onclick="confirmClick('bgdel', this, removeBg)" data-t="bg_remove"></button></div>
         <span class="hint bgi" data-t="set_bg_image_hint"></span>
-        <label for="setMatch" data-t="set_match"></label>
-        <select id="setMatch"><option value="normal" data-t="match_normal"></option><option value="strict" data-t="match_strict"></option></select>
-        <span class="hint" data-t="set_match_hint"></span>
-        <label for="setFaceReq" data-t="set_face_req"></label>
-        <select id="setFaceReq"><option value="0" data-t="off"></option><option value="1" data-t="on"></option></select>
-        <span class="hint" data-t="set_face_req_hint"></span>
       </div>
+      <div class="applies">
+        <div><b data-t="cam_applies"></b><ul><li data-t="cam_a_weigh"></li><li data-t="cam_a_start"></li><li data-t="cam_a_photo"></li></ul></div>
+        <div><b data-t="cam_not"></b><ul class="no"><li data-t="cam_n_engine"></li><li data-t="cam_n_files"></li></ul></div>
+      </div>
+      <p class="hint" data-t="cam_original"></p>
     </div>
     <div class="card setpanel" data-p="register" data-scope="station">
       <h2 data-t="sec_register"></h2>
@@ -1125,7 +1144,7 @@ const I18N = {
     set_bg_image: "Background picture", bg_choose: "Choose picture…", bg_remove: "Remove",
     set_bg_image_hint: "JPEG or PNG; landscape works best. The same picture on every desk. Without one, the backdrop colour is used.",
     bg_uploaded: "Picture saved. Save settings to keep Picture as the camera background.", e_bad_image: "Use a JPEG or PNG picture",
-    set_bg_hint: "What the weigh-in screen shows behind the person, like a video call. Face recognition always uses the camera's original picture.",
+    set_bg_hint: "What is shown behind the person on the cameras listed below, like a video call.",
     set_auto: "Auto-identify faces at weigh-in", set_auto_hint: "On: the camera keeps checking who is in front; off: the examiner presses Identify.",
     set_gender: "Default gender for new candidates", set_gender_hint: "Pre-selected in the registration form; the examiner can change it.",
     set_bib: "First automatic bib number", set_bib_hint: "Walk-ins get the next free bib from here on (e.g. 500, clear of the printed list).",
@@ -1225,6 +1244,11 @@ const I18N = {
     rg_never: "Not tested yet", rg_history: "History", rg_person: "Candidate", rg_close: "Close", rg_days: "Test days", rg_no_days: "Not on any test day yet.",
     rg_date: "Date", rg_verdict: "Result", rg_delete: "Delete person",
     rg_deleted: "{name} deleted.",
+    sec_camera: "Camera", cam_applies: "Applies to", cam_not: "Never changed",
+    cam_a_weigh: "The weigh-in desk camera", cam_a_start: "The start-line camera", cam_a_photo: "Face photo windows (enrol, register a person)",
+    cam_n_engine: "Finish line and exercise station pictures: the camera service sends them, and they are evidence",
+    cam_n_files: "Demo video files and photos: they show as they are",
+    cam_original: "Face recognition and saved face photos always use the camera's original picture, whatever is chosen here.",
     nav_station: "Station · every device", nav_device: "This screen", nav_admin: "Security",
     set_dots: "Dots in the moving background", set_dots_hint: "Neural Aurora, Mirage and Desert Stars. Fewer dots are calmer and lighter on the PC.", dots_auto: "Auto",
     sec_look: "Appearance", sec_screen: "Theme and motion", sec_sounds_nav: "Sounds", ph_search_settings: "Search settings",
@@ -1375,7 +1399,7 @@ const I18N = {
     set_bg_image: "صورة الخلفية", bg_choose: "اختر صورة…", bg_remove: "إزالة",
     set_bg_image_hint: "JPEG أو PNG؛ الصورة الأفقية أفضل. نفس الصورة على كل مكتب. بدونها يُستخدم لون الخلفية.",
     bg_uploaded: "تم حفظ الصورة. احفظ الإعدادات لاعتماد الصورة كخلفية للكاميرا.", e_bad_image: "استخدم صورة JPEG أو PNG",
-    set_bg_hint: "ما تعرضه شاشة الوزن خلف الشخص، كما في مكالمات الفيديو. التعرف على الوجه يستخدم دائماً الصورة الأصلية للكاميرا.",
+    set_bg_hint: "ما يُعرض خلف الشخص في الكاميرات المذكورة أدناه، كما في مكالمات الفيديو.",
     set_auto: "التعرف التلقائي على الوجه عند الوزن", set_auto_hint: "تشغيل: تتحقق الكاميرا باستمرار ممن أمامها؛ إيقاف: يضغط الممتحن زر التعرف.",
     set_gender: "الجنس الافتراضي للمتقدمين الجدد", set_gender_hint: "يُختار مسبقاً في نموذج التسجيل؛ يمكن للممتحن تغييره.",
     set_bib: "أول رقم تلقائي", set_bib_hint: "يأخذ المتقدمون الجدد الرقم المتاح التالي بدءاً من هنا (مثلاً 500، بعيداً عن القائمة المطبوعة).",
@@ -1475,6 +1499,11 @@ const I18N = {
     rg_never: "لم يُختبر بعد", rg_history: "السجل", rg_person: "المرشح", rg_close: "إغلاق", rg_days: "أيام الاختبار", rg_no_days: "ليس في أي يوم اختبار بعد.",
     rg_date: "التاريخ", rg_verdict: "النتيجة", rg_delete: "حذف الشخص",
     rg_deleted: "حُذف {name}.",
+    sec_camera: "الكاميرا", cam_applies: "يُطبّق على", cam_not: "لا يتغير أبداً",
+    cam_a_weigh: "كاميرا مكتب الوزن", cam_a_start: "كاميرا خط الانطلاق", cam_a_photo: "نوافذ صورة الوجه (تسجيل الوجه، تسجيل شخص)",
+    cam_n_engine: "صور خط الوصول ومحطة التمارين: ترسلها خدمة الكاميرا، وهي دليل",
+    cam_n_files: "ملفات الفيديو والصور التجريبية: تُعرض كما هي",
+    cam_original: "التعرف على الوجه وصور الوجوه المحفوظة تستخدم دائماً الصورة الأصلية للكاميرا، مهما كان الاختيار هنا.",
     nav_station: "المحطة · كل الأجهزة", nav_device: "هذه الشاشة", nav_admin: "الأمان",
     set_dots: "عدد النقاط في الخلفية المتحركة", set_dots_hint: "الشفق الذكي والسراب ونجوم الصحراء. نقاط أقل أهدأ وأخف على الجهاز.", dots_auto: "تلقائي",
     sec_look: "المظهر", sec_screen: "المظهر والحركة", sec_sounds_nav: "الأصوات", ph_search_settings: "ابحث في الإعدادات",
