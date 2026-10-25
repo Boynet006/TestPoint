@@ -229,6 +229,13 @@
   .troublebar { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--amber) 22%, transparent) 0 14px, transparent 14px 28px);
     border: 1px solid var(--amber); color: var(--warn-text); padding: 8px 14px; margin-bottom: 12px; font-family: var(--cond); letter-spacing: 1px; text-transform: uppercase; }
   #troubleTop { margin: 0; border-left: 0; border-right: 0; text-align: center; }
+  /* docked at the side: the station screen moves over, so the picture, the lane and its gauge stay in view */
+  .drawer { position: fixed; z-index: 30; top: 76px; bottom: 12px; inset-inline-end: 12px; width: 380px; overflow: auto;
+    background: linear-gradient(var(--panel), var(--panel)), var(--bg2); border: 1px solid var(--amber); box-shadow: 0 20px 50px -10px rgba(0,0,0,.6); padding: 14px 16px; }
+  body.tuneopen #v-station { margin-inline-end: 392px; }
+  @media (max-width: 1100px) { body.tuneopen #v-station { margin-inline-end: 0; } .drawer { top: auto; bottom: 0; inset-inline: 0; width: auto; max-height: 55vh; } }
+  .drawer .ltgrid { grid-template-columns: minmax(100px, 1fr) minmax(140px, 1.5fr); gap: 6px 10px; }
+  .drawer .hint { margin: 4px 0 10px; }
   .ltgrid { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(150px, 1.6fr); gap: 8px 12px; align-items: center; }
   .ltgrid label { font-family: var(--cond); letter-spacing: .5px; cursor: help; } .ltgrid .pair input[type=range] { min-width: 80px; }
   .tunehead { margin-top: 18px; } .tunev { min-width: 56px; } .tunev.changed { color: var(--amber); font-weight: 700; }
@@ -322,8 +329,12 @@
   td.t { font-family: var(--cond); font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .scroll { max-height: 460px; overflow: auto; }
   /* ---- the running lane, drawn: depth gauge, rep ring with the grade marks, time ring, rep strip */
-  .lvis { display: grid; grid-template-columns: 34px 1fr 86px; gap: 12px; align-items: center; margin: 4px 0; }
-  .gauge { position: relative; height: 150px; width: 26px; justify-self: center; border: 1px solid var(--line); background: var(--bg2); overflow: hidden; }
+  .lvis { display: grid; grid-template-columns: 70px 1fr 86px; gap: 12px; align-items: center; margin: 4px 0; }
+  .gauge { position: relative; height: 170px; width: 30px; justify-self: center; border: 1px solid var(--line); background: var(--bg2); cursor: ns-resize; touch-action: none; }
+  .gauge b em { position: absolute; inset-inline-start: calc(100% + 6px); top: 50%; transform: translateY(-50%); font-style: normal; font-family: var(--cond); font-size: 12px;
+    color: var(--text); background: var(--panel); border: 1px solid var(--line); padding: 0 4px; white-space: nowrap; }
+  .gauge b::after { content: ""; position: absolute; inset-inline-end: -8px; top: -4px; width: 0; height: 0; border: 5px solid transparent; border-inline-end-color: var(--text); }
+  .gauge.dragging b { background: var(--amber); height: 3px; } .gauge.dragging b em { border-color: var(--amber); color: var(--amber); }
   .gauge i { position: absolute; left: 0; right: 0; top: 0; height: 0; background: linear-gradient(var(--info), color-mix(in srgb, var(--info) 40%, var(--amber))); transition: height .15s linear; }
   .gauge b { position: absolute; left: -4px; right: -4px; top: 80%; height: 2px; background: var(--text); box-shadow: 0 0 0 1px var(--bg); }
   .gauge.deep i { background: var(--go); } .gauge.off { opacity: .35; }
@@ -588,6 +599,11 @@
   <div id="ddMsg"></div>
   <div class="regactions"><span class="spacer"></span><button class="btn ghost" type="button" onclick="DelDlg.close()" data-t="enrol_cancel"></button><button class="btn stop" type="button" id="ddGo" onclick="DelDlg.go()" data-t="dd_go"></button></div>
 </dialog>
+<aside class="drawer" id="tunePanel" aria-labelledby="ltTitle" hidden>
+  <div class="dlg-head"><h2 id="ltTitle" data-t="lt_title"></h2><span class="spacer"></span><button class="btn ghost sm" type="button" onclick="LiveTune.toggle(false)" data-t="rg_close"></button></div>
+  <p class="hint" data-t="lt_hint"></p>
+  <div id="ltBox"></div><div id="ltMsg"></div>
+</aside>
 <dialog id="personDlg" class="dlg" style="max-width:860px">
   <div class="dlg-head"><h2 data-t="rg_person"></h2><span class="spacer"></span><button class="btn ghost sm" type="button" onclick="$('personDlg').close()" data-t="rg_close"></button></div>
   <div id="pdBody"></div>
@@ -835,6 +851,7 @@
       <div class="kv"><span data-t="waiting_here"></span> <b id="xWaiting">0</b></div>
       <button class="btn go sm hidden" style="flex:0 0 auto" id="xStartAll" onclick="StartAll.go()"></button>
       <span class="spacer"></span>
+      <button class="btn ghost sm" style="flex:0 0 auto" onclick="LiveTune.toggle()" id="xTuneBtn" data-t="lt_button"></button>
       <button class="btn ghost sm" style="flex:0 0 auto" onclick="StationCam.toggle()" id="xCamBtn" data-t="sc_camera"></button>
       <span class="pill off" id="xCam"></span>
     </div>
@@ -865,10 +882,6 @@
               <span class="hint" id="scNote"></span>
             </div>
             <div id="scMsg"></div>
-            <details class="handtime" id="tunePanel" ontoggle="if (this.open) LiveTune.render()">
-              <summary><span data-t="lt_title"></span><small data-t="lt_hint"></small></summary>
-              <div id="ltBox"></div><div id="ltMsg"></div>
-            </details>
             <pre class="fclog hidden" id="scLog"></pre>
           </div>
         </div>
@@ -1225,9 +1238,9 @@ const I18N = {
     sc_followed: "Camera switched to {ex}, {n} lanes.", sc_started: "Station camera starting: the picture appears in a few seconds.", sc_stopped: "Station camera stopped.",
     idle_none_here: "Nobody is waiting for {ex}.", idle_need_other: "{n} still need {ex}.", idle_switch: "Switch to {ex}",
     idle_coming: "{n} not through the run yet: they come here after it.", idle_all_done: "Everyone today is done: no tests left.", start_all: "Start all ({n})", start_all_label: "All lanes start together",
-    check_photo: "Check the photo: is this the person?", no_photo: "no photo on file", numpad: "Number pad", lt_title: "Tune counting", lt_hint: "Live: each change counts from the next frame (every station camera, audited).", lt_applied: "Applied: the camera counts with it now.", tn_title: "Counting rules", tn_hint: "How reps are counted and judged. Changes apply to every station camera at once (no restart) and are audited; they can also be tuned live on the station screen. Set them before the test day.",
+    check_photo: "Check the photo: is this the person?", no_photo: "no photo on file", numpad: "Number pad", lt_title: "Tune counting", lt_button: "Tune", vis_depth_drag: "Depth gauge: drag the line to set how deep a rep must go (live)", lt_hint: "Live: each change counts from the next frame (every station camera, audited).", lt_applied: "Applied: the camera counts with it now.", tn_title: "Counting rules", tn_hint: "How reps are counted and judged. Changes apply to every station camera at once (no restart) and are audited; they can also be tuned live on the station screen. Set them before the test day.",
     tn_default: "default {v}", tn_restarted: "", e_bad_tuning: "That combination of counting rules is not possible",
-    tn_down_elbow_deg: "Bottom: elbow angle", tnh_down_elbow_deg: "At or below this the bottom counts. Lower = deeper push-ups.",
+    tn_down_elbow_deg: "Depth: bottom elbow angle", tnh_down_elbow_deg: "At or below this the bottom counts. Lower = deeper push-ups.",
     tn_up_elbow_deg: "Top: straight arms", tnh_up_elbow_deg: "Above this the arms are straight and the rep is complete (at least 20° above the bottom).",
     tn_min_body_line_deg: "Body line", tnh_min_body_line_deg: "Shoulder-hip-ankle angle; below this the hips sag or pike (fault).",
     tn_max_knee_lift: "Knee on the ground", tnh_max_knee_lift: "Knee height above the ankle, as a share of the hip's; below this with a bent knee the knee is down (fault).",
@@ -1235,7 +1248,7 @@ const I18N = {
     tn_min_knee_drop: "Knee drop (feet raised)", tnh_min_knee_drop: "With the feet raised, how far the knee must be below hip and ankle to count as down.",
     tn_rest_in_down_s: "Rest in the down position", tnh_rest_in_down_s: "Longest time away from the top before the rep is rejected.",
     tn_fault_min_s: "Fault must last", tnh_fault_min_s: "Shorter faults are pose jitter and do not reject the rep.",
-    tn_up_torso_deg: "Rise to count", tnh_up_torso_deg: "Torso rise above the lying level that counts as up.",
+    tn_up_torso_deg: "Depth: rise to count", tnh_up_torso_deg: "Torso rise above the lying level that counts as up.",
     tn_down_torso_deg: "Back down", tnh_down_torso_deg: "Below this rise the candidate is back on the floor (lower than the rise).",
     tn_knee_min_deg: "Knee angle, lowest", tnh_knee_min_deg: "Legs folded tighter than this = fault.",
     tn_knee_max_deg: "Knee angle, highest", tnh_knee_max_deg: "Legs straighter than this = fault (feet must stay on the floor).",
@@ -1514,9 +1527,9 @@ const I18N = {
     sc_followed: "تحولت الكاميرا إلى {ex}، {n} مسارات.", sc_started: "كاميرا المحطة تبدأ: تظهر الصورة خلال ثوانٍ.", sc_stopped: "أُوقفت كاميرا المحطة.",
     idle_none_here: "لا أحد بانتظار {ex}.", idle_need_other: "{n} ما زالوا يحتاجون {ex}.", idle_switch: "التبديل إلى {ex}",
     idle_coming: "{n} لم ينهوا الجري بعد: يأتون إلى هنا بعده.", idle_all_done: "انتهى الجميع اليوم: لا اختبارات متبقية.", start_all: "ابدأ الجميع ({n})", start_all_label: "تبدأ كل المسارات معاً",
-    check_photo: "تحقق من الصورة: هل هذا هو الشخص؟", no_photo: "لا توجد صورة مسجلة", numpad: "لوحة الأرقام", lt_title: "ضبط العد", lt_hint: "مباشر: كل تغيير يُطبّق من الإطار التالي (كل كاميرات المحطة، ومسجّل).", lt_applied: "طُبّق: الكاميرا تعد به الآن.", tn_title: "قواعد العد", tn_hint: "كيف تُعد التكرارات وتُحكم. تُطبّق على كل كاميرات المحطة، وتُسجّل، وتُعاد تشغيل كاميرا المحطة العاملة بها. اضبطها قبل يوم الاختبار.",
+    check_photo: "تحقق من الصورة: هل هذا هو الشخص؟", no_photo: "لا توجد صورة مسجلة", numpad: "لوحة الأرقام", lt_title: "ضبط العد", lt_button: "ضبط", vis_depth_drag: "مقياس العمق: اسحب الخط لتحديد عمق التكرار (مباشر)", lt_hint: "مباشر: كل تغيير يُطبّق من الإطار التالي (كل كاميرات المحطة، ومسجّل).", lt_applied: "طُبّق: الكاميرا تعد به الآن.", tn_title: "قواعد العد", tn_hint: "كيف تُعد التكرارات وتُحكم. تُطبّق على كل كاميرات المحطة، وتُسجّل، وتُعاد تشغيل كاميرا المحطة العاملة بها. اضبطها قبل يوم الاختبار.",
     tn_default: "الافتراضي {v}", tn_restarted: "أُعيد تشغيل كاميرا المحطة بقواعد العد الجديدة.", e_bad_tuning: "هذا الجمع بين قواعد العد غير ممكن",
-    tn_down_elbow_deg: "الأسفل: زاوية المرفق", tnh_down_elbow_deg: "عندها أو أقل يُحسب النزول. أصغر = ضغط أعمق.",
+    tn_down_elbow_deg: "العمق: زاوية المرفق في الأسفل", tnh_down_elbow_deg: "عندها أو أقل يُحسب النزول. أصغر = ضغط أعمق.",
     tn_up_elbow_deg: "الأعلى: استقامة الذراعين", tnh_up_elbow_deg: "فوقها تكون الذراعان مستقيمتين ويكتمل التكرار (أعلى من الأسفل بـ20° على الأقل).",
     tn_min_body_line_deg: "استقامة الجسم", tnh_min_body_line_deg: "زاوية الكتف والورك والكاحل؛ تحتها يهبط الورك أو يرتفع (خطأ).",
     tn_max_knee_lift: "الركبة على الأرض", tnh_max_knee_lift: "ارتفاع الركبة فوق الكاحل نسبةً لارتفاع الورك؛ تحته مع ثني الركبة تكون الركبة على الأرض (خطأ).",
@@ -1837,7 +1850,7 @@ function render() {
 }
 function setRole(r) { if (settingsOpen) closeSettings(); role = r;
   /* one camera, moved to the station in use */ const slot = $("camSlot-" + r); if (slot && !slot.contains($("camBlock"))) { slot.appendChild($("camBlock")); clearBox(); const v = $("camVideo"); if (v.srcObject || v.getAttribute("src")) v.play().catch(() => {}); }   /* moving a video pauses it */
-   save("role", r); $("role").value = r; BgFx.refresh(); for (const x of ["weigh", "start", "finish", "station"]) $("v-" + x).classList.toggle("hidden", x !== r);
+   save("role", r); $("role").value = r; BgFx.refresh(); if (r !== "station" && typeof LiveTune !== "undefined") LiveTune.toggle(false); for (const x of ["weigh", "start", "finish", "station"]) $("v-" + x).classList.toggle("hidden", x !== r);
   if (booted) {
     if (!CAM_ROLES.includes(r) && Cam.stream) { Cam.stop(); Cam.show(); }
     else if (CAM_ROLES.includes(r) && Cam.kind === "webcam" && !Cam.stream) Cam.use("webcam");
@@ -3182,7 +3195,7 @@ function tickClocks() {
     l.left = left;
     if (left === 10 && !l.warned) { l.warned = true; Signal.warn(); }
     if (left === 0) { Signal.end(); stopLane(l.n); return; }
-    const tm = $("lt-" + l.n); if (tm) { tm.textContent = mmss(left); tm.classList.toggle("low", left <= 10); }
+    const tm = $("lt-" + l.n); if (tm) { tm.textContent = troubleLimit() === 0 ? "∞" : mmss(left); tm.classList.toggle("low", left <= 10); }
     laneTimer(l);
   });
 }
@@ -3278,16 +3291,17 @@ function laneVisHtml(l) {
     return `<line class="tick${GRADES[i] === need ? " need" : ""}" data-m="${m}" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}"/>`;
   }).join("");
   return `<div class="lvis">
-    <div class="gauge off" id="lg-${l.n}" title="${t("vis_depth")}"><i></i><b></b><small>${t("vis_depth_s")}</small></div>
+    <div class="gauge off" id="lg-${l.n}" title="${t("vis_depth_drag")}" onpointerdown="gaugeDrag(event, ${l.n})"><i></i><b><em id="lgv-${l.n}"></em></b><small>${t("vis_depth_s")}</small></div>
     <div class="repring" id="lv-${l.n}"><svg viewBox="0 0 120 120"><circle class="track" cx="60" cy="60" r="${RING_R}"/>
       <circle class="arc" cx="60" cy="60" r="${RING_R}" stroke-dasharray="${RING_C.toFixed(1)}" stroke-dashoffset="${RING_C.toFixed(1)}"/>${ticks}</svg>
       <div class="mid"><span class="num" id="lc-${l.n}">${l.count}</span><small>${t("valid")} · <span class="rej" id="lr-${l.n}">${l.rejected}</span> ✗</small></div>
       <span class="grade" id="lgr-${l.n}"></span></div>
     <div class="timering" id="ltr-${l.n}"><svg viewBox="0 0 86 86"><circle class="track" cx="43" cy="43" r="${TIME_R}"/>
-      <circle class="arc" cx="43" cy="43" r="${TIME_R}" stroke-dasharray="${TIME_C.toFixed(1)}" stroke-dashoffset="0"/></svg><span id="lt-${l.n}">${mmss(l.state === "running" ? l.left : 0)}</span></div>
+      <circle class="arc" cx="43" cy="43" r="${TIME_R}" stroke-dasharray="${TIME_C.toFixed(1)}" stroke-dashoffset="0"/></svg><span id="lt-${l.n}">${troubleLimit() === 0 ? "∞" : mmss(l.state === "running" ? l.left : 0)}</span></div>
   </div><div class="repstrip" id="ls-${l.n}">${(l.dots || []).map(d => `<i class="${d}"></i>`).join("")}</div>`;
 }
 function laneVisUpdate(l) {
+  if (S.defaults) gaugeLine(l); else SetNav.defaults().then(() => gaugeLine(l));
   const ring = $("lv-" + l.n); if (!ring) return;
   const marks = laneMarks(l), max = marks ? marks[2] : Math.max(40, l.count), frac = Math.min(1, l.count / max);
   ring.querySelector(".arc").style.strokeDashoffset = (RING_C * (1 - frac)).toFixed(1);
@@ -3314,12 +3328,55 @@ function laneVisUpdate(l) {
   } else if (l.count < prev.count && l.dots) { l.dots = l.dots.slice(0, l.dots.length - (prev.count - l.count)); const s = $("ls-" + l.n); if (s) s.innerHTML = l.dots.map(d => `<i class="${d}"></i>`).join(""); }
   l.seen = { count: l.count, rejected: l.rejected }; l.manual = false;
 }
+// The gauge reads in real angles: push-ups from straight arms (top) down to 60° (bottom), crunches
+// from lying (top) to a 40° rise (bottom). The line is the depth that counts; drag it to change it.
+function countRules(ex) {
+  const d = S.defaults && S.defaults.tuning[ex]; if (!d) return null;
+  const cur = (setting("count_tuning") || {})[ex] || {}, r = {};
+  for (const k of Object.keys(d)) r[k] = cur[k] != null ? cur[k] : d[k].default;
+  return r;
+}
+function gaugeScale(ex) {
+  const r = countRules(ex); if (!r) return null;
+  if (ex === "pushup") return { top: r.up_elbow_deg, bottom: 60, key: "down_elbow_deg", line: r.down_elbow_deg, step: 1,
+    min: 60, max: Math.min(130, r.up_elbow_deg - 20), metric: d => r.up_elbow_deg - d * (r.up_elbow_deg - r.down_elbow_deg) };
+  return { top: 0, bottom: 40, key: "up_torso_deg", line: r.up_torso_deg, step: 0.5,
+    min: Math.max(3, r.down_torso_deg + 0.5), max: 40, metric: d => r.down_torso_deg + d * (r.up_torso_deg - r.down_torso_deg) };
+}
+const gaugePos = (sc, v) => Math.max(0, Math.min(1, (v - sc.top) / (sc.bottom - sc.top)));
+function gaugeLine(l) {
+  const g = $("lg-" + l.n), sc = gaugeScale(event); if (!g || !sc) return;
+  const v = l.dragLine != null ? l.dragLine : sc.line;
+  g.querySelector("b").style.top = `${(gaugePos(sc, v) * 100).toFixed(1)}%`;
+  $("lgv-" + l.n).textContent = `${+v.toFixed(1)}°`;
+}
 function laneGauge(l, v) {
   const g = $("lg-" + l.n); if (!g) return;
-  const d = v && v.person && v.depth != null ? v.depth : null;
+  const d = v && v.person && v.depth != null ? v.depth : null, sc = gaugeScale(event);
   g.classList.toggle("off", d == null); g.classList.toggle("deep", d != null && d >= 1);
-  g.querySelector("i").style.height = d == null ? "0" : `${Math.min(100, (d / 1.25) * 100).toFixed(0)}%`;
+  const pos = d == null ? 0 : sc ? gaugePos(sc, sc.metric(d)) : Math.min(1, d / 1.25);
+  g.querySelector("i").style.height = `${(pos * 100).toFixed(0)}%`;
+  gaugeLine(l);
   if (v && v.pending_faults && v.pending_faults.length) l.lastFault = v.pending_faults[0];
+}
+async function gaugeDrag(e, n) {
+  const l = lanes[n - 1], g = $("lg-" + n);
+  await SetNav.defaults(); const sc = gaugeScale(event); if (!sc) return;
+  e.preventDefault(); g.setPointerCapture(e.pointerId); g.classList.add("dragging");
+  const at = ev => {
+    const r = g.getBoundingClientRect(), f = Math.max(0, Math.min(1, (ev.clientY - r.top) / r.height));
+    const raw = sc.top + f * (sc.bottom - sc.top), v = Math.round(raw / sc.step) * sc.step;
+    l.dragLine = Math.max(sc.min, Math.min(sc.max, v)); gaugeLine(l);
+  };
+  at(e);
+  const move = ev => at(ev);
+  const up = async () => {
+    g.removeEventListener("pointermove", move); g.removeEventListener("pointerup", up); g.removeEventListener("pointercancel", up);
+    g.classList.remove("dragging");
+    const v = l.dragLine; l.dragLine = null;
+    if (v != null && Math.abs(v - sc.line) > 1e-9) await LiveTune.set(event, sc.key, v); else gaugeLine(l);
+  };
+  g.addEventListener("pointermove", move); g.addEventListener("pointerup", up); g.addEventListener("pointercancel", up);
 }
 function laneTimer(l) {
   const r = $("ltr-" + l.n); if (!r) return;
@@ -3415,6 +3472,11 @@ function renderLane(l) {
 // and reaches the engine with its next report (no restart). Admin PIN when one is set.
 const LiveTune = {
   timer: 0, ex: null,
+  toggle(open) {
+    const p = $("tunePanel"), show = open == null ? p.hidden : open;
+    p.hidden = !show; $("xTuneBtn").classList.toggle("active", show); document.body.classList.toggle("tuneopen", show);
+    if (show) this.render();
+  },
   async render() {
     const d = await SetNav.defaults(); if (!d || !d.tuning[event]) return;
     this.ex = event;
@@ -3435,14 +3497,25 @@ const LiveTune = {
   async save() {
     const d = S.defaults.tuning[this.ex], mine = {};
     for (const k of Object.keys(d)) { const v = +$("lt-" + k).value; if (Math.abs(v - d[k].default) > 1e-9) mine[k] = v; }
-    const all = { ...(setting("count_tuning") || {}) }; if (Object.keys(mine).length) all[this.ex] = mine; else delete all[this.ex];
-    try { S.settings = await api("PUT", "/api/settings", { count_tuning: all }); msg("ltMsg", "ok", t("lt_applied")); }
-    catch (e) { if (e.code === "admin_pin_required") PinDlg.open(() => this.save()); else msg("ltMsg", "bad", err(e)); }
+    return this.put(this.ex, mine);
+  },
+  // Save one exercise's tuning (only values that differ from the calibrated ones).
+  async put(ex, mine) {
+    const all = { ...(setting("count_tuning") || {}) }; if (Object.keys(mine).length) all[ex] = mine; else delete all[ex];
+    try { S.settings = await api("PUT", "/api/settings", { count_tuning: all }); msg("ltMsg", "ok", t("lt_applied")); lanes.forEach(gaugeLine); return true; }
+    catch (e) { if (e.code === "admin_pin_required") PinDlg.open(() => this.put(ex, mine)); else msg("ltMsg", "bad", err(e)); lanes.forEach(gaugeLine); return false; }
+  },
+  set(ex, k, v) {   // one rule, from the gauge
+    const d = S.defaults.tuning[ex], cur = { ...((setting("count_tuning") || {})[ex] || {}) };
+    if (Math.abs(v - d[k].default) < 1e-9) delete cur[k]; else cur[k] = v;
+    const ordered = {}; for (const key of Object.keys(d)) if (cur[key] != null) ordered[key] = cur[key];
+    return this.put(ex, ordered).then(ok => { if (ok && !$("tunePanel").hidden) this.render(); });
   },
 };
 function renderStation() {
   StationCam.poll(); StartAll.render();
-  if ($("tunePanel").open && LiveTune.ex !== event) LiveTune.render();   // switched push-ups / crunches
+  if (!$("tunePanel").hidden && LiveTune.ex !== event) LiveTune.render();   // switched push-ups / crunches
+  if (role !== "station" && !$("tunePanel").hidden) LiveTune.toggle(false);
   for (const x of ["pushup", "crunch"]) $("ev-" + x).classList.toggle("active", x === event);
   if (S.rules) $("xLimit").textContent = troubleLimit() === 0 ? "∞" : mmss(limit()).replace(/^0/, "");
   renderTrouble();
