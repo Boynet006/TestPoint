@@ -224,6 +224,8 @@
   .never li::before { content: "✕"; color: var(--stop); font-weight: 700; margin-inline-end: 8px; }
   .camlive canvas.fx { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: none; }
   .camlive.fxon canvas.fx { display: block; } .camlive.fxon img { opacity: 0; }
+  .loopbox { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; cursor: pointer; font-family: var(--cond); letter-spacing: .5px; color: var(--muted); }
+  .loopbox input { width: 18px; height: 18px; accent-color: var(--amber); }
   .themepick { grid-column: 2 / 4; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
   .themecard { all: unset; cursor: pointer; border: 2px solid var(--line); background: var(--bg2); display: flex; flex-direction: column; }
   .themecard:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
@@ -774,6 +776,7 @@
           <div class="row" style="margin-top:8px">
             <select id="fcWebcam" class="fcsrc"></select>
             <select id="fcVideo" class="fcsrc hidden"></select>
+            <label class="fcsrc loopbox hidden" id="fcLoop"><input type="checkbox" id="fcLoopOn" onchange="FinishCam.pref.loop = this.checked; FinishCam.save()"><span data-t="vid_repeat"></span></label>
             <input id="fcUrl" class="fcsrc hidden" data-tp="ph_cam_url" autocomplete="off" style="flex:1">
             <button class="btn ghost sm" style="flex:0 0 auto" onclick="FinishCam.sources(true)" data-t="fc_refresh"></button>
           </div>
@@ -843,6 +846,7 @@
             <div class="seg" style="margin-top:10px"><button id="sck-webcam" onclick="StationCam.kind('webcam')" data-t="src_webcam"></button><button id="sck-video" onclick="StationCam.kind('video')" data-t="src_video"></button><button id="sck-url" onclick="StationCam.kind('url')" data-t="fc_ipcam"></button></div>
             <div class="row" style="margin-top:8px">
               <select id="scWebcam" class="scsrc"></select><select id="scVideo" class="scsrc hidden"></select>
+              <label class="scsrc loopbox hidden" id="scLoop"><input type="checkbox" id="scLoopOn" onchange="StationCam.pref.loop = this.checked; StationCam.save()"><span data-t="vid_repeat"></span></label>
               <input id="scUrl" class="scsrc hidden" data-tp="ph_cam_url" autocomplete="off" style="flex:1">
               <button class="btn ghost sm" style="flex:0 0 auto" onclick="StationCam.sources(true)" data-t="fc_refresh"></button>
             </div>
@@ -1179,7 +1183,7 @@ const I18N = {
     sc_followed: "Camera switched to {ex}, {n} lanes.", sc_started: "Station camera starting: the picture appears in a few seconds.", sc_stopped: "Station camera stopped.",
     idle_none_here: "Nobody is waiting for {ex}.", idle_need_other: "{n} still need {ex}.", idle_switch: "Switch to {ex}",
     idle_coming: "{n} not through the run yet: they come here after it.", idle_all_done: "Everyone today is done: no tests left.", start_all: "Start all ({n})", start_all_label: "All lanes start together",
-    check_photo: "Check the photo: is this the person?", no_photo: "no photo on file", numpad: "Number pad", vis_depth: "How deep the rep in progress is: the line is deep enough to count", vis_depth_s: "depth", vis_to_go: "{n} to 60%", hand_title: "Time by hand", hand_hint: "Backup when the camera is off or misses someone: tap, then type the bib.", fc_log: "Camera messages", lane_bib: "Lane {n}: bib",
+    check_photo: "Check the photo: is this the person?", no_photo: "no photo on file", numpad: "Number pad", vid_repeat: "Repeat", vid_ended: "The video played to its end. Tick Repeat to keep it playing, then press Start camera.", vis_depth: "How deep the rep in progress is: the line is deep enough to count", vis_depth_s: "depth", vis_to_go: "{n} to 60%", hand_title: "Time by hand", hand_hint: "Backup when the camera is off or misses someone: tap, then type the bib.", fc_log: "Camera messages", lane_bib: "Lane {n}: bib",
     cam_view: "Live camera", cam_off: "Camera offline · manual count", cam_live: "Camera live · {fps} fps", corrections: "Examiner corrections",
     ph_waiting: "Get into position", ph_rest: "Up", ph_work: "Down", no_person: "Nobody in the lane",
     f_body_not_straight: "Body not straight", f_knee_on_ground: "Knee on the ground", f_rest_in_down: "Resting down", f_knees_not_bent: "Knees not bent",
@@ -1442,7 +1446,7 @@ const I18N = {
     sc_followed: "تحولت الكاميرا إلى {ex}، {n} مسارات.", sc_started: "كاميرا المحطة تبدأ: تظهر الصورة خلال ثوانٍ.", sc_stopped: "أُوقفت كاميرا المحطة.",
     idle_none_here: "لا أحد بانتظار {ex}.", idle_need_other: "{n} ما زالوا يحتاجون {ex}.", idle_switch: "التبديل إلى {ex}",
     idle_coming: "{n} لم ينهوا الجري بعد: يأتون إلى هنا بعده.", idle_all_done: "انتهى الجميع اليوم: لا اختبارات متبقية.", start_all: "ابدأ الجميع ({n})", start_all_label: "تبدأ كل المسارات معاً",
-    check_photo: "تحقق من الصورة: هل هذا هو الشخص؟", no_photo: "لا توجد صورة مسجلة", numpad: "لوحة الأرقام", vis_depth: "عمق التكرار الجاري: الخط هو العمق الكافي للعد", vis_depth_s: "العمق", vis_to_go: "{n} حتى 60%", hand_title: "التوقيت اليدوي", hand_hint: "احتياطي عند إيقاف الكاميرا أو فواتها لأحد: اضغط ثم اكتب الرقم.", fc_log: "رسائل الكاميرا", lane_bib: "المسار {n}: الرقم",
+    check_photo: "تحقق من الصورة: هل هذا هو الشخص؟", no_photo: "لا توجد صورة مسجلة", numpad: "لوحة الأرقام", vid_repeat: "تكرار", vid_ended: "انتهى تشغيل الفيديو. فعّل التكرار ليستمر، ثم اضغط تشغيل الكاميرا.", vis_depth: "عمق التكرار الجاري: الخط هو العمق الكافي للعد", vis_depth_s: "العمق", vis_to_go: "{n} حتى 60%", hand_title: "التوقيت اليدوي", hand_hint: "احتياطي عند إيقاف الكاميرا أو فواتها لأحد: اضغط ثم اكتب الرقم.", fc_log: "رسائل الكاميرا", lane_bib: "المسار {n}: الرقم",
     cam_view: "الكاميرا مباشرة", cam_off: "الكاميرا غير متصلة · عدّ يدوي", cam_live: "الكاميرا تعمل · {fps} إطار/ث", corrections: "تصحيحات الممتحن",
     ph_waiting: "خذ الوضعية", ph_rest: "أعلى", ph_work: "أسفل", no_person: "لا أحد في المسار",
     f_body_not_straight: "الجسم غير مستقيم", f_knee_on_ground: "الركبة على الأرض", f_rest_in_down: "استراحة في الأسفل", f_knees_not_bent: "الركبتان غير مثنيتين",
@@ -2701,6 +2705,7 @@ const FinishCam = {
   kind(k) {
     this.pref.kind = k; this.save();
     for (const x of ["webcam", "video", "url"]) { $("fck-" + x).classList.toggle("active", x === k); $("fc" + x[0].toUpperCase() + x.slice(1)).classList.toggle("hidden", x !== k); }
+    $("fcLoop").classList.toggle("hidden", k !== "video"); $("fcLoopOn").checked = this.pref.loop !== false;
   },
   async sources(refresh) {
     try {
@@ -2728,6 +2733,8 @@ const FinishCam = {
     document.querySelectorAll("#fcForm button, #fcForm select, #fcForm input").forEach(el => { el.disabled = !st.available || this.busy; });
     $("fcState").className = "pill " + (st.running ? (live ? "ok" : "info") : st.exit_code ? "bad" : "");
     $("fcState").textContent = !st.available ? t("fc_state_offline") : st.running ? (live ? t("fc_state_live") : t("fc_state_starting")) : st.exit_code ? t("fc_state_error") : t("fc_state_stopped");
+    const ended = !st.running && st.exit_code === 0 && st.config && st.config.kind === "video";
+    if (ended && !this.endedSaid) { msg("fcMsg", "warn", t("vid_ended")); this.endedSaid = true; } if (st.running) this.endedSaid = false;
     $("fcStart").textContent = st.running ? t("fc_restart") : t("fc_start");
     $("fcStop").classList.toggle("hidden", !st.running);
     // The camera's own messages: the last few, short, folded away; open by themselves when it failed.
@@ -2747,7 +2754,7 @@ const FinishCam = {
     Object.assign(this.pref, { [k]: source, line: +$("fcLineY").value, dir: $("fcDir").value }); this.save();
     this.busy = true; this.render();
     try {
-      this.st = { available: true, ...(await api("POST", "/api/finishcam/start", { kind: k, source, line_y: $("fcLineY").value / 100, direction: $("fcDir").value, app_url: location.origin })) };
+      this.st = { available: true, ...(await api("POST", "/api/finishcam/start", { kind: k, source, line_y: $("fcLineY").value / 100, direction: $("fcDir").value, app_url: location.origin, loop: k === "video" && this.pref.loop !== false })) };
       msg("fcMsg", "ok", t("fc_started"));
     } catch (e) { msg("fcMsg", "bad", err(e)); }
     finally { this.busy = false; this.render(); }
@@ -2838,6 +2845,7 @@ const StationCam = {
   kind(k) {
     this.pref.kind = k; this.save();
     for (const x of ["webcam", "video", "url"]) { $("sck-" + x).classList.toggle("active", x === k); $("sc" + x[0].toUpperCase() + x.slice(1)).classList.toggle("hidden", x !== k); }
+    $("scLoop").classList.toggle("hidden", k !== "video"); $("scLoopOn").checked = this.pref.loop !== false;
   },
   dividers() {
     const n = lanes.length, d = (this.pref.dividers || {})[n];
@@ -2901,6 +2909,8 @@ const StationCam = {
     document.querySelectorAll("#scForm button, #scForm select, #scForm input").forEach(el => { el.disabled = !st.available || this.busy; });
     $("scState").className = "pill " + (st.running ? (live ? "ok" : "info") : st.exit_code ? "bad" : "");
     $("scState").textContent = !st.available ? t("fc_state_offline") : st.running ? (live ? t("fc_state_live") : t("fc_state_starting")) : st.exit_code ? t("fc_state_error") : t("fc_state_stopped");
+    const ended = !st.running && st.exit_code === 0 && st.config && st.config.kind === "video";
+    if (ended && !this.endedSaid) { msg("scMsg", "warn", t("vid_ended")); this.endedSaid = true; } if (st.running) this.endedSaid = false;
     const c = st.config, changed = st.running && c && (c.exercise !== event || c.lanes !== lanes.length || JSON.stringify(c.dividers || []) !== JSON.stringify(this.dividers()));
     $("scStart").textContent = st.running ? (changed ? t("fc_restart") : t("sc_running")) : t("fc_start");
     $("scStart").disabled = $("scStart").disabled || (st.running && !changed);
@@ -2931,7 +2941,7 @@ const StationCam = {
     if (!auto) { Object.assign(this.pref, { [k]: source }, k === "video" ? { ["video_" + event]: source } : {}); this.save(); }
     this.busy = true; this.render();
     try {
-      this.st = { available: true, ...(await api("POST", "/api/stationcam/start", { ...use, exercise: event, lanes: lanes.length, dividers: this.dividers(), app_url: location.origin })) };
+      this.st = { available: true, ...(await api("POST", "/api/stationcam/start", { ...use, exercise: event, lanes: lanes.length, dividers: this.dividers(), app_url: location.origin, loop: use.kind === "video" && this.pref.loop !== false })) };
       msg("scMsg", "ok", t(auto ? "sc_followed" : "sc_started", { ex: t(event), n: lanes.length }));
       $("scDivs").innerHTML = "";
     } catch (e) { msg("scMsg", "bad", err(e)); }

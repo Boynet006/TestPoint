@@ -308,6 +308,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--no-preview", action="store_true", help="do not send the live picture to the app")
     p.add_argument("--realtime", action="store_true",
                    help="play a video file at its own speed, as a live camera would (demos, training)")
+    p.add_argument("--loop", action="store_true",
+                   help="with --realtime: play the video on repeat (test the counting on a short clip)")
     p.add_argument("--connect-timeout", type=float, default=10.0)
     p.add_argument("--connect-attempts", type=int, default=3)
     args = p.parse_args(argv)
@@ -318,7 +320,7 @@ def main(argv: list[str] | None = None) -> int:
     except ValueError as e:
         p.error(str(e))
     try:
-        source = open_source(args.source, realtime=args.realtime, timeout_s=args.connect_timeout,
+        source = open_source(args.source, realtime=args.realtime, loop=args.loop, timeout_s=args.connect_timeout,
                              max_attempts=args.connect_attempts)
     except SourceError as e:
         raise SystemExit(f"error: {e}") from None

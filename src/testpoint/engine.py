@@ -297,6 +297,8 @@ def main(argv: list[str] | None = None) -> int:
                    help="RTSP connection attempts before giving up, 0 = for ever (default 3)")
     p.add_argument("--realtime", action="store_true",
                    help="play a video file at its own speed, as a live camera would (demos, training)")
+    p.add_argument("--loop", action="store_true",
+                   help="with --realtime: play the video on repeat (test the counting on a short clip)")
     p.add_argument("--no-preview", action="store_true",
                    help="do not send the live camera picture to the station screen")
     args = p.parse_args(argv)
@@ -308,7 +310,7 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, ValueError, KeyError) as e:
         raise SystemExit(f"bad lanes: {e}") from None
     try:
-        source = open_source(args.source, realtime=args.realtime, timeout_s=args.connect_timeout,
+        source = open_source(args.source, realtime=args.realtime, loop=args.loop, timeout_s=args.connect_timeout,
                              max_attempts=args.connect_attempts)
     except SourceError as e:
         raise SystemExit(f"error: {e}") from None

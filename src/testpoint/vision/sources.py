@@ -67,6 +67,10 @@ class FileSource:
         """Move past one frame without decoding it (a video falling behind real time)."""
         return bool(self.cap.grab())
 
+    def rewind(self) -> bool:
+        """Back to the first frame (a video played on repeat)."""
+        return bool(self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0))
+
     def release(self) -> None:
         self.cap.release()
 
@@ -245,15 +249,26 @@ class RealtimeVideo:
     is_live = False
 
     def __init__(self, inner: FileSource, clock: Callable[[], float] = time.monotonic,
-                 sleep: Callable[[float], None] = time.sleep) -> None:
+                 sleep: Callable[[float], None] = time.sleep, loop: bool = False) -> None:
         self.inner = inner
         self.source = inner.source
         self.fps = inner.fps or 30.0
         self.clock, self.sleep = clock, sleep
+        self.loop = loop
+        """Start again from the beginning at the end (a short demo clip keeps counting)."""
+        self.loops = 0
         self._t0: float | None = None
         self._idx = 0
 
     def read(self) -> np.ndarray | None:
+        frame = self._next()
+        if frame is None and self.loop and self._idx > 1 and self.inner.rewind():
+            self.loops += 1
+            self._t0, self._idx = None, 0
+            frame = self._next()
+        return frame
+
+    def _next(self) -> np.ndarray | None:
         if self._t0 is None:
             self._t0 = self.clock()
         due = (self.clock() - self._t0) * self.fps
@@ -271,14 +286,14 @@ class RealtimeVideo:
         self.inner.release()
 
 
-def open_source(source: str, latest: bool = True, realtime: bool = False, **rtsp_options):
+def open_source(source: str, latest: bool = True, realtime: bool = False, loop: bool = False, **rtsp_options):
     """A webcam index, a video file or an RTSP address. Live cameras come with only their newest
     frame (``LatestFrame``) unless ``latest`` is False. ``realtime``: a video file is played like
-    a camera (``RealtimeVideo`` in a ``LatestFrame``)."""
+    a camera (``RealtimeVideo`` in a ``LatestFrame``); ``loop``: on repeat (with ``realtime``)."""
     src = RtspSource(source, **rtsp_options) if is_rtsp(source) else FileSource(source)
     if src.is_live:
         return LatestFrame(src) if latest else src
-    return LatestFrame(RealtimeVideo(src)) if realtime else src
+    return LatestFrame(RealtimeVideo(src, loop=loop)) if realtime else src
 
 
 def iter_frames(source, clock: Callable[[], float] = time.monotonic, realtime: bool = False,
