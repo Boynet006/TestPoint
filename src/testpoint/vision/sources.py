@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import re
+import threading
 import time
 from collections.abc import Callable
 
@@ -41,11 +42,17 @@ class FileSource:
         self.cap = cv2.VideoCapture(int(source)) if self.is_live else cv2.VideoCapture(source)
         if not self.cap.isOpened():
             raise SourceError(f"could not open video source {source!r}")
+        if self.is_live:
+            self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         self.fps = self.cap.get(cv2.CAP_PROP_FPS) or 30.0
 
     def read(self) -> np.ndarray | None:
         ok, frame = self.cap.read()
         return frame if ok else None
+
+    def skip(self) -> bool:
+        """Move past one frame without decoding it (a video falling behind real time)."""
+        return bool(self.cap.grab())
 
     def release(self) -> None:
         self.cap.release()
@@ -143,20 +150,100 @@ class RtspSource:
             self.cap = None
 
 
-def open_source(source: str, **rtsp_options) -> FileSource | RtspSource:
-    if is_rtsp(source):
-        return RtspSource(source, **rtsp_options)
-    return FileSource(source)
+class LatestFrame:
+    """A live camera read on its own thread, keeping only the newest frame.
+
+    A camera sends frames at its own pace (25-30 a second). When the analysis is slower, the
+    frames it has not taken pile up in the driver's or FFmpeg's buffer and the analysis works
+    further and further in the past: counts and crossings arrive late, the picture lags. Here
+    every ``read()`` returns the newest frame and the ones in between are dropped (counted in
+    ``dropped``), so the delay stays one frame however slow the analysis is."""
+
+    is_live = True
+
+    def __init__(self, inner) -> None:
+        self.inner = inner
+        self.fps = inner.fps
+        self.dropped = 0
+        self._frame = None
+        self._seq = 0
+        self._given = 0
+        self._error: Exception | None = None
+        self._done = False
+        self._stop = False
+        self._cv = threading.Condition()
+        self._thread = threading.Thread(target=self._run, name="camera-reader", daemon=True)
+        self._thread.start()
+
+    @property
+    def display_url(self) -> str:
+        return getattr(self.inner, "display_url", getattr(self.inner, "source", ""))
+
+    def _run(self) -> None:
+        while not self._stop:
+            try:
+                frame = self.inner.read()
+            except Exception as e:          # a lost camera that could not reconnect
+                with self._cv:
+                    self._error, self._done = e, True
+                    self._cv.notify_all()
+                return
+            with self._cv:
+                if frame is None:
+                    self._done = True
+                    self._cv.notify_all()
+                    return
+                if self._seq > self._given:
+                    self.dropped += 1       # the previous newest was never taken
+                self._frame, self._seq = frame, self._seq + 1
+                self._cv.notify_all()
+
+    def read(self) -> np.ndarray | None:
+        with self._cv:
+            self._cv.wait_for(lambda: self._seq > self._given or self._done)
+            if self._seq > self._given:
+                self._given = self._seq
+                return self._frame
+            if self._error is not None:
+                raise self._error
+            return None
+
+    def release(self) -> None:
+        self._stop = True
+        self._thread.join(timeout=1.0)
+        self.inner.release()
 
 
-def iter_frames(source: FileSource | RtspSource, clock: Callable[[], float] = time.monotonic):
+def open_source(source: str, latest: bool = True, **rtsp_options):
+    """A webcam index, a video file or an RTSP address. Live cameras come with only their newest
+    frame (``LatestFrame``) unless ``latest`` is False."""
+    src = RtspSource(source, **rtsp_options) if is_rtsp(source) else FileSource(source)
+    return LatestFrame(src) if latest and src.is_live else src
+
+
+def iter_frames(source, clock: Callable[[], float] = time.monotonic, realtime: bool = False,
+                sleep: Callable[[float], None] = time.sleep):
     """Yield ``(frame, t)`` until the source ends. Video files use their own clock
     (frame index / fps, so a clip scores the same every run); live cameras use
-    wall time, which is what the evidence and the rep times are stamped with."""
+    wall time, which is what the evidence and the rep times are stamped with.
+
+    ``realtime``: a video file plays at its own speed, as a camera would: it waits when the
+    analysis is ahead and skips frames (without decoding them) when it is behind, so it never
+    drifts into slow motion."""
     fps = source.fps or 30.0
     t0 = clock()
     idx = 0
+    pace = realtime and not source.is_live
     while True:
+        if pace:
+            due = (clock() - t0) * fps           # the frame that should be on screen now
+            while idx + 1 < due and hasattr(source, "skip"):
+                if not source.skip():
+                    return
+                idx += 1
+            wait = t0 + idx / fps - clock()
+            if wait > 0:
+                sleep(wait)
         frame = source.read()
         if frame is None:
             return

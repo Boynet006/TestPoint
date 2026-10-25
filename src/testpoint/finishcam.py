@@ -349,14 +349,9 @@ def main(argv: list[str] | None = None) -> int:
     writer = None
     fps = 0.0
     last = time.monotonic()
-    pace = args.realtime and not getattr(source, "is_live", True)
-    t_play = time.monotonic()
     try:
-        for frame, t in iter_frames(source):
-            if pace:   # a crossing in the video is reported when it happens on screen
-                wait = t_play + t - time.monotonic()
-                if wait > 0:
-                    time.sleep(wait)
+        # realtime: a crossing in a video is reported when it happens on screen
+        for frame, t in iter_frames(source, realtime=args.realtime):
             if crop is not None:
                 h, w = frame.shape[:2]
                 frame = frame[int(crop[1] * h):int(crop[3] * h), int(crop[0] * w):int(crop[2] * w)]

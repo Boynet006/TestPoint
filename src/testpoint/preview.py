@@ -23,7 +23,7 @@ FRAME_PATH = "/api/engine/frame/"
 
 class FramePublisher(threading.Thread):
     def __init__(self, app_url: str, station: str, draw: Callable[[np.ndarray, object], None],
-                 interval: float = 0.3, max_width: int = 960, quality: int = 75,
+                 interval: float = 0.15, max_width: int = 960, quality: int = 75,
                  timeout_s: float = 2.0, post: Callable[[bytes], None] | None = None) -> None:
         super().__init__(name="preview-publisher", daemon=True)
         self.url = app_url.rstrip("/") + FRAME_PATH + station

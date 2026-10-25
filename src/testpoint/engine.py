@@ -227,13 +227,7 @@ def run(session: MultiLaneSession, source, reporter: Reporter, sender: Sender,
     frames = 0
     fps = 0.0
     last = time.monotonic()
-    pace = realtime and not getattr(source, "is_live", True)
-    t_play = time.monotonic()
-    for frame, t in iter_frames(source):
-        if pace:
-            wait = t_play + t - time.monotonic()
-            if wait > 0:
-                time.sleep(wait)
+    for frame, t in iter_frames(source, realtime=realtime):
         for name, attempt_id in reporter.sync(session, cfg):
             log(f"lane {name}: " + (f"counting for attempt {attempt_id}" if attempt_id else "free"))
             if evidence is not None:
