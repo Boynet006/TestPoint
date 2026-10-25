@@ -485,6 +485,13 @@
     </div>
   </div>
 </dialog>
+<dialog id="delDlg" class="dlg" style="max-width:560px" oncancel="DelDlg.close()">
+  <div class="dlg-head"><h2 data-t="dd_title"></h2><span class="spacer"></span><button class="btn ghost sm" type="button" onclick="DelDlg.close()" data-t="enrol_cancel"></button></div>
+  <div id="ddBody" style="margin:10px 0"></div>
+  <label class="row hidden" id="ddResultsRow" style="gap:10px;align-items:flex-start;margin:6px 0 12px"><input type="checkbox" id="ddResults" onchange="DelDlg.check()" style="flex:0 0 auto;width:20px;height:20px;margin-top:2px"><span id="ddResultsText"></span></label>
+  <div id="ddMsg"></div>
+  <div class="regactions"><span class="spacer"></span><button class="btn ghost" type="button" onclick="DelDlg.close()" data-t="enrol_cancel"></button><button class="btn stop" type="button" id="ddGo" onclick="DelDlg.go()" data-t="dd_go"></button></div>
+</dialog>
 <dialog id="personDlg" class="dlg" style="max-width:860px">
   <div class="dlg-head"><h2 data-t="rg_person"></h2><span class="spacer"></span><button class="btn ghost sm" type="button" onclick="$('personDlg').close()" data-t="rg_close"></button></div>
   <div id="pdBody"></div>
@@ -799,7 +806,7 @@
       <button class="btn ghost sm" style="flex:0 0 auto" onclick="Register.exportCsv()" data-t="rg_export"></button>
     </div>
     <div id="rgMsg"></div>
-    <div class="row selbar"><span class="kv" id="rgCount"></span><span class="spacer"></span><button id="rgAddSel" class="btn amber sm" style="flex:0 0 auto" onclick="Register.addSelected()" disabled></button></div>
+    <div class="row selbar"><span class="kv" id="rgCount"></span><span class="spacer"></span><button id="rgDelSel" class="btn ghost sm danger" style="flex:0 0 auto" onclick="DelDlg.open([...Register.sel.values()])" disabled></button><button id="rgAddSel" class="btn amber sm" style="flex:0 0 auto" onclick="Register.addSelected()" disabled></button></div>
     <div class="scroll" style="max-height:none"><table><thead><tr><th><input type="checkbox" id="rgAll" onchange="Register.selectAll(this.checked)" data-tl="rg_select_all"></th><th data-t="face"></th><th>ID</th><th data-t="name"></th><th data-t="age_h"></th><th data-t="lbl_unit"></th><th data-t="rg_bib"></th><th data-t="rg_last"></th><th data-t="rg_today_h"></th><th></th></tr></thead><tbody id="rgTable"></tbody></table></div>
     <div class="row" style="justify-content:center;margin-top:10px"><button id="rgMore" class="btn ghost sm hidden" style="flex:0 0 auto" onclick="Register.load(true)" data-t="rg_more"></button></div>
   </div>
@@ -1132,8 +1139,15 @@ const I18N = {
     rg_add_selected: "Add selected to today ({n})", rg_add_today: "Add to today", rg_on_list: "On today's list", rg_added_today: "{a} added to today's list, {s} already on it.",
     rg_saved: "{name} saved.", rg_updated: "{name}'s details updated.", rg_unchanged: "{name} is already saved.", rg_and_today: "Added to today's list.", rg_take_face: "Take face photo",
     rg_never: "Not tested yet", rg_history: "History", rg_person: "Candidate", rg_close: "Close", rg_days: "Test days", rg_no_days: "Not on any test day yet.",
-    rg_date: "Date", rg_verdict: "Result", rg_delete: "Delete person", sure_delete_person: "Delete this person and their face? Press again",
-    rg_deleted: "{name} deleted.", rg_has_results: "This person has test results.", rg_delete_all: "Delete with their results",
+    rg_date: "Date", rg_verdict: "Result", rg_delete: "Delete person",
+    rg_deleted: "{name} deleted.",
+    dd_title: "Delete from Candidates", dd_go: "Delete permanently", rg_del_selected: "Delete selected ({n})",
+    dd_one: "This person and their {faces} face photo(s) will be deleted. This cannot be undone.",
+    dd_many: "These {n} people and their face photos will be deleted. This cannot be undone.",
+    dd_today: "{n} of them are on today's list: they are taken off it too.",
+    dd_results_one: "Also delete their test results on {d} day(s). Required: they have results.",
+    dd_results_many: "Also delete the test results of the {n} who have them. Required to delete them.",
+    dd_done: "{n} deleted.",
     rd_cam_pick: "Camera", rd_cam_default: "Default camera", rd_cam_n: "Camera {n}", rd_cam_restart: "Restart camera", rd_cam_free: "Free the camera",
     rd_cam_free_hint: "Stops the desk camera and any camera service using a webcam, then starts this one",
     rd_cam_timeout: "The camera did not answer", rd_cam_gone: "That camera is not connected", rd_cam_try: "Pick another camera, Restart or Free the camera, or upload a photo.",
@@ -1361,8 +1375,15 @@ const I18N = {
     rg_add_selected: "إضافة المختارين إلى اليوم ({n})", rg_add_today: "إضافة إلى اليوم", rg_on_list: "في قائمة اليوم", rg_added_today: "أُضيف {a} إلى قائمة اليوم، و{s} موجودون فيها.",
     rg_saved: "حُفظ {name}.", rg_updated: "حُدّثت بيانات {name}.", rg_unchanged: "{name} محفوظ مسبقاً.", rg_and_today: "أُضيف إلى قائمة اليوم.", rg_take_face: "التقاط صورة الوجه",
     rg_never: "لم يُختبر بعد", rg_history: "السجل", rg_person: "المرشح", rg_close: "إغلاق", rg_days: "أيام الاختبار", rg_no_days: "ليس في أي يوم اختبار بعد.",
-    rg_date: "التاريخ", rg_verdict: "النتيجة", rg_delete: "حذف الشخص", sure_delete_person: "حذف هذا الشخص وصورة وجهه؟ اضغط مرة أخرى",
-    rg_deleted: "حُذف {name}.", rg_has_results: "لهذا الشخص نتائج اختبار.", rg_delete_all: "حذف مع نتائجه",
+    rg_date: "التاريخ", rg_verdict: "النتيجة", rg_delete: "حذف الشخص",
+    rg_deleted: "حُذف {name}.",
+    dd_title: "الحذف من المرشحين", dd_go: "حذف نهائي", rg_del_selected: "حذف المختارين ({n})",
+    dd_one: "سيُحذف هذا الشخص و{faces} من صور وجهه. لا يمكن التراجع عن ذلك.",
+    dd_many: "سيُحذف هؤلاء الـ{n} مع صور وجوههم. لا يمكن التراجع عن ذلك.",
+    dd_today: "{n} منهم في قائمة اليوم: سيُزالون منها أيضاً.",
+    dd_results_one: "حذف نتائج اختباراته في {d} يوم أيضاً. مطلوب: لديه نتائج.",
+    dd_results_many: "حذف نتائج الـ{n} الذين لديهم نتائج أيضاً. مطلوب لحذفهم.",
+    dd_done: "حُذف {n}.",
     rd_cam_pick: "الكاميرا", rd_cam_default: "الكاميرا الافتراضية", rd_cam_n: "كاميرا {n}", rd_cam_restart: "إعادة تشغيل الكاميرا", rd_cam_free: "تحرير الكاميرا",
     rd_cam_free_hint: "يوقف كاميرا المكتب وأي خدمة كاميرا تستخدم كاميرا ويب، ثم يشغّل هذه",
     rd_cam_timeout: "لم تستجب الكاميرا", rd_cam_gone: "هذه الكاميرا غير متصلة", rd_cam_try: "اختر كاميرا أخرى، أو أعد التشغيل، أو حرّر الكاميرا، أو ارفع صورة.",
@@ -3036,22 +3057,22 @@ const Register = {
     };
     const rows = this.rows.map(c => {
       const on = !!c.today_entry, sel = this.sel.has(c.id);
-      return `<tr class="${sel ? "sel" : ""}"><td><input type="checkbox" ${sel ? "checked" : ""} ${on ? "disabled" : ""} onchange="Register.toggle(${c.id}, this.checked)" aria-label="${esc(cname(c))}"></td>${faceCell(c)}`
+      return `<tr class="${sel ? "sel" : ""}"><td><input type="checkbox" ${sel ? "checked" : ""} onchange="Register.toggle(${c.id}, this.checked)" aria-label="${esc(cname(c))}"></td>${faceCell(c)}`
         + `<td>${esc(c.external_id)}</td><td><b>${esc(cname(c))}</b>${lang === "ar" ? (c.name !== cname(c) ? `<br><small class="hint">${esc(c.name)}</small>` : "") : (c.name_ar ? `<br><small class="hint" dir="rtl">${esc(c.name_ar)}</small>` : "")}</td>`
         + `<td class="t">${ageOf(c.dob) ?? "—"}</td><td>${unitTxt(c.unit)}</td><td class="t">${esc(c.bib ?? "—")}</td>`
         + `<td>${c.last_date ? `${esc(c.last_date)} ${verdictPill(c.last_verdict)}` : `<span class="hint">${t("rg_never")}</span>`}</td>`
         + `<td>${on ? `<span class="pill ok">${t("rg_on_list")}</span>` : `<button class="btn sm" onclick="Register.addToday([${c.id}])">${t("rg_add_today")}</button>`}</td>`
-        + `<td style="white-space:nowrap"><button class="btn ghost sm" onclick="Register.open(${c.id})">${t("rg_history")}</button> <button class="btn ghost sm" onclick="EditDlg.openPerson(${c.id})">${t("edit")}</button></td></tr>`;
+        + `<td style="white-space:nowrap"><button class="btn ghost sm" onclick="Register.open(${c.id})">${t("rg_history")}</button> <button class="btn ghost sm" onclick="EditDlg.openPerson(${c.id})">${t("edit")}</button> <button class="btn ghost sm danger" onclick="DelDlg.open([Register.rows.find(x => x.id === ${c.id})])" title="${t("rg_delete")}" aria-label="${t("rg_delete")}">✕</button></td></tr>`;
     });
     setHTML("rgTable", rows.join("") || `<tr><td colspan="10" class="hint">${t($("rgQ").value.trim() ? "rg_none_found" : "rg_empty")}</td></tr>`);
     $("rgCount").textContent = this.rows.length < this.total ? t("rg_count_some", { shown: this.rows.length, n: this.total }) : t("rg_count", { n: this.total });
     $("rgMore").classList.toggle("hidden", this.rows.length >= this.total);
     $("rgAddSel").textContent = t("rg_add_selected", { n: this.sel.size }); $("rgAddSel").disabled = !this.sel.size;
-    const free = this.rows.filter(c => !c.today_entry);
-    $("rgAll").checked = free.length > 0 && free.every(c => this.sel.has(c.id));
+    $("rgDelSel").textContent = t("rg_del_selected", { n: this.sel.size }); $("rgDelSel").disabled = !this.sel.size;
+    $("rgAll").checked = this.rows.length > 0 && this.rows.every(c => this.sel.has(c.id));
   },
   toggle(id, on) { const c = this.rows.find(x => x.id === id); if (on && c) this.sel.set(id, c); else this.sel.delete(id); this.render(); },
-  selectAll(on) { for (const c of this.rows) if (!c.today_entry) { if (on) this.sel.set(c.id, c); else this.sel.delete(c.id); } this.render(); },
+  selectAll(on) { for (const c of this.rows) { if (on) this.sel.set(c.id, c); else this.sel.delete(c.id); } this.render(); },
   async addToday(ids) {
     try {
       const r = await api("POST", "/api/candidates/today", { ids });
@@ -3113,7 +3134,7 @@ const Register = {
         <button class="btn sm" style="flex:0 0 auto" onclick="Register.face(${c.id})">${t("rg_take_face")}</button>
         <button class="btn ghost sm" style="flex:0 0 auto" onclick="EditDlg.openPerson(${c.id})">${t("edit")}</button>
         <span class="spacer"></span>
-        <button class="btn ghost sm danger" style="flex:0 0 auto" onclick="confirmClick('rgdel${c.id}', this, () => Register.remove(${c.id}), 'sure_delete_person')">${t("rg_delete")}</button>
+        <button class="btn ghost sm danger" style="flex:0 0 auto" onclick="DelDlg.open([Register.rows.find(x => x.id === ${c.id}) || { ...c, days_tested: c.days.filter(d => d.status !== 'expected').length, today_entry: c.days.some(d => d.today) }])">${t("rg_delete")}</button>
       </div>
       <h3 class="sec" style="margin-top:0">${t("rg_days")}</h3>
       ${days ? `<div class="scroll"><table><thead><tr><th>${t("rg_date")}</th><th>${t("status")}</th><th>BMI</th><th>${t("run")}</th><th>${t("pushup")}</th><th>${t("crunch")}</th><th>${t("rg_verdict")}</th></tr></thead><tbody>${days}</tbody></table></div>`
@@ -3121,17 +3142,46 @@ const Register = {
     msg("pdMsg");
     if (!$("personDlg").open) $("personDlg").showModal();
   },
-  async remove(id, withResults) {
-    const c = this.rows.find(x => x.id === id) || { name: "", name_ar: null };
-    try {
-      await api("DELETE", `/api/candidates/${id}${withResults ? "?delete_results=true" : ""}`);
-      if ($("personDlg").open) $("personDlg").close();
-      this.sel.delete(id); msg("rgMsg", "ok", t("rg_deleted", { name: cname(c) })); refresh(); this.load();
-    } catch (e) {
-      if (e.code === "admin_pin_required") PinDlg.open(() => this.remove(id, withResults));
-      else if (e.code === "has_results") msg("pdMsg", "warn", t("rg_has_results") + ` <button class="btn sm danger" onclick="confirmClick('rgdelr${id}', this, () => Register.remove(${id}, true), 'sure_delete')">${t("rg_delete_all")}</button>`, true);
-      else msg("pdMsg", "bad", err(e));
+};
+
+/* ============================== delete people ============================== */
+// One confirmation that says exactly what goes: the person, their face photos and, only when
+// ticked, their test results. Erasing personal data cannot be undone (the audit log keeps a
+// copy of the results). The admin PIN is asked by the server when one is set.
+const DelDlg = {
+  people: [], busy: false,
+  open(people) {
+    this.people = people.filter(Boolean); if (!this.people.length) return;
+    const n = this.people.length, withResults = this.people.filter(c => c.days_tested > 0), today = this.people.filter(c => c.today_entry);
+    const one = n === 1 ? this.people[0] : null;
+    $("ddBody").innerHTML = one
+      ? `${personWho(one)}<p>${t("dd_one", { faces: one.faces || 0 })}</p>`
+      : `<p>${t("dd_many", { n })}</p><p class="hint">${this.people.slice(0, 8).map(c => esc(cname(c))).join(", ")}${n > 8 ? " …" : ""}</p>`;
+    if (today.length) $("ddBody").insertAdjacentHTML("beforeend", `<p class="hint">${t("dd_today", { n: today.length })}</p>`);
+    $("ddResultsRow").classList.toggle("hidden", !withResults.length);
+    $("ddResults").checked = false;
+    $("ddResultsText").innerHTML = one ? t("dd_results_one", { d: one.days_tested }) : t("dd_results_many", { n: withResults.length });
+    msg("ddMsg"); this.check(); $("delDlg").showModal();
+  },
+  check() { $("ddGo").disabled = this.busy || (!$("ddResultsRow").classList.contains("hidden") && !$("ddResults").checked); },
+  close() { if ($("delDlg").open) $("delDlg").close(); },
+  async go() {
+    if (this.busy) return;
+    this.busy = true; this.check();
+    const withResults = $("ddResults").checked, failed = [];
+    let done = 0;
+    for (const c of this.people) {
+      try { await api("DELETE", `/api/candidates/${c.id}${withResults ? "?delete_results=true" : ""}`); done++; Register.sel.delete(c.id); }
+      catch (e) {
+        if (e.code === "admin_pin_required") { this.busy = false; this.check(); PinDlg.open(() => { $("delDlg").showModal(); this.go(); }); return; }
+        failed.push({ c, why: err(e) });
+      }
     }
+    this.busy = false;
+    if ($("personDlg").open) $("personDlg").close();
+    refresh(); Register.load();
+    if (failed.length) { msg("ddMsg", "bad", failed.map(f => `${cname(f.c)}: ${f.why}`).join(" · ")); this.people = failed.map(f => f.c); this.check(); }
+    else { this.close(); msg("rgMsg", "ok", t("dd_done", { n: done })); }
   },
 };
 
