@@ -1964,11 +1964,13 @@ async function capturePose(view, entryId, step) {
 // All three poses. onStep(k) after each saved pose. Returns { ok, faces } (ok false if stopped).
 async function guidedEnrol(view, entryId, onStep) {
   let faces = 0;
+  Sound.unlock();   // started by a tap: the browser lets the page play the capture sounds
   for (let i = 0; i < POSES.length; i++) {
     if (onStep) onStep(i, false);
     const r = await capturePose(view, entryId, i);
     if (!r) return { ok: false };
     faces = r.faces;
+    if (i < POSES.length - 1) Sound.shutter(); else { Sound.shutter(); setTimeout(() => Sound.done(), 250); }   // heard, not only seen
     drawGuide(view, Math.min(i + 1, POSES.length - 1), i + 1, "hold", t("pose_saved", { k: i + 1, n: POSES.length }));
     if (onStep) onStep(i, true);
     await new Promise(r => setTimeout(r, 500));
@@ -1983,7 +1985,7 @@ async function enrollFromCamera() {
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   try {
     if (Cam.kind !== "webcam") {
-      const f = await Cam.frame(); const r = await apiImage(`/api/entries/${e.id}/face`, f.blob);
+      const f = await Cam.frame(); const r = await apiImage(`/api/entries/${e.id}/face`, f.blob); Sound.shutter();
       msg("wMsg", "ok", t("enrolled", { n: r.faces })); $("wEnroll").classList.add("hidden"); refresh(); return { ok: true, faces: r.faces };
     }
     tag.textContent = "";
@@ -2123,6 +2125,23 @@ const Sound = {
   },
   stop() { this.nodes.forEach(o => { try { o.stop(); } catch {} }); this.nodes = []; this.planned = null; },
   chime() { if (!this.ctx) return; const t0 = this.ctx.currentTime; this.tone(t0, 1046, 0.1, 0.18); this.tone(t0 + 0.1, 1318, 0.16, 0.18); },
+  // A face photo saved: a camera shutter (a short filtered noise burst) with a bright blip on top.
+  shutter() {
+    this.unlock(); const c = this.ctx; if (!c) return;
+    const t0 = c.currentTime, len = Math.round(c.sampleRate * 0.07), buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+    const src = c.createBufferSource(), bp = c.createBiquadFilter(), g = c.createGain();
+    src.buffer = buf; bp.type = "bandpass"; bp.frequency.value = 2600; bp.Q.value = 0.8; g.gain.value = 0.55;
+    src.connect(bp).connect(g).connect(c.destination); src.start(t0);
+    this.tone(t0 + 0.03, 1760, 0.07, 0.12);
+  },
+  // All face photos saved: a short rising chord.
+  done() {
+    this.unlock(); if (!this.ctx) return;
+    const t0 = this.ctx.currentTime + 0.05;
+    [1046, 1318, 1568].forEach((f, i) => this.tone(t0 + i * 0.09, f, 0.14, 0.16));
+    this.tone(t0 + 0.27, 2093, 0.32, 0.12);
+  },
 };
 const bibNum = e => { const n = parseInt(e.candidate.bib, 10); return Number.isFinite(n) ? n : 1e9; };
 const waves = () => (S.state && S.state.waves) || [];
@@ -3344,7 +3363,7 @@ const RegDlg = {
   },
   async upload(input) {
     const f = input.files[0]; input.value = ""; if (!f) return;
-    try { const r = await apiImage(`/api/candidates/${this.person.id}/face`, f); this.photo(r.faces); this.finish(); }
+    try { const r = await apiImage(`/api/candidates/${this.person.id}/face`, f); Sound.shutter(); this.photo(r.faces); this.finish(); }
     catch (e) { this.clash(e); }
   },
   async finish() {
