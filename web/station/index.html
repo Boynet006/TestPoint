@@ -996,6 +996,9 @@
         <label for="setMotion" data-t="set_motion"></label>
         <select id="setMotion" onchange="motionHere(this.value)"><option value="on" data-t="on"></option><option value="off" data-t="off"></option></select>
         <span class="hint" data-t="set_motion_hint"></span>
+        <label for="setDots" data-t="set_dots"></label>
+        <div class="pair"><input id="setDots" type="range" min="10" max="200" step="5" oninput="dotsHere(this.value)"><span id="setDotsN" class="kv" style="min-width:34px"></span><button class="btn ghost sm" type="button" onclick="dotsHere('')" data-t="dots_auto"></button></div>
+        <span class="hint" data-t="set_dots_hint"></span>
       </div>
     </div>
     <div class="card setpanel" data-p="sounds" data-scope="device">
@@ -1223,6 +1226,7 @@ const I18N = {
     rg_date: "Date", rg_verdict: "Result", rg_delete: "Delete person",
     rg_deleted: "{name} deleted.",
     nav_station: "Station · every device", nav_device: "This screen", nav_admin: "Security",
+    set_dots: "Dots in the moving background", set_dots_hint: "Neural Aurora, Mirage and Desert Stars. Fewer dots are calmer and lighter on the PC.", dots_auto: "Auto",
     sec_look: "Appearance", sec_screen: "Theme and motion", sec_sounds_nav: "Sounds", ph_search_settings: "Search settings",
     set_no_match: "No setting matches.", screen_hint: "Only this device: each screen can look and move its own way.",
     unsaved: "Unsaved changes", unsaved_hint: "Station settings apply to every device once saved.", discard: "Discard",
@@ -1472,6 +1476,7 @@ const I18N = {
     rg_date: "التاريخ", rg_verdict: "النتيجة", rg_delete: "حذف الشخص",
     rg_deleted: "حُذف {name}.",
     nav_station: "المحطة · كل الأجهزة", nav_device: "هذه الشاشة", nav_admin: "الأمان",
+    set_dots: "عدد النقاط في الخلفية المتحركة", set_dots_hint: "الشفق الذكي والسراب ونجوم الصحراء. نقاط أقل أهدأ وأخف على الجهاز.", dots_auto: "تلقائي",
     sec_look: "المظهر", sec_screen: "المظهر والحركة", sec_sounds_nav: "الأصوات", ph_search_settings: "ابحث في الإعدادات",
     set_no_match: "لا يوجد إعداد مطابق.", screen_hint: "لهذا الجهاز فقط: لكل شاشة مظهرها وحركتها.",
     unsaved: "تغييرات غير محفوظة", unsaved_hint: "إعدادات المحطة تُطبّق على كل الأجهزة بعد الحفظ.", discard: "تجاهل",
@@ -3670,11 +3675,17 @@ function themeCards() {
     + Object.keys(THEMES).map(k => `<option value="${k}">${t("th_" + k)}</option>`).join("");
   $("setThemeHere").value = THEMES[here] ? here : "";
   $("setMotion").value = load("motion", "on") === "off" ? "off" : "on";
+  dotsHere(load("fx_dots", ""));
   soundRows();
 }
 function pickTheme(k) { $("setTheme").value = k; themeCards(); applyTheme(k); SetNav.check(); }
 function themeHere(k) { save("theme", k); applyTheme($("setTheme").value); }
 function motionHere(v) { save("motion", v); NeuralFx.sync(); }
+function dotsHere(v) {   // "" = automatic (by window size)
+  save("fx_dots", v); const n = NeuralFx.count();
+  $("setDots").value = n; $("setDotsN").textContent = v === "" || v == null ? `${n} · ${t("dots_auto")}` : n;
+  if (NeuralFx.pal && NeuralFx.nodes.length) NeuralFx.resize();
+}
 
 // ---- the animated themes' network: drifting nodes, links between neighbours, signals running along them
 // Each signal takes one of its theme's colours: the flag's red, green, white and black in the desert themes
@@ -3704,10 +3715,18 @@ const NeuralFx = {
     const cv = $("fxNet"); this.w = innerWidth; this.h = innerHeight;
     this.k = Math.min(devicePixelRatio || 1, 1.5);
     cv.width = Math.round(this.w * this.k); cv.height = Math.round(this.h * this.k);
-    const n = Math.max(36, Math.min(90, Math.round(this.w * this.h / 15000)));
-    const r = Math.random;
-    this.nodes = Array.from({ length: n }, () => ({ x: r() * this.w, y: r() * this.h, vx: (r() - .5) * 16, vy: (r() - .5) * 16, s: 1 + r() * 1.4 }));
-    this.pulses = [];
+    this.nodes = []; this.pulses = []; this.resize();
+  },
+  // How many dots: this screen's choice (Settings > Theme and motion), else as many as suit the window.
+  count() {
+    const v = parseInt(load("fx_dots", ""), 10);
+    return Number.isFinite(v) ? Math.max(10, Math.min(200, v)) : Math.max(36, Math.min(90, Math.round(innerWidth * innerHeight / 15000)));
+  },
+  resize() {   // add or take away dots without restarting the picture
+    const n = this.count(), r = Math.random;
+    while (this.nodes.length < n) this.nodes.push({ x: r() * this.w, y: r() * this.h, vx: (r() - .5) * 16, vy: (r() - .5) * 16, s: 1 + r() * 1.4 });
+    if (this.nodes.length > n) { const gone = new Set(this.nodes.slice(n)); this.nodes.length = n; this.pulses = this.pulses.filter(q => !gone.has(q.a) && !gone.has(q.b)); }
+    if (!this.raf) this.draw();
   },
   frame(now) {
     this.raf = requestAnimationFrame(t => this.frame(t));   // the browser pauses this in a hidden tab
