@@ -226,6 +226,8 @@
   .camlive.fxon canvas.fx { display: block; } .camlive.fxon img { opacity: 0; }
   .loopbox { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; cursor: pointer; font-family: var(--cond); letter-spacing: .5px; color: var(--muted); }
   .loopbox input { width: 18px; height: 18px; accent-color: var(--amber); }
+  .troublebar { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--amber) 22%, transparent) 0 14px, transparent 14px 28px);
+    border: 1px solid var(--amber); color: var(--warn-text); padding: 8px 14px; margin-bottom: 12px; font-family: var(--cond); letter-spacing: 1px; text-transform: uppercase; }
   .themepick { grid-column: 2 / 4; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
   .themecard { all: unset; cursor: pointer; border: 2px solid var(--line); background: var(--bg2); display: flex; flex-direction: column; }
   .themecard:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
@@ -865,6 +867,7 @@
     </div>
     <div id="stLanes">
     <div id="xIdle" class="msg hidden" style="margin-bottom:12px"></div>
+    <div class="troublebar hidden" id="xTrouble" role="status"></div>
     <div class="lanes" id="lanes"></div>
     </div>
     </div>
@@ -924,17 +927,20 @@
     <span class="spacer"></span><button class="btn amber" style="flex:0 0 auto" onclick="SetNav.done(this)" data-t="settings_done"></button></div>
   <div id="t-settings" class="setlayout">
     <nav class="setnav" id="setNav" aria-label="Settings">
-      <div class="grp" data-t="nav_station"></div>
-      <button type="button" data-p="rules" onclick="SetNav.show('rules')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4h6v3H9z"/><path d="M8 5H5v16h14V5h-3"/><path d="m9 14 2 2 4-4"/></svg><span data-t="sec_rules"></span><i class="dot"></i></button>
-      <button type="button" data-p="checkin" onclick="SetNav.show('checkin')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg><span data-t="sec_checkin"></span><i class="dot"></i></button>
-      <button type="button" data-p="camera" onclick="SetNav.show('camera')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span data-t="sec_camera"></span><i class="dot"></i></button>
+      <div class="grp" data-t="nav_day"></div>
       <button type="button" data-p="register" onclick="SetNav.show('register')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="8" r="4"/><path d="M3 21c0-4 3-6 7-6 1.6 0 3 .3 4.2.9"/><path d="M19 14v6M16 17h6"/></svg><span data-t="sec_register"></span><i class="dot"></i></button>
+      <button type="button" data-p="checkin" onclick="SetNav.show('checkin')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg><span data-t="sec_checkin"></span><i class="dot"></i></button>
       <button type="button" data-p="run" onclick="SetNav.show('run')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/></svg><span data-t="sec_run"></span><i class="dot"></i></button>
       <button type="button" data-p="station" onclick="SetNav.show('station')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8v8M18 8v8M3 10v4M21 10v4M6 12h12"/></svg><span data-t="sec_station"></span><i class="dot"></i></button>
+      <div class="grp" data-t="nav_rules"></div>
+      <button type="button" data-p="rules" onclick="SetNav.show('rules')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4h6v3H9z"/><path d="M8 5H5v16h14V5h-3"/><path d="m9 14 2 2 4-4"/></svg><span data-t="sec_rules"></span><i class="dot"></i></button>
+      <div class="grp" data-t="nav_equipment"></div>
+      <button type="button" data-p="camera" onclick="SetNav.show('camera')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span data-t="sec_camera"></span><i class="dot"></i></button>
       <button type="button" data-p="look" onclick="SetNav.show('look')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="8" cy="10" r="1.3"/><circle cx="12" cy="7.5" r="1.3"/><circle cx="16" cy="10" r="1.3"/><path d="M12 21c-1.5 0-2-1-1.5-2.2.6-1.4 2-1.8 3.5-1.8H17"/></svg><span data-t="sec_look"></span><i class="dot"></i></button>
       <div class="grp" data-t="nav_device"></div>
       <button type="button" data-p="screen" onclick="SetNav.show('screen')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="1"/><path d="M8 20h8M12 16v4"/></svg><span data-t="sec_screen"></span><i class="dot"></i></button>
       <button type="button" data-p="sounds" onclick="SetNav.show('sounds')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg><span data-t="sec_sounds_nav"></span><i class="dot"></i></button>
+      <button type="button" data-p="trouble" onclick="SetNav.show('trouble')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/></svg><span data-t="sec_trouble"></span><i class="dot"></i></button>
       <div class="grp" data-t="nav_admin"></div>
       <button type="button" data-p="security" onclick="SetNav.show('security')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="1"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span data-t="sec_security"></span><i class="dot"></i></button>
       <button type="button" class="resetall" onclick="SetNav.resetAll(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg><span data-t="reset_all"></span></button>
@@ -942,6 +948,63 @@
     <div class="setpanels">
     <div id="setMsg"></div>
     <p class="hint hidden" id="setNoMatch" data-t="set_no_match"></p>
+    <div class="card setpanel" data-p="register" data-scope="station">
+      <h2 data-t="sec_register"></h2>
+      <p class="hint" data-t="settings_hint"></p>
+<div class="settings">
+        <label for="setWalk" data-t="set_walk"></label>
+        <select id="setWalk"><option value="1" data-t="on"></option><option value="0" data-t="off"></option></select>
+        <span class="hint" data-t="set_walk_hint"></span>
+        <label for="setGender" data-t="set_gender"></label>
+        <select id="setGender"><option value="M" data-t="male"></option><option value="F" data-t="female"></option><option value="" data-t="none"></option></select>
+        <span class="hint" data-t="set_gender_hint"></span>
+        <label for="setUnit" data-t="set_unit"></label>
+        <select id="setUnit"><option value="combat" data-t="unit_combat"></option><option value="admin" data-t="unit_admin"></option><option value="special" data-t="unit_special"></option></select>
+        <span class="hint" data-t="set_unit_hint"></span>
+        <label for="setBib" data-t="set_bib"></label>
+        <input id="setBib" type="number" min="1" max="99999" step="1">
+        <span class="hint" data-t="set_bib_hint"></span>
+      </div>
+    </div>
+    <div class="card setpanel" data-p="checkin" data-scope="station">
+      <h2 data-t="sec_checkin"></h2>
+      <p class="hint" data-t="settings_hint"></p>
+<div class="settings">
+        <label for="setAuto" data-t="set_auto"></label>
+        <select id="setAuto"><option value="1" data-t="on"></option><option value="0" data-t="off"></option></select>
+        <span class="hint" data-t="set_auto_hint"></span>
+        <label for="setMatch" data-t="set_match"></label>
+        <select id="setMatch"><option value="normal" data-t="match_normal"></option><option value="strict" data-t="match_strict"></option></select>
+        <span class="hint" data-t="set_match_hint"></span>
+        <label for="setFaceReq" data-t="set_face_req"></label>
+        <select id="setFaceReq"><option value="0" data-t="off"></option><option value="1" data-t="on"></option></select>
+        <span class="hint" data-t="set_face_req_hint"></span>
+      </div>
+    </div>
+    <div class="card setpanel" data-p="run" data-scope="station">
+      <h2 data-t="sec_run"></h2>
+      <p class="hint" data-t="settings_hint"></p>
+<div class="settings">
+        <label for="setWave" data-t="set_wave"></label>
+        <input id="setWave" type="number" min="1" max="200" step="1">
+        <span class="hint" data-t="set_wave_hint"></span>
+        <label for="setCountdown" data-t="set_countdown"></label>
+        <select id="setCountdown"><option value="0">0 s</option><option value="5">5 s</option><option value="10">10 s</option><option value="15">15 s</option></select>
+        <span class="hint" data-t="set_countdown_hint"></span>
+        <label for="setCancelWin" data-t="set_cancel_win"></label>
+        <select id="setCancelWin"><option value="120" data-t="min_2"></option><option value="300" data-t="min_5"></option><option value="600" data-t="min_10"></option><option value="1800" data-t="min_30"></option><option value="0" data-t="until_first_finisher"></option></select>
+        <span class="hint" data-t="set_cancel_win_hint"></span>
+      </div>
+    </div>
+    <div class="card setpanel" data-p="station" data-scope="station">
+      <h2 data-t="sec_station"></h2>
+      <p class="hint" data-t="settings_hint"></p>
+<div class="settings">
+        <label for="setLanes" data-t="set_lanes"></label>
+        <select id="setLanes"><option>1</option><option>2</option><option>3</option><option>4</option></select>
+        <span class="hint" data-t="set_lanes_hint"></span>
+      </div>
+    </div>
     <div class="card setpanel" data-p="rules" data-scope="rules">
       <h2 data-t="sec_rules"></h2>
       <p class="hint" id="ruleState"></p>
@@ -976,21 +1039,6 @@
       <div class="row" style="margin-top:14px"><button class="btn amber" style="flex:0 0 auto" onclick="saveRules()" data-t="save_rules"></button><span class="hint" data-t="rules_save_hint"></span></div>
       <div id="ruMsg"></div>
     </div>
-    <div class="card setpanel" data-p="checkin" data-scope="station">
-      <h2 data-t="sec_checkin"></h2>
-      <p class="hint" data-t="settings_hint"></p>
-<div class="settings">
-        <label for="setAuto" data-t="set_auto"></label>
-        <select id="setAuto"><option value="1" data-t="on"></option><option value="0" data-t="off"></option></select>
-        <span class="hint" data-t="set_auto_hint"></span>
-        <label for="setMatch" data-t="set_match"></label>
-        <select id="setMatch"><option value="normal" data-t="match_normal"></option><option value="strict" data-t="match_strict"></option></select>
-        <span class="hint" data-t="set_match_hint"></span>
-        <label for="setFaceReq" data-t="set_face_req"></label>
-        <select id="setFaceReq"><option value="0" data-t="off"></option><option value="1" data-t="on"></option></select>
-        <span class="hint" data-t="set_face_req_hint"></span>
-      </div>
-    </div>
     <div class="card setpanel" data-p="camera" data-scope="station">
       <h2 data-t="sec_camera"></h2>
       <p class="hint" data-t="settings_hint"></p>
@@ -1019,48 +1067,6 @@
       </div>
       <p class="msg warn hidden" id="bgPlacesWarn" data-t="cam_screen_warn"></p>
       <ul class="never"><li data-t="cam_n_files"></li><li data-t="cam_n_evidence"></li></ul>
-    </div>
-    <div class="card setpanel" data-p="register" data-scope="station">
-      <h2 data-t="sec_register"></h2>
-      <p class="hint" data-t="settings_hint"></p>
-<div class="settings">
-        <label for="setWalk" data-t="set_walk"></label>
-        <select id="setWalk"><option value="1" data-t="on"></option><option value="0" data-t="off"></option></select>
-        <span class="hint" data-t="set_walk_hint"></span>
-        <label for="setGender" data-t="set_gender"></label>
-        <select id="setGender"><option value="M" data-t="male"></option><option value="F" data-t="female"></option><option value="" data-t="none"></option></select>
-        <span class="hint" data-t="set_gender_hint"></span>
-        <label for="setUnit" data-t="set_unit"></label>
-        <select id="setUnit"><option value="combat" data-t="unit_combat"></option><option value="admin" data-t="unit_admin"></option><option value="special" data-t="unit_special"></option></select>
-        <span class="hint" data-t="set_unit_hint"></span>
-        <label for="setBib" data-t="set_bib"></label>
-        <input id="setBib" type="number" min="1" max="99999" step="1">
-        <span class="hint" data-t="set_bib_hint"></span>
-      </div>
-    </div>
-    <div class="card setpanel" data-p="run" data-scope="station">
-      <h2 data-t="sec_run"></h2>
-      <p class="hint" data-t="settings_hint"></p>
-<div class="settings">
-        <label for="setWave" data-t="set_wave"></label>
-        <input id="setWave" type="number" min="1" max="200" step="1">
-        <span class="hint" data-t="set_wave_hint"></span>
-        <label for="setCountdown" data-t="set_countdown"></label>
-        <select id="setCountdown"><option value="0">0 s</option><option value="5">5 s</option><option value="10">10 s</option><option value="15">15 s</option></select>
-        <span class="hint" data-t="set_countdown_hint"></span>
-        <label for="setCancelWin" data-t="set_cancel_win"></label>
-        <select id="setCancelWin"><option value="120" data-t="min_2"></option><option value="300" data-t="min_5"></option><option value="600" data-t="min_10"></option><option value="1800" data-t="min_30"></option><option value="0" data-t="until_first_finisher"></option></select>
-        <span class="hint" data-t="set_cancel_win_hint"></span>
-      </div>
-    </div>
-    <div class="card setpanel" data-p="station" data-scope="station">
-      <h2 data-t="sec_station"></h2>
-      <p class="hint" data-t="settings_hint"></p>
-<div class="settings">
-        <label for="setLanes" data-t="set_lanes"></label>
-        <select id="setLanes"><option>1</option><option>2</option><option>3</option><option>4</option></select>
-        <span class="hint" data-t="set_lanes_hint"></span>
-      </div>
     </div>
     <div class="card setpanel" data-p="look" data-scope="station">
       <h2 data-t="sec_look"></h2>
@@ -1109,6 +1115,15 @@
         <label for="setSndVol" data-t="snd_volume"></label>
         <div class="pair"><input id="setSndVol" type="range" min="0" max="100" step="5" oninput="soundVolume(this.value)" onchange="Sound.play('capture')"><span id="setSndVolN" class="kv" style="min-width:42px"></span></div>
         <span class="hint" data-t="snd_volume_hint"></span>
+      </div>
+    </div>
+    <div class="card setpanel" data-p="trouble" data-scope="device">
+      <h2 data-t="sec_trouble"></h2>
+      <p class="hint" data-t="trouble_hint"></p>
+      <div class="settings">
+        <label for="setTroubleTime" data-t="set_trouble_time"></label>
+        <select id="setTroubleTime" onchange="troubleTime(this.value)"><option value="" data-t="tt_official"></option><option value="300" data-t="tt_5"></option><option value="600" data-t="tt_10"></option><option value="1800" data-t="tt_30"></option><option value="0" data-t="tt_none"></option></select>
+        <span class="hint" data-t="set_trouble_time_hint"></span>
       </div>
     </div>
     <div class="card setpanel" data-p="security" data-scope="pin">
@@ -1327,7 +1342,11 @@ const I18N = {
     reset_section: "Reset to defaults", reset_all: "Reset all station settings", sure_reset_all: "Fill in every default? Press again",
     reset_staged: "Defaults filled in. Press Save settings to apply them, or Discard.", reset_all_staged: "Every station default is filled in. Press Save settings (and Save rules) to apply, or Discard.",
     reset_rules_staged: "The official rules are filled in. Press Save rules to use them (a new version).", reset_done_screen: "This screen is back to its defaults.",
-    nav_station: "Station · every device", nav_device: "This screen", nav_admin: "Security",
+    nav_station: "Station · every device", nav_day: "Test day · every device", nav_rules: "Rules", nav_equipment: "Station equipment",
+    sec_trouble: "Troubleshooting", trouble_hint: "Only this device, to test the cameras and the counting. The official rules are not changed.",
+    set_trouble_time: "Push-up and crunch time", set_trouble_time_hint: "Longer than the rule's limit while testing. A banner on the station screen shows it is on.",
+    tt_official: "As the rules say", tt_5: "5 minutes", tt_10: "10 minutes", tt_30: "30 minutes", tt_none: "No limit",
+    tt_banner: "Troubleshooting time limit: {t}. Not an official test.", nav_device: "This screen", nav_admin: "Security",
     set_dots: "Dots in the moving background", set_dots_hint: "Neural Aurora, Mirage and Desert Stars. Fewer dots are calmer and lighter on the PC.", dots_auto: "Auto",
     sec_look: "Appearance", sec_screen: "Theme and motion", sec_sounds_nav: "Sounds", ph_search_settings: "Search settings",
     set_no_match: "No setting matches.", screen_hint: "Only this device: each screen can look and move its own way.",
@@ -1590,7 +1609,11 @@ const I18N = {
     reset_section: "استعادة الافتراضي", reset_all: "استعادة كل إعدادات المحطة", sure_reset_all: "تعبئة كل القيم الافتراضية؟ اضغط مرة أخرى",
     reset_staged: "عُبئت القيم الافتراضية. اضغط حفظ الإعدادات لتطبيقها، أو تجاهل.", reset_all_staged: "عُبئت كل القيم الافتراضية للمحطة. اضغط حفظ الإعدادات (وحفظ القواعد) للتطبيق، أو تجاهل.",
     reset_rules_staged: "عُبئت القواعد الرسمية. اضغط حفظ القواعد لاستخدامها (إصدار جديد).", reset_done_screen: "عادت هذه الشاشة إلى إعداداتها الافتراضية.",
-    nav_station: "المحطة · كل الأجهزة", nav_device: "هذه الشاشة", nav_admin: "الأمان",
+    nav_station: "المحطة · كل الأجهزة", nav_day: "يوم الاختبار · كل الأجهزة", nav_rules: "القواعد", nav_equipment: "معدات المحطة",
+    sec_trouble: "استكشاف الأخطاء", trouble_hint: "لهذا الجهاز فقط، لتجربة الكاميرات والعد. القواعد الرسمية لا تتغير.",
+    set_trouble_time: "زمن الضغط والبطن", set_trouble_time_hint: "أطول من حد القواعد أثناء التجربة. يظهر شريط على شاشة المحطة عند تفعيله.",
+    tt_official: "حسب القواعد", tt_5: "5 دقائق", tt_10: "10 دقائق", tt_30: "30 دقيقة", tt_none: "بلا حد",
+    tt_banner: "حد زمني للتجربة: {t}. ليس اختباراً رسمياً.", nav_device: "هذه الشاشة", nav_admin: "الأمان",
     set_dots: "عدد النقاط في الخلفية المتحركة", set_dots_hint: "الشفق الذكي والسراب ونجوم الصحراء. نقاط أقل أهدأ وأخف على الجهاز.", dots_auto: "تلقائي",
     sec_look: "المظهر", sec_screen: "المظهر والحركة", sec_sounds_nav: "الأصوات", ph_search_settings: "ابحث في الإعدادات",
     set_no_match: "لا يوجد إعداد مطابق.", screen_hint: "لهذا الجهاز فقط: لكل شاشة مظهرها وحركتها.",
@@ -3094,7 +3117,16 @@ function tickClocks() {
 }
 
 /* ============================== exercise station ============================== */
-const limit = () => (S.rules ? S.rules.exercise_time_s : 120);
+// The exercise time: the official rule, unless this screen has a troubleshooting limit (Settings > This
+// screen > Troubleshooting): longer, or none, to test the camera and the counting. Never changes the rules.
+const troubleLimit = () => { const v = load("tt_limit", ""); return v === "" ? null : parseInt(v, 10); };
+const limit = () => { const tl = troubleLimit(); return tl === 0 ? 24 * 3600 : tl > 0 ? tl : (S.rules ? S.rules.exercise_time_s : 120); };
+function troubleTime(v) { save("tt_limit", v); renderTrouble(); if (role === "station") render(); }
+function renderTrouble() {
+  const tl = troubleLimit(), b = $("xTrouble");
+  if (b) { b.classList.toggle("hidden", tl === null); b.textContent = tl === null ? "" : t("tt_banner", { t: tl === 0 ? t("tt_none") : mmss(tl).replace(/^0/, "") }); }
+  if ($("setTroubleTime")) $("setTroubleTime").value = tl === null ? "" : String(tl);
+}
 const newLane = n => ({ n, state: "empty", entry: null, reason: null, attempt: null, count: 0, rejected: 0, t0: 0, left: 0, result: null, error: null, auto: null, fix: 0, fixRej: 0, live: null, why: "", needWhy: false });
 const lanes = [1, 2, 3].map(newLane);
 function setLaneCount(n) {
@@ -3311,7 +3343,8 @@ function renderLane(l) {
 function renderStation() {
   StationCam.poll(); StartAll.render();
   for (const x of ["pushup", "crunch"]) $("ev-" + x).classList.toggle("active", x === event);
-  if (S.rules) $("xLimit").textContent = mmss(S.rules.exercise_time_s).replace(/^0/, "");
+  if (S.rules) $("xLimit").textContent = troubleLimit() === 0 ? "∞" : mmss(limit()).replace(/^0/, "");
+  renderTrouble();
   const waitHere = S.entries.filter(e => RAN.includes(e.status) && !(e.events[event] && e.events[event].status === "finished")).length;
   $("xWaiting").textContent = waitHere;
   stationIdle(waitHere);
@@ -3928,7 +3961,7 @@ function themeCards() {
     + Object.keys(THEMES).map(k => `<option value="${k}">${t("th_" + k)}</option>`).join("");
   $("setThemeHere").value = THEMES[here] ? here : "";
   $("setMotion").value = load("motion", "on") === "off" ? "off" : "on";
-  dotsHere(load("fx_dots", ""));
+  dotsHere(load("fx_dots", "")); renderTrouble();
   soundRows();
 }
 function pickTheme(k) { $("setTheme").value = k; themeCards(); applyTheme(k); SetNav.check(); }
@@ -4232,6 +4265,7 @@ const SetNav = {
   resetScreen(key) {
     if (key === "screen") { themeHere(""); motionHere("on"); dotsHere(""); }
     if (key === "sounds") { for (const ev of Object.keys(SOUND_DEFAULT)) save("snd_" + ev, SOUND_DEFAULT[ev]); soundVolume(80); }
+    if (key === "trouble") troubleTime("");
     themeCards(); soundRows();
   },
   async resetAll(btn) {
