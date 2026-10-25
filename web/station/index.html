@@ -393,8 +393,19 @@
   .numpad .npdisp { display: flex; justify-content: space-between; align-items: baseline; background: var(--bg2); border: 1px solid var(--line); padding: 8px 12px; margin-bottom: 6px; }
   .numpad .npdisp span { font-family: var(--cond); font-size: 34px; font-weight: 700; } .numpad .npdisp span.ph { color: var(--dim); font-size: 22px; }
   .numpad .npdisp small { color: var(--muted); }
-  .npkeys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-  .npkeys .btn { font-size: 26px; padding: 14px 0; }
+  .npkeys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+  .npkeys .btn { font-size: 20px; padding: 8px 0; background: var(--bg2); border-color: var(--line); }
+  .npkeys .btn:hover { border-color: var(--amber); }
+  .tagbox { grid-template-columns: 1fr 210px; }
+  .numpad .npdisp { padding: 4px 10px; } .numpad .npdisp span { font-size: 26px; } .numpad .npdisp span.ph { font-size: 17px; }
+  .handtime { margin-top: 12px; border: 1px solid var(--line); background: color-mix(in srgb, var(--bg2) 60%, transparent); padding: 0 12px; }
+  .handtime[open] { padding-bottom: 12px; }
+  .handtime summary { cursor: pointer; list-style: none; display: flex; gap: 12px; align-items: baseline; padding: 10px 0; font-family: var(--cond); letter-spacing: 1px; text-transform: uppercase; }
+  .handtime summary::-webkit-details-marker { display: none; }
+  .handtime summary::before { content: "▸"; color: var(--amber); } .handtime[open] summary::before { content: "▾"; }
+  .handtime summary small { color: var(--muted); text-transform: none; letter-spacing: 0; font-family: var(--sans); }
+  .fclogbox { margin: 8px 0 12px; } .fclogbox summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+  .fclogbox .fclog { max-height: 160px; overflow: auto; white-space: pre-wrap; word-break: break-all; }
   .fwave { display: flex; align-items: baseline; gap: 14px; margin-top: 10px; }
   .fwave .fwclock { font-family: var(--cond); font-size: 44px; font-weight: 700; }
   tr.newest td { background: color-mix(in srgb, var(--go) 8%, transparent); } tr.dim td { opacity: .6; }
@@ -696,6 +707,8 @@
       <div id="fIdle" class="msg warn" style="margin-top:10px"></div>
       <div id="fWaveClocks"></div>
       <div id="fLive" class="hidden">
+        <details class="handtime" id="fHand" ontoggle="FinishCam.handTouched = true">
+        <summary><span data-t="hand_title"></span><small data-t="hand_hint"></small></summary>
         <button class="btn go tapbtn" id="fTap" onclick="tapCrossing()"><span data-t="crossing"></span><small data-t="crossing_key"></small></button>
         <div class="row" style="margin-top:6px"><button class="btn ghost sm" id="fUndoTap" style="flex:0 0 auto" onclick="undoTap()" disabled data-t="undo_tap"></button><span class="spacer"></span><span class="hint" data-t="tap_hint"></span></div>
         <div class="tagbox">
@@ -705,6 +718,7 @@
             <div class="npkeys"><button class="btn" onclick="npKey('1')">1</button><button class="btn" onclick="npKey('2')">2</button><button class="btn" onclick="npKey('3')">3</button><button class="btn" onclick="npKey('4')">4</button><button class="btn" onclick="npKey('5')">5</button><button class="btn" onclick="npKey('6')">6</button><button class="btn" onclick="npKey('7')">7</button><button class="btn" onclick="npKey('8')">8</button><button class="btn" onclick="npKey('9')">9</button><button class="btn" onclick="npKey('del')">⌫</button><button class="btn" onclick="npKey('0')">0</button><button class="btn go" onclick="npKey('ok')">OK</button></div>
           </div>
         </div>
+        </details>
         <div id="fMsg"></div>
         <div class="row" style="margin-top:10px"><span class="hint" id="fCloseHint" style="color:var(--amber)"></span><span class="spacer"></span><button class="btn stop sm" style="flex:0 0 auto" id="fClose" onclick="closeRun()" data-t="close_run"></button></div>
       </div>
@@ -739,7 +753,7 @@
             <span class="hint" id="fcNote"></span>
           </div>
           <div id="fcMsg"></div>
-          <pre class="fclog hidden" id="fcLog"></pre>
+          <details class="fclogbox hidden" id="fcLogBox"><summary data-t="fc_log"></summary><pre class="fclog" id="fcLog"></pre></details>
         </div>
       </div>
       <div class="card" style="margin-top:16px">
@@ -1127,7 +1141,7 @@ const I18N = {
     sc_followed: "Camera switched to {ex}, {n} lanes.", sc_started: "Station camera starting: the picture appears in a few seconds.", sc_stopped: "Station camera stopped.",
     idle_none_here: "Nobody is waiting for {ex}.", idle_need_other: "{n} still need {ex}.", idle_switch: "Switch to {ex}",
     idle_coming: "{n} not through the run yet: they come here after it.", idle_all_done: "Everyone today is done: no tests left.", start_all: "Start all ({n})", start_all_label: "All lanes start together",
-    check_photo: "Check the photo: is this the person?", no_photo: "no photo on file", numpad: "Number pad", lane_bib: "Lane {n}: bib",
+    check_photo: "Check the photo: is this the person?", no_photo: "no photo on file", numpad: "Number pad", hand_title: "Time by hand", hand_hint: "Backup when the camera is off or misses someone: tap, then type the bib.", fc_log: "Camera messages", lane_bib: "Lane {n}: bib",
     cam_view: "Live camera", cam_off: "Camera offline · manual count", cam_live: "Camera live · {fps} fps", corrections: "Examiner corrections",
     ph_waiting: "Get into position", ph_rest: "Up", ph_work: "Down", no_person: "Nobody in the lane",
     f_body_not_straight: "Body not straight", f_knee_on_ground: "Knee on the ground", f_rest_in_down: "Resting down", f_knees_not_bent: "Knees not bent",
@@ -1390,7 +1404,7 @@ const I18N = {
     sc_followed: "تحولت الكاميرا إلى {ex}، {n} مسارات.", sc_started: "كاميرا المحطة تبدأ: تظهر الصورة خلال ثوانٍ.", sc_stopped: "أُوقفت كاميرا المحطة.",
     idle_none_here: "لا أحد بانتظار {ex}.", idle_need_other: "{n} ما زالوا يحتاجون {ex}.", idle_switch: "التبديل إلى {ex}",
     idle_coming: "{n} لم ينهوا الجري بعد: يأتون إلى هنا بعده.", idle_all_done: "انتهى الجميع اليوم: لا اختبارات متبقية.", start_all: "ابدأ الجميع ({n})", start_all_label: "تبدأ كل المسارات معاً",
-    check_photo: "تحقق من الصورة: هل هذا هو الشخص؟", no_photo: "لا توجد صورة مسجلة", numpad: "لوحة الأرقام", lane_bib: "المسار {n}: الرقم",
+    check_photo: "تحقق من الصورة: هل هذا هو الشخص؟", no_photo: "لا توجد صورة مسجلة", numpad: "لوحة الأرقام", hand_title: "التوقيت اليدوي", hand_hint: "احتياطي عند إيقاف الكاميرا أو فواتها لأحد: اضغط ثم اكتب الرقم.", fc_log: "رسائل الكاميرا", lane_bib: "المسار {n}: الرقم",
     cam_view: "الكاميرا مباشرة", cam_off: "الكاميرا غير متصلة · عدّ يدوي", cam_live: "الكاميرا تعمل · {fps} إطار/ث", corrections: "تصحيحات الممتحن",
     ph_waiting: "خذ الوضعية", ph_rest: "أعلى", ph_work: "أسفل", no_person: "لا أحد في المسار",
     f_body_not_straight: "الجسم غير مستقيم", f_knee_on_ground: "الركبة على الأرض", f_rest_in_down: "استراحة في الأسفل", f_knees_not_bent: "الركبتان غير مثنيتين",
@@ -2678,8 +2692,14 @@ const FinishCam = {
     $("fcState").textContent = !st.available ? t("fc_state_offline") : st.running ? (live ? t("fc_state_live") : t("fc_state_starting")) : st.exit_code ? t("fc_state_error") : t("fc_state_stopped");
     $("fcStart").textContent = st.running ? t("fc_restart") : t("fc_start");
     $("fcStop").classList.toggle("hidden", !st.running);
-    const log = (st.log || []).join("\n");
-    $("fcLog").textContent = log; $("fcLog").classList.toggle("hidden", !log || (st.running && live));
+    // The camera's own messages: the last few, short, folded away; open by themselves when it failed.
+    const log = (st.log || []).slice(-8).map(l => (l.length > 160 ? l.slice(0, 160) + " …" : l)).join("\n");
+    $("fcLog").textContent = log; $("fcLogBox").classList.toggle("hidden", !log || (st.running && live));
+    if (st.exit_code && !this.logOpened) { $("fcLogBox").open = true; this.logOpened = true; } if (!st.exit_code) this.logOpened = false;
+    // Hand timing is the backup: folded while the camera times, open when it does not (unless the examiner chose).
+    const timing = !!(st.running && live);
+    if (timing !== this.timing) { this.timing = timing; this.handTouched = false; }
+    if (!this.handTouched) { const d = $("fHand"); if (d.open === timing) { d.open = !timing; this.handTouched = false; } }
     this.showLine();
   },
   showLine() { $("fcLine").style.top = $("fcLineY").value + "%"; },

@@ -136,3 +136,11 @@ def test_camera_processes_reach_the_app_over_ipv4():
     assert app_address("http://localhost") == "http://127.0.0.1"
     assert app_address("http://127.0.0.1:8000") == "http://127.0.0.1:8000"
     assert app_address("http://localhostile:8080") == "http://localhostile:8080"
+
+
+def test_log_lines_are_kept_short():
+    from testpoint.camhost import clean
+    assert clean("\x1b[31mok\x1b[0m") == "ok"
+    assert clean('"/9j/' + "A" * 5000 + '",') == ""                 # picture data: dropped
+    long = clean("word " * 200)
+    assert len(long) < 310 and long.endswith("…")
