@@ -108,3 +108,16 @@ def test_a_face_already_on_file_names_its_owner(ctx):
     c.post(f"/api/candidates/{a}/face", content=b"face:A")
     r = c.post(f"/api/candidates/{b}/face", content=b"face:A").json()["detail"]
     assert r["code"] == "face_belongs_to_other" and r["owner"]["id"] == a and r["owner"]["external_id"] == "A-1"
+
+
+def test_the_photo_shown_is_the_one_facing_the_camera(ctx):
+    c, _ = ctx
+    cid = c.post("/api/candidates", json={"external_id": "A-1", "name": "Alpha"}).json()["id"]
+    for pose in (b"face:A:left", b"face:A:straight", b"face:A:right"):   # the guided capture's order, newest last
+        c.post(f"/api/candidates/{cid}/face", content=pose)
+    assert c.get(f"/api/candidates/{cid}/face.jpg").content.endswith(b"face:A:straight")
+    # more photos later, all turned: the front one stays on file and on the card
+    for pose in (b"face:A:left", b"face:A:right", b"face:A:left"):
+        c.post(f"/api/candidates/{cid}/face", content=pose)
+    assert c.get(f"/api/candidates/{cid}").json()["faces"] == 3
+    assert c.get(f"/api/candidates/{cid}/face.jpg").content.endswith(b"face:A:straight")

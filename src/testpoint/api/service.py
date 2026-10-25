@@ -656,13 +656,19 @@ def enroll_face(db: Session, day: Day, entry: Entry | None, data: bytes, engine,
                            owner={"id": owner.id, "name": owner.name, "name_ar": owner.name_ar, "external_id": owner.external_id})
     db.add(FaceTemplate(candidate_id=cid,
                         embedding=np.asarray(face.embedding, np.float32).tobytes(),
-                        photo_jpeg=face.crop_jpeg))
+                        photo_jpeg=face.crop_jpeg, yaw=getattr(face, "yaw", None)))
     db.flush()
-    old = list(db.scalars(select(FaceTemplate).where(FaceTemplate.candidate_id == cid)
-                          .order_by(FaceTemplate.created_at.desc(), FaceTemplate.id.desc()))
-               )[MAX_TEMPLATES:]
-    for t in old:
-        db.delete(t)
+    # Keep the newest MAX_TEMPLATES, but never drop the photo that faces the camera best:
+    # it is the one shown on the card and at the finish line.
+    kept = list(db.scalars(select(FaceTemplate).where(FaceTemplate.candidate_id == cid)
+                           .order_by(FaceTemplate.created_at.desc(), FaceTemplate.id.desc())))
+    front = _front(kept)
+    keep = kept[:MAX_TEMPLATES]
+    if front is not None and front not in keep:
+        keep = kept[:MAX_TEMPLATES - 1] + [front]
+    for t in kept:
+        if t not in keep:
+            db.delete(t)
     _audit(db, day, "admin", "enroll_face", entry, detection_score=face.score,
            **({} if entry is not None else {"external_id": candidate.external_id}))
     db.commit()
@@ -677,10 +683,17 @@ def remove_faces(db: Session, day: Day, entry: Entry | None, candidate: Candidat
     db.commit()
 
 
+def _front(templates: list[FaceTemplate]) -> FaceTemplate | None:
+    """The photo facing the camera best: smallest head turn. Photos saved before the turn was
+    recorded count as the oldest first (the guided capture starts looking straight)."""
+    if not templates:
+        return None
+    return min(templates, key=lambda t: (t.yaw is None, abs(t.yaw) if t.yaw is not None else 0.0, t.created_at, t.id))
+
+
 def face_photo(db: Session, entry: Entry | None, candidate_id: int | None = None) -> bytes | None:
     cid = entry.candidate_id if entry is not None else candidate_id
-    t = db.scalar(select(FaceTemplate).where(FaceTemplate.candidate_id == cid)
-                  .order_by(FaceTemplate.created_at.desc(), FaceTemplate.id.desc()))
+    t = _front(list(db.scalars(select(FaceTemplate).where(FaceTemplate.candidate_id == cid))))
     return t.photo_jpeg if t else None
 
 

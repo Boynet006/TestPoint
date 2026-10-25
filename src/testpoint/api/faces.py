@@ -54,7 +54,8 @@ class Face:
     box: tuple[int, int, int, int]   # x, y, w, h in image pixels
     score: float
     embedding: np.ndarray            # (128,) float32, L2-normalised
-    crop_jpeg: bytes                 # aligned 112x112 face, for the enrolment photo
+    crop_jpeg: bytes                 # the photo people see: head and shoulders, 4:5 (see _largest_face)
+    yaw: float = 0.0                 # head turn (head_yaw): about 0 facing the camera
 
 
 @dataclass
@@ -195,9 +196,22 @@ class FaceEngine:
         f = max(big, key=lambda r: r[2] * r[3])
         aligned = self._recognizer.alignCrop(img, f)
         emb = normalise(self._recognizer.feature(aligned))
-        ok, jpg = cv2.imencode(".jpg", aligned, [cv2.IMWRITE_JPEG_QUALITY, 90])
         x, y, bw, bh = (int(round(v)) for v in f[:4])
-        return Face((x, y, bw, bh), round(float(f[14]), 3), emb, jpg.tobytes() if ok else b"")
+        # The photo people see (thumbnails, the ID card, the finish-line check) is head and
+        # shoulders from the picture itself, upright, 4:5, not the 112-px aligned crop the
+        # recogniser works on.
+        ih, iw = img.shape[:2]
+        ph = bh * 2.0
+        pw = ph * 0.8
+        cx, cy = x + bw / 2, y + bh * 0.6
+        x0, x1 = int(max(0, cx - pw / 2)), int(min(iw, cx + pw / 2))
+        y0, y1 = int(max(0, cy - ph / 2)), int(min(ih, cy + ph / 2))
+        portrait = img[y0:y1, x0:x1] if x1 > x0 and y1 > y0 else aligned
+        if portrait.shape[1] > 400:
+            portrait = cv2.resize(portrait, (400, int(portrait.shape[0] * 400 / portrait.shape[1])), interpolation=cv2.INTER_AREA)
+        ok, jpg = cv2.imencode(".jpg", portrait, [cv2.IMWRITE_JPEG_QUALITY, 88])
+        return Face((x, y, bw, bh), round(float(f[14]), 3), emb, jpg.tobytes() if ok else b"",
+                    yaw=round(head_yaw(f), 3))
 
 
 _engine: FaceEngine | None = None
