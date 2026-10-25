@@ -216,7 +216,8 @@ def norm_dob(d: str | None) -> str | None:
 SETTINGS: dict[str, object] = {
     # check-in and weigh-in
     "auto_identify": True,       # identify faces continuously when the weigh-in camera is on
-    "camera_background": "off",  # weigh-in picture on screen: "off", "blur", "backdrop" (a colour) or "image" (recognition uses the raw frame)
+    "camera_background": "off",  # camera picture on screen: "off", "blur", "backdrop" (a colour) or "image" (recognition uses the raw frame)
+    "camera_bg_places": ["weigh", "start", "photo"],   # where it is shown: weigh, start, photo (face windows), finish, station (display only)
     "backdrop_color": "#8a949e", # the colour for "backdrop" (#rrggbb)
     "face_match": "normal",      # "normal" or "strict" (see FACE_MATCH)
     "face_required": False,      # at weigh-in, people with a face on file must check in by face

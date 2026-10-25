@@ -203,7 +203,7 @@ def test_bibs_are_assigned_automatically_when_asked(client):
 
 def test_station_settings_defaults_update_and_audit(client):
     assert ok(client.get("/api/settings")) == {
-        "auto_identify": True, "camera_background": "off", "backdrop_color": "#8a949e", "face_match": "normal", "face_required": False, "walk_ins": True,
+        "auto_identify": True, "camera_background": "off", "camera_bg_places": ["weigh", "start", "photo"], "backdrop_color": "#8a949e", "face_match": "normal", "face_required": False, "walk_ins": True,
         "default_gender": "M", "default_unit": "combat", "bib_start": 1, "lanes": 3, "wave_size": 50, "start_countdown_s": 10, "cancel_window_s": 120, "site_name": "", "default_language": "en", "theme": "night",
         "admin_pin_set": False, "background_image": None}
     s = ok(client.put("/api/settings", json={"auto_identify": False, "bib_start": 500}))
@@ -463,3 +463,10 @@ def test_wave_closes_itself_once_everyone_is_in(client, monkeypatch):
     w = ok(client.get("/api/state"))["waves"][0]
     assert w["closed_at"] and w["closed_by"] == "auto"
     assert ok(client.get(f"/api/entries/{ids[42]}"))["status"] == "dnf"
+
+
+def test_camera_background_places(client):
+    s = ok(client.put("/api/settings", json={"camera_bg_places": ["weigh", "finish"]}))
+    assert s["camera_bg_places"] == ["weigh", "finish"]
+    assert ok(client.put("/api/settings", json={"camera_bg_places": []}))["camera_bg_places"] == []
+    err(client.put("/api/settings", json={"camera_bg_places": ["kitchen"]}), 422, "bad_input")

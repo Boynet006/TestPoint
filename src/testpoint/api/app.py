@@ -120,6 +120,7 @@ class SettingsIn(BaseModel):
     """Station settings (service.SETTINGS); only the fields sent are changed."""
     auto_identify: bool | None = None
     camera_background: Literal["off", "blur", "backdrop", "image"] | None = None
+    camera_bg_places: list[Literal["weigh", "start", "photo", "finish", "station"]] | None = Field(default=None, max_length=5)
     backdrop_color: str | None = Field(default=None, pattern=r"^#[0-9a-fA-F]{6}$")
     face_match: Literal["normal", "strict"] | None = None
     face_required: bool | None = None
