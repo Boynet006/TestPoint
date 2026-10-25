@@ -330,14 +330,15 @@ def main(argv: list[str] | None = None) -> int:
           + (f"  evidence {evidence.root}" if evidence else ""))
     preview = None
     if not args.no_preview:
-        from .cli import draw_hud, draw_lanes, draw_person
+        from .cli import draw_hud, draw_lanes, draw_person, meters_for
+        meters = meters_for(analyzer)
 
         def draw(img, state):
             res, fps = state
             assigned = {id(r.person) for r in res.lanes.values() if r.person is not None}
             for person in res.people:
                 draw_person(img, person, (0, 200, 0) if id(person) in assigned else (140, 140, 140))
-            draw_lanes(img, lanes, res)
+            draw_lanes(img, lanes, res, meters)
             draw_hud(img, args.exercise, fps, "")
 
         preview = FramePublisher(args.app, station, draw)
