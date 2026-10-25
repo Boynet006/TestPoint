@@ -55,21 +55,41 @@
     --bg: #060918; --bg2: #0d1230; --panel: rgba(14,19,46,.86); --line: #283062; --text: #eef0ff; --muted: #9ea7da; --dim: #5f679c;
     --amber: #8b7bff; --amber-ink: #0a0726; --go: #34d399; --go-ink: #03201a; --stop: #fb5a7a; --info: #38bdf8;
     --head: rgba(6,9,24,.84); --view: #04060f;
-    --bar: linear-gradient(90deg, #22d3ee, #8b7bff, #f472b6, #22d3ee); --bar-h: 3px; --pattern: none; }
+    --bar: linear-gradient(90deg, #22d3ee, #8b7bff, #f472b6, #22d3ee); --bar-h: 3px; --pattern: none;
+    --fx1: rgba(139,123,255,.42); --fx2: rgba(34,211,238,.30); --fx3: rgba(244,114,182,.20); }
+  /* Mirage: Desert Shield's sand and flag colours with the moving aurora and network: heat shimmer by day */
+  [data-theme=mirage] {
+    --bg: #e4d6b8; --bg2: #efe4cc; --panel: rgba(246,238,221,.9); --line: #c9b58c; --text: #2b2317; --muted: #6a5839; --dim: #98845f;
+    --amber: #8f6514; --amber-ink: #fffaf0; --go: #00843d; --go-ink: #fff; --stop: #c8102e; --info: #2f5e7a;
+    --head: rgba(246,238,221,.9); --view: #2b2317; color-scheme: light;
+    --ok-text: #00602c; --bad-text: #a00d24; --warn-text: #6e4c0c;
+    --bar: linear-gradient(90deg, #c8102e 0 16%, transparent 16%), linear-gradient(#00843d 0 33.3%, #ffffff 33.3% 66.6%, #111 66.6%); --bar-h: 9px;
+    --pattern: none; --fx1: rgba(201,160,100,.55); --fx2: rgba(0,132,61,.16); --fx3: rgba(168,90,60,.22); }
+  /* Desert Stars: Desert Night's dark sand with gold light and a constellation network */
+  [data-theme=desert_stars] {
+    --bg: #18140f; --bg2: #201b14; --panel: rgba(39,33,26,.86); --line: #3b3226; --text: #f1e8d7; --muted: #b2a283; --dim: #7a6b53;
+    --amber: #d6a957; --amber-ink: #1d1406; --go: #2fbf71; --go-ink: #03200e; --stop: #ef3340; --info: #86b7d4;
+    --head: rgba(24,20,15,.86); --view: #0e0b08;
+    --bar: linear-gradient(90deg, #ef3340 0 16%, transparent 16%), linear-gradient(#00a651 0 33.3%, #ffffff 33.3% 66.6%, #000 66.6%); --bar-h: 9px;
+    --pattern: none; --fx1: rgba(214,169,87,.30); --fx2: rgba(47,191,113,.14); --fx3: rgba(239,51,64,.12); }
   [data-theme=neural] header::after { background-size: 300% 100%; animation: fxBar 9s linear infinite; }
   @keyframes fxBar { to { background-position: 300% 0; } }
   #fx { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; display: none; }
-  [data-theme=neural] #fx { display: block; }
+  [data-theme=neural] #fx, [data-theme=mirage] #fx, [data-theme=desert_stars] #fx { display: block; }
   #fx .blob { position: absolute; border-radius: 50%; will-change: transform; }
-  #fx .b1 { width: 75vmax; height: 75vmax; top: -30vmax; left: -20vmax; background: radial-gradient(circle, rgba(139,123,255,.42), transparent 62%); animation: fxA 26s ease-in-out infinite alternate; }
-  #fx .b2 { width: 80vmax; height: 80vmax; bottom: -38vmax; right: -25vmax; background: radial-gradient(circle, rgba(34,211,238,.30), transparent 62%); animation: fxB 33s ease-in-out infinite alternate; }
-  #fx .b3 { width: 55vmax; height: 55vmax; top: 15vh; left: 30vw; background: radial-gradient(circle, rgba(244,114,182,.20), transparent 62%); animation: fxC 41s ease-in-out infinite alternate; }
+  #fx .b1 { width: 75vmax; height: 75vmax; top: -30vmax; left: -20vmax; background: radial-gradient(circle, var(--fx1), transparent 62%); animation: fxA 26s ease-in-out infinite alternate; }
+  #fx .b2 { width: 80vmax; height: 80vmax; bottom: -38vmax; right: -25vmax; background: radial-gradient(circle, var(--fx2), transparent 62%); animation: fxB 33s ease-in-out infinite alternate; }
+  #fx .b3 { width: 55vmax; height: 55vmax; top: 15vh; left: 30vw; background: radial-gradient(circle, var(--fx3), transparent 62%); animation: fxC 41s ease-in-out infinite alternate; }
   @keyframes fxA { to { transform: translate(18vw, 14vh) scale(1.15) rotate(25deg); } }
   @keyframes fxB { to { transform: translate(-22vw, -12vh) scale(.9) rotate(-20deg); } }
   @keyframes fxC { to { transform: translate(-14vw, 20vh) scale(1.25); } }
   #fx canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
   @media (prefers-reduced-motion: reduce) { #fx .blob, [data-theme=neural] header::after { animation: none; } }
   html.still #fx .blob, html.still[data-theme=neural] header::after { animation: none; }
+  .themecard[data-k=mirage] .sw { background: radial-gradient(circle at 20% 25%, rgba(201,160,100,.9), transparent 55%),
+    radial-gradient(circle at 85% 85%, rgba(0,132,61,.45), transparent 55%), radial-gradient(circle at 60% 10%, rgba(168,90,60,.45), transparent 45%), #e4d6b8; }
+  .themecard[data-k=desert_stars] .sw { background: radial-gradient(circle at 20% 25%, rgba(214,169,87,.7), transparent 55%),
+    radial-gradient(circle at 85% 85%, rgba(47,191,113,.45), transparent 55%), radial-gradient(circle at 60% 10%, rgba(239,51,64,.35), transparent 45%), #18140f; }
   .themecard[data-k=neural] .sw { background: radial-gradient(circle at 18% 25%, rgba(139,123,255,.85), transparent 55%),
     radial-gradient(circle at 85% 85%, rgba(34,211,238,.7), transparent 55%), radial-gradient(circle at 60% 10%, rgba(244,114,182,.5), transparent 45%), #060918; }
   /* Daylight: dark ink on white, readable on a tablet in full sun */
@@ -888,6 +908,8 @@ const I18N = {
     th_track: "Running Track", th_track_d: "Tartan red-orange and lane lines on charcoal",
     th_falcon: "Falcon", th_falcon_d: "Deep navy and falcon gold",
     th_neural: "Neural Aurora", th_neural_d: "Drifting aurora light and a living neural network (moves)",
+    th_mirage: "Mirage", th_mirage_d: "Desert Shield's sand and flag colours, with moving light and network",
+    th_desert_stars: "Desert Stars", th_desert_stars_d: "Desert Night's dark sand, with gold light and a constellation network",
     set_motion: "Moving background", set_motion_hint: "Only this screen. Off keeps a still picture and saves power on the PC that runs the cameras.",
     save_settings: "Save settings", settings_saved: "Settings saved.", on: "On", off: "Off", none: "None",
     lbl_name_en: "Name (English)", lbl_name_ar: "Name (Arabic)", lbl_id: "ID number", lbl_gender: "Gender", lbl_dob: "Date of birth",
@@ -1090,6 +1112,8 @@ const I18N = {
     th_track: "مضمار الجري", th_track_d: "أحمر المضمار وخطوط الحارات على الفحمي",
     th_falcon: "الصقر", th_falcon_d: "كحلي داكن وذهبي الصقر",
     th_neural: "الشفق الذكي", th_neural_d: "ضوء شفق متحرك وشبكة عصبية حية (متحرك)",
+    th_mirage: "سراب", th_mirage_d: "ألوان درع الصحراء الرملية والعلم، مع ضوء وشبكة متحركين",
+    th_desert_stars: "نجوم الصحراء", th_desert_stars_d: "رملي ليل الصحراء الداكن، مع ضوء ذهبي وشبكة كالنجوم",
     set_motion: "خلفية متحركة", set_motion_hint: "لهذه الشاشة فقط. الإيقاف يُبقي صورة ثابتة ويوفّر طاقة الجهاز الذي يشغّل الكاميرات.",
     save_settings: "حفظ الإعدادات", settings_saved: "تم حفظ الإعدادات.", on: "تشغيل", off: "إيقاف", none: "بدون",
     lbl_name_en: "الاسم (بالإنجليزية)", lbl_name_ar: "الاسم (بالعربية)", lbl_id: "رقم الهوية", lbl_gender: "الجنس", lbl_dob: "تاريخ الميلاد",
@@ -2856,6 +2880,8 @@ const THEMES = {   // swatch colours for the picker: background, panel, accent, 
   track: ["#16171b", "#232429", "#f2673a", "#33d38e", "#ff2f5b"],
   falcon: ["#0b1322", "#152138", "#d6b04a", "#2fd093", "#ff4d5e"],
   neural: ["#060918", "#0e132e", "#8b7bff", "#34d399", "#fb5a7a"],
+  mirage: ["#e4d6b8", "#f6eedd", "#8f6514", "#00843d", "#c8102e"],
+  desert_stars: ["#18140f", "#27211a", "#d6a957", "#2fbf71", "#ef3340"],
 };
 function applyTheme(preview) {
   const station = THEMES[setting("theme")] ? setting("theme") : "night";
@@ -2880,13 +2906,19 @@ function pickTheme(k) { $("setTheme").value = k; themeCards(); applyTheme(k); }
 function themeHere(k) { save("theme", k); applyTheme($("setTheme").value); }
 function motionHere(v) { save("motion", v); NeuralFx.sync(); }
 
-// ---- Neural Aurora's network: drifting nodes, links between neighbours, signals running along them
+// ---- the animated themes' network: drifting nodes, links between neighbours, signals running along them
+const FX_PALETTES = {   // link colour (r,g,b), node, signal (r,g,b), signal core
+  neural: { link: "139,123,255", node: "rgba(205,212,255,.75)", pulse: "34,211,238", core: "#c9f6ff" },
+  mirage: { link: "126,74,53", node: "rgba(110,80,50,.6)", pulse: "0,132,61", core: "#00a651" },
+  desert_stars: { link: "214,169,87", node: "rgba(241,232,215,.8)", pulse: "47,191,113", core: "#d9ffe9" },
+};
 const NeuralFx = {
   raf: 0, last: 0, nodes: [], pulses: [], w: 0, h: 0, k: 1, spawn: 0, link: 165,
   sync() {
     const motion = load("motion", "on") !== "off";
     document.documentElement.classList.toggle("still", !motion);
-    if (document.documentElement.dataset.theme !== "neural") { this.stop(); return; }
+    this.pal = FX_PALETTES[document.documentElement.dataset.theme];
+    if (!this.pal) { this.stop(); return; }
     if (!this.nodes.length || this.w !== innerWidth || this.h !== innerHeight) this.setup();
     if (!motion || matchMedia("(prefers-reduced-motion: reduce)").matches) { this.stop(); this.draw(); return; }
     if (!this.raf) { this.last = performance.now(); this.raf = requestAnimationFrame(t => this.frame(t)); }
@@ -2932,15 +2964,15 @@ const NeuralFx = {
     g.lineWidth = 1;
     for (let i = 0; i < N.length; i++) for (let j = i + 1; j < N.length; j++) {
       const d = Math.hypot(N[i].x - N[j].x, N[i].y - N[j].y);
-      if (d < L) { g.strokeStyle = `rgba(139,123,255,${(1 - d / L) * .35})`; g.beginPath(); g.moveTo(N[i].x, N[i].y); g.lineTo(N[j].x, N[j].y); g.stroke(); }
+      if (d < L) { g.strokeStyle = `rgba(${this.pal.link},${(1 - d / L) * .35})`; g.beginPath(); g.moveTo(N[i].x, N[i].y); g.lineTo(N[j].x, N[j].y); g.stroke(); }
     }
-    g.fillStyle = "rgba(205,212,255,.75)";
+    g.fillStyle = this.pal.node;
     for (const p of N) { g.beginPath(); g.arc(p.x, p.y, p.s, 0, 7); g.fill(); }
     for (const q of this.pulses) {
       const x = q.a.x + (q.b.x - q.a.x) * q.t, y = q.a.y + (q.b.y - q.a.y) * q.t;
-      g.strokeStyle = "rgba(34,211,238,.55)"; g.beginPath(); g.moveTo(q.a.x, q.a.y); g.lineTo(x, y); g.stroke();
-      g.fillStyle = "rgba(34,211,238,.22)"; g.beginPath(); g.arc(x, y, 6, 0, 7); g.fill();
-      g.fillStyle = "#c9f6ff"; g.beginPath(); g.arc(x, y, 2, 0, 7); g.fill();
+      g.strokeStyle = `rgba(${this.pal.pulse},.55)`; g.beginPath(); g.moveTo(q.a.x, q.a.y); g.lineTo(x, y); g.stroke();
+      g.fillStyle = `rgba(${this.pal.pulse},.22)`; g.beginPath(); g.arc(x, y, 6, 0, 7); g.fill();
+      g.fillStyle = this.pal.core; g.beginPath(); g.arc(x, y, 2, 0, 7); g.fill();
     }
   },
 };
