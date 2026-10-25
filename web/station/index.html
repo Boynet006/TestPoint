@@ -2907,17 +2907,23 @@ function themeHere(k) { save("theme", k); applyTheme($("setTheme").value); }
 function motionHere(v) { save("motion", v); NeuralFx.sync(); }
 
 // ---- the animated themes' network: drifting nodes, links between neighbours, signals running along them
-const FX_PALETTES = {   // link colour (r,g,b), node, signal (r,g,b), signal core
-  neural: { link: "139,123,255", node: "rgba(205,212,255,.75)", pulse: "34,211,238", core: "#c9f6ff" },
-  mirage: { link: "126,74,53", node: "rgba(110,80,50,.6)", pulse: "0,132,61", core: "#00a651" },
-  desert_stars: { link: "214,169,87", node: "rgba(241,232,215,.8)", pulse: "47,191,113", core: "#d9ffe9" },
+// Each signal takes one of its theme's colours: the flag's red, green, white and black in the desert themes
+// (a ring keeps white visible on sand and black visible at night).
+const FX_PALETTES = {   // link colour (r,g,b), node, signals: [glow (r,g,b), core, ring]
+  neural: { link: "139,123,255", node: "rgba(205,212,255,.75)", pulses: [["34,211,238", "#c9f6ff"]] },
+  mirage: { link: "126,74,53", node: "rgba(110,80,50,.6)",
+    pulses: [["200,16,46", "#e0213f"], ["0,132,61", "#00a651"], ["255,255,255", "#ffffff", "rgba(43,35,23,.55)"], ["17,17,17", "#111111"]] },
+  desert_stars: { link: "214,169,87", node: "rgba(241,232,215,.8)",
+    pulses: [["239,51,64", "#ff5a66"], ["0,166,81", "#3ddc84"], ["255,255,255", "#ffffff"], ["0,0,0", "#000000", "rgba(241,232,215,.85)"]] },
 };
 const NeuralFx = {
   raf: 0, last: 0, nodes: [], pulses: [], w: 0, h: 0, k: 1, spawn: 0, link: 165,
   sync() {
     const motion = load("motion", "on") !== "off";
     document.documentElement.classList.toggle("still", !motion);
-    this.pal = FX_PALETTES[document.documentElement.dataset.theme];
+    const pal = FX_PALETTES[document.documentElement.dataset.theme];
+    if (pal !== this.pal) this.pulses = [];   // no signals in another theme's colours
+    this.pal = pal;
     if (!this.pal) { this.stop(); return; }
     if (!this.nodes.length || this.w !== innerWidth || this.h !== innerHeight) this.setup();
     if (!motion || matchMedia("(prefers-reduced-motion: reduce)").matches) { this.stop(); this.draw(); return; }
@@ -2946,7 +2952,8 @@ const NeuralFx = {
       this.spawn = .35 + Math.random() * .6;
       const a = this.nodes[Math.floor(Math.random() * this.nodes.length)];
       const near = this.nodes.filter(b => b !== a && Math.hypot(a.x - b.x, a.y - b.y) < this.link);
-      if (near.length) this.pulses.push({ a, b: near[Math.floor(Math.random() * near.length)], t: 0, hops: 2 + Math.floor(Math.random() * 3) });
+      if (near.length) this.pulses.push({ a, b: near[Math.floor(Math.random() * near.length)], t: 0, hops: 2 + Math.floor(Math.random() * 3),
+        c: this.pal.pulses[Math.floor(Math.random() * this.pal.pulses.length)] });
     }
     for (const q of this.pulses) {
       q.t += dt / .9;
@@ -2970,9 +2977,11 @@ const NeuralFx = {
     for (const p of N) { g.beginPath(); g.arc(p.x, p.y, p.s, 0, 7); g.fill(); }
     for (const q of this.pulses) {
       const x = q.a.x + (q.b.x - q.a.x) * q.t, y = q.a.y + (q.b.y - q.a.y) * q.t;
-      g.strokeStyle = `rgba(${this.pal.pulse},.55)`; g.beginPath(); g.moveTo(q.a.x, q.a.y); g.lineTo(x, y); g.stroke();
-      g.fillStyle = `rgba(${this.pal.pulse},.22)`; g.beginPath(); g.arc(x, y, 6, 0, 7); g.fill();
-      g.fillStyle = this.pal.core; g.beginPath(); g.arc(x, y, 2, 0, 7); g.fill();
+      const [glow, core, ring] = q.c || this.pal.pulses[0];
+      g.strokeStyle = `rgba(${glow},.55)`; g.beginPath(); g.moveTo(q.a.x, q.a.y); g.lineTo(x, y); g.stroke();
+      g.fillStyle = `rgba(${glow},.22)`; g.beginPath(); g.arc(x, y, 6, 0, 7); g.fill();
+      g.fillStyle = core; g.beginPath(); g.arc(x, y, 2.4, 0, 7); g.fill();
+      if (ring) { g.strokeStyle = ring; g.beginPath(); g.arc(x, y, 3.4, 0, 7); g.stroke(); }
     }
   },
 };
