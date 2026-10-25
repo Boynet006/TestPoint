@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TestPoint Station</title>
+<script>try { document.documentElement.dataset.theme = localStorage.getItem("tp.theme") || localStorage.getItem("tp.stationTheme") || "night"; } catch {}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500;600&family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -14,12 +15,66 @@
     --cond: "Barlow Condensed", "Cairo", "Arial Narrow", sans-serif; --sans: "Barlow", "Cairo", "Segoe UI", sans-serif;
   }
   [dir=rtl] { --cond: "Cairo", "Barlow Condensed", sans-serif; --sans: "Cairo", "Barlow", sans-serif; }
+
+  /* ---- themes: every colour comes from these tokens. Night is the default (:root above). */
+  :root { --stop-ink: #fff; --head: rgba(11,15,20,.94); --view: #0b1016; color-scheme: dark;
+    --bar: linear-gradient(var(--amber), var(--amber)); --bar-h: 2px;
+    --pattern: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); --pattern-size: 48px 48px;
+    --ok-text: color-mix(in srgb, var(--go) 40%, var(--text)); --bad-text: color-mix(in srgb, var(--stop) 45%, var(--text));
+    --warn-text: color-mix(in srgb, var(--amber) 45%, var(--text)); }
+  /* Desert Shield: the sand camouflage of the uniforms and vehicles, flag green, red, white and black */
+  [data-theme=desert] {
+    --bg: #e4d6b8; --bg2: #efe4cc; --panel: #f6eedd; --line: #c9b58c; --text: #2b2317; --muted: #6a5839; --dim: #98845f;
+    --amber: #8f6514; --amber-ink: #fffaf0; --go: #00843d; --go-ink: #fff; --stop: #c8102e; --info: #2f5e7a;
+    --head: rgba(246,238,221,.95); --view: #2b2317; color-scheme: light;
+    --ok-text: #00602c; --bad-text: #a00d24; --warn-text: #6e4c0c;
+    --bar: linear-gradient(90deg, #c8102e 0 16%, transparent 16%), linear-gradient(#00843d 0 33.3%, #ffffff 33.3% 66.6%, #111 66.6%); --bar-h: 9px;
+    --pattern: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><g opacity='.3'><path fill='%23b8996b' d='M12 30c18-14 44-10 58 2 10 9 30 6 34 18 4 13-16 22-34 20-14-2-22 10-38 6-16-4-30-10-28-24 1-9 2-16 8-22z'/><path fill='%239c7f55' d='M140 14c14-6 34-2 42 8 7 9 26 8 28 20 2 11-14 15-26 13-12-2-18 8-32 4-12-4-22-12-18-26 1-8 0-15 6-19z'/><path fill='%23cdb48a' d='M70 96c20-8 40 0 52 10 12 10 34 6 40 20 5 12-12 24-32 22-16-1-24 12-44 6-18-6-30-18-26-34 2-12 0-19 10-24z'/><path fill='%238a6c45' d='M180 100c12-4 26 4 30 14 4 10 18 14 14 26-4 10-20 8-30 4-10-4-22 2-26-10-4-11 2-30 12-34z'/><path fill='%23b8996b' d='M20 160c14-10 32-6 40 4 8 10 26 10 28 24 2 12-14 18-28 16-12-2-20 8-34 2-12-5-18-16-16-28 1-8 4-14 10-18z'/><path fill='%23f1e6cc' d='M120 170c16-6 30 2 38 12 8 9 24 12 22 24-2 11-18 12-30 10-12-2-20 6-32 0-10-5-16-16-12-28 2-8 6-14 14-18z'/><path fill='%239c7f55' d='M200 190c10-2 22 6 24 16 2 10-6 20-18 18-10-2-18-6-16-18 1-8 4-14 10-16z'/><path fill='%23cdb48a' d='M100 20c8-2 16 4 16 12s-8 12-16 10-12-6-10-14c1-4 4-7 10-8z'/></g></svg>"),
+      url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><g opacity='.3'><path fill='%23b8996b' d='M12 30c18-14 44-10 58 2 10 9 30 6 34 18 4 13-16 22-34 20-14-2-22 10-38 6-16-4-30-10-28-24 1-9 2-16 8-22z'/><path fill='%239c7f55' d='M140 14c14-6 34-2 42 8 7 9 26 8 28 20 2 11-14 15-26 13-12-2-18 8-32 4-12-4-22-12-18-26 1-8 0-15 6-19z'/><path fill='%23cdb48a' d='M70 96c20-8 40 0 52 10 12 10 34 6 40 20 5 12-12 24-32 22-16-1-24 12-44 6-18-6-30-18-26-34 2-12 0-19 10-24z'/><path fill='%238a6c45' d='M180 100c12-4 26 4 30 14 4 10 18 14 14 26-4 10-20 8-30 4-10-4-22 2-26-10-4-11 2-30 12-34z'/><path fill='%23b8996b' d='M20 160c14-10 32-6 40 4 8 10 26 10 28 24 2 12-14 18-28 16-12-2-20 8-34 2-12-5-18-16-16-28 1-8 4-14 10-18z'/><path fill='%23f1e6cc' d='M120 170c16-6 30 2 38 12 8 9 24 12 22 24-2 11-18 12-30 10-12-2-20 6-32 0-10-5-16-16-12-28 2-8 6-14 14-18z'/><path fill='%239c7f55' d='M200 190c10-2 22 6 24 16 2 10-6 20-18 18-10-2-18-6-16-18 1-8 4-14 10-16z'/><path fill='%23cdb48a' d='M100 20c8-2 16 4 16 12s-8 12-16 10-12-6-10-14c1-4 4-7 10-8z'/></g></svg>");
+    --pattern-size: 240px 240px, 370px 370px; }
+  /* Daylight: dark ink on white, readable on a tablet in full sun */
+  [data-theme=daylight] {
+    --bg: #e9edf1; --bg2: #ffffff; --panel: #ffffff; --line: #c3ccd6; --text: #0c1520; --muted: #46566a; --dim: #7a8899;
+    --amber: #a85f00; --amber-ink: #fff; --go: #0a8a4b; --go-ink: #fff; --stop: #d0262f; --info: #0b6aa8;
+    --head: rgba(255,255,255,.96); --view: #0b1016; color-scheme: light;
+    --ok-text: #066b39; --bad-text: #a3121b; --warn-text: #7a4500;
+    --pattern: linear-gradient(rgba(12,21,32,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(12,21,32,.05) 1px, transparent 1px); }
+  /* Running Track: tartan red-orange and white lane lines on charcoal */
+  [data-theme=track] {
+    --bg: #16171b; --bg2: #1d1e23; --panel: #232429; --line: #36383f; --text: #f5f2ed; --muted: #a29d95; --dim: #6e6a64;
+    --amber: #f2673a; --amber-ink: #210904; --go: #33d38e; --go-ink: #03210f; --stop: #ff2f5b; --info: #5ec8f2;
+    --head: rgba(22,23,27,.95);
+    --bar: repeating-linear-gradient(90deg, #f2673a 0 46px, #fff 46px 50px); --bar-h: 4px;
+    --pattern: repeating-linear-gradient(90deg, transparent 0 116px, rgba(255,255,255,.045) 116px 120px),
+      repeating-linear-gradient(45deg, rgba(242,103,58,.025) 0 3px, transparent 3px 9px);
+    --pattern-size: auto; }
+  /* Falcon: deep navy and falcon gold */
+  [data-theme=falcon] {
+    --bg: #0b1322; --bg2: #101a2d; --panel: #152138; --line: #25344f; --text: #eef2f8; --muted: #92a2bc; --dim: #5d6c87;
+    --amber: #d6b04a; --amber-ink: #191203; --go: #2fd093; --go-ink: #04210f; --stop: #ff4d5e; --info: #74b9ff;
+    --head: rgba(11,19,34,.95);
+    --bar: linear-gradient(90deg, transparent, #d6b04a 20%, #f3dc8e 50%, #d6b04a 80%, transparent); --bar-h: 3px;
+    --pattern: repeating-linear-gradient(135deg, rgba(214,176,74,.035) 0 2px, transparent 2px 26px),
+      radial-gradient(circle at 50% -20%, rgba(214,176,74,.10), transparent 60%);
+    --pattern-size: auto; }
+  header::after { content: ""; position: absolute; inset-inline: 0; bottom: 0; height: var(--bar-h); background: var(--bar); }
+  [dir=rtl] header::after { transform: scaleX(-1); }
+  .themepick { grid-column: 2 / 4; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .themecard { all: unset; cursor: pointer; border: 2px solid var(--line); background: var(--bg2); display: flex; flex-direction: column; }
+  .themecard:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
+  .themecard.on { border-color: var(--amber); box-shadow: 0 0 0 2px var(--amber); }
+  .themecard .sw { height: 64px; position: relative; background: var(--t-bg); border-bottom: 4px solid var(--t-acc); overflow: hidden; }
+  .themecard .sw::before { content: ""; position: absolute; left: 10px; right: 34%; top: 12px; height: 26px; background: var(--t-panel); }
+  .themecard .sw::after { content: ""; position: absolute; right: 10px; top: 14px; width: 22px; height: 22px; border-radius: 50%;
+    background: var(--t-go); box-shadow: 0 28px 0 0 var(--t-stop); }
+  .themecard .sw i { position: absolute; left: 18px; top: 20px; width: 40%; height: 10px; background: var(--t-acc); }
+  .themecard b { font-family: var(--cond); font-size: 16px; letter-spacing: .5px; text-transform: uppercase; padding: 6px 10px 0; color: var(--text); }
+  .themecard small { color: var(--muted); font-size: 12px; padding: 0 10px 8px; line-height: 1.3; }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: var(--sans); background: var(--bg); color: var(--text);
-    background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
-    background-size: 48px 48px; min-height: 100vh; }
+    background-image: var(--pattern); background-size: var(--pattern-size); min-height: 100vh; transition: background-color .25s; }
   header { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 16px; padding: 10px 20px; flex-wrap: wrap;
-    background: rgba(11,15,20,.94); border-bottom: 2px solid var(--amber); }
+    background: var(--head); padding-bottom: calc(10px + var(--bar-h)); }
   .brand { display: flex; align-items: center; gap: 10px; }
   .mono { width: 36px; height: 36px; background: var(--amber); color: var(--amber-ink); font-family: var(--cond); font-weight: 800; font-size: 21px;
     display: grid; place-items: center; clip-path: polygon(0 0, 100% 0, 100% 70%, 70% 100%, 0 100%); }
@@ -47,10 +102,10 @@
   .kv b { color: var(--text); font-size: 20px; }
   .btn { border: 1px solid var(--line); padding: 11px 20px; cursor: pointer; font-family: var(--cond); font-size: 19px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; color: var(--text); background: var(--bg2); }
   .btn.go { background: var(--go); color: var(--go-ink); border-color: var(--go); }
-  .btn.stop { background: var(--stop); color: #fff; border-color: var(--stop); }
+  .btn.stop { background: var(--stop); color: var(--stop-ink); border-color: var(--stop); }
   .btn.amber { background: var(--amber); color: var(--amber-ink); border-color: var(--amber); }
   .btn.ghost { background: transparent; }
-  .btn.danger:not(.amber) { color: #ff8a8a; border-color: rgba(255,59,59,.45); }
+  .btn.danger:not(.amber) { color: var(--bad-text); border-color: color-mix(in srgb, var(--stop) 45%, transparent); }
   .btn.ghost.amber { background: var(--amber); color: var(--amber-ink); }   /* an armed confirm button must stay readable */
   .btn.sm { font-size: 14px; padding: 5px 10px; }
   .btn.xl { font-size: 24px; padding: 16px 24px; width: 100%; }
@@ -71,9 +126,9 @@
   .pill.ok { color: var(--go); border-color: var(--go); } .pill.bad { color: var(--stop); border-color: var(--stop); }
   .pill.warn { color: var(--amber); border-color: var(--amber); } .pill.info { color: var(--info); border-color: var(--info); }
   .msg { padding: 10px 12px; font-family: var(--cond); font-size: 18px; letter-spacing: .5px; border-inline-start: 4px solid var(--line); background: var(--bg2); margin: 10px 0; }
-  .msg.bad { border-color: var(--stop); color: #ffb3b3; background: rgba(255,59,59,.10); }
-  .msg.ok { border-color: var(--go); color: #b6f5d4; background: rgba(25,210,122,.10); }
-  .msg.warn { border-color: var(--amber); color: #ffe2a3; background: rgba(255,176,0,.10); }
+  .msg.bad { border-color: var(--stop); color: var(--bad-text); background: color-mix(in srgb, var(--stop) 10%, transparent); }
+  .msg.ok { border-color: var(--go); color: var(--ok-text); background: color-mix(in srgb, var(--go) 10%, transparent); }
+  .msg.warn { border-color: var(--amber); color: var(--warn-text); background: color-mix(in srgb, var(--amber) 10%, transparent); }
   .field { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .field label { display: block; font-family: var(--cond); font-size: 14px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
   .field input { width: 100%; font-family: var(--cond); font-size: 34px; font-weight: 700; padding: 10px; }
@@ -101,18 +156,18 @@
   .timer { font-family: var(--cond); font-weight: 700; font-size: 40px; text-align: center; font-variant-numeric: tabular-nums; }
   .timer.low { color: var(--stop); }
   .live { min-height: 22px; text-align: center; font-family: var(--cond); font-size: 16px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
-  .live .fault { color: #ffb3b3; }
-  .pill.live { border-color: var(--go); color: #b6f5d4; } .pill.off { border-color: var(--stop); color: #ffb3b3; }
+  .live .fault { color: var(--bad-text); }
+  .pill.live { border-color: var(--go); color: var(--ok-text); } .pill.off { border-color: var(--stop); color: var(--bad-text); }
   .fixlabel { font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--dim); text-align: center; }
   .tap { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 8px; }
   .tap .btn { font-size: 22px; padding: 18px 6px; }
   .verdict { font-family: var(--cond); font-size: 30px; font-weight: 800; letter-spacing: 2px; padding: 8px 12px; text-align: center; }
-  .verdict.pass { background: var(--go); color: var(--go-ink); } .verdict.fail { background: var(--stop); color: #fff; }
+  .verdict.pass { background: var(--go); color: var(--go-ink); } .verdict.fail { background: var(--stop); color: var(--stop-ink); }
   .tabs { display: flex; gap: 2px; margin-bottom: 14px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
   .tabs button { background: transparent; color: var(--muted); border: 0; border-bottom: 3px solid transparent; padding: 10px 16px; cursor: pointer; font-family: var(--cond); font-size: 17px; text-transform: uppercase; letter-spacing: 1.5px; }
   .tabs button.active { color: var(--amber); border-bottom-color: var(--amber); }
   .camsrc { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
-  .viewer { position: relative; aspect-ratio: 4/3; background: #0b1016; border: 1px solid var(--line); overflow: hidden; }
+  .viewer { position: relative; aspect-ratio: 4/3; background: var(--view); border: 1px solid var(--line); overflow: hidden; }
   .viewer video, .viewer img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
   .viewer canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
   .viewer.mirror video, .viewer.mirror canvas.fx { transform: scaleX(-1); }
@@ -129,7 +184,7 @@
   /* labelled form fields (registration): label above, every control the same size */
   .std { margin: 4px 0 12px; } .std .field { margin-bottom: 8px; }
   .stdline { padding: 10px 12px; background: var(--bg2); border-inline-start: 3px solid var(--go); }
-  .stdline.warn { border-color: var(--amber); color: var(--amber); } .stdline.bad { border-color: var(--stop, #e5484d); color: var(--stop, #e5484d); }
+  .stdline.warn { border-color: var(--amber); color: var(--amber); } .stdline.bad { border-color: var(--stop); color: var(--stop); }
   .target { margin: 10px 0; }
   .needs-who { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
   .needs-who b { font-family: var(--cond); font-size: 30px; letter-spacing: .5px; }
@@ -139,11 +194,11 @@
   .grades th, .grades td { padding: 4px 14px; text-align: center; border-bottom: 1px solid var(--line); }
   .grades th:first-child { text-align: start; padding-inline-start: 0; font-weight: 500; color: var(--muted); }
   .grades td { font-size: 22px; font-weight: 700; }
-  .grades .need { background: rgba(25, 210, 122, .14); color: var(--go); }
+  .grades .need { background: color-mix(in srgb, var(--go) 14%, transparent); color: var(--go); }
   .grades th small { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }
   .rtable { border-collapse: collapse; } .rtable th, .rtable td { padding: 4px; text-align: center; }
   .rtable input { width: 64px; padding: 6px; text-align: center; } .rtable .ages { white-space: nowrap; } .rtable .ages input { width: 46px; }
-  .rtable input.invalid { border-color: #e5484d; }
+  .rtable input.invalid { border-color: var(--stop); }
   .settings .sub { padding-inline-start: 18px; color: var(--muted); }
   .swatch { flex: 0 0 34px; height: 34px; border: 1px solid var(--line); }
   #setBgCustom { flex: 0 0 48px; height: 36px; padding: 2px; }
@@ -175,7 +230,7 @@
   .npkeys .btn { font-size: 26px; padding: 14px 0; }
   .fwave { display: flex; align-items: baseline; gap: 14px; margin-top: 10px; }
   .fwave .fwclock { font-family: var(--cond); font-size: 44px; font-weight: 700; }
-  tr.newest td { background: rgba(25, 210, 122, .08); } tr.dim td { opacity: .6; }
+  tr.newest td { background: color-mix(in srgb, var(--go) 8%, transparent); } tr.dim td { opacity: .6; }
   .fcview { position: relative; margin-top: 10px; } .fcline { position: absolute; left: 0; right: 0; height: 0; border-top: 3px dashed var(--amber); pointer-events: none; }
   .fclog { background: var(--bg2); border: 1px solid var(--line); padding: 8px; font-size: 12px; max-height: 120px; overflow: auto; white-space: pre-wrap; margin-top: 8px; }
   #fcForm.dim { opacity: .45; }
@@ -209,7 +264,7 @@
   .facecell .n { font-family: var(--cond); font-size: 15px; letter-spacing: .5px; }
   .facecell .n.part { color: var(--amber); }   /* selfie view; boxes are mirrored in drawBox, text stays readable */
   .viewer-empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--dim); font-family: var(--cond); letter-spacing: 1px; text-transform: uppercase; text-align: center; padding: 20px; }
-  .camlive { position: relative; background: #0b1016; border: 1px solid var(--line); margin-bottom: 16px; }
+  .camlive { position: relative; background: var(--view); border: 1px solid var(--line); margin-bottom: 16px; }
   .camlive img { display: block; width: 100%; max-height: 420px; object-fit: contain; }
   .camlive .viewer-tag { color: var(--go); inset-inline-start: auto; inset-inline-end: 10px; }   /* lane 1's count is top-left in the picture */
   .viewer-tag { position: absolute; top: 8px; inset-inline-start: 10px; font-family: var(--cond); font-size: 13px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
@@ -658,6 +713,13 @@
         <label for="setLang" data-t="set_lang"></label>
         <select id="setLang"><option value="en">English</option><option value="ar">العربية</option></select>
         <span class="hint" data-t="set_lang_hint"></span>
+        <label data-t="set_theme"></label>
+        <div class="themepick" id="themePick" role="radiogroup"></div>
+        <input type="hidden" id="setTheme">
+        <span class="hint" style="grid-column: 2 / 4" data-t="set_theme_hint"></span>
+        <label for="setThemeHere" data-t="set_theme_here"></label>
+        <select id="setThemeHere" onchange="themeHere(this.value)"></select>
+        <span class="hint" data-t="set_theme_here_hint"></span>
       </div>
       <div class="row" style="margin-top:14px"><button class="btn amber" style="flex:0 0 auto" onclick="saveSettings()" data-t="save_settings"></button></div>
       <div id="setMsg"></div>
@@ -770,6 +832,13 @@ const I18N = {
     set_gender: "Default gender for new candidates", set_gender_hint: "Pre-selected in the registration form; the examiner can change it.",
     set_bib: "First automatic bib number", set_bib_hint: "Walk-ins get the next free bib from here on (e.g. 500, clear of the printed list).",
     set_lang: "Default language", set_lang_hint: "For a device that never chose a language. A device keeps the language picked on it.",
+    set_theme: "Station theme", set_theme_hint: "Colours for every screen of the station. Tap one to see it here; Save settings applies it everywhere.",
+    set_theme_here: "On this screen", set_theme_here_hint: "Only this device, e.g. Daylight for a tablet in the sun.", theme_station: "Station theme",
+    th_night: "Night", th_night_d: "Dark slate and amber, easy on the eyes indoors",
+    th_desert: "Desert Shield", th_desert_d: "Sand camouflage with the flag's green, red, white and black",
+    th_daylight: "Daylight", th_daylight_d: "Dark ink on white, readable in full sun",
+    th_track: "Running Track", th_track_d: "Tartan red-orange and lane lines on charcoal",
+    th_falcon: "Falcon", th_falcon_d: "Deep navy and falcon gold",
     save_settings: "Save settings", settings_saved: "Settings saved.", on: "On", off: "Off", none: "None",
     lbl_name_en: "Name (English)", lbl_name_ar: "Name (Arabic)", lbl_id: "ID number", lbl_gender: "Gender", lbl_dob: "Date of birth",
     ph_name_en: "Name (English)", import_csv: "Import CSV", add: "Add",
@@ -961,6 +1030,13 @@ const I18N = {
     set_gender: "الجنس الافتراضي للمتقدمين الجدد", set_gender_hint: "يُختار مسبقاً في نموذج التسجيل؛ يمكن للممتحن تغييره.",
     set_bib: "أول رقم تلقائي", set_bib_hint: "يأخذ المتقدمون الجدد الرقم المتاح التالي بدءاً من هنا (مثلاً 500، بعيداً عن القائمة المطبوعة).",
     set_lang: "اللغة الافتراضية", set_lang_hint: "لجهاز لم يختر لغة. يحتفظ الجهاز باللغة المختارة عليه.",
+    set_theme: "مظهر المحطة", set_theme_hint: "ألوان جميع شاشات المحطة. اضغط على مظهر لمعاينته هنا؛ حفظ الإعدادات يطبّقه في كل مكان.",
+    set_theme_here: "على هذه الشاشة", set_theme_here_hint: "لهذا الجهاز فقط، مثل «نهاري» لجهاز لوحي تحت الشمس.", theme_station: "مظهر المحطة",
+    th_night: "ليلي", th_night_d: "رمادي داكن وكهرماني، مريح للعين في الداخل",
+    th_desert: "درع الصحراء", th_desert_d: "تمويه رملي بألوان العلم: الأخضر والأحمر والأبيض والأسود",
+    th_daylight: "نهاري", th_daylight_d: "حبر داكن على أبيض، واضح تحت الشمس",
+    th_track: "مضمار الجري", th_track_d: "أحمر المضمار وخطوط الحارات على الفحمي",
+    th_falcon: "الصقر", th_falcon_d: "كحلي داكن وذهبي الصقر",
     save_settings: "حفظ الإعدادات", settings_saved: "تم حفظ الإعدادات.", on: "تشغيل", off: "إيقاف", none: "بدون",
     lbl_name_en: "الاسم (بالإنجليزية)", lbl_name_ar: "الاسم (بالعربية)", lbl_id: "رقم الهوية", lbl_gender: "الجنس", lbl_dob: "تاريخ الميلاد",
     ph_name_en: "الاسم (بالإنجليزية)", import_csv: "استيراد CSV", add: "إضافة",
@@ -2699,7 +2775,7 @@ const CamLive = {
 /* ============================== settings ============================== */
 // Station settings from the server (shared by every device); see service.SETTINGS.
 const SETTING_DEFAULTS = { auto_identify: true, camera_background: "off", backdrop_color: "#8a949e", background_image: null, face_match: "normal", face_required: false, walk_ins: true, default_gender: "M", default_unit: "combat",
-                           bib_start: 1, lanes: 3, wave_size: 50, start_countdown_s: 10, cancel_window_s: 120, site_name: "", default_language: "en", admin_pin_set: false };
+                           bib_start: 1, lanes: 3, wave_size: 50, start_countdown_s: 10, cancel_window_s: 120, site_name: "", default_language: "en", theme: "night", admin_pin_set: false };
 const setting = k => (S.settings && k in S.settings ? S.settings[k] : SETTING_DEFAULTS[k]);
 function applySettings(first) {
   if (first && load("lang", null) == null && setting("default_language") !== lang) setLang(setting("default_language"), false);
@@ -2713,7 +2789,36 @@ function applySettings(first) {
   }
   BgFx.backdrop = setting("backdrop_color"); BgFx.setImage(setting("background_image"));
   BgFx.setMode(setting("camera_background"));
+  applyTheme();
 }
+
+// ---- themes: the station's (a setting) unless this screen chose its own (kept on the device)
+const THEMES = {   // swatch colours for the picker: background, panel, accent, pass, fail
+  night: ["#10161d", "#1b252f", "#ffb000", "#19d27a", "#ff3b3b"],
+  desert: ["#e4d6b8", "#f6eedd", "#8f6514", "#00843d", "#c8102e"],
+  daylight: ["#e9edf1", "#ffffff", "#a85f00", "#0a8a4b", "#d0262f"],
+  track: ["#16171b", "#232429", "#f2673a", "#33d38e", "#ff2f5b"],
+  falcon: ["#0b1322", "#152138", "#d6b04a", "#2fd093", "#ff4d5e"],
+};
+function applyTheme(preview) {
+  const station = THEMES[setting("theme")] ? setting("theme") : "night";
+  save("stationTheme", station);   // the next page load paints in it from the first frame
+  const here = load("theme", "");
+  document.documentElement.dataset.theme = THEMES[here] ? here : (preview && THEMES[preview] ? preview : station);
+}
+function themeCards() {
+  const cur = $("setTheme").value;
+  $("themePick").innerHTML = Object.entries(THEMES).map(([k, [bg, panel, acc, go, stop]]) =>
+    `<button type="button" class="themecard${k === cur ? " on" : ""}" role="radio" aria-checked="${k === cur}" onclick="pickTheme('${k}')"
+      style="--t-bg:${bg};--t-panel:${panel};--t-acc:${acc};--t-go:${go};--t-stop:${stop}">
+      <span class="sw"><i></i></span><b>${t("th_" + k)}</b><small>${t("th_" + k + "_d")}</small></button>`).join("");
+  const here = load("theme", "");
+  $("setThemeHere").innerHTML = `<option value="">${t("theme_station")}</option>`
+    + Object.keys(THEMES).map(k => `<option value="${k}">${t("th_" + k)}</option>`).join("");
+  $("setThemeHere").value = THEMES[here] ? here : "";
+}
+function pickTheme(k) { $("setTheme").value = k; themeCards(); applyTheme(k); }
+function themeHere(k) { save("theme", k); applyTheme($("setTheme").value); }
 function applySiteName() {
   const site = setting("site_name");
   $("tagline").textContent = site || t("tagline");
@@ -2723,13 +2828,13 @@ const SET_FIELDS = {   // input id -> [setting, read, write]
   setAuto: ["auto_identify", v => v === "1", v => (v ? "1" : "0")], setBg: ["camera_background"], setMatch: ["face_match"], setFaceReq: ["face_required", v => v === "1", v => (v ? "1" : "0")],
   setWalk: ["walk_ins", v => v === "1", v => (v ? "1" : "0")], setGender: ["default_gender"], setUnit: ["default_unit"], setBib: ["bib_start", v => parseInt(v, 10)],
   setLanes: ["lanes", v => parseInt(v, 10), String], setWave: ["wave_size", v => parseInt(v, 10)],
-  setCountdown: ["start_countdown_s", v => parseInt(v, 10), String], setCancelWin: ["cancel_window_s", v => parseInt(v, 10), String], setSite: ["site_name", v => v.trim()], setLang: ["default_language"],
+  setCountdown: ["start_countdown_s", v => parseInt(v, 10), String], setCancelWin: ["cancel_window_s", v => parseInt(v, 10), String], setSite: ["site_name", v => v.trim()], setLang: ["default_language"], setTheme: ["theme"],
 };
 function showSettings() {
   for (const [id, [k, , out]] of Object.entries(SET_FIELDS)) $(id).value = out ? out(setting(k)) : setting(k);
   const col = setting("backdrop_color"), preset = [...$("setBgColor").options].some(o => o.value === col);
   $("setBgColor").value = preset ? col : "custom"; $("setBgCustom").value = col;
-  bgColorPicked(); bgPreview(); bgRows();
+  bgColorPicked(); bgPreview(); bgRows(); themeCards();
   msg("setMsg"); showRules(); showPin();
 }
 // The colour / picture controls appear under "Camera background" only when that choice needs them.
@@ -2826,7 +2931,7 @@ function openSettings() {
   $("settingsPage").classList.remove("hidden"); $("setBtn").classList.add("active"); window.scrollTo(0, 0);
   for (const x of ["simple", "advanced"]) $("mode-" + x).classList.remove("active");
 }
-function closeSettings() { setMode(mode); }
+function closeSettings() { setMode(mode); applyTheme(); }   // an unsaved theme preview ends here
 const PinDlg = {
   next: null,
   open(next) { this.next = next || (() => setMode("advanced")); const d = $("pinDlg"); if (d.open) return; $("pinIn").value = ""; msg("pinDlgMsg"); d.showModal(); $("pinIn").focus(); },
