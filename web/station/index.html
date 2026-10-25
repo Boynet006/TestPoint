@@ -39,6 +39,14 @@
     --head: rgba(24,20,15,.95); --view: #0e0b08;
     --bar: linear-gradient(90deg, #ef3340 0 16%, transparent 16%), linear-gradient(#00a651 0 33.3%, #ffffff 33.3% 66.6%, #000 66.6%); --bar-h: 9px;
     --pattern: var(--camo-dark); --pattern-size: 320px 320px; }
+  /* Desert Sand: the camouflage's own colours (sand, tan, brown, red-brown, olive), plain, no pattern */
+  [data-theme=desert_sand] {
+    --bg: #e8dcc4; --bg2: #f1e8d6; --panel: #f7f1e4; --line: #c9ae86; --text: #33251a; --muted: #7a5c43; --dim: #a88d6b;
+    --amber: #8e6240; --amber-ink: #fffaf2; --go: #5f6b25; --go-ink: #fff; --stop: #a8322a; --info: #56677a;
+    --head: rgba(247,241,228,.96); --view: #33251a; color-scheme: light;
+    --ok-text: #4a5418; --bad-text: #8a271f; --warn-text: #6b472c;
+    --bar: linear-gradient(90deg, #c9ae86 0 25%, #a87a55 25% 50%, #7e4a35 50% 75%, #8f8a4c 75%); --bar-h: 4px;
+    --pattern: none; }
   /* Daylight: dark ink on white, readable on a tablet in full sun */
   [data-theme=daylight] {
     --bg: #e9edf1; --bg2: #ffffff; --panel: #ffffff; --line: #c3ccd6; --text: #0c1520; --muted: #46566a; --dim: #7a8899;
@@ -846,6 +854,7 @@ const I18N = {
     th_night: "Night", th_night_d: "Dark slate and amber, easy on the eyes indoors",
     th_desert: "Desert Shield", th_desert_d: "Sand camouflage with the flag's green, red, white and black",
     th_desert_night: "Desert Night", th_desert_night_d: "The same camouflage and flag on dark sand",
+    th_desert_sand: "Desert Sand", th_desert_sand_d: "The camouflage's sand, tan, brown and olive, plain",
     th_daylight: "Daylight", th_daylight_d: "Dark ink on white, readable in full sun",
     th_track: "Running Track", th_track_d: "Tartan red-orange and lane lines on charcoal",
     th_falcon: "Falcon", th_falcon_d: "Deep navy and falcon gold",
@@ -1045,6 +1054,7 @@ const I18N = {
     th_night: "ليلي", th_night_d: "رمادي داكن وكهرماني، مريح للعين في الداخل",
     th_desert: "درع الصحراء", th_desert_d: "تمويه رملي بألوان العلم: الأخضر والأحمر والأبيض والأسود",
     th_desert_night: "ليل الصحراء", th_desert_night_d: "التمويه والعلم نفسهما على رملي داكن",
+    th_desert_sand: "رمال الصحراء", th_desert_sand_d: "ألوان التمويه الرملية والبنية والزيتونية، بلا نقش",
     th_daylight: "نهاري", th_daylight_d: "حبر داكن على أبيض، واضح تحت الشمس",
     th_track: "مضمار الجري", th_track_d: "أحمر المضمار وخطوط الحارات على الفحمي",
     th_falcon: "الصقر", th_falcon_d: "كحلي داكن وذهبي الصقر",
@@ -2808,6 +2818,7 @@ const THEMES = {   // swatch colours for the picker: background, panel, accent, 
   night: ["#10161d", "#1b252f", "#ffb000", "#19d27a", "#ff3b3b"],
   desert: ["#e4d6b8", "#f6eedd", "#8f6514", "#00843d", "#c8102e"],
   desert_night: ["#18140f", "#27211a", "#d6a957", "#2fbf71", "#ef3340"],
+  desert_sand: ["#e8dcc4", "#f7f1e4", "#8e6240", "#5f6b25", "#a8322a"],
   daylight: ["#e9edf1", "#ffffff", "#a85f00", "#0a8a4b", "#d0262f"],
   track: ["#16171b", "#232429", "#f2673a", "#33d38e", "#ff2f5b"],
   falcon: ["#0b1322", "#152138", "#d6b04a", "#2fd093", "#ff4d5e"],
