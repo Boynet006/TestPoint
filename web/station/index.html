@@ -2666,7 +2666,7 @@ const CamLive = {
   busy: false, last: 0, misses: 0,
   target() { return role === "station" ? { el: "camLive-station", station: event } : role === "finish" ? { el: "camLive-finish", station: "finish" } : null; },
   tick() {
-    const tg = this.target(); if (!tg || this.busy || Date.now() - this.last < 300 || document.hidden) return;
+    const tg = this.target(); if (!tg || this.busy || Date.now() - this.last < 150 || document.hidden) return;
     const box = $(tg.el), img = box.querySelector("img");
     this.busy = true; this.last = Date.now();
     const next = new Image();
