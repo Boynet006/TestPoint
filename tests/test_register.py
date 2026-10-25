@@ -99,3 +99,12 @@ def test_register_changes_need_the_admin_pin(ctx):
     pin = {"X-Admin-Pin": "1234"}
     assert c.get("/api/candidates/export.csv", headers=pin).status_code == 200
     assert c.delete(f"/api/candidates/{cid}", headers=pin).status_code == 204
+
+
+def test_a_face_already_on_file_names_its_owner(ctx):
+    c, _ = ctx
+    a = c.post("/api/candidates", json={"external_id": "A-1", "name": "Alpha"}).json()["id"]
+    b = c.post("/api/candidates", json={"external_id": "B-1", "name": "Bravo"}).json()["id"]
+    c.post(f"/api/candidates/{a}/face", content=b"face:A")
+    r = c.post(f"/api/candidates/{b}/face", content=b"face:A").json()["detail"]
+    assert r["code"] == "face_belongs_to_other" and r["owner"]["id"] == a and r["owner"]["external_id"] == "A-1"

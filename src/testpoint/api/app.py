@@ -427,7 +427,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
 
     @app.exception_handler(S.ServiceError)
     async def _service_error(_: Request, e: S.ServiceError) -> JSONResponse:
-        return JSONResponse({"detail": {"code": e.code, "message": e.message}}, status_code=e.status)
+        return JSONResponse({"detail": {"code": e.code, "message": e.message, **e.extra}}, status_code=e.status)
 
     # ------------------------------------------------------------------ read
     @app.get("/api/health")
