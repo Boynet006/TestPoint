@@ -456,6 +456,11 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     def settings_update(body: SettingsIn, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
         return S.update_settings(db, day, body.model_dump(exclude_none=True))
 
+    @app.get("/api/settings/defaults")
+    def settings_defaults() -> dict:
+        """What Reset to defaults fills in: the station settings as shipped and the official rules."""
+        return {"settings": dict(S.SETTINGS), "rules": rules.to_dict()}
+
     @app.get("/api/settings/background-image")
     def background_image(db: Session = Depends(get_db)) -> Response:
         got = S.get_background(db)

@@ -203,6 +203,8 @@
   .setnav .dot { display: none; width: 8px; height: 8px; border-radius: 50%; background: var(--amber); margin-inline-start: auto; }
   .setnav button.dirty .dot { display: block; }
   .setpanel { display: none; margin-bottom: 14px; } .setpanel.on { display: block; }
+  .panelhead { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; } .panelhead h2 { margin: 0; flex: 1; }
+  .setnav .resetall { margin-top: 18px; color: var(--dim); font-size: 14px; } .setnav .resetall:hover { color: var(--bad-text); }
   .savebar { position: sticky; bottom: 0; z-index: 5; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 12px 16px;
     background: var(--panel); border: 1px solid var(--amber); box-shadow: 0 -10px 30px -10px rgba(0,0,0,.5); }
   .savebar.flash { animation: barFlash .6s ease 2; } @keyframes barFlash { 50% { box-shadow: 0 0 0 3px var(--amber); } }
@@ -874,6 +876,7 @@
       <button type="button" data-p="sounds" onclick="SetNav.show('sounds')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg><span data-t="sec_sounds_nav"></span><i class="dot"></i></button>
       <div class="grp" data-t="nav_admin"></div>
       <button type="button" data-p="security" onclick="SetNav.show('security')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="1"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span data-t="sec_security"></span><i class="dot"></i></button>
+      <button type="button" class="resetall" onclick="SetNav.resetAll(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg><span data-t="reset_all"></span></button>
     </nav>
     <div class="setpanels">
     <div id="setMsg"></div>
@@ -1260,6 +1263,9 @@ const I18N = {
     cam_screen_warn: "Finish line and exercise station: on screen only; timing, counting and the evidence clips keep the original picture. The effect is made for one person close to the camera: runners further away or people lying on the mats can be cut off.",
     cam_n_files: "Never on demo video files and photos: they show as they are.", cam_n_evidence: "Never on evidence clips, saved face photos or recognition: they always use the original picture.",
     cam_original: "Face recognition and saved face photos always use the camera's original picture, whatever is chosen here.",
+    reset_section: "Reset to defaults", reset_all: "Reset all station settings", sure_reset_all: "Fill in every default? Press again",
+    reset_staged: "Defaults filled in. Press Save settings to apply them, or Discard.", reset_all_staged: "Every station default is filled in. Press Save settings (and Save rules) to apply, or Discard.",
+    reset_rules_staged: "The official rules are filled in. Press Save rules to use them (a new version).", reset_done_screen: "This screen is back to its defaults.",
     nav_station: "Station · every device", nav_device: "This screen", nav_admin: "Security",
     set_dots: "Dots in the moving background", set_dots_hint: "Neural Aurora, Mirage and Desert Stars. Fewer dots are calmer and lighter on the PC.", dots_auto: "Auto",
     sec_look: "Appearance", sec_screen: "Theme and motion", sec_sounds_nav: "Sounds", ph_search_settings: "Search settings",
@@ -1517,6 +1523,9 @@ const I18N = {
     cam_screen_warn: "خط الوصول ومحطة التمارين: على الشاشة فقط؛ التوقيت والعد ومقاطع الدليل تبقى بالصورة الأصلية. التأثير مصمم لشخص واحد قريب من الكاميرا: قد يُقطع العداؤون البعيدون أو المستلقون على الحصائر.",
     cam_n_files: "أبداً على ملفات الفيديو والصور التجريبية: تُعرض كما هي.", cam_n_evidence: "أبداً على مقاطع الدليل أو صور الوجوه المحفوظة أو التعرف: تستخدم دائماً الصورة الأصلية.",
     cam_original: "التعرف على الوجه وصور الوجوه المحفوظة تستخدم دائماً الصورة الأصلية للكاميرا، مهما كان الاختيار هنا.",
+    reset_section: "استعادة الافتراضي", reset_all: "استعادة كل إعدادات المحطة", sure_reset_all: "تعبئة كل القيم الافتراضية؟ اضغط مرة أخرى",
+    reset_staged: "عُبئت القيم الافتراضية. اضغط حفظ الإعدادات لتطبيقها، أو تجاهل.", reset_all_staged: "عُبئت كل القيم الافتراضية للمحطة. اضغط حفظ الإعدادات (وحفظ القواعد) للتطبيق، أو تجاهل.",
+    reset_rules_staged: "عُبئت القواعد الرسمية. اضغط حفظ القواعد لاستخدامها (إصدار جديد).", reset_done_screen: "عادت هذه الشاشة إلى إعداداتها الافتراضية.",
     nav_station: "المحطة · كل الأجهزة", nav_device: "هذه الشاشة", nav_admin: "الأمان",
     set_dots: "عدد النقاط في الخلفية المتحركة", set_dots_hint: "الشفق الذكي والسراب ونجوم الصحراء. نقاط أقل أهدأ وأخف على الجهاز.", dots_auto: "تلقائي",
     sec_look: "المظهر", sec_screen: "المظهر والحركة", sec_sounds_nav: "الأصوات", ph_search_settings: "ابحث في الإعدادات",
@@ -3916,9 +3925,10 @@ async function saveSettings() {
 // ---- test rules: a new version; today keeps its rules once anything has been scored
 const mmss0 = v => `${Math.floor(v / 60)}:${String(Math.round(v % 60)).padStart(2, "0")}`;
 const mmssIn = v => { const m = /^\s*(\d+)(?::(\d{1,2}))?\s*$/.exec(v); return m ? +m[1] * 60 + +(m[2] || 0) : NaN; };
-function showRules() {
+function showRules(base) {
   const r = S.rules; if (!r) return;
-  const show = r.next || r;   // edit the newest version
+  const show = base || r.next || r;   // edit the newest version (or the official defaults, from Reset)
+  S.rulesForm = show;
   const cell = (i, k, j, v) => `<td><input data-b="${i}" data-k="${k}" data-j="${j}" value="${k === "run_s" ? mmss0(v) : v}" inputmode="numeric"></td>`;
   $("ruMen").innerHTML = show.men.map((b, i) => `<tr><td class="ages"><input data-b="${i}" data-k="age_min" value="${b.age_min}" inputmode="numeric"><span>–</span><input data-b="${i}" data-k="age_max" value="${b.age_max}" inputmode="numeric"></td>`
     + ["run_s", "pushup", "crunch"].map(k => b[k].map((v, j) => cell(i, k, j, v)).join("")).join("") + `</tr>`).join("");
@@ -3927,7 +3937,7 @@ function showRules() {
   $("ruleState").textContent = r.next ? t("rules_pending", { v: r.version, next: r.next.version }) : t("rules_today", { v: r.version });
 }
 async function saveRules() {
-  const show = S.rules.next || S.rules;
+  const show = S.rulesForm || S.rules.next || S.rules;
   const men = show.men.map(b => ({ age_min: b.age_min, age_max: b.age_max, run_s: [...b.run_s], pushup: [...b.pushup], crunch: [...b.crunch] }));
   let bad = false;
   document.querySelectorAll("#ruMen input").forEach(inp => {
@@ -4006,6 +4016,46 @@ const SetNav = {
     }, 60);
   },
   dirty() { return Object.keys(this.changed()).length > 0; },
+  // ---- reset to defaults: station sections are only filled in (Save applies, Discard undoes);
+  // this screen's sections reset at once (nothing is shared); the admin PIN is never touched.
+  async defaults() {
+    if (!S.defaults) { try { S.defaults = await api("GET", "/api/settings/defaults"); } catch (e) { msg("setMsg", "bad", err(e)); return null; } }
+    return S.defaults;
+  },
+  addResets() {
+    for (const pn of document.querySelectorAll("#t-settings .setpanel")) {
+      if (pn.dataset.scope === "pin" || pn.querySelector(".panelhead")) continue;
+      const h = pn.querySelector("h2"), head = document.createElement("div"); head.className = "panelhead";
+      h.replaceWith(head); head.appendChild(h);
+      head.insertAdjacentHTML("beforeend", `<button class="btn ghost sm" type="button" style="flex:0 0 auto" onclick="SetNav.reset('${pn.dataset.p}')" data-t="reset_section"></button>`);
+    }
+  },
+  async reset(key) {
+    const pn = document.querySelector(`#t-settings .setpanel[data-p="${key}"]`), d = await this.defaults(); if (!pn || !d) return;
+    if (pn.dataset.scope === "device") { this.resetScreen(key); msg("setMsg", "ok", t("reset_done_screen")); return; }
+    if (pn.dataset.scope === "rules") { showRules(d.rules); msg("ruMsg", "warn", t("reset_rules_staged")); return; }
+    this.fill(pn, d.settings); msg("setMsg", "warn", t("reset_staged"));
+  },
+  fill(scope, def) {   // put the default values into the form fields inside ``scope``
+    for (const [id, [k, , out]] of Object.entries(SET_FIELDS)) if (scope.contains($(id)) && k in def) $(id).value = out ? out(def[k]) : def[k];
+    if (scope.contains($("setBgColor")) && def.backdrop_color) {
+      const col = def.backdrop_color, preset = [...$("setBgColor").options].some(o => o.value === col);
+      $("setBgColor").value = preset ? col : "custom"; $("setBgCustom").value = col;
+    }
+    bgColorPicked(); bgRows(); bgPlacesShow(); themeCards(); applyTheme($("setTheme").value); this.check();
+  },
+  resetScreen(key) {
+    if (key === "screen") { themeHere(""); motionHere("on"); dotsHere(""); }
+    if (key === "sounds") { for (const ev of Object.keys(SOUND_DEFAULT)) save("snd_" + ev, SOUND_DEFAULT[ev]); soundVolume(80); }
+    themeCards(); soundRows();
+  },
+  async resetAll(btn) {
+    const d = await this.defaults(); if (!d) return;
+    confirmClick("resetall", btn, () => {
+      this.fill($("t-settings"), d.settings); showRules(d.rules);
+      msg("setMsg", "warn", t("reset_all_staged")); msg("ruMsg", "warn", t("reset_rules_staged"));
+    }, "sure_reset_all");
+  },
   discard() { showSettings(); applyTheme(); msg("setMsg"); this.check(); },
   done(btn) {
     if (!this.dirty()) { closeSettings(); return; }
@@ -4015,7 +4065,7 @@ const SetNav = {
 };
 function openSettings() {
   if (setting("admin_pin_set") && !adminPin()) { PinDlg.open(openSettings); return; }
-  settingsOpen = true; showSettings(); SetNav.show(load("setPanel", "rules"));
+  settingsOpen = true; showSettings(); SetNav.addResets(); applyI18n(); SetNav.show(load("setPanel", "rules"));
   for (const x of ["simple", "advanced"]) $(x).classList.add("hidden");
   $("settingsPage").classList.remove("hidden"); $("setBtn").classList.add("active"); window.scrollTo(0, 0);
   for (const x of ["simple", "advanced"]) $("mode-" + x).classList.remove("active");
