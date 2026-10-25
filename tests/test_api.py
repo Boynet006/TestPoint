@@ -470,3 +470,11 @@ def test_camera_background_places(client):
     assert s["camera_bg_places"] == ["weigh", "finish"]
     assert ok(client.put("/api/settings", json={"camera_bg_places": []}))["camera_bg_places"] == []
     err(client.put("/api/settings", json={"camera_bg_places": ["kitchen"]}), 422, "bad_input")
+
+
+
+def test_defaults_for_reset(client):
+    ok(client.put("/api/settings", json={"wave_size": 20, "theme": "falcon"}))
+    d = ok(client.get("/api/settings/defaults"))
+    assert d["settings"]["wave_size"] == 50 and d["settings"]["theme"] == "night"
+    assert d["rules"]["men"] and d["rules"]["unit_level"]["combat"] == 60
