@@ -186,6 +186,32 @@
   @media (prefers-reduced-motion: reduce) { .idcard::after, .idcard .stamp { animation: none; } }
   .regcam { position: relative; aspect-ratio: 4/3; }
   .camrow { gap: 8px; margin-bottom: 8px; flex-wrap: wrap; } .camrow select { flex: 1 1 200px; min-width: 0; } .camrow .btn { flex: 0 0 auto; }
+  /* ---- settings: sections in a sidebar, one shown at a time; search across all; a save bar for unsaved changes */
+  .settop { gap: 12px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
+  .settop input[type=search] { flex: 1 1 240px; max-width: 420px; }
+  .setlayout { display: grid; grid-template-columns: 236px minmax(0, 1fr); gap: 18px; align-items: start; }
+  .setnav { position: sticky; top: 76px; display: flex; flex-direction: column; gap: 2px; }
+  .setnav .grp { font-family: var(--cond); letter-spacing: 1.5px; text-transform: uppercase; font-size: 12px; color: var(--dim); margin: 14px 12px 4px; }
+  .setnav .grp:first-child { margin-top: 0; }
+  .setnav button { all: unset; cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 9px 12px; color: var(--muted);
+    border-inline-start: 3px solid transparent; font-family: var(--cond); font-size: 16px; letter-spacing: .5px; }
+  .setnav button svg { width: 18px; height: 18px; flex: 0 0 auto; }
+  .setnav button:hover { color: var(--text); background: color-mix(in srgb, var(--text) 5%, transparent); }
+  .setnav button:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
+  .setnav button.on { color: var(--text); border-color: var(--amber); background: color-mix(in srgb, var(--amber) 12%, transparent); }
+  .setnav button.nomatch { opacity: .35; }
+  .setnav .dot { display: none; width: 8px; height: 8px; border-radius: 50%; background: var(--amber); margin-inline-start: auto; }
+  .setnav button.dirty .dot { display: block; }
+  .setpanel { display: none; margin-bottom: 14px; } .setpanel.on { display: block; }
+  .savebar { position: sticky; bottom: 0; z-index: 5; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 12px 16px;
+    background: var(--panel); border: 1px solid var(--amber); box-shadow: 0 -10px 30px -10px rgba(0,0,0,.5); }
+  .savebar.flash { animation: barFlash .6s ease 2; } @keyframes barFlash { 50% { box-shadow: 0 0 0 3px var(--amber); } }
+  @media (max-width: 860px) {
+    .setlayout { grid-template-columns: 1fr; }
+    .setnav { position: static; flex-direction: row; overflow-x: auto; gap: 4px; padding: 4px 0; }
+    .setnav .grp { display: none; } .setnav button { border-inline-start: 0; border-bottom: 3px solid transparent; white-space: nowrap; padding: 8px 10px; }
+    .settings { grid-template-columns: 1fr; } .settings .hint { margin-top: -6px; } .themepick { grid-column: 1; }
+  }
   .themepick { grid-column: 2 / 4; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
   .themecard { all: unset; cursor: pointer; border: 2px solid var(--line); background: var(--bg2); display: flex; flex-direction: column; }
   .themecard:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
@@ -820,9 +846,28 @@
 
 <!-- ======================== SETTINGS (from the header, any screen) ======================== -->
 <section id="settingsPage" class="hidden">
-  <div class="row" style="margin-bottom:14px"><h1 class="pagetitle" data-t="t_settings"></h1><span class="spacer"></span><button class="btn amber" style="flex:0 0 auto" onclick="closeSettings()" data-t="settings_done"></button></div>
-  <div id="t-settings">
-    <div class="card">
+  <div class="row settop"><h1 class="pagetitle" data-t="t_settings"></h1>
+    <input id="setSearch" type="search" data-tp="ph_search_settings" oninput="SetNav.search(this.value)" autocomplete="off">
+    <span class="spacer"></span><button class="btn amber" style="flex:0 0 auto" onclick="SetNav.done(this)" data-t="settings_done"></button></div>
+  <div id="t-settings" class="setlayout">
+    <nav class="setnav" id="setNav" aria-label="Settings">
+      <div class="grp" data-t="nav_station"></div>
+      <button type="button" data-p="rules" onclick="SetNav.show('rules')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4h6v3H9z"/><path d="M8 5H5v16h14V5h-3"/><path d="m9 14 2 2 4-4"/></svg><span data-t="sec_rules"></span><i class="dot"></i></button>
+      <button type="button" data-p="checkin" onclick="SetNav.show('checkin')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg><span data-t="sec_checkin"></span><i class="dot"></i></button>
+      <button type="button" data-p="register" onclick="SetNav.show('register')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="8" r="4"/><path d="M3 21c0-4 3-6 7-6 1.6 0 3 .3 4.2.9"/><path d="M19 14v6M16 17h6"/></svg><span data-t="sec_register"></span><i class="dot"></i></button>
+      <button type="button" data-p="run" onclick="SetNav.show('run')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/></svg><span data-t="sec_run"></span><i class="dot"></i></button>
+      <button type="button" data-p="station" onclick="SetNav.show('station')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8v8M18 8v8M3 10v4M21 10v4M6 12h12"/></svg><span data-t="sec_station"></span><i class="dot"></i></button>
+      <button type="button" data-p="look" onclick="SetNav.show('look')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="8" cy="10" r="1.3"/><circle cx="12" cy="7.5" r="1.3"/><circle cx="16" cy="10" r="1.3"/><path d="M12 21c-1.5 0-2-1-1.5-2.2.6-1.4 2-1.8 3.5-1.8H17"/></svg><span data-t="sec_look"></span><i class="dot"></i></button>
+      <div class="grp" data-t="nav_device"></div>
+      <button type="button" data-p="screen" onclick="SetNav.show('screen')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="1"/><path d="M8 20h8M12 16v4"/></svg><span data-t="sec_screen"></span><i class="dot"></i></button>
+      <button type="button" data-p="sounds" onclick="SetNav.show('sounds')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg><span data-t="sec_sounds_nav"></span><i class="dot"></i></button>
+      <div class="grp" data-t="nav_admin"></div>
+      <button type="button" data-p="security" onclick="SetNav.show('security')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="1"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span data-t="sec_security"></span><i class="dot"></i></button>
+    </nav>
+    <div class="setpanels">
+    <div id="setMsg"></div>
+    <p class="hint hidden" id="setNoMatch" data-t="set_no_match"></p>
+    <div class="card setpanel" data-p="rules" data-scope="rules">
       <h2 data-t="sec_rules"></h2>
       <p class="hint" id="ruleState"></p>
       <h3 class="sec" data-t="rt_title"></h3>
@@ -856,11 +901,10 @@
       <div class="row" style="margin-top:14px"><button class="btn amber" style="flex:0 0 auto" onclick="saveRules()" data-t="save_rules"></button><span class="hint" data-t="rules_save_hint"></span></div>
       <div id="ruMsg"></div>
     </div>
-    <div class="card">
-      <h2 data-t="t_settings"></h2>
+    <div class="card setpanel" data-p="checkin" data-scope="station">
+      <h2 data-t="sec_checkin"></h2>
       <p class="hint" data-t="settings_hint"></p>
-      <h3 class="sec" data-t="sec_checkin"></h3>
-      <div class="settings">
+<div class="settings">
         <label for="setAuto" data-t="set_auto"></label>
         <select id="setAuto"><option value="1" data-t="on"></option><option value="0" data-t="off"></option></select>
         <span class="hint" data-t="set_auto_hint"></span>
@@ -883,8 +927,11 @@
         <select id="setFaceReq"><option value="0" data-t="off"></option><option value="1" data-t="on"></option></select>
         <span class="hint" data-t="set_face_req_hint"></span>
       </div>
-      <h3 class="sec" data-t="sec_register"></h3>
-      <div class="settings">
+    </div>
+    <div class="card setpanel" data-p="register" data-scope="station">
+      <h2 data-t="sec_register"></h2>
+      <p class="hint" data-t="settings_hint"></p>
+<div class="settings">
         <label for="setWalk" data-t="set_walk"></label>
         <select id="setWalk"><option value="1" data-t="on"></option><option value="0" data-t="off"></option></select>
         <span class="hint" data-t="set_walk_hint"></span>
@@ -898,8 +945,11 @@
         <input id="setBib" type="number" min="1" max="99999" step="1">
         <span class="hint" data-t="set_bib_hint"></span>
       </div>
-      <h3 class="sec" data-t="sec_run"></h3>
-      <div class="settings">
+    </div>
+    <div class="card setpanel" data-p="run" data-scope="station">
+      <h2 data-t="sec_run"></h2>
+      <p class="hint" data-t="settings_hint"></p>
+<div class="settings">
         <label for="setWave" data-t="set_wave"></label>
         <input id="setWave" type="number" min="1" max="200" step="1">
         <span class="hint" data-t="set_wave_hint"></span>
@@ -910,14 +960,20 @@
         <select id="setCancelWin"><option value="120" data-t="min_2"></option><option value="300" data-t="min_5"></option><option value="600" data-t="min_10"></option><option value="1800" data-t="min_30"></option><option value="0" data-t="until_first_finisher"></option></select>
         <span class="hint" data-t="set_cancel_win_hint"></span>
       </div>
-      <h3 class="sec" data-t="sec_station"></h3>
-      <div class="settings">
+    </div>
+    <div class="card setpanel" data-p="station" data-scope="station">
+      <h2 data-t="sec_station"></h2>
+      <p class="hint" data-t="settings_hint"></p>
+<div class="settings">
         <label for="setLanes" data-t="set_lanes"></label>
         <select id="setLanes"><option>1</option><option>2</option><option>3</option><option>4</option></select>
         <span class="hint" data-t="set_lanes_hint"></span>
       </div>
-      <h3 class="sec" data-t="sec_display"></h3>
-      <div class="settings">
+    </div>
+    <div class="card setpanel" data-p="look" data-scope="station">
+      <h2 data-t="sec_look"></h2>
+      <p class="hint" data-t="settings_hint"></p>
+<div class="settings">
         <label for="setSite" data-t="set_site"></label>
         <input id="setSite" maxlength="60" autocomplete="off">
         <span class="hint" data-t="set_site_hint"></span>
@@ -928,6 +984,12 @@
         <div class="themepick" id="themePick" role="radiogroup"></div>
         <input type="hidden" id="setTheme">
         <span class="hint" style="grid-column: 2 / 4" data-t="set_theme_hint"></span>
+      </div>
+    </div>
+    <div class="card setpanel" data-p="screen" data-scope="device">
+      <h2 data-t="sec_screen"></h2>
+      <p class="hint" data-t="screen_hint"></p>
+      <div class="settings">
         <label for="setThemeHere" data-t="set_theme_here"></label>
         <select id="setThemeHere" onchange="themeHere(this.value)"></select>
         <span class="hint" data-t="set_theme_here_hint"></span>
@@ -935,9 +997,11 @@
         <select id="setMotion" onchange="motionHere(this.value)"><option value="on" data-t="on"></option><option value="off" data-t="off"></option></select>
         <span class="hint" data-t="set_motion_hint"></span>
       </div>
-      <h3 class="sec" data-t="sec_sounds"></h3>
+    </div>
+    <div class="card setpanel" data-p="sounds" data-scope="device">
+      <h2 data-t="sec_sounds"></h2>
       <p class="hint" data-t="sounds_hint"></p>
-      <div class="settings">
+<div class="settings">
         <label for="setSnd-capture" data-t="snd_ev_capture"></label>
         <div class="pair"><select id="setSnd-capture" onchange="soundPick('capture', this.value)"></select><button class="btn ghost sm" type="button" onclick="Sound.play('capture')" data-tl="snd_preview">▶</button></div>
         <span class="hint" data-t="snd_ev_capture_hint"></span>
@@ -951,10 +1015,8 @@
         <div class="pair"><input id="setSndVol" type="range" min="0" max="100" step="5" oninput="soundVolume(this.value)" onchange="Sound.play('capture')"><span id="setSndVolN" class="kv" style="min-width:42px"></span></div>
         <span class="hint" data-t="snd_volume_hint"></span>
       </div>
-      <div class="row" style="margin-top:14px"><button class="btn amber" style="flex:0 0 auto" onclick="saveSettings()" data-t="save_settings"></button></div>
-      <div id="setMsg"></div>
     </div>
-    <div class="card">
+    <div class="card setpanel" data-p="security" data-scope="pin">
       <h2 data-t="sec_security"></h2>
       <p class="hint" id="pinState"></p>
       <div class="row">
@@ -963,6 +1025,9 @@
         <button class="btn ghost danger hidden" style="flex:0 0 auto" id="pinRemove" onclick="confirmClick('pinoff', this, () => savePin(true))" data-t="pin_remove"></button>
       </div>
       <div id="pinMsg"></div>
+    </div>
+    <div class="savebar hidden" id="saveBar" role="status"><b data-t="unsaved"></b><span class="hint" data-t="unsaved_hint"></span><span class="spacer"></span>
+      <button class="btn ghost" type="button" onclick="SetNav.discard()" data-t="discard"></button><button class="btn amber" type="button" onclick="saveSettings()" data-t="save_settings"></button></div>
     </div>
   </div>
 </section>
@@ -1157,6 +1222,11 @@ const I18N = {
     rg_never: "Not tested yet", rg_history: "History", rg_person: "Candidate", rg_close: "Close", rg_days: "Test days", rg_no_days: "Not on any test day yet.",
     rg_date: "Date", rg_verdict: "Result", rg_delete: "Delete person",
     rg_deleted: "{name} deleted.",
+    nav_station: "Station · every device", nav_device: "This screen", nav_admin: "Security",
+    sec_look: "Appearance", sec_screen: "Theme and motion", sec_sounds_nav: "Sounds", ph_search_settings: "Search settings",
+    set_no_match: "No setting matches.", screen_hint: "Only this device: each screen can look and move its own way.",
+    unsaved: "Unsaved changes", unsaved_hint: "Station settings apply to every device once saved.", discard: "Discard",
+    sure_discard: "Leave without saving? Press again",
     sec_sounds: "Sounds (this screen)", sounds_hint: "Each device keeps its own sounds and volume. Press ▶ to hear one. The start-line countdown and horn always play.",
     snd_ev_capture: "Face photo saved", snd_ev_capture_hint: "Each of the three photos (straight, left, right).",
     snd_ev_done: "Face photos done", snd_ev_done_hint: "When all three are saved.",
@@ -1401,6 +1471,11 @@ const I18N = {
     rg_never: "لم يُختبر بعد", rg_history: "السجل", rg_person: "المرشح", rg_close: "إغلاق", rg_days: "أيام الاختبار", rg_no_days: "ليس في أي يوم اختبار بعد.",
     rg_date: "التاريخ", rg_verdict: "النتيجة", rg_delete: "حذف الشخص",
     rg_deleted: "حُذف {name}.",
+    nav_station: "المحطة · كل الأجهزة", nav_device: "هذه الشاشة", nav_admin: "الأمان",
+    sec_look: "المظهر", sec_screen: "المظهر والحركة", sec_sounds_nav: "الأصوات", ph_search_settings: "ابحث في الإعدادات",
+    set_no_match: "لا يوجد إعداد مطابق.", screen_hint: "لهذا الجهاز فقط: لكل شاشة مظهرها وحركتها.",
+    unsaved: "تغييرات غير محفوظة", unsaved_hint: "إعدادات المحطة تُطبّق على كل الأجهزة بعد الحفظ.", discard: "تجاهل",
+    sure_discard: "الخروج دون حفظ؟ اضغط مرة أخرى",
     sec_sounds: "الأصوات (هذه الشاشة)", sounds_hint: "لكل جهاز أصواته ومستوى صوته. اضغط ▶ لسماع الصوت. العد التنازلي وبوق الانطلاق يعملان دائماً.",
     snd_ev_capture: "حفظ صورة الوجه", snd_ev_capture_hint: "كل صورة من الثلاث (مستقيم، يسار، يمين).",
     snd_ev_done: "اكتمال صور الوجه", snd_ev_done_hint: "عند حفظ الصور الثلاث.",
@@ -3597,7 +3672,7 @@ function themeCards() {
   $("setMotion").value = load("motion", "on") === "off" ? "off" : "on";
   soundRows();
 }
-function pickTheme(k) { $("setTheme").value = k; themeCards(); applyTheme(k); }
+function pickTheme(k) { $("setTheme").value = k; themeCards(); applyTheme(k); SetNav.check(); }
 function themeHere(k) { save("theme", k); applyTheme($("setTheme").value); }
 function motionHere(v) { save("motion", v); NeuralFx.sync(); }
 
@@ -3698,7 +3773,7 @@ function showSettings() {
   const col = setting("backdrop_color"), preset = [...$("setBgColor").options].some(o => o.value === col);
   $("setBgColor").value = preset ? col : "custom"; $("setBgCustom").value = col;
   bgColorPicked(); bgPreview(); bgRows(); themeCards();
-  msg("setMsg"); showRules(); showPin();
+  msg("setMsg"); showRules(); showPin(); SetNav.check();
 }
 // The colour / picture controls appear under "Camera background" only when that choice needs them.
 function bgRows() {
@@ -3787,9 +3862,71 @@ const adminPin = () => { try { return sessionStorage.getItem("tp_admin_pin"); } 
 const setAdminPin = v => { try { v ? sessionStorage.setItem("tp_admin_pin", v) : sessionStorage.removeItem("tp_admin_pin"); } catch {} };
 // Settings: one page from the header, over whichever screen this device shows; same PIN as Advanced.
 let settingsOpen = false;
+// ---- settings navigation: one section at a time, search across all of them, and a save bar
+// that appears only when a station setting differs from what is saved (and marks its section).
+const SetNav = {
+  cur: null, timer: 0,
+  show(key) {
+    this.cur = document.querySelector(`#t-settings .setpanel[data-p="${key}"]`) ? key : "rules"; save("setPanel", this.cur);
+    $("setSearch").value = ""; this.search(""); window.scrollTo(0, 0);
+    document.querySelector(`#setNav button[data-p="${this.cur}"]`).scrollIntoView({ block: "nearest", inline: "nearest" });
+  },
+  groups(grid) {   // a setting = its label and what follows it (control, hint), up to the next label
+    const out = []; let g = [];
+    for (const el of grid.children) { if (el.tagName === "LABEL" && g.length) { out.push(g); g = []; } g.push(el); }
+    if (g.length) out.push(g);
+    return out;
+  },
+  search(raw) {
+    const q = raw.trim().toLowerCase(); let any = false;
+    for (const pn of document.querySelectorAll("#t-settings .setpanel")) {
+      const key = pn.dataset.p, title = pn.querySelector("h2").textContent.toLowerCase(), all = !q || title.includes(q);
+      let hit = !!q && all;
+      for (const grid of pn.querySelectorAll(".settings")) for (const g of this.groups(grid)) {
+        const words = g.filter(el => el.tagName === "LABEL" || el.classList.contains("hint")).map(el => el.textContent.toLowerCase()).join(" ");
+        const m = all || words.includes(q);
+        g.forEach(el => { el.style.display = m ? "" : "none"; });
+        if (q && m) hit = true;
+      }
+      if (q && !hit && pn.textContent.toLowerCase().includes(q)) {   // e.g. the pass table: show the whole section
+        hit = true; pn.querySelectorAll(".settings > *").forEach(el => { el.style.display = ""; });
+      }
+      pn.classList.toggle("on", q ? hit : key === this.cur);
+      const btn = document.querySelector(`#setNav button[data-p="${key}"]`);
+      btn.classList.toggle("on", !q && key === this.cur); btn.classList.toggle("nomatch", !!q && !hit);
+      btn.setAttribute("aria-current", !q && key === this.cur ? "page" : "false");
+      if (hit) any = true;
+    }
+    $("setNoMatch").classList.toggle("hidden", !q || any);
+  },
+  changed() {   // station settings that differ from the saved ones, as {field id: true}
+    const out = {};
+    for (const [id, [k, read]] of Object.entries(SET_FIELDS)) {
+      const v = read ? read($(id).value) : $(id).value;
+      if (JSON.stringify(v) !== JSON.stringify(setting(k))) out[id] = true;
+    }
+    if (bgColor().toLowerCase() !== String(setting("backdrop_color")).toLowerCase()) out.setBgColor = true;
+    return out;
+  },
+  check() {
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => {
+      const ch = this.changed(), panels = new Set(Object.keys(ch).map(id => $(id).closest(".setpanel").dataset.p));
+      $("saveBar").classList.toggle("hidden", !panels.size);
+      document.querySelectorAll("#setNav button").forEach(b => b.classList.toggle("dirty", panels.has(b.dataset.p)));
+    }, 60);
+  },
+  dirty() { return Object.keys(this.changed()).length > 0; },
+  discard() { showSettings(); applyTheme(); msg("setMsg"); this.check(); },
+  done(btn) {
+    if (!this.dirty()) { closeSettings(); return; }
+    $("saveBar").classList.remove("flash"); void $("saveBar").offsetWidth; $("saveBar").classList.add("flash");
+    confirmClick("setclose", btn, () => { this.discard(); closeSettings(); }, "sure_discard");
+  },
+};
 function openSettings() {
   if (setting("admin_pin_set") && !adminPin()) { PinDlg.open(openSettings); return; }
-  settingsOpen = true; showSettings();
+  settingsOpen = true; showSettings(); SetNav.show(load("setPanel", "rules"));
   for (const x of ["simple", "advanced"]) $(x).classList.add("hidden");
   $("settingsPage").classList.remove("hidden"); $("setBtn").classList.add("active"); window.scrollTo(0, 0);
   for (const x of ["simple", "advanced"]) $("mode-" + x).classList.remove("active");
@@ -3839,6 +3976,7 @@ async function savePin(remove) {
   $("xCam").textContent = t("cam_off");
   setInterval(pollLanes, 100);
   setInterval(() => CamLive.tick(), 100);
+  for (const ev of ["input", "change"]) $("t-settings").addEventListener(ev, e => { if (e.target.closest('.setpanel[data-scope="station"]')) SetNav.check(); });
   BgFx.attach($("camVideo"), $("camFx")); BgFx.attach($("enrolVideo"), $("enrolFx")); BgFx.attach($("regVideo"), $("regFx"));
   FinishCam.init(); StationCam.init();
   for (const v of BgFx.views.values()) BgFx.sync(v);
