@@ -171,3 +171,24 @@ def test_run_loop_syncs_before_each_frame_and_pokes_on_events():
     assert sender.pokes == 1
     assert logs[0] == "lane 1: counting for attempt 2" and "rep 1: VALID" in logs[1]
     assert rp.snapshot()["lanes"]["1"]["attempt_id"] == 2
+
+
+def test_engine_takes_new_counting_rules_from_the_reply_once():
+    rp = Reporter("pushup", "0", ["1"])
+    rp.tuning_in_use({})
+    rp.on_reply({"lanes": {}, "acked": {}, "tuning": {}})
+    assert rp.take_tuning() is None                       # unchanged
+    rp.on_reply({"lanes": {}, "acked": {}, "tuning": {"down_elbow_deg": 90}})
+    assert rp.take_tuning() == {"down_elbow_deg": 90}
+    rp.on_reply({"lanes": {}, "acked": {}, "tuning": {"down_elbow_deg": 90}})
+    assert rp.take_tuning() is None                       # applied already
+
+
+def test_session_retune_changes_every_lane_at_once():
+    from testpoint.vision.exercises import make_analyzer
+    from testpoint.vision.lanes import equal_strips
+    from testpoint.vision.session import MultiLaneSession
+    s = MultiLaneSession(None, make_analyzer("pushup"), equal_strips(2))
+    cfg = s.retune({"down_elbow_deg": 85, "up_elbow_deg": 160})
+    assert cfg.enter_work == 85 and all(c.cfg.enter_rest == 160 for c in s.counters.values())
+    assert s.retune({}).enter_work == 95                  # back to the calibrated rules

@@ -204,7 +204,7 @@ def test_bibs_are_assigned_automatically_when_asked(client):
 def test_station_settings_defaults_update_and_audit(client):
     assert ok(client.get("/api/settings")) == {
         "auto_identify": True, "camera_background": "off", "camera_bg_places": ["weigh", "start", "photo"], "backdrop_color": "#8a949e", "face_match": "normal", "face_required": False, "walk_ins": True,
-        "default_gender": "M", "default_unit": "combat", "bib_start": 1, "lanes": 3, "wave_size": 50, "start_countdown_s": 10, "cancel_window_s": 120, "site_name": "", "default_language": "en", "trouble_run_cutoff_s": 0, "theme": "night",
+        "default_gender": "M", "default_unit": "combat", "bib_start": 1, "lanes": 3, "wave_size": 50, "start_countdown_s": 10, "cancel_window_s": 120, "site_name": "", "default_language": "en", "trouble_run_cutoff_s": 0, "count_tuning": {}, "theme": "night",
         "admin_pin_set": False, "background_image": None}
     s = ok(client.put("/api/settings", json={"auto_identify": False, "bib_start": 500}))
     assert s["auto_identify"] is False and s["bib_start"] == 500 and s["default_gender"] == "M"
@@ -502,3 +502,15 @@ def test_reset_today_keeps_people_and_can_empty_the_list(client):
     assert ok(client.get("/api/candidates"))["total"] == 1                  # still in the register
 
 
+
+
+
+def test_counting_rules_can_be_tuned_within_limits(client):
+    s = ok(client.put("/api/settings", json={"count_tuning": {"pushup": {"down_elbow_deg": 90, "min_body_line_deg": 145}}}))
+    assert s["count_tuning"] == {"pushup": {"down_elbow_deg": 90.0, "min_body_line_deg": 145.0}}
+    err(client.put("/api/settings", json={"count_tuning": {"pushup": {"down_elbow_deg": 150}}}), 400, "bad_tuning")      # out of range
+    err(client.put("/api/settings", json={"count_tuning": {"pushup": {"down_elbow_deg": 130, "up_elbow_deg": 140}}}), 400, "bad_tuning")
+    err(client.put("/api/settings", json={"count_tuning": {"pushup": {"min_conf": 0.1}}}), 400, "bad_tuning")         # not tunable
+    d = ok(client.get("/api/settings/defaults"))["tuning"]
+    assert d["pushup"]["down_elbow_deg"]["default"] == 95 and d["crunch"]["up_torso_deg"]["min"] == 3
+    assert ok(client.put("/api/settings", json={"count_tuning": {}}))["count_tuning"] == {}

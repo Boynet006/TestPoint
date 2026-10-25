@@ -156,3 +156,13 @@ def test_video_on_repeat_is_passed_to_the_camera():
     assert "--realtime" in s and "--loop" not in s
     w = finish_command(StartIn(kind="webcam", source="0", app_url="http://127.0.0.1:8080", loop=True))
     assert "--loop" not in w
+
+
+
+def test_station_tuning_goes_to_the_engine():
+    from pathlib import Path
+
+    from testpoint.camhost import StationIn, station_command
+    cmd = station_command(StationIn(kind="webcam", source="0", app_url="http://127.0.0.1:8080", exercise="pushup",
+                                    tuning={"down_elbow_deg": 90}), Path("l.json"))
+    assert cmd[cmd.index("--tuning") + 1] == '{"down_elbow_deg": 90.0}'

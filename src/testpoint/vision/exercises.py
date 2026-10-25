@@ -7,7 +7,7 @@ are starting points; they must be calibrated on real footage (Phase 1).
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields, replace
 from typing import Protocol
 
 from .counter import RepCounterConfig
@@ -216,8 +216,63 @@ ANALYZERS: dict[str, type] = {
 }
 
 
-def make_analyzer(name: str) -> ExerciseAnalyzer:
-    try:
-        return ANALYZERS[name]()
-    except KeyError:
-        raise ValueError(f"unknown exercise {name!r}; choose from {sorted(ANALYZERS)}") from None
+# The rules a station may tune (Settings > Exercise station), with the range each may take:
+# (lowest, highest, step). Anything else stays as calibrated.
+TUNABLE: dict[str, dict[str, tuple[float, float, float]]] = {
+    "pushup": {
+        "down_elbow_deg": (60, 130, 1), "up_elbow_deg": (120, 175, 1), "min_body_line_deg": (120, 175, 1),
+        "max_knee_lift": (-1.0, 0.5, 0.05), "max_knee_deg": (120, 180, 1), "min_knee_drop": (0.0, 1.0, 0.05),
+        "rest_in_down_s": (1, 10, 0.5), "fault_min_s": (0.0, 1.0, 0.05),
+    },
+    "crunch": {
+        "up_torso_deg": (3, 60, 0.5), "down_torso_deg": (1, 50, 0.5), "knee_min_deg": (0, 90, 1),
+        "knee_max_deg": (90, 180, 1), "max_lying_deg": (20, 70, 1), "min_rep_s": (0.1, 2.0, 0.1),
+        "fault_min_s": (0.0, 1.0, 0.05),
+    },
+}
+RULES_CLASS = {"pushup": PushupRules, "crunch": CrunchRules}
+
+
+def tuning_defaults() -> dict:
+    """Every tunable rule with its calibrated value and its range, for the settings page."""
+    return {ex: {k: {"default": getattr(RULES_CLASS[ex](), k), "min": lo, "max": hi, "step": st}
+                 for k, (lo, hi, st) in keys.items()} for ex, keys in TUNABLE.items()}
+
+
+def check_tuning(tuning: dict) -> dict:
+    """Validate ``{exercise: {rule: value}}``: known rules, in range, and a rep that can happen
+    (bottom below straight arms, back down below the rise, knee range the right way round).
+    Returns it cleaned (floats). Raises ValueError with a readable reason."""
+    out: dict[str, dict[str, float]] = {}
+    for ex, values in (tuning or {}).items():
+        if ex not in TUNABLE:
+            raise ValueError(f"unknown exercise {ex!r}")
+        clean = {}
+        for k, v in (values or {}).items():
+            if k not in TUNABLE[ex]:
+                raise ValueError(f"{ex}: {k} cannot be tuned")
+            lo, hi, _ = TUNABLE[ex][k]
+            v = float(v)
+            if not lo <= v <= hi:
+                raise ValueError(f"{ex}: {k} must be between {lo:g} and {hi:g}")
+            clean[k] = v
+        r = replace(RULES_CLASS[ex](), **clean)
+        if ex == "pushup" and r.up_elbow_deg - r.down_elbow_deg < 20:
+            raise ValueError("push-ups: straight arms must be at least 20° above the bottom")
+        if ex == "crunch" and r.down_torso_deg >= r.up_torso_deg:
+            raise ValueError("crunches: back down must be lower than the rise")
+        if ex == "crunch" and r.knee_min_deg >= r.knee_max_deg:
+            raise ValueError("crunches: the knee range is the wrong way round")
+        if clean:
+            out[ex] = clean
+    return out
+
+
+def make_analyzer(name: str, tuning: dict[str, float] | None = None) -> ExerciseAnalyzer:
+    """The analyzer for ``name``; ``tuning`` (from the station's settings) replaces calibrated rules."""
+    if name not in ANALYZERS:
+        raise ValueError(f"unknown exercise {name!r}; choose from {sorted(ANALYZERS)}")
+    if tuning:
+        rules = replace(RULES_CLASS[name](), **check_tuning({name: tuning}).get(name, {}))
+        return ANALYZERS[name](rules)
+    return ANALYZERS[name]()

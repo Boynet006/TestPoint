@@ -115,6 +115,8 @@ class StartIn(SourceIn):
 
 class StationIn(SourceIn):
     """The exercise-station engine: one camera watching side-by-side lanes."""
+    tuning: dict[str, float] = {}
+    """Counting rules to replace for this exercise (the station's settings; the engine checks them)."""
     exercise: str = Field(pattern="^(pushup|crunch)$")
     lanes: int = Field(default=3, ge=1, le=4)
     dividers: list[float] = []
@@ -225,6 +227,8 @@ def station_command(cfg: StationIn, lanes_file: Path) -> list[str]:
         cmd.append("--realtime")
         if cfg.loop:
             cmd.append("--loop")
+    if cfg.tuning:
+        cmd += ["--tuning", json.dumps(cfg.tuning, sort_keys=True)]
     return cmd
 
 
