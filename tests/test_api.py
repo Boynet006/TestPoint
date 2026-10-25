@@ -204,7 +204,7 @@ def test_bibs_are_assigned_automatically_when_asked(client):
 def test_station_settings_defaults_update_and_audit(client):
     assert ok(client.get("/api/settings")) == {
         "auto_identify": True, "camera_background": "off", "camera_bg_places": ["weigh", "start", "photo"], "backdrop_color": "#8a949e", "face_match": "normal", "face_required": False, "walk_ins": True,
-        "default_gender": "M", "default_unit": "combat", "bib_start": 1, "lanes": 3, "wave_size": 50, "start_countdown_s": 10, "cancel_window_s": 120, "site_name": "", "default_language": "en", "theme": "night",
+        "default_gender": "M", "default_unit": "combat", "bib_start": 1, "lanes": 3, "wave_size": 50, "start_countdown_s": 10, "cancel_window_s": 120, "site_name": "", "default_language": "en", "trouble_run_cutoff_s": 0, "theme": "night",
         "admin_pin_set": False, "background_image": None}
     s = ok(client.put("/api/settings", json={"auto_identify": False, "bib_start": 500}))
     assert s["auto_identify"] is False and s["bib_start"] == 500 and s["default_gender"] == "M"
@@ -478,3 +478,25 @@ def test_defaults_for_reset(client):
     d = ok(client.get("/api/settings/defaults"))
     assert d["settings"]["wave_size"] == 50 and d["settings"]["theme"] == "night"
     assert d["rules"]["men"] and d["rules"]["unit_level"]["combat"] == 60
+
+
+
+def test_troubleshooting_run_cutoff_judges_but_leaves_the_rules(client):
+    ok(client.put("/api/settings", json={"trouble_run_cutoff_s": 60}))
+    assert ok(client.get("/api/rules"))["run_cutoff_s"] == 25 * 60          # the rules as saved
+    ok(client.put("/api/settings", json={"trouble_run_cutoff_s": 0}))
+    err(client.put("/api/settings", json={"trouble_run_cutoff_s": -5}), 422, "bad_input")
+
+
+def test_reset_today_keeps_people_and_can_empty_the_list(client):
+    e = ok(client.post("/api/entries", json={"external_id": "A-1", "name": "Alpha", "gender": "M", "dob": "1999-01-01"}), 201)
+    ok(client.post(f"/api/entries/{e['id']}/weigh-in", json={"weight_kg": 70, "height_cm": 175, "accept": True}))
+    today = ok(client.get("/api/state"))["date"]
+    err(client.post("/api/day/reset", json={"confirm": "yes"}), 400, "confirm_date")
+    r = ok(client.post("/api/day/reset", json={"confirm": today}))
+    assert r["people"] == 1 and r["with_results"] == 1
+    rows = ok(client.get("/api/entries"))
+    assert len(rows) == 1 and rows[0]["status"] == "expected" and rows[0]["bmi"] is None
+    ok(client.post("/api/day/reset", json={"confirm": today, "keep_list": False}))
+    assert ok(client.get("/api/entries")) == []
+    assert ok(client.get("/api/candidates"))["total"] == 1                  # still in the register

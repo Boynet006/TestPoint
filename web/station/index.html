@@ -228,6 +228,7 @@
   .loopbox input { width: 18px; height: 18px; accent-color: var(--amber); }
   .troublebar { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--amber) 22%, transparent) 0 14px, transparent 14px 28px);
     border: 1px solid var(--amber); color: var(--warn-text); padding: 8px 14px; margin-bottom: 12px; font-family: var(--cond); letter-spacing: 1px; text-transform: uppercase; }
+  #troubleTop { margin: 0; border-left: 0; border-right: 0; text-align: center; }
   .themepick { grid-column: 2 / 4; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
   .themecard { all: unset; cursor: pointer; border: 2px solid var(--line); background: var(--bg2); display: flex; flex-direction: column; }
   .themecard:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
@@ -515,6 +516,7 @@
   <div class="seg"><button id="mode-simple" onclick="setMode('simple')" data-t="simple"></button><button id="mode-advanced" onclick="setMode('advanced')" data-t="advanced"></button></div>
   <div class="seg"><button id="setBtn" class="icon" onclick="openSettings()" data-tl="t_settings"><svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div>
 </header>
+<div class="troublebar hidden" id="troubleTop" role="status"></div>
 
 <main>
 <dialog id="enrolDlg" class="dlg">
@@ -942,7 +944,7 @@
       <button type="button" data-p="sounds" onclick="SetNav.show('sounds')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg><span data-t="sec_sounds_nav"></span><i class="dot"></i></button>
       <button type="button" data-p="trouble" onclick="SetNav.show('trouble')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/></svg><span data-t="sec_trouble"></span><i class="dot"></i></button>
       <div class="grp" data-t="nav_admin"></div>
-      <button type="button" data-p="security" onclick="SetNav.show('security')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="1"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span data-t="sec_security"></span><i class="dot"></i></button>
+      <button type="button" data-p="security" onclick="SetNav.show('security')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="1"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span data-t="sec_admin_nav"></span><i class="dot"></i></button>
       <button type="button" class="resetall" onclick="SetNav.resetAll(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg><span data-t="reset_all"></span></button>
     </nav>
     <div class="setpanels">
@@ -1124,6 +1126,9 @@
         <label for="setTroubleTime" data-t="set_trouble_time"></label>
         <select id="setTroubleTime" onchange="troubleTime(this.value)"><option value="" data-t="tt_official"></option><option value="300" data-t="tt_5"></option><option value="600" data-t="tt_10"></option><option value="1800" data-t="tt_30"></option><option value="0" data-t="tt_none"></option></select>
         <span class="hint" data-t="set_trouble_time_hint"></span>
+        <label for="setTroubleRun" data-t="set_trouble_run"></label>
+        <select id="setTroubleRun"><option value="0" data-t="tt_official"></option><option value="60" data-t="tt_1"></option><option value="120" data-t="tt_2"></option><option value="300" data-t="tt_5"></option><option value="600" data-t="tt_10"></option></select>
+        <span class="hint" data-t="set_trouble_run_hint"></span>
       </div>
     </div>
     <div class="card setpanel" data-p="security" data-scope="pin">
@@ -1135,6 +1140,17 @@
         <button class="btn ghost danger hidden" style="flex:0 0 auto" id="pinRemove" onclick="confirmClick('pinoff', this, () => savePin(true))" data-t="pin_remove"></button>
       </div>
       <div id="pinMsg"></div>
+      <h3 class="sec" data-t="rd_day_title"></h3>
+      <p class="hint" data-t="rd_day_hint"></p>
+      <div class="places" style="grid-template-columns: repeat(auto-fill, minmax(260px, 1fr))">
+        <label><input type="radio" name="resetKeep" value="1" checked><span><b data-t="rd_keep"></b><small data-t="rd_keep_d"></small></span></label>
+        <label><input type="radio" name="resetKeep" value="0"><span><b data-t="rd_clear"></b><small data-t="rd_clear_d"></small></span></label>
+      </div>
+      <div class="row" style="gap:8px;flex-wrap:wrap">
+        <input id="resetConfirm" autocomplete="off" style="max-width:220px" oninput="$('resetGo').disabled = this.value.trim() !== (S.state ? S.state.date : '')">
+        <button class="btn stop" style="flex:0 0 auto" id="resetGo" disabled onclick="resetDay()" data-t="rd_go"></button>
+      </div>
+      <div id="resetMsg"></div>
     </div>
     <div class="savebar hidden" id="saveBar" role="status"><b data-t="unsaved"></b><span class="hint" data-t="unsaved_hint"></span><span class="spacer"></span>
       <button class="btn ghost" type="button" onclick="SetNav.discard()" data-t="discard"></button><button class="btn amber" type="button" onclick="saveSettings()" data-t="save_settings"></button></div>
@@ -1346,7 +1362,13 @@ const I18N = {
     sec_trouble: "Troubleshooting", trouble_hint: "Only this device, to test the cameras and the counting. The official rules are not changed.",
     set_trouble_time: "Push-up and crunch time", set_trouble_time_hint: "Longer than the rule's limit while testing. A banner on the station screen shows it is on.",
     tt_official: "As the rules say", tt_5: "5 minutes", tt_10: "10 minutes", tt_30: "30 minutes", tt_none: "No limit",
-    tt_banner: "Troubleshooting time limit: {t}. Not an official test.", nav_device: "This screen", nav_admin: "Security",
+    tt_banner: "Troubleshooting time limit: {t}. Not an official test.",
+    set_trouble_run: "Run cut-off (every device)", set_trouble_run_hint: "A short cut-off so a test wave closes quickly (runners still out become DNF). Saved with Save settings; a banner shows on every screen.",
+    tt_1: "1 minute", tt_2: "2 minutes", tt_run_banner: "Troubleshooting: run cut-off {t}. Not an official test.",
+    rd_day_title: "Reset today", rd_day_hint: "Deletes today's weigh-ins, waves, finish times and exercise attempts. People and faces in Candidates, the settings and the rules are kept; the audit log keeps a record.",
+    rd_keep: "Keep today's list", rd_keep_d: "Everyone stays on the list, back to 'expected'.", rd_clear: "Clear today's list too", rd_clear_d: "Today starts empty (people stay in Candidates).",
+    rd_go: "Reset today", rd_type_date: "Type {d} to confirm", sec_admin_nav: "PIN and reset", e_confirm_date: "Type today's date exactly to reset it",
+    rd_done_keep: "Today is reset: {p} people back to expected, {w} wave(s) and {a} attempt(s) deleted.", rd_done_clear: "Today is reset and its list emptied ({p} people, {w} wave(s), {a} attempt(s)).", nav_device: "This screen", nav_admin: "Security",
     set_dots: "Dots in the moving background", set_dots_hint: "Neural Aurora, Mirage and Desert Stars. Fewer dots are calmer and lighter on the PC.", dots_auto: "Auto",
     sec_look: "Appearance", sec_screen: "Theme and motion", sec_sounds_nav: "Sounds", ph_search_settings: "Search settings",
     set_no_match: "No setting matches.", screen_hint: "Only this device: each screen can look and move its own way.",
@@ -1613,7 +1635,13 @@ const I18N = {
     sec_trouble: "استكشاف الأخطاء", trouble_hint: "لهذا الجهاز فقط، لتجربة الكاميرات والعد. القواعد الرسمية لا تتغير.",
     set_trouble_time: "زمن الضغط والبطن", set_trouble_time_hint: "أطول من حد القواعد أثناء التجربة. يظهر شريط على شاشة المحطة عند تفعيله.",
     tt_official: "حسب القواعد", tt_5: "5 دقائق", tt_10: "10 دقائق", tt_30: "30 دقيقة", tt_none: "بلا حد",
-    tt_banner: "حد زمني للتجربة: {t}. ليس اختباراً رسمياً.", nav_device: "هذه الشاشة", nav_admin: "الأمان",
+    tt_banner: "حد زمني للتجربة: {t}. ليس اختباراً رسمياً.",
+    set_trouble_run: "الحد الأقصى للجري (كل الأجهزة)", set_trouble_run_hint: "حد قصير لتُغلق موجة التجربة بسرعة (من لم يصل يُسجّل لم يكمل). يُحفظ مع حفظ الإعدادات؛ يظهر شريط على كل الشاشات.",
+    tt_1: "دقيقة", tt_2: "دقيقتان", tt_run_banner: "تجربة: الحد الأقصى للجري {t}. ليس اختباراً رسمياً.",
+    rd_day_title: "إعادة تعيين اليوم", rd_day_hint: "يحذف أوزان اليوم والموجات وأزمنة الوصول ومحاولات التمارين. الأشخاص والوجوه في المرشحين والإعدادات والقواعد تبقى؛ وسجل التدقيق يحتفظ بسجل.",
+    rd_keep: "الإبقاء على قائمة اليوم", rd_keep_d: "يبقى الجميع في القائمة، بحالة «متوقع».", rd_clear: "إفراغ قائمة اليوم أيضاً", rd_clear_d: "يبدأ اليوم فارغاً (يبقى الأشخاص في المرشحين).",
+    rd_go: "إعادة تعيين اليوم", rd_type_date: "اكتب {d} للتأكيد", sec_admin_nav: "الرمز وإعادة التعيين", e_confirm_date: "اكتب تاريخ اليوم بالضبط لإعادة تعيينه",
+    rd_done_keep: "أُعيد تعيين اليوم: {p} شخص عادوا إلى «متوقع»، وحُذفت {w} موجة و{a} محاولة.", rd_done_clear: "أُعيد تعيين اليوم وأُفرغت قائمته ({p} شخص، {w} موجة، {a} محاولة).", nav_device: "هذه الشاشة", nav_admin: "الأمان",
     set_dots: "عدد النقاط في الخلفية المتحركة", set_dots_hint: "الشفق الذكي والسراب ونجوم الصحراء. نقاط أقل أهدأ وأخف على الجهاز.", dots_auto: "تلقائي",
     sec_look: "المظهر", sec_screen: "المظهر والحركة", sec_sounds_nav: "الأصوات", ph_search_settings: "ابحث في الإعدادات",
     set_no_match: "لا يوجد إعداد مطابق.", screen_hint: "لهذا الجهاز فقط: لكل شاشة مظهرها وحركتها.",
@@ -3928,6 +3956,8 @@ function applySettings(first) {
   BgFx.backdrop = setting("backdrop_color"); BgFx.setImage(setting("background_image"));
   BgFx.setPlaces(setting("camera_bg_places")); BgFx.setMode(setting("camera_background"));
   applyTheme();
+  const cut = setting("trouble_run_cutoff_s") || 0, top = $("troubleTop");
+  top.classList.toggle("hidden", !cut); top.textContent = cut ? t("tt_run_banner", { t: mmss(cut).replace(/^0/, "") }) : "";
 }
 
 // ---- themes: the station's (a setting) unless this screen chose its own (kept on the device)
@@ -4071,7 +4101,7 @@ const SET_FIELDS = {   // input id -> [setting, read, write]
   setAuto: ["auto_identify", v => v === "1", v => (v ? "1" : "0")], setBg: ["camera_background"], setMatch: ["face_match"], setFaceReq: ["face_required", v => v === "1", v => (v ? "1" : "0")],
   setWalk: ["walk_ins", v => v === "1", v => (v ? "1" : "0")], setGender: ["default_gender"], setUnit: ["default_unit"], setBib: ["bib_start", v => parseInt(v, 10)],
   setLanes: ["lanes", v => parseInt(v, 10), String], setWave: ["wave_size", v => parseInt(v, 10)],
-  setCountdown: ["start_countdown_s", v => parseInt(v, 10), String], setCancelWin: ["cancel_window_s", v => parseInt(v, 10), String], setSite: ["site_name", v => v.trim()], setBgPlaces: ["camera_bg_places", v => (v ? v.split(",") : []), a => (a || []).join(",")], setLang: ["default_language"], setTheme: ["theme"],
+  setCountdown: ["start_countdown_s", v => parseInt(v, 10), String], setCancelWin: ["cancel_window_s", v => parseInt(v, 10), String], setSite: ["site_name", v => v.trim()], setTroubleRun: ["trouble_run_cutoff_s", v => parseInt(v, 10) || 0, String], setBgPlaces: ["camera_bg_places", v => (v ? v.split(",") : []), a => (a || []).join(",")], setLang: ["default_language"], setTheme: ["theme"],
 };
 function showSettings() {
   for (const [id, [k, , out]] of Object.entries(SET_FIELDS)) $(id).value = out ? out(setting(k)) : setting(k);
@@ -4079,6 +4109,7 @@ function showSettings() {
   $("setBgColor").value = preset ? col : "custom"; $("setBgCustom").value = col;
   bgColorPicked(); bgPreview(); bgRows(); themeCards(); bgPlacesShow();
   msg("setMsg"); showRules(); showPin(); SetNav.check();
+  if (S.state) $("resetConfirm").placeholder = t("rd_type_date", { d: S.state.date });
 }
 // The colour / picture controls appear under "Camera background" only when that choice needs them.
 function bgRows() {
@@ -4265,7 +4296,7 @@ const SetNav = {
   resetScreen(key) {
     if (key === "screen") { themeHere(""); motionHere("on"); dotsHere(""); }
     if (key === "sounds") { for (const ev of Object.keys(SOUND_DEFAULT)) save("snd_" + ev, SOUND_DEFAULT[ev]); soundVolume(80); }
-    if (key === "trouble") troubleTime("");
+    if (key === "trouble") { troubleTime(""); if (S.defaults) this.fill(document.querySelector('.setpanel[data-p="trouble"]'), S.defaults.settings); }
     themeCards(); soundRows();
   },
   async resetAll(btn) {
@@ -4288,6 +4319,18 @@ function openSettings() {
   for (const x of ["simple", "advanced"]) $(x).classList.add("hidden");
   $("settingsPage").classList.remove("hidden"); $("setBtn").classList.add("active"); window.scrollTo(0, 0);
   for (const x of ["simple", "advanced"]) $("mode-" + x).classList.remove("active");
+}
+async function resetDay() {
+  const keep = document.querySelector('input[name="resetKeep"]:checked').value === "1";
+  try {
+    const r = await api("POST", "/api/day/reset", { confirm: $("resetConfirm").value.trim(), keep_list: keep });
+    $("resetConfirm").value = ""; $("resetGo").disabled = true;
+    msg("resetMsg", "ok", t(keep ? "rd_done_keep" : "rd_done_clear", { p: r.people, w: r.waves, a: r.attempts }));
+    lanes.forEach((l, i) => Object.assign(l, newLane(i + 1))); refresh();
+  } catch (e) {
+    if (e.code === "admin_pin_required") PinDlg.open(() => resetDay());
+    else msg("resetMsg", "bad", err(e));
+  }
 }
 function closeSettings() { setMode(mode); applyTheme(); }   // an unsaved theme preview ends here
 const PinDlg = {
@@ -4334,7 +4377,7 @@ async function savePin(remove) {
   $("xCam").textContent = t("cam_off");
   setInterval(pollLanes, 100);
   setInterval(() => CamLive.tick(), 100);
-  for (const ev of ["input", "change"]) $("t-settings").addEventListener(ev, e => { if (e.target.closest('.setpanel[data-scope="station"]')) SetNav.check(); });
+  for (const ev of ["input", "change"]) $("t-settings").addEventListener(ev, () => SetNav.check());
   BgFx.attach($("camVideo"), $("camFx"), () => (role === "start" ? "start" : "weigh"));
   BgFx.attach($("enrolVideo"), $("enrolFx"), "photo"); BgFx.attach($("regVideo"), $("regFx"), "photo");
   BgFx.attach($("camLive-finish").querySelector("img"), $("fxFinish"), "finish");

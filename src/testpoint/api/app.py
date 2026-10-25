@@ -134,6 +134,7 @@ class SettingsIn(BaseModel):
     cancel_window_s: int | None = Field(default=None, ge=0, le=3600)
     site_name: str | None = Field(default=None, max_length=80)
     default_language: Literal["en", "ar"] | None = None
+    trouble_run_cutoff_s: int | None = Field(default=None, ge=0, le=3600)
     theme: Literal["night", "desert", "desert_night", "desert_sand", "daylight", "track", "falcon", "neural", "mirage", "desert_stars"] | None = None
 
 
@@ -213,6 +214,12 @@ class WeighInIn(BaseModel):
     dob: str | None = None
     unit: str | None = None
     """Missing gender / date of birth, and the unit type, confirmed at the scale."""
+
+
+class ResetDayIn(BaseModel):
+    confirm: str
+    """Today's date, typed: a reset is never one tap away."""
+    keep_list: bool = True
 
 
 class TodayIn(BaseModel):
@@ -442,7 +449,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     @app.get("/api/rules")
     def get_rules(db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
         """Today's rules (in force), plus ``next`` when a newer version waits for the next day."""
-        today_r, next_r = S.rules_for(db, day, rules), S.current_rules(db, rules)
+        today_r, next_r = S.rules_for(db, day, rules, judging=False), S.current_rules(db, rules)
         out = today_r.to_dict()
         if next_r.version != today_r.version:
             out["next"] = next_r.to_dict()
@@ -459,6 +466,12 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     @app.put("/api/settings", dependencies=[Depends(admin)])
     def settings_update(body: SettingsIn, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
         return S.update_settings(db, day, body.model_dump(exclude_none=True))
+
+    @app.post("/api/day/reset", dependencies=[Depends(admin)])
+    def day_reset(body: ResetDayIn, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        if body.confirm.strip() != day.date:
+            raise S.ServiceError("confirm_date", f"type today's date ({day.date}) to reset it", 400)
+        return S.reset_day(db, day, rules, keep_list=body.keep_list)
 
     @app.get("/api/settings/defaults")
     def settings_defaults() -> dict:
