@@ -148,12 +148,12 @@ def test_live_lanes_picture_and_staleness(client, passed, clock):
     att = ok(client.post("/api/attempts", json={"entry_id": passed[11], "event": "pushup", "lane": "2"}), 201)
     report(client, {"1": {"count": 1, "phase": "rest", "person": True},
                     "2": {"attempt_id": att["id"], "count": 4, "rejected": 1, "phase": "work", "person": True,
-                          "pending_faults": ["hips_sag"], "work_seconds": 1.3}})
+                          "pending_faults": ["hips_sag"], "work_seconds": 1.3, "depth": 0.6}})
     clock.t += 0.3
     live = ok(client.get("/api/lanes", params={"station": "pushup"}))
     assert live["engine"] == {"online": True, "age_s": 0.3, "fps": 30.0, "source": "0"}
     assert live["lanes"]["2"] == {"count": 4, "rejected": 1, "phase": "work", "person": True,
-                                  "pending_faults": ["hips_sag"], "work_seconds": 1.3,
+                                  "pending_faults": ["hips_sag"], "work_seconds": 1.3, "depth": 0.6,
                                   "attempt_id": att["id"], "current": True}
     assert live["lanes"]["1"]["current"] is False and live["lanes"]["1"]["attempt_id"] is None
     assert ok(client.get("/api/lanes", params={"station": "crunch"}))["engine"]["online"] is False

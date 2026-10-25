@@ -51,8 +51,22 @@ class LaneState:
     person: bool = False
     pending_faults: list[str] = field(default_factory=list)
     work_seconds: float = 0.0
+    depth: float | None = None
+    """How far into the rep the person is: 0 at the rest position, 1 at the depth that counts
+    (the counter's thresholds); None when not measurable. For the station screen's gauge."""
     events: list[dict] = field(default_factory=list)
     """Completed reps not yet acknowledged by the app, oldest first."""
+
+
+def rep_depth(metric: float | None, cfg: RepCounterConfig | None) -> float | None:
+    """The movement metric as 0 (rest threshold) .. 1 (work threshold), up to 1.25 past it."""
+    if metric is None or cfg is None:
+        return None
+    span = (cfg.enter_rest - cfg.enter_work) if cfg.work_is_below else (cfg.enter_work - cfg.enter_rest)
+    if span <= 0:
+        return None
+    d = (cfg.enter_rest - metric) / span if cfg.work_is_below else (metric - cfg.enter_rest) / span
+    return round(max(0.0, min(1.25, d)), 3)
 
 
 class Reporter:
@@ -66,13 +80,16 @@ class Reporter:
 
     def __init__(self, station: str, source: str, lane_names: list[str],
                  max_pending: int = MAX_PENDING,
-                 clip_for: Callable[[str, dict], str | None] | None = None) -> None:
+                 clip_for: Callable[[str, dict], str | None] | None = None,
+                 counter: RepCounterConfig | None = None) -> None:
         self.station = station
         self.source = source
         self.lanes = {name: LaneState() for name in lane_names}
         self.max_pending = max_pending
         self.clip_for = clip_for
         """Cuts the evidence clip for ``(lane, event)`` and returns its path, if recording."""
+        self.counter = counter
+        """The exercise's counter thresholds, for the live depth (rep_depth)."""
         self.t = 0.0
         self.fps = 0.0
         self._wanted: dict[str, int | None] | None = None
@@ -90,6 +107,7 @@ class Reporter:
                 lane.person = r.person is not None
                 lane.pending_faults = list(r.pending_faults)
                 lane.work_seconds = round(r.work_seconds, 2)
+                lane.depth = rep_depth(r.metrics.metric if r.person is not None else None, self.counter)
                 if r.event is not None:
                     ev = {"index": r.event.index, "valid": r.event.valid,
                           "faults": list(r.event.faults),
@@ -110,7 +128,7 @@ class Reporter:
                     name: {"attempt_id": lane.attempt_id, "count": lane.count,
                            "rejected": lane.rejected, "phase": lane.phase, "person": lane.person,
                            "pending_faults": lane.pending_faults,
-                           "work_seconds": lane.work_seconds, "events": list(lane.events)}
+                           "work_seconds": lane.work_seconds, "depth": lane.depth, "events": list(lane.events)}
                     for name, lane in self.lanes.items()
                 },
             }
@@ -306,7 +324,7 @@ def main(argv: list[str] | None = None) -> int:
     display = getattr(source, "display_url", args.source)
     evidence = EvidenceWriter(args.evidence, lanes, fps=source.fps) if args.evidence else None
     reporter = Reporter(station, display, [lane.name for lane in lanes],
-                        clip_for=evidence.clip if evidence else None)
+                        clip_for=evidence.clip if evidence else None, counter=analyzer.counter_config())
     sender = Sender(reporter, HttpTransport(args.app), interval=args.interval)
     print(f"station {station}  lanes {[lane.name for lane in lanes]}  source {display}  app {args.app}"
           + (f"  evidence {evidence.root}" if evidence else ""))
