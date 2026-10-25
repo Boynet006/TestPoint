@@ -232,6 +232,7 @@ SETTINGS: dict[str, object] = {
     # display
     "site_name": "",             # shown in the header; empty = "Fitness examination station"
     "default_language": "en",    # a device that never chose a language: "en" or "ar"
+    "theme": "night",            # colours of every screen: night, desert, daylight, track or falcon (a device may pick its own)
 }
 # Face match thresholds: similarity needed, and the lead over the second-best person.
 # Normal is SFace's published operating point; strict asks more of both, so fewer faces are

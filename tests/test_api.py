@@ -204,7 +204,7 @@ def test_bibs_are_assigned_automatically_when_asked(client):
 def test_station_settings_defaults_update_and_audit(client):
     assert ok(client.get("/api/settings")) == {
         "auto_identify": True, "camera_background": "off", "backdrop_color": "#8a949e", "face_match": "normal", "face_required": False, "walk_ins": True,
-        "default_gender": "M", "default_unit": "combat", "bib_start": 1, "lanes": 3, "wave_size": 50, "start_countdown_s": 10, "cancel_window_s": 120, "site_name": "", "default_language": "en",
+        "default_gender": "M", "default_unit": "combat", "bib_start": 1, "lanes": 3, "wave_size": 50, "start_countdown_s": 10, "cancel_window_s": 120, "site_name": "", "default_language": "en", "theme": "night",
         "admin_pin_set": False, "background_image": None}
     s = ok(client.put("/api/settings", json={"auto_identify": False, "bib_start": 500}))
     assert s["auto_identify"] is False and s["bib_start"] == 500 and s["default_gender"] == "M"

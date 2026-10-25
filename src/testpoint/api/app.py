@@ -133,6 +133,7 @@ class SettingsIn(BaseModel):
     cancel_window_s: int | None = Field(default=None, ge=0, le=3600)
     site_name: str | None = Field(default=None, max_length=80)
     default_language: Literal["en", "ar"] | None = None
+    theme: Literal["night", "desert", "daylight", "track", "falcon"] | None = None
 
 
 class BandIn(BaseModel):
