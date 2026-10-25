@@ -3685,7 +3685,7 @@ const CamLive = {
 
 /* ============================== settings ============================== */
 // Station settings from the server (shared by every device); see service.SETTINGS.
-const SETTING_DEFAULTS = { auto_identify: true, camera_background: "off", backdrop_color: "#8a949e", background_image: null, face_match: "normal", face_required: false, walk_ins: true, default_gender: "M", default_unit: "combat",
+const SETTING_DEFAULTS = { auto_identify: true, camera_background: "off", camera_bg_places: ["weigh", "start", "photo"], backdrop_color: "#8a949e", background_image: null, face_match: "normal", face_required: false, walk_ins: true, default_gender: "M", default_unit: "combat",
                            bib_start: 1, lanes: 3, wave_size: 50, start_countdown_s: 10, cancel_window_s: 120, site_name: "", default_language: "en", theme: "night", admin_pin_set: false };
 const setting = k => (S.settings && k in S.settings ? S.settings[k] : SETTING_DEFAULTS[k]);
 function applySettings(first) {
