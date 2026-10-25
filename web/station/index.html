@@ -185,6 +185,7 @@
   @keyframes stampIn { from { transform: translate(-50%, -50%) rotate(-12deg) scale(2.4); opacity: 0; } }
   @media (prefers-reduced-motion: reduce) { .idcard::after, .idcard .stamp { animation: none; } }
   .regcam { position: relative; aspect-ratio: 4/3; }
+  .camrow { gap: 8px; margin-bottom: 8px; flex-wrap: wrap; } .camrow select { flex: 1 1 200px; min-width: 0; } .camrow .btn { flex: 0 0 auto; }
   .themepick { grid-column: 2 / 4; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
   .themecard { all: unset; cursor: pointer; border: 2px solid var(--line); background: var(--bg2); display: flex; flex-direction: column; }
   .themecard:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
@@ -453,6 +454,11 @@
         <div class="regactions full"><button class="btn ghost" type="button" onclick="RegDlg.save(false)" data-t="rd_save_only"></button><span class="spacer"></span><button class="btn amber" type="submit" data-t="rd_next_face"></button></div>
       </form>
       <div id="regStep2" class="hidden">
+        <div class="row camrow">
+          <select id="regCamSel" onchange="RegDlg.pick(this.value)" data-tl="rd_cam_pick"></select>
+          <button class="btn sm" type="button" onclick="RegDlg.camera(true)" data-t="rd_cam_restart"></button>
+          <button class="btn ghost sm" type="button" onclick="RegDlg.freeCamera()" data-tl="rd_cam_free_hint"><span data-t="rd_cam_free"></span></button>
+        </div>
         <div class="viewer mirror regcam"><video id="regVideo" muted playsinline></video><canvas id="regFx" class="fx"></canvas><canvas id="regBox"></canvas></div>
         <p class="hint" data-t="rd_face_hint"></p>
         <div class="regactions"><label class="btn ghost"><span data-t="face_upload"></span><input type="file" accept="image/*" class="hidden" onchange="RegDlg.upload(this)"></label><span class="spacer"></span><button class="btn ghost" type="button" onclick="RegDlg.finish()" data-t="rd_skip_face"></button></div>
@@ -1128,6 +1134,11 @@ const I18N = {
     rg_never: "Not tested yet", rg_history: "History", rg_person: "Candidate", rg_close: "Close", rg_days: "Test days", rg_no_days: "Not on any test day yet.",
     rg_date: "Date", rg_verdict: "Result", rg_delete: "Delete person", sure_delete_person: "Delete this person and their face? Press again",
     rg_deleted: "{name} deleted.", rg_has_results: "This person has test results.", rg_delete_all: "Delete with their results",
+    rd_cam_pick: "Camera", rd_cam_default: "Default camera", rd_cam_n: "Camera {n}", rd_cam_restart: "Restart camera", rd_cam_free: "Free the camera",
+    rd_cam_free_hint: "Stops the desk camera and any camera service using a webcam, then starts this one",
+    rd_cam_timeout: "The camera did not answer", rd_cam_gone: "That camera is not connected", rd_cam_try: "Pick another camera, Restart or Free the camera, or upload a photo.",
+    rd_cam_freed: "Camera freed; starting it…", rd_face_taken: "This face is already saved as <b>{name}</b> ({id}). It is most likely the same person.",
+    rd_open_owner: "Open their record", rd_discard: "Discard this registration", rd_try_again: "Try again",
     rd_title: "Register a person", rd_step_details: "Details", rd_step_face: "Face photo", rd_step_ready: "Ready",
     rd_id: "ID number", rd_save_only: "Save without photo", rd_next_face: "Next: face photo", rd_needs: "Needs {n}%", rd_name_here: "Full name",
     rd_dupe: "Already saved: <b>{name}</b>.", rd_use_saved: "Use saved details", rd_age_check: "Check the date of birth",
@@ -1352,6 +1363,11 @@ const I18N = {
     rg_never: "لم يُختبر بعد", rg_history: "السجل", rg_person: "المرشح", rg_close: "إغلاق", rg_days: "أيام الاختبار", rg_no_days: "ليس في أي يوم اختبار بعد.",
     rg_date: "التاريخ", rg_verdict: "النتيجة", rg_delete: "حذف الشخص", sure_delete_person: "حذف هذا الشخص وصورة وجهه؟ اضغط مرة أخرى",
     rg_deleted: "حُذف {name}.", rg_has_results: "لهذا الشخص نتائج اختبار.", rg_delete_all: "حذف مع نتائجه",
+    rd_cam_pick: "الكاميرا", rd_cam_default: "الكاميرا الافتراضية", rd_cam_n: "كاميرا {n}", rd_cam_restart: "إعادة تشغيل الكاميرا", rd_cam_free: "تحرير الكاميرا",
+    rd_cam_free_hint: "يوقف كاميرا المكتب وأي خدمة كاميرا تستخدم كاميرا ويب، ثم يشغّل هذه",
+    rd_cam_timeout: "لم تستجب الكاميرا", rd_cam_gone: "هذه الكاميرا غير متصلة", rd_cam_try: "اختر كاميرا أخرى، أو أعد التشغيل، أو حرّر الكاميرا، أو ارفع صورة.",
+    rd_cam_freed: "حُررت الكاميرا؛ جارٍ تشغيلها…", rd_face_taken: "هذا الوجه محفوظ مسبقاً باسم <b>{name}</b> ({id}). غالباً هو الشخص نفسه.",
+    rd_open_owner: "فتح سجله", rd_discard: "إلغاء هذا التسجيل", rd_try_again: "حاول مجدداً",
     rd_title: "تسجيل شخص", rd_step_details: "البيانات", rd_step_face: "صورة الوجه", rd_step_ready: "جاهز",
     rd_id: "الرقم الشخصي", rd_save_only: "حفظ بلا صورة", rd_next_face: "التالي: صورة الوجه", rd_needs: "يحتاج {n}%", rd_name_here: "الاسم الكامل",
     rd_dupe: "محفوظ مسبقاً: <b>{name}</b>.", rd_use_saved: "استخدام البيانات المحفوظة", rd_age_check: "تحقق من تاريخ الميلاد",
@@ -3203,19 +3219,39 @@ const RegDlg = {
       const c = await api("POST", "/api/candidates", b);
       this.person = { ...c, faces: this.dupe && this.dupe.id === c.id ? null : 0 };
       msg("regMsg"); Register.load();
-      if (withFace) { this.go(2); this.camera(); } else this.finish();
+      if (withFace) { this.go(2); this.cameras(); this.camera(); } else this.finish();
     } catch (e) { msg("regMsg", "bad", err(e)); }
   },
   next() { this.save(true); },
-  async camera() {
-    const run = ++this.run, video = $("regVideo");
+  // The camera this desk uses for registering (kept on the device); empty = the browser's default.
+  pick(id) { save("regCam", id); this.camera(true); },
+  async cameras() {
+    const sel = $("regCamSel"), want = load("regCam", "");
+    try {
+      const cams = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "videoinput");
+      sel.innerHTML = `<option value="">${t("rd_cam_default")}</option>` + cams.map((d, i) => `<option value="${esc(d.deviceId)}">${esc(d.label || t("rd_cam_n", { n: i + 1 }))}</option>`).join("");
+      sel.value = cams.some(d => d.deviceId === want) ? want : "";
+    } catch { sel.innerHTML = `<option value="">${t("rd_cam_default")}</option>`; }
+  },
+  async camera(force) {
+    if (force) this.stopCam();
+    const run = ++this.run, video = $("regVideo"), id = load("regCam", "");
     msg("regMsg", "warn", t("rd_camera_starting"));
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+      const ask = navigator.mediaDevices.getUserMedia({ audio: false, video: { width: { ideal: 1280 }, height: { ideal: 720 }, ...(id ? { deviceId: { exact: id } } : {}) } });
+      // A camera that never answers (driver stuck, held by another program) must not leave a black box.
+      this.stream = await Promise.race([ask, new Promise((_, no) => setTimeout(() => no({ name: "Timeout" }), 10000))]);
+      ask.then(s => { if (s !== this.stream) s.getTracks().forEach(tr => tr.stop()); }).catch(() => {});
+      if (run !== this.run) { this.stream.getTracks().forEach(tr => tr.stop()); this.stream = null; return; }
       video.srcObject = this.stream; await video.play();
+      this.cameras();   // labels are known once the browser has allowed a camera
     } catch (x) {
-      const why = t(x && x.name === "NotReadableError" ? "e_camera_busy" : "e_camera_denied");
-      msg("regMsg", "bad", why + (/[.!?…]$/.test(why) ? " " : ". ") + t("rd_use_upload")); return;
+      if (run !== this.run) return;
+      const why = t(x && x.name === "NotReadableError" ? "e_camera_busy" : x && x.name === "Timeout" ? "rd_cam_timeout"
+                    : x && x.name === "OverconstrainedError" ? "rd_cam_gone" : "e_camera_denied");
+      msg("regMsg", "bad", why + (/[.!?…]$/.test(why) ? " " : ". ") + t("rd_cam_try"));
+      if (x && x.name === "OverconstrainedError") save("regCam", "");
+      this.cameras(); return;
     }
     const view = { video, canvas: $("regBox"), alive: () => run === this.run && $("regDlg").open && this.step === 2 };
     try {
@@ -3223,7 +3259,34 @@ const RegDlg = {
         if (saved) this.photo(i + 1); else msg("regMsg", "warn", `${i + 1}/${POSES.length} · ${t("pose_" + POSES[i])}`);
       });
       if (r.ok) { this.person.faces = r.faces; this.finish(); }
-    } catch (x) { if (run === this.run) msg("regMsg", "bad", err(x)); }
+    } catch (x) { if (run === this.run) this.clash(x); }
+  },
+  // The face belongs to someone already on file: that is very likely the same person.
+  clash(x) {
+    if (x.code !== "face_belongs_to_other" || !x.owner) { msg("regMsg", "bad", err(x)); return; }
+    this.stopCam();
+    msg("regMsg", "bad", t("rd_face_taken", { name: esc(cname(x.owner)), id: esc(x.owner.external_id) })
+      + `<div class="regactions" style="margin-top:8px"><button class="btn amber sm" type="button" onclick="RegDlg.useOwner(${x.owner.id})">${t("rd_open_owner")}</button>`
+      + `<button class="btn ghost sm danger" type="button" onclick="RegDlg.discard()">${t("rd_discard")}</button>`
+      + `<button class="btn ghost sm" type="button" onclick="RegDlg.camera(true)">${t("rd_try_again")}</button></div>`, true);
+  },
+  async discard() {   // drop the registration just made (it has no test day yet)
+    const c = this.person; if (!c) return;
+    try { if (c.faces === 0) await api("DELETE", `/api/candidates/${c.id}`); } catch (e) { msg("regMsg", "bad", err(e)); return; }
+    Register.load(); this.again();
+  },
+  async useOwner(id) { await this.discard(); this.close(); Register.open(id); },
+  // Force: stop whatever here holds a webcam (the desk camera on this page, the finish or station
+  // camera service when it runs a webcam) and start again.
+  async freeCamera() {
+    this.stopCam();
+    if (Cam.stream) { Cam.stop(); Cam.show(); }
+    for (const [get, stop] of [["/api/finishcam", "/api/finishcam/stop"], ["/api/stationcam", "/api/stationcam/stop"]]) {
+      try { const st = await api("GET", get); if (st.available && st.running && st.config && st.config.kind === "webcam") await api("POST", stop); } catch { /* service off */ }
+    }
+    msg("regMsg", "warn", t("rd_cam_freed"));
+    await new Promise(r => setTimeout(r, 800));
+    this.camera(true);
   },
   photo(n) {
     this.person.faces = n;
@@ -3232,7 +3295,7 @@ const RegDlg = {
   async upload(input) {
     const f = input.files[0]; input.value = ""; if (!f) return;
     try { const r = await apiImage(`/api/candidates/${this.person.id}/face`, f); this.photo(r.faces); this.finish(); }
-    catch (e) { msg("regMsg", "bad", err(e)); }
+    catch (e) { this.clash(e); }
   },
   async finish() {
     this.stopCam(); this.go(3); msg("regMsg");

@@ -25,11 +25,13 @@ from .rules import EVENTS, GRADES, UNITS, DayRules, age_on, bmi as compute_bmi
 
 
 class ServiceError(Exception):
-    def __init__(self, code: str, message: str = "", status: int = 409) -> None:
+    def __init__(self, code: str, message: str = "", status: int = 409, **extra) -> None:
         super().__init__(message or code)
         self.code = code
         self.message = message or code
         self.status = status
+        self.extra = extra
+        """More for the page (e.g. who already has this face), sent next to code and message."""
 
 
 def _audit(db: Session, day: Day, station: str, action: str, entry: Entry | None = None,
@@ -650,7 +652,8 @@ def enroll_face(db: Session, day: Day, entry: Entry | None, data: bytes, engine,
     if clash.candidate_id is not None:
         owner = db.get(Candidate, clash.candidate_id)
         raise ServiceError("face_belongs_to_other",
-                           f"{owner.name}, bib {owner.bib}, match {clash.score}", 409)
+                           f"{owner.name}, bib {owner.bib}, match {clash.score}", 409,
+                           owner={"id": owner.id, "name": owner.name, "name_ar": owner.name_ar, "external_id": owner.external_id})
     db.add(FaceTemplate(candidate_id=cid,
                         embedding=np.asarray(face.embedding, np.float32).tobytes(),
                         photo_jpeg=face.crop_jpeg))
