@@ -50,9 +50,11 @@ class FakeEngine:
             raise FaceError("no_face")
         if data == b"two" and require_single:
             raise FaceError("multiple_faces")
-        who = data.split(b":")[-1][:1]
+        parts = data.split(b":")                        # b"face:A" or b"face:A:left" (a turned head)
+        who = parts[1][:1] if len(parts) > 1 else parts[0][:1]
         emb = vec(99, 0.2, self.people.get(who, vec(42)))
-        return Face((10, 10, 100, 120), 0.95, emb, b"\xff\xd8jpeg")
+        turn = {b"left": 0.35, b"right": -0.35}.get(parts[2] if len(parts) > 2 else b"", 0.0)
+        return Face((10, 10, 100, 120), 0.95, emb, b"\xff\xd8jpeg" + data, yaw=turn)
 
 
 CSV = "external_id,name,bib\nC-1,Alpha,11\nC-2,Bravo,12\nC-3,Charlie,13\n"
