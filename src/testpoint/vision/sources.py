@@ -178,6 +178,9 @@ class LatestFrame:
         self.inner = inner
         self.fps = inner.fps
         self.dropped = 0
+        self.on_frame: Callable[[np.ndarray], None] | None = None
+        """Called on the reader thread with every frame the camera sends (the live picture);
+        must be quick and must not keep the thread waiting."""
         self._frame = None
         self._seq = 0
         self._given = 0
@@ -210,6 +213,12 @@ class LatestFrame:
                     self.dropped += 1       # the previous newest was never taken
                 self._frame, self._seq = frame, self._seq + 1
                 self._cv.notify_all()
+            tap = self.on_frame
+            if tap is not None:
+                try:
+                    tap(frame)
+                except Exception:           # the picture must never stop the analysis
+                    pass
 
     def read(self) -> np.ndarray | None:
         with self._cv:

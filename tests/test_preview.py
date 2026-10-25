@@ -101,3 +101,44 @@ def test_publisher_sends_each_new_frame_soon_but_capped():
         assert len(sent) <= 1 + 4
     finally:
         pub.stop()
+
+
+
+def test_live_camera_picture_shows_every_frame_with_the_latest_overlay():
+    from testpoint.vision.sources import LatestFrame
+
+    class Cam:
+        is_live, fps = True, 30.0
+
+        def __init__(self):
+            self.i = 0
+
+        def read(self):
+            import time
+            time.sleep(0.002)
+            self.i += 1
+            return None if self.i > 50 else np.full((10, 10, 3), self.i, np.uint8)
+
+        def release(self):
+            pass
+
+    drawn = []
+    sent = []
+    pub = FramePublisher("http://app", "finish", lambda img, st: drawn.append((int(img[0, 0, 0]), st)),
+                         post=sent.append)
+    src = LatestFrame(Cam())
+    assert pub.tap(src, prepare=lambda f: f[:5])
+    pub.offer(np.zeros((10, 10, 3), np.uint8), "analysis 1")   # the analysis brings only its state
+    while src.read() is not None:
+        pass
+    assert pub.publish_once()
+    assert drawn[-1] == (50, "analysis 1")                     # the newest camera frame, the latest overlay
+    src.release()
+
+
+def test_tap_leaves_videos_alone():
+    class Video:
+        is_live = False
+
+    pub = FramePublisher("http://app", "finish", lambda img, st: None, post=lambda b: None)
+    assert not pub.tap(Video()) and not pub.live

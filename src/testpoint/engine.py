@@ -323,6 +323,7 @@ def main(argv: list[str] | None = None) -> int:
             draw_hud(img, args.exercise, fps, "")
 
         preview = FramePublisher(args.app, station, draw)
+        preview.tap(source)
         preview.start()
     sender.start()
     try:
