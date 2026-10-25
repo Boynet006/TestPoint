@@ -102,6 +102,8 @@ class SourceIn(BaseModel):
     source: str
     app_url: str
     """Where the camera reports: the station app as this PC sees it."""
+    loop: bool = False
+    """A video file: play it on repeat."""
 
 
 class StartIn(SourceIn):
@@ -211,6 +213,8 @@ def finish_command(cfg: StartIn) -> list[str]:
            "--app", app_address(cfg.app_url)]
     if cfg.kind == "video":
         cmd.append("--realtime")       # play at its own speed, as a camera would
+        if cfg.loop:
+            cmd.append("--loop")
     return cmd
 
 
@@ -219,6 +223,8 @@ def station_command(cfg: StationIn, lanes_file: Path) -> list[str]:
            "--lanes-file", str(lanes_file), "--device", device(), "--app", app_address(cfg.app_url)]
     if cfg.kind == "video":
         cmd.append("--realtime")
+        if cfg.loop:
+            cmd.append("--loop")
     return cmd
 
 

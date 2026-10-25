@@ -173,6 +173,8 @@ class FinishCamIn(BaseModel):
     direction: Literal["down", "up", "any"] = "down"
     app_url: str = Field(max_length=100)
     """The app as the station PC sees it (the browser's own address), for the camera's reports."""
+    loop: bool = False
+    """A video file: play it on repeat."""
 
 
 class StationCamIn(BaseModel):
@@ -182,6 +184,7 @@ class StationCamIn(BaseModel):
     lanes: int = Field(default=3, ge=1, le=4)
     dividers: list[float] = Field(default=[], max_length=3)
     app_url: str = Field(max_length=100)
+    loop: bool = False
 
 
 class TagIn(BaseModel):

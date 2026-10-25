@@ -144,3 +144,15 @@ def test_log_lines_are_kept_short():
     assert clean('"/9j/' + "A" * 5000 + '",') == ""                 # picture data: dropped
     long = clean("word " * 200)
     assert len(long) < 310 and long.endswith("…")
+
+
+def test_video_on_repeat_is_passed_to_the_camera():
+    from pathlib import Path
+
+    from testpoint.camhost import StartIn, StationIn, finish_command, station_command
+    f = finish_command(StartIn(kind="video", source="clip.mp4", app_url="http://127.0.0.1:8080", loop=True))
+    assert "--realtime" in f and "--loop" in f
+    s = station_command(StationIn(kind="video", source="clip.mp4", app_url="http://127.0.0.1:8080", exercise="pushup"), Path("l.json"))
+    assert "--realtime" in s and "--loop" not in s
+    w = finish_command(StartIn(kind="webcam", source="0", app_url="http://127.0.0.1:8080", loop=True))
+    assert "--loop" not in w

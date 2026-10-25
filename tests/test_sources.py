@@ -176,3 +176,24 @@ def test_realtime_video_plays_like_a_camera():
     assert [vid.read() for _ in range(3)] == [0, 1, 2] and abs(now["t"] - 0.2) < 1e-9   # paced at 10 fps
     now["t"] += 0.55                                    # the reader was held up: skip, don't fall behind
     assert vid.read() == 7 and vid.inner.skipped == 4
+
+
+def test_realtime_video_on_repeat_starts_again():
+    from testpoint.vision.sources import RealtimeVideo
+    now = {"t": 0.0}
+
+    def sleep(s):
+        now["t"] += s
+
+    class Inner(_Video):
+        source = "clip.mp4"
+
+        def rewind(self):
+            self.i = 0
+            return True
+
+    vid = RealtimeVideo(Inner(3), clock=lambda: now["t"], sleep=sleep, loop=True)
+    got = [vid.read() for _ in range(7)]
+    assert got == [0, 1, 2, 0, 1, 2, 0] and vid.loops == 2
+    once = RealtimeVideo(Inner(3), clock=lambda: now["t"], sleep=sleep)
+    assert [once.read() for _ in range(4)] == [0, 1, 2, None]
