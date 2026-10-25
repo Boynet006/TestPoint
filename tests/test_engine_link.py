@@ -83,7 +83,7 @@ def event(index, valid=True, faults=(), t_start=0.0, t_end=1.0, clip=None):
 def test_report_attaches_reps_to_the_running_attempt(client, passed):
     # Nobody is being tested yet: the reply says so, nothing is stored.
     r = report(client, {"1": {"count": 3}, "2": {}})
-    assert r == {"lanes": {"1": {"attempt_id": None}, "2": {"attempt_id": None}}, "acked": {}}
+    assert r == {"lanes": {"1": {"attempt_id": None}, "2": {"attempt_id": None}}, "acked": {}, "tuning": {}}
 
     att = ok(client.post("/api/attempts", json={"entry_id": passed[11], "event": "pushup", "lane": "1"}), 201)
     r = report(client, {"1": {"count": 0}, "2": {}})
@@ -200,3 +200,10 @@ def test_reset_today_with_an_open_attempt_needs_a_yes(client, passed):
     done = ok(client.post("/api/day/reset", json={"confirm": today, "stop_running": True}))
     assert done["attempts"] == 1
     assert all(e["status"] == "expected" for e in ok(client.get("/api/entries")))
+
+
+def test_report_reply_carries_the_stations_counting_rules(client, passed):
+    ok(client.put("/api/settings", json={"count_tuning": {"pushup": {"down_elbow_deg": 90}}}))
+    r = ok(client.post("/api/engine/report", json={"station": "pushup", "lanes": {}}))
+    assert r["tuning"] == {"down_elbow_deg": 90.0}
+    assert ok(client.post("/api/engine/report", json={"station": "crunch", "lanes": {}}))["tuning"] == {}

@@ -79,6 +79,21 @@ class MultiLaneSession:
             lane.name: RepCounter(analyzer.counter_config()) for lane in self.lanes
         }
 
+    def retune(self, tuning: dict[str, float]):
+        """New counting rules while counting (Settings or the station screen's tune panel): the
+        analyzer's rules and every lane's thresholds change at once; counts and reps so far stay.
+        Returns the new counter config."""
+        from dataclasses import replace
+
+        from .exercises import RULES_CLASS, check_tuning
+        name = self.analyzer.name
+        clean = check_tuning({name: tuning or {}}).get(name, {})
+        self.analyzer.rules = replace(RULES_CLASS[name](), **clean)
+        cfg = self.analyzer.counter_config()
+        for counter in self.counters.values():
+            counter.cfg = cfg
+        return cfg
+
     def process(self, frame_bgr: np.ndarray, t: float) -> MultiLaneResult:
         h, w = frame_bgr.shape[:2]
         people = self.backend.detect(frame_bgr)

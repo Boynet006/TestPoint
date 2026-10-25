@@ -229,6 +229,9 @@
   .troublebar { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--amber) 22%, transparent) 0 14px, transparent 14px 28px);
     border: 1px solid var(--amber); color: var(--warn-text); padding: 8px 14px; margin-bottom: 12px; font-family: var(--cond); letter-spacing: 1px; text-transform: uppercase; }
   #troubleTop { margin: 0; border-left: 0; border-right: 0; text-align: center; }
+  .ltgrid { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(150px, 1.6fr); gap: 8px 12px; align-items: center; }
+  .ltgrid label { font-family: var(--cond); letter-spacing: .5px; cursor: help; } .ltgrid .pair input[type=range] { min-width: 80px; }
+  .tunehead { margin-top: 18px; } .tunev { min-width: 56px; } .tunev.changed { color: var(--amber); font-weight: 700; }
   .themepick { grid-column: 2 / 4; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
   .themecard { all: unset; cursor: pointer; border: 2px solid var(--line); background: var(--bg2); display: flex; flex-direction: column; }
   .themecard:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
@@ -862,6 +865,10 @@
               <span class="hint" id="scNote"></span>
             </div>
             <div id="scMsg"></div>
+            <details class="handtime" id="tunePanel" ontoggle="if (this.open) LiveTune.render()">
+              <summary><span data-t="lt_title"></span><small data-t="lt_hint"></small></summary>
+              <div id="ltBox"></div><div id="ltMsg"></div>
+            </details>
             <pre class="fclog hidden" id="scLog"></pre>
           </div>
         </div>
@@ -1006,6 +1013,10 @@
         <select id="setLanes"><option>1</option><option>2</option><option>3</option><option>4</option></select>
         <span class="hint" data-t="set_lanes_hint"></span>
       </div>
+      <h3 class="sec" data-t="tn_title"></h3>
+      <p class="hint" data-t="tn_hint"></p>
+      <input type="hidden" id="setTuning">
+      <div id="tuneBox"></div>
     </div>
     <div class="card setpanel" data-p="rules" data-scope="rules">
       <h2 data-t="sec_rules"></h2>
@@ -1214,7 +1225,22 @@ const I18N = {
     sc_followed: "Camera switched to {ex}, {n} lanes.", sc_started: "Station camera starting: the picture appears in a few seconds.", sc_stopped: "Station camera stopped.",
     idle_none_here: "Nobody is waiting for {ex}.", idle_need_other: "{n} still need {ex}.", idle_switch: "Switch to {ex}",
     idle_coming: "{n} not through the run yet: they come here after it.", idle_all_done: "Everyone today is done: no tests left.", start_all: "Start all ({n})", start_all_label: "All lanes start together",
-    check_photo: "Check the photo: is this the person?", no_photo: "no photo on file", numpad: "Number pad", vid_repeat: "Repeat", vid_ended: "The video played to its end. Tick Repeat to keep it playing, then press Start camera.", vis_depth: "How deep the rep in progress is: the line is deep enough to count", vis_depth_s: "depth", vis_to_go: "{n} to 60%", hand_title: "Time by hand", hand_hint: "Backup when the camera is off or misses someone: tap, then type the bib.", fc_log: "Camera messages", lane_bib: "Lane {n}: bib",
+    check_photo: "Check the photo: is this the person?", no_photo: "no photo on file", numpad: "Number pad", lt_title: "Tune counting", lt_hint: "Live: each change counts from the next frame (every station camera, audited).", lt_applied: "Applied: the camera counts with it now.", tn_title: "Counting rules", tn_hint: "How reps are counted and judged. Changes apply to every station camera at once (no restart) and are audited; they can also be tuned live on the station screen. Set them before the test day.",
+    tn_default: "default {v}", tn_restarted: "", e_bad_tuning: "That combination of counting rules is not possible",
+    tn_down_elbow_deg: "Bottom: elbow angle", tnh_down_elbow_deg: "At or below this the bottom counts. Lower = deeper push-ups.",
+    tn_up_elbow_deg: "Top: straight arms", tnh_up_elbow_deg: "Above this the arms are straight and the rep is complete (at least 20° above the bottom).",
+    tn_min_body_line_deg: "Body line", tnh_min_body_line_deg: "Shoulder-hip-ankle angle; below this the hips sag or pike (fault).",
+    tn_max_knee_lift: "Knee on the ground", tnh_max_knee_lift: "Knee height above the ankle, as a share of the hip's; below this with a bent knee the knee is down (fault).",
+    tn_max_knee_deg: "Bent knee", tnh_max_knee_deg: "The knee test applies only when the knee is bent below this angle.",
+    tn_min_knee_drop: "Knee drop (feet raised)", tnh_min_knee_drop: "With the feet raised, how far the knee must be below hip and ankle to count as down.",
+    tn_rest_in_down_s: "Rest in the down position", tnh_rest_in_down_s: "Longest time away from the top before the rep is rejected.",
+    tn_fault_min_s: "Fault must last", tnh_fault_min_s: "Shorter faults are pose jitter and do not reject the rep.",
+    tn_up_torso_deg: "Rise to count", tnh_up_torso_deg: "Torso rise above the lying level that counts as up.",
+    tn_down_torso_deg: "Back down", tnh_down_torso_deg: "Below this rise the candidate is back on the floor (lower than the rise).",
+    tn_knee_min_deg: "Knee angle, lowest", tnh_knee_min_deg: "Legs folded tighter than this = fault.",
+    tn_knee_max_deg: "Knee angle, highest", tnh_knee_max_deg: "Legs straighter than this = fault (feet must stay on the floor).",
+    tn_max_lying_deg: "Not lying above", tnh_max_lying_deg: "Torso above this angle is sitting or getting up, never the rest position.",
+    tn_min_rep_s: "Shortest crunch", tnh_min_rep_s: "Faster movements are pose noise, not a crunch.", vid_repeat: "Repeat", vid_ended: "The video played to its end. Tick Repeat to keep it playing, then press Start camera.", vis_depth: "How deep the rep in progress is: the line is deep enough to count", vis_depth_s: "depth", vis_to_go: "{n} to 60%", hand_title: "Time by hand", hand_hint: "Backup when the camera is off or misses someone: tap, then type the bib.", fc_log: "Camera messages", lane_bib: "Lane {n}: bib",
     cam_view: "Live camera", cam_off: "Camera offline · manual count", cam_live: "Camera live · {fps} fps", corrections: "Examiner corrections",
     ph_waiting: "Get into position", ph_rest: "Up", ph_work: "Down", no_person: "Nobody in the lane",
     f_body_not_straight: "Body not straight", f_knee_on_ground: "Knee on the ground", f_rest_in_down: "Resting down", f_knees_not_bent: "Knees not bent",
@@ -1488,7 +1514,22 @@ const I18N = {
     sc_followed: "تحولت الكاميرا إلى {ex}، {n} مسارات.", sc_started: "كاميرا المحطة تبدأ: تظهر الصورة خلال ثوانٍ.", sc_stopped: "أُوقفت كاميرا المحطة.",
     idle_none_here: "لا أحد بانتظار {ex}.", idle_need_other: "{n} ما زالوا يحتاجون {ex}.", idle_switch: "التبديل إلى {ex}",
     idle_coming: "{n} لم ينهوا الجري بعد: يأتون إلى هنا بعده.", idle_all_done: "انتهى الجميع اليوم: لا اختبارات متبقية.", start_all: "ابدأ الجميع ({n})", start_all_label: "تبدأ كل المسارات معاً",
-    check_photo: "تحقق من الصورة: هل هذا هو الشخص؟", no_photo: "لا توجد صورة مسجلة", numpad: "لوحة الأرقام", vid_repeat: "تكرار", vid_ended: "انتهى تشغيل الفيديو. فعّل التكرار ليستمر، ثم اضغط تشغيل الكاميرا.", vis_depth: "عمق التكرار الجاري: الخط هو العمق الكافي للعد", vis_depth_s: "العمق", vis_to_go: "{n} حتى 60%", hand_title: "التوقيت اليدوي", hand_hint: "احتياطي عند إيقاف الكاميرا أو فواتها لأحد: اضغط ثم اكتب الرقم.", fc_log: "رسائل الكاميرا", lane_bib: "المسار {n}: الرقم",
+    check_photo: "تحقق من الصورة: هل هذا هو الشخص؟", no_photo: "لا توجد صورة مسجلة", numpad: "لوحة الأرقام", lt_title: "ضبط العد", lt_hint: "مباشر: كل تغيير يُطبّق من الإطار التالي (كل كاميرات المحطة، ومسجّل).", lt_applied: "طُبّق: الكاميرا تعد به الآن.", tn_title: "قواعد العد", tn_hint: "كيف تُعد التكرارات وتُحكم. تُطبّق على كل كاميرات المحطة، وتُسجّل، وتُعاد تشغيل كاميرا المحطة العاملة بها. اضبطها قبل يوم الاختبار.",
+    tn_default: "الافتراضي {v}", tn_restarted: "أُعيد تشغيل كاميرا المحطة بقواعد العد الجديدة.", e_bad_tuning: "هذا الجمع بين قواعد العد غير ممكن",
+    tn_down_elbow_deg: "الأسفل: زاوية المرفق", tnh_down_elbow_deg: "عندها أو أقل يُحسب النزول. أصغر = ضغط أعمق.",
+    tn_up_elbow_deg: "الأعلى: استقامة الذراعين", tnh_up_elbow_deg: "فوقها تكون الذراعان مستقيمتين ويكتمل التكرار (أعلى من الأسفل بـ20° على الأقل).",
+    tn_min_body_line_deg: "استقامة الجسم", tnh_min_body_line_deg: "زاوية الكتف والورك والكاحل؛ تحتها يهبط الورك أو يرتفع (خطأ).",
+    tn_max_knee_lift: "الركبة على الأرض", tnh_max_knee_lift: "ارتفاع الركبة فوق الكاحل نسبةً لارتفاع الورك؛ تحته مع ثني الركبة تكون الركبة على الأرض (خطأ).",
+    tn_max_knee_deg: "ثني الركبة", tnh_max_knee_deg: "يُطبّق اختبار الركبة فقط عندما تنثني الركبة أقل من هذه الزاوية.",
+    tn_min_knee_drop: "نزول الركبة (القدمان مرفوعتان)", tnh_min_knee_drop: "مع رفع القدمين، مقدار نزول الركبة تحت الورك والكاحل لتُعد على الأرض.",
+    tn_rest_in_down_s: "الراحة في الأسفل", tnh_rest_in_down_s: "أطول وقت بعيداً عن الأعلى قبل رفض التكرار.",
+    tn_fault_min_s: "مدة الخطأ", tnh_fault_min_s: "الأخطاء الأقصر اهتزاز في الوضعية ولا ترفض التكرار.",
+    tn_up_torso_deg: "الارتفاع للعد", tnh_up_torso_deg: "ارتفاع الجذع فوق مستوى الاستلقاء الذي يُعد صعوداً.",
+    tn_down_torso_deg: "العودة للأسفل", tnh_down_torso_deg: "تحت هذا الارتفاع يعود المرشح إلى الأرض (أقل من الارتفاع للعد).",
+    tn_knee_min_deg: "زاوية الركبة، الأدنى", tnh_knee_min_deg: "ثني الساقين أكثر من هذا = خطأ.",
+    tn_knee_max_deg: "زاوية الركبة، الأعلى", tnh_knee_max_deg: "مد الساقين أكثر من هذا = خطأ (تبقى القدمان على الأرض).",
+    tn_max_lying_deg: "ليس مستلقياً فوق", tnh_max_lying_deg: "الجذع فوق هذه الزاوية جلوس أو قيام، وليس وضع الراحة.",
+    tn_min_rep_s: "أقصر تمرين بطن", tnh_min_rep_s: "الحركات الأسرع ضوضاء في الوضعية وليست تمريناً.", vid_repeat: "تكرار", vid_ended: "انتهى تشغيل الفيديو. فعّل التكرار ليستمر، ثم اضغط تشغيل الكاميرا.", vis_depth: "عمق التكرار الجاري: الخط هو العمق الكافي للعد", vis_depth_s: "العمق", vis_to_go: "{n} حتى 60%", hand_title: "التوقيت اليدوي", hand_hint: "احتياطي عند إيقاف الكاميرا أو فواتها لأحد: اضغط ثم اكتب الرقم.", fc_log: "رسائل الكاميرا", lane_bib: "المسار {n}: الرقم",
     cam_view: "الكاميرا مباشرة", cam_off: "الكاميرا غير متصلة · عدّ يدوي", cam_live: "الكاميرا تعمل · {fps} إطار/ث", corrections: "تصحيحات الممتحن",
     ph_waiting: "خذ الوضعية", ph_rest: "أعلى", ph_work: "أسفل", no_person: "لا أحد في المسار",
     f_body_not_straight: "الجسم غير مستقيم", f_knee_on_ground: "الركبة على الأرض", f_rest_in_down: "استراحة في الأسفل", f_knees_not_bent: "الركبتان غير مثنيتين",
@@ -3370,8 +3411,38 @@ function renderLane(l) {
   StartAll.render();
   if (keep && $("lq-" + l.n)) $("lq-" + l.n).value = keep;
 }
+// ---- tune counting on the station screen, while watching the picture: each change is saved at once
+// and reaches the engine with its next report (no restart). Admin PIN when one is set.
+const LiveTune = {
+  timer: 0, ex: null,
+  async render() {
+    const d = await SetNav.defaults(); if (!d || !d.tuning[event]) return;
+    this.ex = event;
+    const cur = (setting("count_tuning") || {})[event] || {};
+    $("ltBox").innerHTML = `<div class="ltgrid">` + Object.entries(d.tuning[event]).map(([k, r]) => {
+      const v = cur[k] != null ? cur[k] : r.default, changed = Math.abs(v - r.default) > 1e-9;
+      return `<label for="lt-${k}" title="${esc(t("tnh_" + k))}">${t("tn_" + k)}</label><div class="pair"><input id="lt-${k}" type="range" min="${r.min}" max="${r.max}" step="${r.step}" value="${v}" oninput="LiveTune.picked('${k}', this)">
+        <span class="kv tunev${changed ? " changed" : ""}" id="ltv-${k}">${+(+v).toFixed(2)}${TUNE_UNIT(k)}</span>
+        <button class="btn ghost sm${changed ? "" : " hidden"}" type="button" id="ltr-${k}" onclick="LiveTune.reset('${k}')" title="${t("tn_default", { v: r.default + TUNE_UNIT(k) })}">↺</button></div>`;
+    }).join("") + `</div>`;
+  },
+  picked(k, el) {
+    const r = S.defaults.tuning[this.ex][k], v = +el.value, changed = Math.abs(v - r.default) > 1e-9;
+    $("ltv-" + k).textContent = `${+v.toFixed(2)}${TUNE_UNIT(k)}`; $("ltv-" + k).classList.toggle("changed", changed); $("ltr-" + k).classList.toggle("hidden", !changed);
+    clearTimeout(this.timer); this.timer = setTimeout(() => this.save(), 300);   // save once the slider rests
+  },
+  reset(k) { const el = $("lt-" + k); el.value = S.defaults.tuning[this.ex][k].default; this.picked(k, el); },
+  async save() {
+    const d = S.defaults.tuning[this.ex], mine = {};
+    for (const k of Object.keys(d)) { const v = +$("lt-" + k).value; if (Math.abs(v - d[k].default) > 1e-9) mine[k] = v; }
+    const all = { ...(setting("count_tuning") || {}) }; if (Object.keys(mine).length) all[this.ex] = mine; else delete all[this.ex];
+    try { S.settings = await api("PUT", "/api/settings", { count_tuning: all }); msg("ltMsg", "ok", t("lt_applied")); }
+    catch (e) { if (e.code === "admin_pin_required") PinDlg.open(() => this.save()); else msg("ltMsg", "bad", err(e)); }
+  },
+};
 function renderStation() {
   StationCam.poll(); StartAll.render();
+  if ($("tunePanel").open && LiveTune.ex !== event) LiveTune.render();   // switched push-ups / crunches
   for (const x of ["pushup", "crunch"]) $("ev-" + x).classList.toggle("active", x === event);
   if (S.rules) $("xLimit").textContent = troubleLimit() === 0 ? "∞" : mmss(limit()).replace(/^0/, "");
   renderTrouble();
@@ -4103,13 +4174,13 @@ const SET_FIELDS = {   // input id -> [setting, read, write]
   setAuto: ["auto_identify", v => v === "1", v => (v ? "1" : "0")], setBg: ["camera_background"], setMatch: ["face_match"], setFaceReq: ["face_required", v => v === "1", v => (v ? "1" : "0")],
   setWalk: ["walk_ins", v => v === "1", v => (v ? "1" : "0")], setGender: ["default_gender"], setUnit: ["default_unit"], setBib: ["bib_start", v => parseInt(v, 10)],
   setLanes: ["lanes", v => parseInt(v, 10), String], setWave: ["wave_size", v => parseInt(v, 10)],
-  setCountdown: ["start_countdown_s", v => parseInt(v, 10), String], setCancelWin: ["cancel_window_s", v => parseInt(v, 10), String], setSite: ["site_name", v => v.trim()], setTroubleRun: ["trouble_run_cutoff_s", v => parseInt(v, 10) || 0, String], setBgPlaces: ["camera_bg_places", v => (v ? v.split(",") : []), a => (a || []).join(",")], setLang: ["default_language"], setTheme: ["theme"],
+  setCountdown: ["start_countdown_s", v => parseInt(v, 10), String], setCancelWin: ["cancel_window_s", v => parseInt(v, 10), String], setSite: ["site_name", v => v.trim()], setTuning: ["count_tuning", v => JSON.parse(v || "{}"), o => JSON.stringify(o || {})], setTroubleRun: ["trouble_run_cutoff_s", v => parseInt(v, 10) || 0, String], setBgPlaces: ["camera_bg_places", v => (v ? v.split(",") : []), a => (a || []).join(",")], setLang: ["default_language"], setTheme: ["theme"],
 };
 function showSettings() {
   for (const [id, [k, , out]] of Object.entries(SET_FIELDS)) $(id).value = out ? out(setting(k)) : setting(k);
   const col = setting("backdrop_color"), preset = [...$("setBgColor").options].some(o => o.value === col);
   $("setBgColor").value = preset ? col : "custom"; $("setBgCustom").value = col;
-  bgColorPicked(); bgPreview(); bgRows(); themeCards(); bgPlacesShow();
+  bgColorPicked(); bgPreview(); bgRows(); themeCards(); bgPlacesShow(); tuningRows();
   msg("setMsg"); showRules(); showPin(); SetNav.check();
   if (S.state) $("resetConfirm").placeholder = t("rd_type_date", { d: S.state.date });
 }
@@ -4130,6 +4201,35 @@ function bgPlacesPicked() {   // kept in a fixed order, so "changed or not" comp
   $("setBgPlaces").value = BG_PLACES.filter(p => on.has(p)).join(",");
   bgPlacesShow(); SetNav.check();
 }
+// ---- counting rules: one slider per tunable rule, from the server's list (its range and calibrated
+// value). Only values that differ from the calibrated ones are saved; the engine checks them again.
+const TUNE_UNIT = k => (k.endsWith("_deg") ? "°" : k.endsWith("_s") ? " s" : "");
+function tuningRows() {
+  const d = S.defaults && S.defaults.tuning; if (!d) return;
+  const cur = JSON.parse($("setTuning").value || "{}");
+  $("tuneBox").innerHTML = Object.entries(d).map(([ex, rules]) => `<h3 class="sec tunehead">${t(ex)}</h3><div class="settings">` + Object.entries(rules).map(([k, r]) => {
+    const v = cur[ex] && cur[ex][k] != null ? cur[ex][k] : r.default, changed = v !== r.default;
+    return `<label for="tn-${ex}-${k}">${t("tn_" + k)}</label>
+      <div class="pair"><input id="tn-${ex}-${k}" type="range" min="${r.min}" max="${r.max}" step="${r.step}" value="${v}" data-ex="${ex}" data-k="${k}" oninput="tuningPicked(this)">
+        <span class="kv tunev${changed ? " changed" : ""}" id="tnv-${ex}-${k}">${+v.toFixed(2)}${TUNE_UNIT(k)}</span>
+        <button class="btn ghost sm${changed ? "" : " hidden"}" type="button" id="tnr-${ex}-${k}" onclick="tuningReset('${ex}','${k}')" title="${t("tn_default", { v: r.default + TUNE_UNIT(k) })}">↺</button></div>
+      <span class="hint">${t("tnh_" + k)} <i>${t("tn_default", { v: r.default + TUNE_UNIT(k) })}</i></span>`;
+  }).join("") + `</div>`).join("");
+}
+function tuningPicked(el) {
+  const d = S.defaults.tuning, ex = el.dataset.ex, k = el.dataset.k, v = +el.value, def = d[ex][k].default;
+  const cur = JSON.parse($("setTuning").value || "{}");
+  cur[ex] = cur[ex] || {};
+  if (Math.abs(v - def) < 1e-9) delete cur[ex][k]; else cur[ex][k] = v;
+  // in the server's order, so "changed or not" compares like for like
+  const ordered = {};
+  for (const e of Object.keys(d)) { const o = {}; for (const key of Object.keys(d[e])) if (cur[e] && cur[e][key] != null) o[key] = cur[e][key]; if (Object.keys(o).length) ordered[e] = o; }
+  $("setTuning").value = JSON.stringify(ordered);
+  $(`tnv-${ex}-${k}`).textContent = `${+v.toFixed(2)}${TUNE_UNIT(k)}`; $(`tnv-${ex}-${k}`).classList.toggle("changed", Math.abs(v - def) >= 1e-9);
+  $(`tnr-${ex}-${k}`).classList.toggle("hidden", Math.abs(v - def) < 1e-9);
+  SetNav.check();
+}
+function tuningReset(ex, k) { const el = $(`tn-${ex}-${k}`); el.value = S.defaults.tuning[ex][k].default; tuningPicked(el); }
 const bgColor = () => ($("setBgColor").value === "custom" ? $("setBgCustom").value : $("setBgColor").value);
 function bgColorPicked() {
   $("setBgCustom").classList.toggle("hidden", $("setBgColor").value !== "custom");
@@ -4169,7 +4269,7 @@ async function saveSettings() {
     S.settings = await api("PUT", "/api/settings", body);
     if (S.settings.auto_identify !== before.auto_identify && S.settings.auto_identify !== autoId) toggleAuto();   // this device right away
     applySettings(false); showSettings();
-    msg("setMsg", "ok", t("settings_saved") + (setting("lanes") !== lanes.length ? " " + t("lanes_wait") : ""));
+    msg("setMsg", "ok", t("settings_saved") + (setting("lanes") !== lanes.length ? " " + t("lanes_wait") : "") + (S.settings.station_restarted ? " " + t("tn_restarted") : ""));
   } catch (e) { msg("setMsg", "bad", err(e)); }
 }
 
@@ -4293,7 +4393,7 @@ const SetNav = {
       const col = def.backdrop_color, preset = [...$("setBgColor").options].some(o => o.value === col);
       $("setBgColor").value = preset ? col : "custom"; $("setBgCustom").value = col;
     }
-    bgColorPicked(); bgRows(); bgPlacesShow(); themeCards(); applyTheme($("setTheme").value); this.check();
+    bgColorPicked(); bgRows(); bgPlacesShow(); themeCards(); tuningRows(); applyTheme($("setTheme").value); this.check();
   },
   resetScreen(key) {
     if (key === "screen") { themeHere(""); motionHere("on"); dotsHere(""); }
@@ -4318,6 +4418,7 @@ const SetNav = {
 function openSettings() {
   if (setting("admin_pin_set") && !adminPin()) { PinDlg.open(openSettings); return; }
   settingsOpen = true; showSettings(); SetNav.addResets(); applyI18n(); SetNav.show(load("setPanel", "rules"));
+  SetNav.defaults().then(() => tuningRows());   // the counting rules' ranges come from the server
   for (const x of ["simple", "advanced"]) $(x).classList.add("hidden");
   $("settingsPage").classList.remove("hidden"); $("setBtn").classList.add("active"); window.scrollTo(0, 0);
   for (const x of ["simple", "advanced"]) $("mode-" + x).classList.remove("active");

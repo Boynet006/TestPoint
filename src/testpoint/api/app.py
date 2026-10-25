@@ -135,6 +135,7 @@ class SettingsIn(BaseModel):
     site_name: str | None = Field(default=None, max_length=80)
     default_language: Literal["en", "ar"] | None = None
     trouble_run_cutoff_s: int | None = Field(default=None, ge=0, le=3600)
+    count_tuning: dict[str, dict[str, float]] | None = None
     theme: Literal["night", "desert", "desert_night", "desert_sand", "daylight", "track", "falcon", "neural", "mirage", "desert_stars"] | None = None
 
 
@@ -478,7 +479,8 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     @app.get("/api/settings/defaults")
     def settings_defaults() -> dict:
         """What Reset to defaults fills in: the station settings as shipped and the official rules."""
-        return {"settings": dict(S.SETTINGS), "rules": rules.to_dict()}
+        from ..vision.exercises import tuning_defaults
+        return {"settings": dict(S.SETTINGS), "rules": rules.to_dict(), "tuning": tuning_defaults()}
 
     @app.get("/api/settings/background-image")
     def background_image(db: Session = Depends(get_db)) -> Response:
@@ -831,7 +833,9 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         reply = S.engine_report(db, day, body.station,
                                 {name: lane.model_dump() for name, lane in body.lanes.items()})
         _last_report[body.station] = (clock(), body)
-        return reply
+        # the counting rules to use now: a change in Settings or the tune panel reaches the engine
+        # with its next report (a fraction of a second), without restarting the camera
+        return reply | {"tuning": S.get_settings(db)["count_tuning"].get(body.station, {})}
 
     @app.post("/api/engine/frame/{station}", status_code=204)
     async def engine_frame(station: str, request: Request) -> None:
@@ -959,8 +963,9 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
             return {"available": False, "running": False, "reason": e.code}
 
     @app.post("/api/stationcam/start")
-    def stationcam_start(body: StationCamIn) -> dict:
-        return _camhost("POST", "/station/start", body.model_dump(), timeout=10.0)
+    def stationcam_start(body: StationCamIn, db: Session = Depends(get_db)) -> dict:
+        tuning = S.get_settings(db)["count_tuning"].get(body.exercise, {})
+        return _camhost("POST", "/station/start", body.model_dump() | {"tuning": tuning}, timeout=10.0)
 
     @app.post("/api/stationcam/stop")
     def stationcam_stop() -> dict:

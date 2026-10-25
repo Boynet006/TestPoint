@@ -147,3 +147,11 @@ def test_pushup_counter_config_carries_rest_limit():
     cfg = PushupAnalyzer().counter_config()
     assert cfg.max_work_seconds == 3.0
     assert cfg.work_timeout_fault == "rest_in_down"
+
+
+
+def test_tuned_analyzer_uses_the_new_rules():
+    from testpoint.vision.exercises import make_analyzer
+    a = make_analyzer("pushup", {"down_elbow_deg": 88})
+    assert a.rules.down_elbow_deg == 88 and a.counter_config().enter_work == 88
+    assert make_analyzer("crunch").rules.up_torso_deg == 7

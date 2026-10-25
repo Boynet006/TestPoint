@@ -90,6 +90,9 @@ class Reporter:
         """Cuts the evidence clip for ``(lane, event)`` and returns its path, if recording."""
         self.counter = counter
         """The exercise's counter thresholds, for the live depth (rep_depth)."""
+        self._tuning_new: dict | None = None
+        self._tuning_applied: str | None = None
+        """The counting rules in use (as sorted JSON); the app's reply may bring new ones."""
         self.t = 0.0
         self.fps = 0.0
         self._wanted: dict[str, int | None] | None = None
@@ -142,6 +145,24 @@ class Reporter:
             wanted = reply.get("lanes") or {}
             self._wanted = {name: (wanted.get(name) or {}).get("attempt_id")
                             for name in self.lanes if name in wanted}
+            if isinstance(reply.get("tuning"), dict):
+                self._tuning_new = reply["tuning"]
+
+    def take_tuning(self) -> dict | None:
+        """New counting rules from the app, once (None when unchanged)."""
+        with self._lock:
+            t, self._tuning_new = self._tuning_new, None
+            if t is None:
+                return None
+            key = json.dumps(t, sort_keys=True)
+            if key == self._tuning_applied:
+                return None
+            self._tuning_applied = key
+            return t
+
+    def tuning_in_use(self, tuning: dict | None) -> None:
+        with self._lock:
+            self._tuning_applied = json.dumps(tuning or {}, sort_keys=True)
 
     def sync(self, session: MultiLaneSession, cfg: RepCounterConfig) -> list[tuple[str, int | None]]:
         """Apply the app's wishes: a lane whose attempt changed gets a fresh counter.
@@ -246,6 +267,14 @@ def run(session: MultiLaneSession, source, reporter: Reporter, sender: Sender,
     fps = 0.0
     last = time.monotonic()
     for frame, t in iter_frames(source, realtime=realtime):
+        tuning = reporter.take_tuning()
+        if tuning is not None:       # changed in the app: applies from this frame on, no restart
+            try:
+                cfg = session.retune(tuning)
+                reporter.counter = cfg
+                log(f"counting rules now: {json.dumps(tuning, sort_keys=True) if tuning else 'calibrated'}")
+            except ValueError as e:
+                log(f"tuning refused: {e}")
         for name, attempt_id in reporter.sync(session, cfg):
             log(f"lane {name}: " + (f"counting for attempt {attempt_id}" if attempt_id else "free"))
             if evidence is not None:
@@ -299,6 +328,8 @@ def main(argv: list[str] | None = None) -> int:
                    help="play a video file at its own speed, as a live camera would (demos, training)")
     p.add_argument("--loop", action="store_true",
                    help="with --realtime: play the video on repeat (test the counting on a short clip)")
+    p.add_argument("--tuning", default=None, metavar="JSON",
+                   help='counting rules to replace, e.g. \'{"down_elbow_deg": 90}\' (Settings > Exercise station)')
     p.add_argument("--no-preview", action="store_true",
                    help="do not send the live camera picture to the station screen")
     args = p.parse_args(argv)
@@ -320,27 +351,32 @@ def main(argv: list[str] | None = None) -> int:
         source.release()
         raise SystemExit(f"error: could not start the pose backend: {e}") from None
 
-    analyzer = make_analyzer(args.exercise)
+    try:
+        analyzer = make_analyzer(args.exercise, json.loads(args.tuning) if args.tuning else None)
+    except ValueError as e:
+        raise SystemExit(f"bad tuning: {e}") from None
+    if args.tuning:
+        print(f"tuned rules: {args.tuning}")
     session = MultiLaneSession(backend, analyzer, lanes)
     station = args.station or args.exercise
     display = getattr(source, "display_url", args.source)
     evidence = EvidenceWriter(args.evidence, lanes, fps=source.fps) if args.evidence else None
     reporter = Reporter(station, display, [lane.name for lane in lanes],
                         clip_for=evidence.clip if evidence else None, counter=analyzer.counter_config())
+    reporter.tuning_in_use(json.loads(args.tuning) if args.tuning else {})
     sender = Sender(reporter, HttpTransport(args.app), interval=args.interval)
     print(f"station {station}  lanes {[lane.name for lane in lanes]}  source {display}  app {args.app}"
           + (f"  evidence {evidence.root}" if evidence else ""))
     preview = None
     if not args.no_preview:
         from .cli import draw_hud, draw_lanes, draw_person, meters_for
-        meters = meters_for(analyzer)
 
         def draw(img, state):
             res, fps = state
             assigned = {id(r.person) for r in res.lanes.values() if r.person is not None}
             for person in res.people:
                 draw_person(img, person, (0, 200, 0) if id(person) in assigned else (140, 140, 140))
-            draw_lanes(img, lanes, res, meters)
+            draw_lanes(img, lanes, res, meters_for(analyzer))   # the bars follow a retune at once
             draw_hud(img, args.exercise, fps, "")
 
         preview = FramePublisher(args.app, station, draw)

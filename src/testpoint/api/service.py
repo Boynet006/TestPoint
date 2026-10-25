@@ -239,7 +239,8 @@ SETTINGS: dict[str, object] = {
     # display
     "site_name": "",             # shown in the header; empty = "Fitness examination station"
     "default_language": "en",    # a device that never chose a language: "en" or "ar"
-    "trouble_run_cutoff_s": 0,   # troubleshooting: a short run cut-off in seconds instead of the rule's (0 = off)
+    "trouble_run_cutoff_s": 0,
+    "count_tuning": {},          # counting rules changed from the calibrated ones: {exercise: {rule: value}}   # troubleshooting: a short run cut-off in seconds instead of the rule's (0 = off)
     "theme": "night",            # colours of every screen: night, desert, desert_night, desert_sand, daylight, track, falcon, neural, mirage or desert_stars (a device may pick its own)
 }
 # Face match thresholds: similarity needed, and the lead over the second-best person.
@@ -340,6 +341,12 @@ def update_settings(db: Session, day: Day, changes: dict) -> dict:
     before = get_settings(db)
     if changes.get("site_name") is not None:
         changes["site_name"] = " ".join(str(changes["site_name"]).split())[:60]
+    if changes.get("count_tuning") is not None:
+        from ..vision.exercises import check_tuning
+        try:
+            changes["count_tuning"] = check_tuning(changes["count_tuning"])
+        except (ValueError, TypeError) as e:
+            raise ServiceError("bad_tuning", str(e), 400) from None
     changed = {k: v for k, v in changes.items() if v is not None and v != before[k]}
     for k, v in changed.items():
         row = db.get(Setting, k)
