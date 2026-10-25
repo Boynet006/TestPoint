@@ -63,11 +63,16 @@ def list_videos() -> list[dict]:
 
 
 ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+PICTURE = re.compile(r"[A-Za-z0-9+/=]{120,}")   # base64 picture data
 
 
-def clean(line: str) -> str:
-    """A log line as text: some libraries write UTF-16 or colour codes into the shared log."""
-    return ANSI.sub("", line.replace("\x00", "")).strip()
+def clean(line: str, limit: int = 300) -> str:
+    """A log line as text: some libraries write UTF-16 or colour codes into the shared log. A line
+    of picture data (base64) means nothing to read and is dropped (empty); others are cut to ``limit``."""
+    text = ANSI.sub("", line.replace("\x00", "")).strip()
+    if PICTURE.search(text):
+        return ""
+    return text if len(text) <= limit else text[:limit] + " …"
 
 
 def list_cameras(max_index: int = 4) -> list[dict]:

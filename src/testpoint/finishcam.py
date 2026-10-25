@@ -394,7 +394,11 @@ def main(argv: list[str] | None = None) -> int:
             poster.close()
         if evidence is not None:
             evidence.close()
-    print(json.dumps({"crossings": [c.payload(c.wall) for c in cam.crossings]}, indent=1))
+    # The end-of-run summary, readable in the camera log: no face pictures (the app has them).
+    summary = [{k: v for k, v in c.payload(c.wall).items() if k != "faces"} for c in cam.crossings]
+    print(f"finish cam stopped: {len(summary)} crossing(s)")
+    if summary:
+        print(json.dumps({"crossings": summary}, indent=1))
     return 0
 
 
