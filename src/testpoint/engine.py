@@ -290,7 +290,7 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, ValueError, KeyError) as e:
         raise SystemExit(f"bad lanes: {e}") from None
     try:
-        source = open_source(args.source, timeout_s=args.connect_timeout,
+        source = open_source(args.source, realtime=args.realtime, timeout_s=args.connect_timeout,
                              max_attempts=args.connect_attempts)
     except SourceError as e:
         raise SystemExit(f"error: {e}") from None

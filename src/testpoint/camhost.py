@@ -192,10 +192,18 @@ def device() -> str:
     return "cuda" if gpu_available() else "cpu"
 
 
+def app_address(url: str) -> str:
+    """The app as the camera processes reach it. "localhost" becomes 127.0.0.1: on Windows it
+    tries IPv6 first, which Docker Desktop forwards far more slowly (about 40 ms more per
+    picture or report on a kept-open connection)."""
+    return re.sub(r"^(https?://)localhost(?=[:/]|$)", r"\g<1>127.0.0.1", url)
+
+
 def finish_command(cfg: StartIn) -> list[str]:
     y = round(cfg.line_y, 3)
     cmd = [sys.executable, "-m", "testpoint.finishcam", "--source", cfg.source,
-           "--line", f"0,{y},1,{y}", "--direction", cfg.direction, "--device", device(), "--app", cfg.app_url]
+           "--line", f"0,{y},1,{y}", "--direction", cfg.direction, "--device", device(),
+           "--app", app_address(cfg.app_url)]
     if cfg.kind == "video":
         cmd.append("--realtime")       # play at its own speed, as a camera would
     return cmd
@@ -203,7 +211,7 @@ def finish_command(cfg: StartIn) -> list[str]:
 
 def station_command(cfg: StationIn, lanes_file: Path) -> list[str]:
     cmd = [sys.executable, "-m", "testpoint.engine", "--exercise", cfg.exercise, "--source", cfg.source,
-           "--lanes-file", str(lanes_file), "--device", device(), "--app", cfg.app_url]
+           "--lanes-file", str(lanes_file), "--device", device(), "--app", app_address(cfg.app_url)]
     if cfg.kind == "video":
         cmd.append("--realtime")
     return cmd

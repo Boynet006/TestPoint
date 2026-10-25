@@ -142,3 +142,35 @@ def test_tap_leaves_videos_alone():
 
     pub = FramePublisher("http://app", "finish", lambda img, st: None, post=lambda b: None)
     assert not pub.tap(Video()) and not pub.live
+
+
+
+def test_publisher_keeps_one_connection_to_the_app():
+    import http.server
+    import threading
+
+    seen = []
+
+    class H(http.server.BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
+        def do_POST(self):
+            self.rfile.read(int(self.headers["Content-Length"]))
+            seen.append(self.client_address[1])
+            self.send_response(204)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+        def log_message(self, *a):
+            pass
+
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        pub = FramePublisher(f"http://127.0.0.1:{srv.server_port}", "finish", lambda img, st: None)
+        for _ in range(3):
+            pub.offer(np.zeros((10, 10, 3), np.uint8), None)
+            assert pub.publish_once()
+        assert len(seen) == 3 and len(set(seen)) == 1     # the same client port: one connection
+    finally:
+        srv.shutdown()
