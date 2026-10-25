@@ -8,6 +8,7 @@ written to the audit log.
 from __future__ import annotations
 
 import csv
+import dataclasses
 import io
 import json
 from datetime import datetime, timedelta
@@ -48,10 +49,13 @@ def current_rules(db: Session, seed: DayRules) -> DayRules:
     return DayRules.from_dict(json.loads(row.value)) if row is not None else seed
 
 
-def rules_for(db: Session, day: Day, seed: DayRules) -> DayRules:
+def rules_for(db: Session, day: Day, seed: DayRules, judging: bool = True) -> DayRules:
     """The rules ``day`` is judged by. Fixed once the day starts, so two candidates on the
-    same day are never scored against different numbers."""
-    return DayRules.from_dict(json.loads(day.rules_json)) if day.rules_json else current_rules(db, seed)
+    same day are never scored against different numbers. ``judging``: with the troubleshooting
+    run cut-off when one is set (a setting, shown on every screen); False for the rules as saved."""
+    r = DayRules.from_dict(json.loads(day.rules_json)) if day.rules_json else current_rules(db, seed)
+    cut = (get_settings(db).get("trouble_run_cutoff_s") or 0) if judging else 0
+    return dataclasses.replace(r, run_cutoff_s=float(cut)) if cut else r
 
 
 def day_has_results(db: Session, day: Day) -> bool:
@@ -235,6 +239,7 @@ SETTINGS: dict[str, object] = {
     # display
     "site_name": "",             # shown in the header; empty = "Fitness examination station"
     "default_language": "en",    # a device that never chose a language: "en" or "ar"
+    "trouble_run_cutoff_s": 0,   # troubleshooting: a short run cut-off in seconds instead of the rule's (0 = off)
     "theme": "night",            # colours of every screen: night, desert, desert_night, desert_sand, daylight, track, falcon, neural, mirage or desert_stars (a device may pick its own)
 }
 # Face match thresholds: similarity needed, and the lead over the second-best person.
@@ -1651,3 +1656,48 @@ def export_register(db: Session, day: Day) -> str:
     _audit(db, day, "admin", "export_register", None)
     db.commit()
     return out.getvalue()
+
+
+# --------------------------------------------------------------------------- reset a day
+
+def reset_day(db: Session, day: Day, seed: DayRules, keep_list: bool = True) -> dict:
+    """Start today again: every weigh-in, wave, finish and exercise attempt (with its reps) of
+    the day is deleted. ``keep_list``: everyone stays on today's list as expected; otherwise
+    the list is emptied too. The register (people and faces), the settings and the rules are
+    kept; the audit log keeps the history and a summary of what was reset. Refused while an
+    exercise attempt is being counted."""
+    entries = list(db.scalars(select(Entry).where(Entry.day_id == day.id)))
+    if any(a.status == "running" for e in entries for a in e.attempts):
+        raise ServiceError("in_progress", "an exercise attempt is running: stop it first", 409)
+    counts = {"people": len(entries), "with_results": sum(1 for e in entries if e.status != J.EXPECTED or e.attempts),
+              "attempts": 0, "crossings": 0, "waves": 0}
+    for e in entries:
+        for a in list(e.attempts):
+            for r in list(a.reps):
+                db.delete(r)
+            db.delete(a)
+            counts["attempts"] += 1
+    for c in db.scalars(select(Crossing).where(Crossing.day_id == day.id)):
+        db.delete(c)
+        counts["crossings"] += 1
+    db.flush()
+    for e in entries:
+        if keep_list:
+            e.status = J.EXPECTED
+            for k in ("weight_kg", "height_cm", "bmi", "weighed_at", "lined_up_at", "wave_id", "run_time_s",
+                      "finished_at", "age", "band", "level", "run_grade"):
+                setattr(e, k, None)
+        else:
+            for a in db.scalars(select(AuditLog).where(AuditLog.entry_id == e.id)):
+                a.entry_id = None   # keep the history, drop the link to the deleted row
+            db.delete(e)
+    db.flush()
+    for w in db.scalars(select(Wave).where(Wave.day_id == day.id)):
+        db.delete(w)
+        counts["waves"] += 1
+    day.run_started_at = day.run_closed_at = None
+    r = current_rules(db, seed)   # nothing is scored any more: today follows the current rules again
+    day.rules_version, day.rules_json = r.version, json.dumps(r.to_dict())
+    _audit(db, day, "admin", "reset_day", None, keep_list=keep_list, **counts)
+    db.commit()
+    return counts
