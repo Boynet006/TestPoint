@@ -430,8 +430,9 @@ def decode_csv(data: bytes) -> str:
     raise ServiceError("bad_csv", "the file is not UTF-8 or Arabic Windows text", 400)
 
 
-def import_csv(db: Session, day: Day, text: str) -> dict:
-    """Header row required; columns external_id,name[,name_ar,gender,dob,bib,unit] in any order."""
+def import_csv(db: Session, day: Day, text: str, to_day: bool = True) -> dict:
+    """Header row required; columns external_id,name[,name_ar,gender,dob,bib,unit] in any order.
+    ``to_day``: put everyone on today's list; otherwise save them in the register only."""
     reader = csv.DictReader(io.StringIO(text.lstrip("﻿")), restkey="__extra__")
     header = [(h or "").strip().lower() for h in (reader.fieldnames or [])]
     if "external_id" not in header or "name" not in header:
@@ -454,9 +455,10 @@ def import_csv(db: Session, day: Day, text: str) -> dict:
         result: dict = {}
         try:
             with db.begin_nested():
-                add_candidate(db, day, commit=False, result=result,
-                              **{c: row.get(c) or None for c in CSV_COLUMNS if c in row}
-                              | {"external_id": row.get("external_id", ""), "name": row.get("name", "")})
+                (add_candidate if to_day else register_candidate)(
+                    db, day, commit=False, result=result,
+                    **{c: row.get(c) or None for c in CSV_COLUMNS if c in row}
+                    | {"external_id": row.get("external_id", ""), "name": row.get("name", "")})
             counts[result["outcome"]] += 1
         except ServiceError as e:
             errors.append({"line": line_no, "code": e.code, "message": e.message})
@@ -508,14 +510,17 @@ def regrade(rules: DayRules, entry: Entry) -> None:
 EDITABLE = ("external_id", "name", "name_ar", "gender", "dob", "unit", "bib")
 
 
-def edit_candidate(db: Session, day: Day, rules: DayRules, entry: Entry, changes: dict) -> Entry:
+def edit_candidate(db: Session, day: Day, rules: DayRules, entry: Entry | None, changes: dict,
+                   candidate: Candidate | None = None) -> Entry | None:
     """Correct a candidate's details. Only the fields given change; each change is audited.
     When the person is already weighed in, the standard (age band, level) is worked out again
-    and every saved result is re-scored, so a wrong date of birth or unit never stands."""
+    and every saved result is re-scored, so a wrong date of birth or unit never stands.
+    ``entry`` is today's entry; from the register a person not on today's list comes as
+    ``candidate`` alone."""
     unknown = set(changes) - set(EDITABLE)
     if unknown:
         raise ServiceError("bad_input", f"cannot edit {sorted(unknown)[0]!r}", 400)
-    c, new = entry.candidate, {}
+    c, new = (entry.candidate if entry is not None else candidate), {}
     if "external_id" in changes:
         v = (changes["external_id"] or "").strip()
         if not v:
@@ -531,7 +536,7 @@ def edit_candidate(db: Session, day: Day, rules: DayRules, entry: Entry, changes
         new["name"] = v
     if "name_ar" in changes:
         new["name_ar"] = " ".join((changes["name_ar"] or "").split()) or None
-    weighed = entry.age is not None
+    weighed = entry is not None and entry.age is not None
     if "gender" in changes:
         new["gender"] = norm_gender(changes["gender"])
         if new["gender"] is None and weighed:
@@ -547,7 +552,7 @@ def edit_candidate(db: Session, day: Day, rules: DayRules, entry: Entry, changes
     if "bib" in changes:
         v = norm_bib(changes["bib"])
         if v != c.bib:
-            if entry.status in (J.LINED_UP, J.RUNNING):
+            if entry is not None and entry.status in (J.LINED_UP, J.RUNNING):
                 raise ServiceError("bib_locked", f"{c.name} is on the run: the bib cannot change now", 409)
             clash = db.scalar(select(Entry).join(Candidate).where(
                 Entry.day_id == day.id, Candidate.bib == v, Candidate.id != c.id)) if v else None
@@ -557,6 +562,12 @@ def edit_candidate(db: Session, day: Day, rules: DayRules, entry: Entry, changes
     changed = {k: {"from": getattr(c, k), "to": v} for k, v in new.items() if getattr(c, k) != v}
     if not changed:
         return entry
+    if entry is None:
+        for k, v in changed.items():
+            setattr(c, k, v["to"])
+        _audit(db, day, "admin", "edit_candidate", None, external_id=c.external_id, changed=changed)
+        db.commit()
+        return None
     before = {"standard": [entry.age, entry.band, entry.level], "verdict": verdict(entry)}
     for k, v in changed.items():
         setattr(c, k, v["to"])
@@ -624,42 +635,48 @@ def face_count(db: Session, candidate_id: int) -> int:
                      .where(FaceTemplate.candidate_id == candidate_id)) or 0
 
 
-def enroll_face(db: Session, day: Day, entry: Entry, data: bytes, engine) -> int:
-    """Store the face in ``data`` for this candidate; keeps the newest MAX_TEMPLATES."""
+def enroll_face(db: Session, day: Day, entry: Entry | None, data: bytes, engine,
+                candidate: Candidate | None = None) -> int:
+    """Store the face in ``data`` for this candidate (today's ``entry``, or a ``candidate``
+    from the register); keeps the newest MAX_TEMPLATES."""
+    cid = entry.candidate_id if entry is not None else candidate.id
     face = _face(engine, data, require_single=True)
     # Guard against a mixed-up photo: refuse a face that already belongs to someone else.
     others: dict[int, list[np.ndarray]] = {}
-    for cid, emb in db.execute(select(FaceTemplate.candidate_id, FaceTemplate.embedding)
-                               .where(FaceTemplate.candidate_id != entry.candidate_id)).all():
-        others.setdefault(cid, []).append(np.frombuffer(emb, np.float32))
+    for other, emb in db.execute(select(FaceTemplate.candidate_id, FaceTemplate.embedding)
+                                 .where(FaceTemplate.candidate_id != cid)).all():
+        others.setdefault(other, []).append(np.frombuffer(emb, np.float32))
     clash = face_match(face.embedding, others, margin=0.0)
     if clash.candidate_id is not None:
         owner = db.get(Candidate, clash.candidate_id)
         raise ServiceError("face_belongs_to_other",
                            f"{owner.name}, bib {owner.bib}, match {clash.score}", 409)
-    db.add(FaceTemplate(candidate_id=entry.candidate_id,
+    db.add(FaceTemplate(candidate_id=cid,
                         embedding=np.asarray(face.embedding, np.float32).tobytes(),
                         photo_jpeg=face.crop_jpeg))
     db.flush()
-    old = list(db.scalars(select(FaceTemplate).where(FaceTemplate.candidate_id == entry.candidate_id)
+    old = list(db.scalars(select(FaceTemplate).where(FaceTemplate.candidate_id == cid)
                           .order_by(FaceTemplate.created_at.desc(), FaceTemplate.id.desc()))
                )[MAX_TEMPLATES:]
     for t in old:
         db.delete(t)
-    _audit(db, day, "admin", "enroll_face", entry, detection_score=face.score)
+    _audit(db, day, "admin", "enroll_face", entry, detection_score=face.score,
+           **({} if entry is not None else {"external_id": candidate.external_id}))
     db.commit()
-    return face_count(db, entry.candidate_id)
+    return face_count(db, cid)
 
 
-def remove_faces(db: Session, day: Day, entry: Entry) -> None:
-    for t in db.scalars(select(FaceTemplate).where(FaceTemplate.candidate_id == entry.candidate_id)):
+def remove_faces(db: Session, day: Day, entry: Entry | None, candidate: Candidate | None = None) -> None:
+    cid = entry.candidate_id if entry is not None else candidate.id
+    for t in db.scalars(select(FaceTemplate).where(FaceTemplate.candidate_id == cid)):
         db.delete(t)
-    _audit(db, day, "admin", "remove_faces", entry)
+    _audit(db, day, "admin", "remove_faces", entry, **({} if entry is not None else {"external_id": candidate.external_id}))
     db.commit()
 
 
-def face_photo(db: Session, entry: Entry) -> bytes | None:
-    t = db.scalar(select(FaceTemplate).where(FaceTemplate.candidate_id == entry.candidate_id)
+def face_photo(db: Session, entry: Entry | None, candidate_id: int | None = None) -> bytes | None:
+    cid = entry.candidate_id if entry is not None else candidate_id
+    t = db.scalar(select(FaceTemplate).where(FaceTemplate.candidate_id == cid)
                   .order_by(FaceTemplate.created_at.desc(), FaceTemplate.id.desc()))
     return t.photo_jpeg if t else None
 
@@ -862,15 +879,17 @@ def undo_weigh_in(db: Session, day: Day, entry: Entry, reason: str | None = None
     return entry
 
 
-def remove_entry(db: Session, day: Day, entry: Entry, delete_results: bool = False) -> None:
-    """Take someone off today's list.
+def remove_entry(db: Session, day: Day, entry: Entry, delete_results: bool = False, forget: bool = False,
+                 commit: bool = True) -> None:
+    """Take someone off today's list. The person stays in the register (with their face) and
+    can be added again or recognised as a returning candidate.
 
     Without ``delete_results`` only before anything happened to them today (added by
     mistake). With it, also when they have results: their weigh-in, run crossing and
     exercise attempts (with the reps) are deleted, and the audit log keeps a copy of what
-    was there. When the person is on no other day's list either, the person and their face
-    photos go too: otherwise the face stays on file, is not recognised (only today's list
-    is searched) and yet blocks registering that face again."""
+    was there. ``forget``: a registration made by mistake (e.g. the face turned out to be
+    someone else's): when the person is on no other day's list either, the person and their
+    face photos go too."""
     has_results = entry.status != J.EXPECTED or bool(entry.attempts)
     if has_results and not delete_results:
         raise ServiceError("cannot_remove", f"{entry.candidate.name} is already {entry.status}; it cannot be removed")
@@ -892,18 +911,20 @@ def remove_entry(db: Session, day: Day, entry: Entry, delete_results: bool = Fal
         a.entry_id = None   # keep the history, drop the link to the deleted row
     other_days = db.scalar(select(func.count()).select_from(Entry).where(
         Entry.candidate_id == cand.id, Entry.id != entry.id)) or 0
+    drop = forget and not other_days
     faces = 0
-    if not other_days:
+    if drop:
         for t in db.scalars(select(FaceTemplate).where(FaceTemplate.candidate_id == cand.id)):
             db.delete(t)
             faces += 1
     _audit(db, day, "admin", "remove_from_day", None, external_id=cand.external_id, name=cand.name, bib=cand.bib,
-           person_removed=not other_days, faces_removed=faces, deleted_results=results)
+           person_removed=drop, faces_removed=faces, deleted_results=results)
     db.delete(entry)
-    if not other_days:
+    if drop:
         db.flush()
         db.delete(cand)
-    db.commit()
+    if commit:
+        db.commit()
 
 
 START_COUNTDOWN_MAX_S = 30
@@ -1423,3 +1444,193 @@ def list_finished_attempts(db: Session, day: Day, event: str | None = None) -> l
     if event is not None:
         q = q.where(Attempt.event == event)
     return list(db.scalars(q.order_by(Attempt.ended_at.desc(), Attempt.id.desc())))
+
+
+# --------------------------------------------------------------------------- the register
+# Everyone saved, whether or not they are on a test day: the people database. A test day's
+# list (Entry rows) is who is tested that day; the register is who the station knows.
+
+def register_candidate(db: Session, day: Day, *, external_id: str, name: str, name_ar: str | None = None,
+                       gender: str | None = None, dob: str | None = None, bib: str | None = None,
+                       unit: str | None = None, commit: bool = True, result: dict | None = None) -> Candidate:
+    """Save a person in the register without putting them on a test day, or refresh the
+    details of one already known. Same ID rules as ``add_candidate``: IDs compare without case
+    and a known ID with a different name is refused. A bib here is the person's usual number;
+    it is checked against a day's list when they are added to one."""
+    external_id = (external_id or "").strip()
+    name = " ".join((name or "").split())
+    if not external_id or not name:
+        raise ServiceError("missing_fields", "external_id and name are required", 400)
+    fields = {"name_ar": " ".join((name_ar or "").split()) or None, "gender": norm_gender(gender),
+              "dob": norm_dob(dob), "bib": norm_bib(bib), "unit": norm_unit(unit)}
+    cand = db.scalar(select(Candidate).where(func.lower(Candidate.external_id) == external_id.lower()))
+    if cand is not None and cand.name.casefold() != name.casefold():
+        raise ServiceError("external_id_in_use", f"ID {cand.external_id} already belongs to {cand.name}", 409)
+    if cand is None:
+        cand = Candidate(external_id=external_id, name=name, **fields | {"unit": fields["unit"] or get_settings(db)["default_unit"]})
+        db.add(cand)
+        db.flush()
+        outcome = "added"
+        _audit(db, day, "admin", "register_candidate", None, external_id=external_id)
+    else:
+        new = {k: v for k, v in fields.items() if v is not None and getattr(cand, k) != v}
+        for k, v in new.items():
+            setattr(cand, k, v)
+        outcome = "updated" if new else "unchanged"
+    if result is not None:
+        result["outcome"] = outcome
+    if commit:
+        db.commit()
+    return cand
+
+
+def get_candidate(db: Session, candidate_id: int) -> Candidate:
+    c = db.get(Candidate, candidate_id)
+    if c is None:
+        raise ServiceError("not_registered", f"person {candidate_id} is not in the register", 404)
+    return c
+
+
+def lookup_candidate(db: Session, query: str) -> Candidate:
+    """A person in the register by their ID (any case). Bibs are not used: they change from day to day."""
+    q = (query or "").strip()
+    c = db.scalar(select(Candidate).where(func.lower(Candidate.external_id) == q.lower())) if q else None
+    if c is None:
+        raise ServiceError("not_registered", f"{q} is not in the register", 404)
+    return c
+
+
+def register_rows(db: Session, day: Day, query: str = "", show: str = "all", offset: int = 0,
+                  limit: int = 100) -> dict:
+    """One page of the register, by name, with a search over names, ID and bib. ``show``:
+    all, no_face, today (on today's list) or not_today. Each row says how many faces are on
+    file, how many days they were tested and the last day's verdict."""
+    faces = select(FaceTemplate.candidate_id, func.count().label("n")).group_by(FaceTemplate.candidate_id).subquery()
+    today = select(Entry.candidate_id, Entry.id.label("entry_id")).where(Entry.day_id == day.id).subquery()
+    base = (select(Candidate, func.coalesce(faces.c.n, 0), today.c.entry_id)
+            .outerjoin(faces, faces.c.candidate_id == Candidate.id)
+            .outerjoin(today, today.c.candidate_id == Candidate.id))
+    for term in (query or "").split():
+        like = f"%{term.lower()}%"
+        base = base.where(func.lower(Candidate.name).like(like) | Candidate.name_ar.like(f"%{term}%")
+                          | func.lower(Candidate.external_id).like(like) | (Candidate.bib == norm_bib(term)))
+    if show == "no_face":
+        base = base.where(faces.c.n.is_(None))
+    elif show == "today":
+        base = base.where(today.c.entry_id.is_not(None))
+    elif show == "not_today":
+        base = base.where(today.c.entry_id.is_(None))
+    total = db.scalar(select(func.count()).select_from(base.subquery())) or 0
+    page = db.execute(base.order_by(func.lower(Candidate.name), Candidate.id).offset(max(offset, 0))
+                      .limit(max(1, min(limit, 500)))).all()
+    hist: dict[int, list[tuple[Entry, str]]] = {}
+    if page:
+        for e, date in db.execute(select(Entry, Day.date).join(Day, Day.id == Entry.day_id)
+                                  .where(Entry.candidate_id.in_([c.id for c, _, _ in page]))
+                                  .order_by(Day.date.desc())).all():
+            hist.setdefault(e.candidate_id, []).append((e, date))
+    rows = []
+    for c, n, entry_id in page:
+        days = hist.get(c.id, [])
+        tested = [(e, d) for e, d in days if e.status != J.EXPECTED]
+        last = tested[0] if tested else None
+        rows.append(candidate_dict(c) | {"faces": n, "today_entry": entry_id, "days_tested": len(tested),
+                                         "last_date": last[1] if last else None,
+                                         "last_verdict": verdict(last[0]) if last else None})
+    return {"total": total, "rows": rows}
+
+
+def candidate_dict(c: Candidate) -> dict:
+    return {"id": c.id, "external_id": c.external_id, "name": c.name, "name_ar": c.name_ar, "gender": c.gender,
+            "dob": c.dob, "bib": c.bib, "unit": c.unit, "registered_at": c.created_at.isoformat() if c.created_at else None}
+
+
+def candidate_history(db: Session, day: Day, c: Candidate) -> dict:
+    """The person with every test day they were on, newest first: measurements, standard,
+    each test's result and grade, and the day's verdict."""
+    days = []
+    for e, date in db.execute(select(Entry, Day.date).join(Day, Day.id == Entry.day_id)
+                              .where(Entry.candidate_id == c.id).order_by(Day.date.desc())).all():
+        tests = {a.event: {"count": a.count, "grade": a.grade, "passed": a.passed}
+                 for a in e.attempts if a.status == "finished"}
+        days.append({"date": date, "today": e.day_id == day.id, "entry_id": e.id, "status": e.status,
+                     "weight_kg": e.weight_kg, "height_cm": e.height_cm, "bmi": e.bmi,
+                     "age": e.age, "level": e.level, "run_time_s": e.run_time_s, "run_grade": e.run_grade,
+                     "tests": tests, "verdict": verdict(e)})
+    return candidate_dict(c) | {"faces": face_count(db, c.id), "days": days}
+
+
+def add_to_today(db: Session, day: Day, candidate_ids: list[int]) -> dict:
+    """Put people from the register on today's list. Each keeps their usual bib when it is
+    free today, else gets the next free one. Already on the list: left as they are."""
+    counts, errors = {"added": 0, "already": 0}, []
+    for cid in dict.fromkeys(candidate_ids):
+        c = db.get(Candidate, cid)
+        if c is None:
+            errors.append({"id": cid, "code": "not_registered", "message": f"person {cid} is not in the register"})
+            continue
+        if db.scalar(select(Entry.id).where(Entry.day_id == day.id, Entry.candidate_id == cid)) is not None:
+            counts["already"] += 1
+            continue
+        try:
+            with db.begin_nested():
+                add_candidate(db, day, external_id=c.external_id, name=c.name, auto_bib=True, commit=False)
+            counts["added"] += 1
+        except ServiceError as e:
+            errors.append({"id": cid, "code": e.code, "message": e.message})
+    db.commit()
+    return counts | {"errors": errors}
+
+
+def delete_candidate(db: Session, day: Day, c: Candidate, delete_results: bool = False) -> None:
+    """Erase a person from the register: their faces, and every day's entry. Results on any
+    day are deleted only with ``delete_results`` (the audit log keeps a copy). Refused while
+    they are on the run or at the start line today."""
+    entries = list(db.scalars(select(Entry).where(Entry.candidate_id == c.id)))
+    for e in entries:
+        if e.day_id == day.id and (e.status in (J.LINED_UP, J.RUNNING) or any(a.status == "running" for a in e.attempts)):
+            raise ServiceError("in_progress", f"{c.name} is being tested right now", 409)
+    tested = [e for e in entries if e.status != J.EXPECTED or e.attempts]
+    if tested and not delete_results:
+        raise ServiceError("has_results", f"{c.name} has results on {len(tested)} day(s)")
+    info = {"external_id": c.external_id, "name": c.name, "days": len(entries), "days_with_results": len(tested)}
+    for e in entries:
+        remove_entry(db, db.get(Day, e.day_id), e, delete_results=True, commit=False)
+    faces = 0
+    for t in db.scalars(select(FaceTemplate).where(FaceTemplate.candidate_id == c.id)):
+        db.delete(t)
+        faces += 1
+    db.flush()
+    _audit(db, day, "admin", "delete_person", None, **info, faces_removed=faces)
+    db.delete(c)
+    db.commit()
+
+
+EXPORT_COLUMNS = CSV_COLUMNS + ("faces", "days_tested", "last_test_date", "last_verdict")
+
+
+def _cell(v) -> str:
+    """A spreadsheet must never run a cell as a formula (CSV injection): text starting with
+    = + - @ or a tab is kept as text."""
+    s = "" if v is None else str(v)
+    return "'" + s if s[:1] in ("=", "+", "-", "@", "\t", "\r") else s
+
+
+def export_register(db: Session, day: Day) -> str:
+    """The whole register as CSV (UTF-8 with BOM for Excel), importable again as it is."""
+    out = io.StringIO()
+    out.write("\ufeff")
+    w = csv.writer(out)
+    w.writerow(EXPORT_COLUMNS)
+    offset = 0
+    while True:
+        page = register_rows(db, day, offset=offset, limit=500)["rows"]
+        for r in page:
+            w.writerow([_cell(r[k]) for k in CSV_COLUMNS] + [r["faces"], r["days_tested"], r["last_date"] or "",
+                                                             r["last_verdict"] or ""])
+        if len(page) < 500:
+            break
+        offset += 500
+    _audit(db, day, "admin", "export_register", None)
+    db.commit()
+    return out.getvalue()

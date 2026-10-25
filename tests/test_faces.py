@@ -127,10 +127,10 @@ def test_without_models_face_endpoints_say_unavailable(monkeypatch):
 
 
 def test_removing_a_mistaken_entry_frees_the_face(client):
-    # Registered by mistake, removed again: the face must not block a fresh registration
+    # Registered by mistake, removed again (forget): the face must not block a fresh registration
     i = ids(client)
     client.post(f"/api/entries/{i['13']}/face", content=b"face:C")
-    assert client.delete(f"/api/entries/{i['13']}").status_code == 204
+    assert client.delete(f"/api/entries/{i['13']}?forget=true").status_code == 204
     r = client.post("/api/entries", json={"external_id": "C-9", "name": "Charlie Again", "bib": "19"})
     assert r.status_code == 201
     assert client.post(f"/api/entries/{r.json()['id']}/face", content=b"face:C").json() == {"faces": 1}
