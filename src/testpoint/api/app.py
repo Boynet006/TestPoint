@@ -749,6 +749,33 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
             raise S.ServiceError("no_camera", "no live picture from this station's camera", 404)
         return Response(seen[1], media_type="image/jpeg")
 
+    @app.get("/api/engine/stream/{station}")
+    async def engine_stream(station: str, request: Request):
+        """The station camera's picture as a live stream (MJPEG): each frame goes to the page as
+        soon as the camera sends it, nothing is polled. The stream ends when the camera stops."""
+        from fastapi.responses import StreamingResponse
+        if not FRAME_STATION.fullmatch(station):
+            raise S.ServiceError("unknown_station", f"bad station name {station!r}", 400)
+
+        async def frames():
+            last, checked = None, clock()
+            while True:
+                seen = _last_frame.get(station)
+                if seen is None or clock() - seen[0] > FRAME_STALE_S:
+                    return                                   # no camera: the page goes back to checking
+                if seen[0] != last:
+                    last = seen[0]
+                    yield (b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: " + str(len(seen[1])).encode()
+                           + b"\r\n\r\n" + seen[1] + b"\r\n")
+                if clock() - checked > 1.0:
+                    checked = clock()
+                    if await request.is_disconnected():
+                        return
+                await asyncio.sleep(0.01)
+
+        return StreamingResponse(frames(), media_type="multipart/x-mixed-replace; boundary=frame",
+                                 headers={"Cache-Control": "no-store"})
+
     @app.post("/api/engine/crossing", status_code=201)
     def engine_crossing(body: CrossingIn, db: Session = Depends(get_db),
                         day: Day = Depends(get_day)) -> dict:

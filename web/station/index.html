@@ -2662,18 +2662,37 @@ async function removeEntry(id, deleteResults) {
 
 /* ============================== live camera ============================== */
 // The station camera's annotated picture, sent by the engine (src/testpoint/preview.py).
+// The picture is a live stream (each frame pushed as the camera sends it); once a second a light
+// check says whether the camera is there, to show, restart or hide the stream.
 const CamLive = {
-  busy: false, last: 0, misses: 0,
+  busy: false, last: 0, misses: 0, streaming: null,
   target() { return role === "station" ? { el: "camLive-station", station: event } : role === "finish" ? { el: "camLive-finish", station: "finish" } : null; },
+  stopStream() {
+    if (!this.streaming) return;
+    const img = $(this.streaming.el).querySelector("img"); img.removeAttribute("src");
+    this.streaming = null;
+  },
   tick() {
-    const tg = this.target(); if (!tg || this.busy || Date.now() - this.last < 150 || document.hidden) return;
+    const tg = this.target();
+    if (!tg || document.hidden) { this.stopStream(); return; }
+    if (this.streaming && (this.streaming.el !== tg.el || this.streaming.station !== tg.station)) this.stopStream();
+    if (this.busy || Date.now() - this.last < 1000) return;
     const box = $(tg.el), img = box.querySelector("img");
     this.busy = true; this.last = Date.now();
-    const next = new Image();
-    next.onload = () => { img.src = next.src; box.classList.remove("hidden"); this.busy = false; this.misses = 0; };
-    // One missed picture keeps the last one on screen; three in a row means no camera: hide, retry every 2 s.
-    next.onerror = () => { this.busy = false; if (++this.misses >= 3) { box.classList.add("hidden"); this.last = Date.now() + 1700; } };
-    next.src = `/api/engine/frame/${tg.station}.jpg?t=${this.last}`;
+    fetch(`/api/engine/frame/${tg.station}.jpg?t=${this.last}`, { method: "GET", cache: "no-store" }).then(r => {
+      this.busy = false;
+      if (r.ok) {
+        this.misses = 0; box.classList.remove("hidden");
+        // (re)start the stream when there is none, or it ended (the server ends it when the camera pauses)
+        if (!this.streaming || this.streaming.ended) {
+          this.streaming = { el: tg.el, station: tg.station };
+          img.src = `/api/engine/stream/${tg.station}?t=${Date.now()}`;
+        }
+      } else {
+        if (this.streaming) this.streaming.ended = true;
+        if (++this.misses >= 2) { box.classList.add("hidden"); this.stopStream(); }
+      }
+    }).catch(() => { this.busy = false; });
   },
 };
 
