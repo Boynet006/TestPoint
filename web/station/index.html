@@ -1367,6 +1367,7 @@ const I18N = {
     tt_1: "1 minute", tt_2: "2 minutes", tt_run_banner: "Troubleshooting: run cut-off {t}. Not an official test.",
     rd_day_title: "Reset today", rd_day_hint: "Deletes today's weigh-ins, waves, finish times and exercise attempts. People and faces in Candidates, the settings and the rules are kept; the audit log keeps a record.",
     rd_keep: "Keep today's list", rd_keep_d: "Everyone stays on the list, back to 'expected'.", rd_clear: "Clear today's list too", rd_clear_d: "Today starts empty (people stay in Candidates).",
+    rd_open: "An exercise attempt is still open for <b>{who}</b> (perhaps being counted now).", rd_stop_reset: "Stop it and reset",
     rd_go: "Reset today", rd_type_date: "Type {d} to confirm", sec_admin_nav: "PIN and reset", e_confirm_date: "Type today's date exactly to reset it",
     rd_done_keep: "Today is reset: {p} people back to expected, {w} wave(s) and {a} attempt(s) deleted.", rd_done_clear: "Today is reset and its list emptied ({p} people, {w} wave(s), {a} attempt(s)).", nav_device: "This screen", nav_admin: "Security",
     set_dots: "Dots in the moving background", set_dots_hint: "Neural Aurora, Mirage and Desert Stars. Fewer dots are calmer and lighter on the PC.", dots_auto: "Auto",
@@ -1640,6 +1641,7 @@ const I18N = {
     tt_1: "دقيقة", tt_2: "دقيقتان", tt_run_banner: "تجربة: الحد الأقصى للجري {t}. ليس اختباراً رسمياً.",
     rd_day_title: "إعادة تعيين اليوم", rd_day_hint: "يحذف أوزان اليوم والموجات وأزمنة الوصول ومحاولات التمارين. الأشخاص والوجوه في المرشحين والإعدادات والقواعد تبقى؛ وسجل التدقيق يحتفظ بسجل.",
     rd_keep: "الإبقاء على قائمة اليوم", rd_keep_d: "يبقى الجميع في القائمة، بحالة «متوقع».", rd_clear: "إفراغ قائمة اليوم أيضاً", rd_clear_d: "يبدأ اليوم فارغاً (يبقى الأشخاص في المرشحين).",
+    rd_open: "ما زالت محاولة تمرين مفتوحة لـ <b>{who}</b> (ربما يُعد الآن).", rd_stop_reset: "أوقفها وأعد التعيين",
     rd_go: "إعادة تعيين اليوم", rd_type_date: "اكتب {d} للتأكيد", sec_admin_nav: "الرمز وإعادة التعيين", e_confirm_date: "اكتب تاريخ اليوم بالضبط لإعادة تعيينه",
     rd_done_keep: "أُعيد تعيين اليوم: {p} شخص عادوا إلى «متوقع»، وحُذفت {w} موجة و{a} محاولة.", rd_done_clear: "أُعيد تعيين اليوم وأُفرغت قائمته ({p} شخص، {w} موجة، {a} محاولة).", nav_device: "هذه الشاشة", nav_admin: "الأمان",
     set_dots: "عدد النقاط في الخلفية المتحركة", set_dots_hint: "الشفق الذكي والسراب ونجوم الصحراء. نقاط أقل أهدأ وأخف على الجهاز.", dots_auto: "تلقائي",
@@ -4320,15 +4322,17 @@ function openSettings() {
   $("settingsPage").classList.remove("hidden"); $("setBtn").classList.add("active"); window.scrollTo(0, 0);
   for (const x of ["simple", "advanced"]) $("mode-" + x).classList.remove("active");
 }
-async function resetDay() {
+async function resetDay(stopRunning) {
   const keep = document.querySelector('input[name="resetKeep"]:checked').value === "1";
   try {
-    const r = await api("POST", "/api/day/reset", { confirm: $("resetConfirm").value.trim(), keep_list: keep });
+    const r = await api("POST", "/api/day/reset", { confirm: $("resetConfirm").value.trim(), keep_list: keep, stop_running: !!stopRunning });
     $("resetConfirm").value = ""; $("resetGo").disabled = true;
     msg("resetMsg", "ok", t(keep ? "rd_done_keep" : "rd_done_clear", { p: r.people, w: r.waves, a: r.attempts }));
     lanes.forEach((l, i) => Object.assign(l, newLane(i + 1))); refresh();
   } catch (e) {
-    if (e.code === "admin_pin_required") PinDlg.open(() => resetDay());
+    if (e.code === "admin_pin_required") PinDlg.open(() => resetDay(stopRunning));
+    else if (e.code === "in_progress" && e.open) msg("resetMsg", "warn", t("rd_open", { who: e.open.map(esc).join(", ") })
+      + ` <button class="btn stop sm" type="button" onclick="resetDay(true)">${t("rd_stop_reset")}</button>`, true);
     else msg("resetMsg", "bad", err(e));
   }
 }

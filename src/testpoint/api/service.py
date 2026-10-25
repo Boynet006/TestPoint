@@ -1660,15 +1660,16 @@ def export_register(db: Session, day: Day) -> str:
 
 # --------------------------------------------------------------------------- reset a day
 
-def reset_day(db: Session, day: Day, seed: DayRules, keep_list: bool = True) -> dict:
+def reset_day(db: Session, day: Day, seed: DayRules, keep_list: bool = True, stop_running: bool = False) -> dict:
     """Start today again: every weigh-in, wave, finish and exercise attempt (with its reps) of
     the day is deleted. ``keep_list``: everyone stays on today's list as expected; otherwise
     the list is emptied too. The register (people and faces), the settings and the rules are
-    kept; the audit log keeps the history and a summary of what was reset. Refused while an
-    exercise attempt is being counted."""
+    kept; the audit log keeps the history and a summary of what was reset. An exercise attempt
+    still open is reset only with ``stop_running`` (it may be someone being counted now)."""
     entries = list(db.scalars(select(Entry).where(Entry.day_id == day.id)))
-    if any(a.status == "running" for e in entries for a in e.attempts):
-        raise ServiceError("in_progress", "an exercise attempt is running: stop it first", 409)
+    open_ = [e.candidate.name for e in entries if any(a.status == "running" for a in e.attempts)]
+    if open_ and not stop_running:
+        raise ServiceError("in_progress", f"an exercise attempt is open for {', '.join(open_)}", 409, open=open_)
     counts = {"people": len(entries), "with_results": sum(1 for e in entries if e.status != J.EXPECTED or e.attempts),
               "attempts": 0, "crossings": 0, "waves": 0}
     for e in entries:

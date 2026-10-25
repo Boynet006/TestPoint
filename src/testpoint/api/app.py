@@ -220,6 +220,8 @@ class ResetDayIn(BaseModel):
     confirm: str
     """Today's date, typed: a reset is never one tap away."""
     keep_list: bool = True
+    stop_running: bool = False
+    """Also reset exercise attempts still open (the examiner saw who and agreed)."""
 
 
 class TodayIn(BaseModel):
@@ -471,7 +473,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     def day_reset(body: ResetDayIn, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
         if body.confirm.strip() != day.date:
             raise S.ServiceError("confirm_date", f"type today's date ({day.date}) to reset it", 400)
-        return S.reset_day(db, day, rules, keep_list=body.keep_list)
+        return S.reset_day(db, day, rules, keep_list=body.keep_list, stop_running=body.stop_running)
 
     @app.get("/api/settings/defaults")
     def settings_defaults() -> dict:

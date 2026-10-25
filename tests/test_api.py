@@ -500,3 +500,5 @@ def test_reset_today_keeps_people_and_can_empty_the_list(client):
     ok(client.post("/api/day/reset", json={"confirm": today, "keep_list": False}))
     assert ok(client.get("/api/entries")) == []
     assert ok(client.get("/api/candidates"))["total"] == 1                  # still in the register
+
+
