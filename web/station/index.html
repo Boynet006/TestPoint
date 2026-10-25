@@ -119,6 +119,16 @@
     --pattern-size: auto; }
   header::after { content: ""; position: absolute; inset-inline: 0; bottom: 0; height: var(--bar-h); background: var(--bar); }
   [dir=rtl] header::after { transform: scaleX(-1); }
+  .regbar { gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  #rgForm { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); } #rgForm > * { min-width: 0; }
+  .regbar input[type=search] { min-width: 0; }
+  #rgTable td { vertical-align: middle; }
+  #rgTable tr.sel td { background: color-mix(in srgb, var(--amber) 10%, transparent); }
+  .selbar { position: sticky; top: 64px; z-index: 2; background: var(--panel); padding: 6px 0; margin-bottom: 6px; gap: 10px; }
+  .pd-head { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin: 8px 0 12px; }
+  .pd-head img, .pd-head .avatar { width: 72px; height: 72px; object-fit: cover; border: 1px solid var(--line); }
+  .pd-head dl { display: grid; grid-template-columns: auto auto; gap: 2px 12px; margin: 0; font-size: 14px; }
+  .pd-head dt { color: var(--muted); } .pd-head dd { margin: 0; }
   .themepick { grid-column: 2 / 4; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
   .themecard { all: unset; cursor: pointer; border: 2px solid var(--line); background: var(--bg2); display: flex; flex-direction: column; }
   .themecard:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
@@ -364,6 +374,11 @@
   <div id="enrolWho" style="margin:6px 0 10px"></div>
   <div class="viewer mirror" style="aspect-ratio:4/3"><video id="enrolVideo" muted playsinline></video><canvas id="enrolFx" class="fx"></canvas><canvas id="enrolBox"></canvas></div>
   <div id="enrolMsg"></div>
+</dialog>
+<dialog id="personDlg" class="dlg" style="max-width:860px">
+  <div class="dlg-head"><h2 data-t="rg_person"></h2><span class="spacer"></span><button class="btn ghost sm" type="button" onclick="$('personDlg').close()" data-t="rg_close"></button></div>
+  <div id="pdBody"></div>
+  <div id="pdMsg"></div>
 </dialog>
 <dialog id="editDlg" class="dlg" style="max-width:720px">
   <div class="dlg-head"><h2 data-t="edit_title"></h2><span class="spacer"></span><button class="btn ghost sm" type="button" onclick="EditDlg.close()" data-t="enrol_cancel"></button></div>
@@ -644,6 +659,7 @@
 <section id="advanced" class="hidden">
   <div class="tabs">
     <button class="active" onclick="tab('list', this)" data-t="t_list"></button>
+    <button onclick="tab('register', this)" data-t="t_register"></button>
     <button onclick="tab('review', this)" data-t="t_review"></button>
   </div>
   <div id="t-list" class="card">
@@ -661,6 +677,29 @@
     <div id="aMsg"></div>
     <div class="row" style="margin-bottom:8px"><span class="kv" id="aCounts"></span></div>
     <div class="scroll" style="max-height:none"><table><thead><tr><th data-t="face"></th><th>ID</th><th data-t="name"></th><th data-t="bib"></th><th>BMI</th><th data-t="status"></th><th data-t="run"></th><th data-t="pushup"></th><th data-t="crunch"></th><th data-t="result"></th><th></th></tr></thead><tbody id="aTable"></tbody></table></div>
+  </div>
+  <div id="t-register" class="card hidden">
+    <h2 data-t="t_register"></h2>
+    <p class="hint" data-t="register_hint"></p>
+    <div class="row regbar">
+      <input id="rgQ" type="search" data-tp="ph_search_people" oninput="Register.search()" autocomplete="off" style="flex:1 1 220px">
+      <select id="rgShow" onchange="Register.load()" style="flex:0 0 auto"><option value="all" data-t="rg_all"></option><option value="not_today" data-t="rg_not_today"></option><option value="today" data-t="rg_today"></option><option value="no_face" data-t="rg_no_face"></option></select>
+      <button class="btn amber sm" style="flex:0 0 auto" onclick="Register.toggleForm()" data-t="rg_new"></button>
+      <label class="btn sm" style="flex:0 0 auto" title=""><span data-t="import_csv"></span><input type="file" accept=".csv,text/csv" class="hidden" onchange="Register.importCsv(this)"></label>
+      <button class="btn ghost sm" style="flex:0 0 auto" onclick="Register.exportCsv()" data-t="rg_export"></button>
+    </div>
+    <form id="rgForm" class="form hidden" onsubmit="event.preventDefault(); Register.save(false)">
+      <input id="rgId" data-tp="ph_id" autocomplete="off"><input id="rgName" data-tp="ph_name_en" lang="en" dir="ltr" autocomplete="off"><input id="rgNameAr" data-tp="ph_name_ar" lang="ar" dir="rtl" autocomplete="off">
+      <select id="rgGender"><option value="">—</option><option value="M" data-t="male"></option><option value="F" data-t="female"></option></select>
+      <input id="rgDob" type="date"><select id="rgUnit"><option value="combat" data-t="unit_combat"></option><option value="admin" data-t="unit_admin"></option><option value="special" data-t="unit_special"></option></select>
+      <input id="rgBib" data-tp="ph_usual_bib" inputmode="numeric" autocomplete="off">
+      <button class="btn amber sm" type="submit" data-t="rg_save"></button>
+      <button class="btn sm" type="button" onclick="Register.save(true)" data-t="rg_save_today"></button>
+    </form>
+    <div id="rgMsg"></div>
+    <div class="row selbar"><span class="kv" id="rgCount"></span><span class="spacer"></span><button id="rgAddSel" class="btn amber sm" style="flex:0 0 auto" onclick="Register.addSelected()" disabled></button></div>
+    <div class="scroll" style="max-height:none"><table><thead><tr><th><input type="checkbox" id="rgAll" onchange="Register.selectAll(this.checked)" data-tl="rg_select_all"></th><th data-t="face"></th><th>ID</th><th data-t="name"></th><th data-t="age_h"></th><th data-t="lbl_unit"></th><th data-t="rg_bib"></th><th data-t="rg_last"></th><th data-t="rg_today_h"></th><th></th></tr></thead><tbody id="rgTable"></tbody></table></div>
+    <div class="row" style="justify-content:center;margin-top:10px"><button id="rgMore" class="btn ghost sm hidden" style="flex:0 0 auto" onclick="Register.load(true)" data-t="rg_more"></button></div>
   </div>
   <div id="t-review" class="card hidden">
     <h2 data-t="t_review"></h2>
@@ -983,7 +1022,18 @@ const I18N = {
     set_cancel_win_hint: "After this, Cancel start stays but needs the admin PIN. Once a runner of the wave finishes it cannot be cancelled.",
     start_cancelled: "Start cancelled. Runners are back at the line.", wrong_bib: "Wrong bib",
     unassigned: "Crossing moved back to the review queue; assign the right runner.", discard: "Discard", discarded: "Crossing discarded.",
-    undo_weigh: "Undo weigh-in", weigh_undone: "weigh-in undone; weigh again", remove: "Remove", entry_removed: "Removed from today's list.",
+    undo_weigh: "Undo weigh-in", weigh_undone: "weigh-in undone; weigh again", remove: "Remove", entry_removed: "Removed from today's list (still in Candidates).",
+    t_register: "Candidates", register_hint: "Everyone saved, whether or not they are on a test day. Register people ahead of time with their face photo, then add them to today's list when they come.",
+    ph_search_people: "Search name, ID or bib", ph_usual_bib: "Usual bib (optional)", rg_all: "Everyone", rg_not_today: "Not on today's list", rg_today: "On today's list", rg_no_face: "No face photo",
+    rg_new: "Register a person", rg_export: "Export CSV", rg_save: "Save", rg_save_today: "Save and add to today", rg_select_all: "Select everyone shown",
+    age_h: "Age", rg_bib: "Usual bib", rg_last: "Last test", rg_today_h: "Today", rg_more: "Show more", rg_count: "{n} people", rg_count_some: "{shown} of {n} shown",
+    rg_add_selected: "Add selected to today ({n})", rg_add_today: "Add to today", rg_on_list: "On today's list", rg_added_today: "{a} added to today's list, {s} already on it.",
+    rg_saved: "{name} saved.", rg_updated: "{name}'s details updated.", rg_unchanged: "{name} is already saved.", rg_and_today: "Added to today's list.", rg_take_face: "Take face photo",
+    rg_never: "Not tested yet", rg_history: "History", rg_person: "Candidate", rg_close: "Close", rg_days: "Test days", rg_no_days: "Not on any test day yet.",
+    rg_date: "Date", rg_verdict: "Result", rg_delete: "Delete person", sure_delete_person: "Delete this person and their face? Press again",
+    rg_deleted: "{name} deleted.", rg_has_results: "This person has test results.", rg_delete_all: "Delete with their results",
+    rg_import_not_today: "Nobody was put on today's list.", rg_empty: "Nobody saved yet. Register people or import a CSV.", rg_none_found: "Nobody matches.",
+    e_not_registered: "Not in Candidates", e_has_results: "Has test results", e_in_progress: "Being tested right now",
     delete_entry: "Delete", sure_delete: "Delete with results?",
     face_camera: "Camera", face_upload: "Upload", sure_unface: "Delete face?",
     face_camera_hint: "Capture the face with the camera: 3 guided poses", face_upload_hint: "Add a face from a photo file (a passport photo)",
@@ -1187,7 +1237,18 @@ const I18N = {
     set_cancel_win_hint: "بعدها يبقى زر الإلغاء لكنه يطلب رمز المسؤول. بعد وصول أي عدّاء من الموجة لا يمكن الإلغاء.",
     start_cancelled: "أُلغي الانطلاق. العداؤون عادوا إلى الخط.", wrong_bib: "رقم خاطئ",
     unassigned: "أُعيد العبور إلى قائمة المراجعة؛ عيّن العدّاء الصحيح.", discard: "حذف", discarded: "حُذف العبور.",
-    undo_weigh: "تراجع عن الوزن", weigh_undone: "أُلغي الوزن؛ أعد الوزن", remove: "إزالة", entry_removed: "أُزيل من قائمة اليوم.",
+    undo_weigh: "تراجع عن الوزن", weigh_undone: "أُلغي الوزن؛ أعد الوزن", remove: "إزالة", entry_removed: "أُزيل من قائمة اليوم (ما زال في المرشحين).",
+    t_register: "المرشحون", register_hint: "كل المحفوظين، سواء كانوا في يوم اختبار أم لا. سجّل الأشخاص مسبقاً مع صورة الوجه، ثم أضفهم إلى قائمة اليوم عند حضورهم.",
+    ph_search_people: "ابحث بالاسم أو الرقم الشخصي أو رقم الصدر", ph_usual_bib: "رقم الصدر المعتاد (اختياري)", rg_all: "الجميع", rg_not_today: "ليسوا في قائمة اليوم", rg_today: "في قائمة اليوم", rg_no_face: "بلا صورة وجه",
+    rg_new: "تسجيل شخص", rg_export: "تصدير CSV", rg_save: "حفظ", rg_save_today: "حفظ وإضافة إلى اليوم", rg_select_all: "اختيار كل المعروضين",
+    age_h: "العمر", rg_bib: "رقم الصدر المعتاد", rg_last: "آخر اختبار", rg_today_h: "اليوم", rg_more: "عرض المزيد", rg_count: "{n} شخص", rg_count_some: "{shown} من {n} معروض",
+    rg_add_selected: "إضافة المختارين إلى اليوم ({n})", rg_add_today: "إضافة إلى اليوم", rg_on_list: "في قائمة اليوم", rg_added_today: "أُضيف {a} إلى قائمة اليوم، و{s} موجودون فيها.",
+    rg_saved: "حُفظ {name}.", rg_updated: "حُدّثت بيانات {name}.", rg_unchanged: "{name} محفوظ مسبقاً.", rg_and_today: "أُضيف إلى قائمة اليوم.", rg_take_face: "التقاط صورة الوجه",
+    rg_never: "لم يُختبر بعد", rg_history: "السجل", rg_person: "المرشح", rg_close: "إغلاق", rg_days: "أيام الاختبار", rg_no_days: "ليس في أي يوم اختبار بعد.",
+    rg_date: "التاريخ", rg_verdict: "النتيجة", rg_delete: "حذف الشخص", sure_delete_person: "حذف هذا الشخص وصورة وجهه؟ اضغط مرة أخرى",
+    rg_deleted: "حُذف {name}.", rg_has_results: "لهذا الشخص نتائج اختبار.", rg_delete_all: "حذف مع نتائجه",
+    rg_import_not_today: "لم يُضف أحد إلى قائمة اليوم.", rg_empty: "لا أحد محفوظ بعد. سجّل أشخاصاً أو استورد ملف CSV.", rg_none_found: "لا يوجد تطابق.",
+    e_not_registered: "غير موجود في المرشحين", e_has_results: "له نتائج اختبار", e_in_progress: "يُختبر الآن",
     delete_entry: "حذف", sure_delete: "حذف مع النتائج؟",
     face_camera: "الكاميرا", face_upload: "رفع صورة", sure_unface: "حذف الوجه؟",
     face_camera_hint: "التقاط الوجه بالكاميرا: 3 أوضاع موجّهة", face_upload_hint: "إضافة وجه من ملف صورة (صورة جواز)",
@@ -1252,7 +1313,7 @@ function confirmClick(key, btn, fn, sureKey = "sure") {
   const mine = armedAt[key];
   setTimeout(() => { if (armedAt[key] === mine) disarm(); }, CONFIRM_MS);
 }
-const msg = (el, kind, text) => { $(el).innerHTML = text ? `<div class="msg ${kind}">${esc(text)}</div>` : ""; };
+const msg = (el, kind, text, html) => { $(el).innerHTML = text ? `<div class="msg ${kind}">${html ? text : esc(text)}</div>` : ""; };   // html: trusted markup only
 const whoHtml = e => `<div class="who"><div class="avatar">${initials(e.candidate)}</div><div><b>${esc(cname(e.candidate))}</b><small>${esc(e.candidate.external_id)} · ${t("bib")} ${esc(e.candidate.bib ?? "—")}</small></div><span class="spacer"></span>${statusPill(e.status)}</div>`;
 
 async function api(method, path, body, raw) {
@@ -1314,7 +1375,7 @@ function setMode(m) {
   if (settingsOpen) { settingsOpen = false; $("settingsPage").classList.add("hidden"); $("setBtn").classList.remove("active"); }
   mode = m; save("mode", m); $("simple").classList.toggle("hidden", m !== "simple"); $("advanced").classList.toggle("hidden", m !== "advanced");
   for (const x of ["simple", "advanced"]) $("mode-" + x).classList.toggle("active", x === m); refresh(); }
-function tab(name, btn) { for (const x of ["list", "review"]) $("t-" + x).classList.toggle("hidden", x !== name); document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("active", b === btn)); }
+function tab(name, btn) { for (const x of ["list", "register", "review"]) $("t-" + x).classList.toggle("hidden", x !== name); if (name === "register") Register.load(); document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("active", b === btn)); }
 
 /* ============================== weigh-in ============================== */
 let wEntry = null, wLast = null, wSeq = 0;
@@ -1374,7 +1435,13 @@ async function weighCheckin() {
   } catch (e) {
     if (seq !== wSeq) return;
     msg("wMsg", "bad", err(e));
-    if (e.code === "not_on_todays_list") offerRegister(q);
+    if (e.code === "not_on_todays_list") {
+      // On file but not on today's list: offer to add them, never to register them twice.
+      api("GET", `/api/candidates/lookup?q=${encodeURIComponent(q)}`).then(c => {
+        if (seq !== wSeq) return;
+        msg("wMsg", "warn", t("known_msg", { name: cname(c) })); offerKnown(c);
+      }).catch(() => { if (seq === wSeq) offerRegister(q); });
+    }
   }
 }
 function setWeighForm(on) { $("wForm").style.opacity = on ? 1 : .35; $("wForm").style.pointerEvents = on ? "auto" : "none"; }
@@ -1719,6 +1786,7 @@ function drawGuide(view, step, done, state, text) {
 // (or after POSE_TIMEOUT_MS with any single face). Returns the enrol result, or null if stopped.
 async function capturePose(view, entryId, step) {
   const pose = POSES[step], t0 = Date.now(); let streak = 0, last = null;
+  const faceUrl = typeof entryId === "string" ? entryId : `/api/entries/${entryId}/face`;   // a register person comes as their URL
   for (;;) {
     if (!view.alive()) return null;
     let state = "search", text = t("guide_" + pose);
@@ -1735,7 +1803,7 @@ async function capturePose(view, entryId, step) {
     drawGuide(view, step, step, state, text);
     const timedOut = Date.now() - t0 > POSE_TIMEOUT_MS && last && last.face && last.faces === 1;
     if (streak >= POSE_HOLD || timedOut) {
-      try { return await apiImage(`/api/entries/${entryId}/face`, await grabFrame(view.video, 1920, 0.92)); }
+      try { return await apiImage(faceUrl, await grabFrame(view.video, 1920, 0.92)); }
       catch (x) { if (x.code === "face_belongs_to_other") throw x; streak = 0; }   // blurred / no face: keep trying
     }
     await new Promise(r => setTimeout(r, 120));
@@ -1780,18 +1848,21 @@ async function enrollFromCamera() {
 // ---- enrol window, opened from a row of today's list: same guided capture as the desk
 const EnrolDlg = {
   stream: null, run: 0,
-  async open(id) {
-    const e = S.entries.find(x => x.id === id); if (!e) return;
+  async open(id, person) {
+    const e = person ? null : S.entries.find(x => x.id === id); if (!person && !e) return;
     const run = ++this.run, dlg = $("enrolDlg"), video = $("enrolVideo");
-    $("enrolWho").innerHTML = whoHtml(e); msg("enrolMsg"); dlg.showModal();
+    $("enrolWho").innerHTML = person ? personWho(person) : whoHtml(e); msg("enrolMsg"); dlg.showModal();
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
       video.srcObject = this.stream; await video.play();
     } catch (x) { msg("enrolMsg", "bad", t(x && x.name === "NotReadableError" ? "e_camera_busy" : "e_camera_denied")); return; }
     const view = { video, canvas: $("enrolBox"), alive: () => run === this.run && dlg.open };
     try {
-      const r = await guidedEnrol(view, id, (i, saved) => { if (!saved) msg("enrolMsg", "warn", `${i + 1}/${POSES.length} · ${t("pose_" + POSES[i])}`); });
-      if (r.ok) { msg("aMsg", "ok", `${cname(e.candidate)}: ${t("enrolled", { n: r.faces })}`); refresh(); setTimeout(() => this.close(), 700); }
+      const r = await guidedEnrol(view, person ? `/api/candidates/${id}/face` : id, (i, saved) => { if (!saved) msg("enrolMsg", "warn", `${i + 1}/${POSES.length} · ${t("pose_" + POSES[i])}`); });
+      if (r.ok) {
+        msg(person ? "rgMsg" : "aMsg", "ok", `${cname(person || e.candidate)}: ${t("enrolled", { n: r.faces })}`);
+        refresh(); if (person) Register.changed(id); setTimeout(() => this.close(), 700);
+      }
     } catch (x) { if (run === this.run) msg("enrolMsg", "bad", err(x)); }
   },
   close() {
@@ -1861,7 +1932,7 @@ async function registerNew() {
     const r = await enrollFromCamera();
     if (!r.ok && r.error && r.error.code === "face_belongs_to_other") {
       // The "new" person is already on file under another name: undo, never two people with one face.
-      await api("DELETE", `/api/entries/${entry.id}`).catch(() => {});
+      await api("DELETE", `/api/entries/${entry.id}?forget=true`).catch(() => {});
       msg("wMsg", "bad", t("register_face_taken", { who: r.error.message || "" })); $("wWho").innerHTML = ""; wLast = null;
       refresh(); return;
     }
@@ -2671,11 +2742,22 @@ function targetHtml(e, test) {
 // ---- correct a candidate's details (admin PIN when set). A change to date of birth, gender or
 // unit after weigh-in re-scores every saved result on the server.
 const EditDlg = {
-  entry: null,
+  entry: null, person: null,
+  async openPerson(id) {
+    let c;
+    try { c = await api("GET", `/api/candidates/${id}`); } catch (x) { msg("rgMsg", "bad", err(x)); return; }
+    this.entry = null; this.person = c;
+    $("eName").value = c.name; $("eNameAr").value = c.name_ar || ""; $("eId").value = c.external_id; $("eBib").value = c.bib || "";
+    $("eGender").value = c.gender || ""; $("eDob").value = c.dob || ""; $("eUnit").value = c.unit || setting("default_unit");
+    const today = c.days.find(d => d.today);
+    $("eBib").disabled = !!today && ["lined_up", "running"].includes(today.status);
+    $("eRegrade").classList.toggle("hidden", !(today && today.age != null)); msg("editMsg");
+    $("editDlg").showModal(); $("eName").focus();
+  },
   async open(id) {
     let e;
     try { e = await api("GET", `/api/entries/${id}`); } catch (x) { msg("wMsg", "bad", err(x)); return; }
-    this.entry = e; const c = e.candidate;
+    this.entry = e; this.person = null; const c = e.candidate;
     $("eName").value = c.name; $("eNameAr").value = c.name_ar || ""; $("eId").value = c.external_id; $("eBib").value = c.bib || "";
     $("eGender").value = c.gender || ""; $("eDob").value = c.dob || ""; $("eUnit").value = c.unit || setting("default_unit");
     $("eBib").disabled = ["lined_up", "running"].includes(e.status);
@@ -2684,12 +2766,23 @@ const EditDlg = {
   },
   close() { $("editDlg").close(); },
   async save() {
-    const c = this.entry.candidate, body = {};
+    const c = this.person || this.entry.candidate, body = {};
     const now = { name: $("eName").value.trim(), name_ar: $("eNameAr").value.trim() || null, external_id: $("eId").value.trim(),
                   bib: $("eBib").value.trim() || null, gender: $("eGender").value || null, dob: $("eDob").value || null, unit: $("eUnit").value };
     for (const [k, v] of Object.entries(now)) if (v !== (c[k] ?? null)) body[k] = v;   // only what changed
     if (!Object.keys(body).length) { this.close(); return; }
     $("eSave").disabled = true;
+    if (this.person) {
+      try {
+        const p = await api("PATCH", `/api/candidates/${this.person.id}`, body);
+        this.close(); refresh(); Register.changed(p.id);
+        msg("rgMsg", "ok", t("edit_saved", { name: cname(p) }));
+      } catch (x) {
+        if (x.code === "admin_pin_required") PinDlg.open(() => this.save());
+        else msg("editMsg", "bad", err(x));
+      } finally { $("eSave").disabled = false; }
+      return;
+    }
     try {
       const e = await api("PATCH", `/api/entries/${this.entry.id}/candidate`, body);
       this.close(); await refresh();
@@ -2782,6 +2875,154 @@ function renderAdvanced() {
   };
   setHTML("aTable", S.entries.map(e => `<tr>${faceCell(e)}<td>${esc(e.candidate.external_id)}</td><td>${esc(cname(e.candidate))}</td><td class="t">${esc(e.candidate.bib ?? "—")}</td><td>${e.bmi ?? "—"}</td><td>${statusPill(e.status)}</td><td class="t">${runCell(e)}</td><td>${ev(e, "pushup")}</td><td>${ev(e, "crunch")}</td><td>${verdictPill(e.verdict)}</td>${actions(e)}</tr>`).join("") || `<tr><td colspan="11" class="hint">—</td></tr>`);
 }
+
+/* ============================== candidates register ============================== */
+// Everyone saved, on a test day or not. Paged and searched on the server; the selection is
+// kept across searches so people can be gathered and added to today's list together.
+const ageOf = dob => { if (!dob) return null; const d = new Date(dob), n = new Date(); let a = n.getFullYear() - d.getFullYear();
+  if (n.getMonth() < d.getMonth() || (n.getMonth() === d.getMonth() && n.getDate() < d.getDate())) a--; return a; };
+const personWho = c => `<div class="who"><div class="avatar">${initials(c)}</div><div><b>${esc(cname(c))}</b><small>${esc(c.external_id)}${c.bib ? ` · ${t("bib")} ${esc(c.bib)}` : ""}</small></div></div>`;
+const Register = {
+  rows: [], total: 0, sel: new Map(), timer: 0, seq: 0,
+  async load(more) {
+    const seq = ++this.seq, off = more ? this.rows.length : 0;
+    const q = `?q=${encodeURIComponent($("rgQ").value.trim())}&show=${$("rgShow").value}&offset=${off}&limit=100`;
+    try {
+      const r = await api("GET", "/api/candidates" + q);
+      if (seq !== this.seq) return;
+      this.rows = more ? this.rows.concat(r.rows) : r.rows; this.total = r.total; this.render();
+    } catch (e) { msg("rgMsg", "bad", err(e)); }
+  },
+  search() { clearTimeout(this.timer); this.timer = setTimeout(() => this.load(), 250); },
+  changed(id) { this.load(); if ($("personDlg").open && this.openId === id) this.open(id); },
+  render() {
+    const unitTxt = u => u ? t("unit_" + u) : "—";
+    const faceCell = c => {
+      const n = c.faces || 0;
+      const status = n ? `<img class="thumb" src="/api/candidates/${c.id}/face.jpg?n=${n}" alt=""><span class="n ${n >= 3 ? "" : "part"}" title="${t("face_count_hint")}">${n}/3</span>`
+                       : `<span class="pill warn">${t("no_face")}</span>`;
+      return `<td><div class="facecell">${status}<button class="btn sm ${n >= 3 ? "ghost" : "amber"}" onclick="Register.face(${c.id})" title="${t("face_camera_hint")}">${t("face_camera")}</button>`
+        + `<label class="btn ghost sm" title="${t("face_upload_hint")}">${t("face_upload")}<input type="file" accept="image/*" class="hidden" onchange="Register.faceFile(${c.id}, this)"></label></div></td>`;
+    };
+    const rows = this.rows.map(c => {
+      const on = !!c.today_entry, sel = this.sel.has(c.id);
+      return `<tr class="${sel ? "sel" : ""}"><td><input type="checkbox" ${sel ? "checked" : ""} ${on ? "disabled" : ""} onchange="Register.toggle(${c.id}, this.checked)" aria-label="${esc(cname(c))}"></td>${faceCell(c)}`
+        + `<td>${esc(c.external_id)}</td><td><b>${esc(cname(c))}</b>${lang === "ar" ? (c.name !== cname(c) ? `<br><small class="hint">${esc(c.name)}</small>` : "") : (c.name_ar ? `<br><small class="hint" dir="rtl">${esc(c.name_ar)}</small>` : "")}</td>`
+        + `<td class="t">${ageOf(c.dob) ?? "—"}</td><td>${unitTxt(c.unit)}</td><td class="t">${esc(c.bib ?? "—")}</td>`
+        + `<td>${c.last_date ? `${esc(c.last_date)} ${verdictPill(c.last_verdict)}` : `<span class="hint">${t("rg_never")}</span>`}</td>`
+        + `<td>${on ? `<span class="pill ok">${t("rg_on_list")}</span>` : `<button class="btn sm" onclick="Register.addToday([${c.id}])">${t("rg_add_today")}</button>`}</td>`
+        + `<td style="white-space:nowrap"><button class="btn ghost sm" onclick="Register.open(${c.id})">${t("rg_history")}</button> <button class="btn ghost sm" onclick="EditDlg.openPerson(${c.id})">${t("edit")}</button></td></tr>`;
+    });
+    setHTML("rgTable", rows.join("") || `<tr><td colspan="10" class="hint">${t($("rgQ").value.trim() ? "rg_none_found" : "rg_empty")}</td></tr>`);
+    $("rgCount").textContent = this.rows.length < this.total ? t("rg_count_some", { shown: this.rows.length, n: this.total }) : t("rg_count", { n: this.total });
+    $("rgMore").classList.toggle("hidden", this.rows.length >= this.total);
+    $("rgAddSel").textContent = t("rg_add_selected", { n: this.sel.size }); $("rgAddSel").disabled = !this.sel.size;
+    const free = this.rows.filter(c => !c.today_entry);
+    $("rgAll").checked = free.length > 0 && free.every(c => this.sel.has(c.id));
+  },
+  toggle(id, on) { const c = this.rows.find(x => x.id === id); if (on && c) this.sel.set(id, c); else this.sel.delete(id); this.render(); },
+  selectAll(on) { for (const c of this.rows) if (!c.today_entry) { if (on) this.sel.set(c.id, c); else this.sel.delete(c.id); } this.render(); },
+  async addToday(ids) {
+    try {
+      const r = await api("POST", "/api/candidates/today", { ids });
+      ids.forEach(id => this.sel.delete(id));
+      msg("rgMsg", r.errors.length ? "warn" : "ok", t("rg_added_today", { a: r.added, s: r.already }) + (r.errors.length ? " " + r.errors.map(x => x.message).join("; ") : ""));
+      refresh(); this.load(); if ($("personDlg").open) this.open(this.openId);
+    } catch (e) { msg("rgMsg", "bad", err(e)); }
+  },
+  addSelected() { if (this.sel.size) this.addToday([...this.sel.keys()]); },
+  toggleForm() {
+    const f = $("rgForm"), show = f.classList.contains("hidden");
+    f.classList.toggle("hidden", !show);
+    if (show) { ["rgId", "rgName", "rgNameAr", "rgDob", "rgBib"].forEach(i => $(i).value = ""); $("rgGender").value = setting("default_gender"); $("rgUnit").value = setting("default_unit"); $("rgId").focus(); }
+  },
+  async save(today) {
+    const body = { external_id: $("rgId").value.trim(), name: $("rgName").value.trim(), name_ar: $("rgNameAr").value.trim() || null,
+                   gender: $("rgGender").value || null, dob: $("rgDob").value || null, unit: $("rgUnit").value, bib: $("rgBib").value.trim() || null };
+    if (!body.external_id || !body.name) { msg("rgMsg", "bad", t("e_missing_fields")); return; }
+    try {
+      const c = await api("POST", "/api/candidates", body);
+      if (today) await api("POST", "/api/candidates/today", { ids: [c.id] });
+      ["rgId", "rgName", "rgNameAr", "rgDob", "rgBib"].forEach(i => $(i).value = ""); $("rgId").focus();
+      // The face is what lets the desk recognise them later: offer it right away.
+      msg("rgMsg", "ok", t(c.outcome === "added" ? "rg_saved" : c.outcome === "updated" ? "rg_updated" : "rg_unchanged", { name: esc(cname(c)) })
+        + (today ? " " + t("rg_and_today") : "") + ` <button class="btn amber sm" onclick="Register.face(${c.id})">${t("rg_take_face")}</button>`, true);
+      this.load(); if (today) refresh();
+    } catch (e) { msg("rgMsg", "bad", err(e)); }
+  },
+  async face(id) {
+    let c = this.rows.find(x => x.id === id);
+    if (!c) { try { c = await api("GET", `/api/candidates/${id}`); } catch (e) { msg("rgMsg", "bad", err(e)); return; } }
+    EnrolDlg.open(id, c);
+  },
+  async faceFile(id, input) {
+    const file = input.files[0]; input.value = ""; if (!file) return;
+    try { const r = await apiImage(`/api/candidates/${id}/face`, file); msg("rgMsg", "ok", t("enrolled", { n: r.faces })); this.changed(id); }
+    catch (e) { msg("rgMsg", "bad", err(e)); }
+  },
+  async importCsv(input) {
+    const f = input.files[0]; input.value = ""; if (!f) return;
+    try {
+      const r = await api("POST", "/api/candidates/import", null, f);
+      msg("rgMsg", r.errors.length ? "warn" : "ok", t("imported_counts", { a: r.added, u: r.updated ?? 0, s: r.unchanged ?? 0 }) + " " + t("rg_import_not_today")
+        + (r.errors.length ? " " + t("import_errors", { n: r.errors.length }) + " " + r.errors.map(x => `#${x.line} ${x.message}`).join("; ") : ""));
+      this.load();
+    } catch (e) {
+      if (e.code === "admin_pin_required") PinDlg.open(() => { const i = document.createElement("input"); i.type = "file"; i.accept = ".csv,text/csv"; i.onchange = () => this.importCsv(i); i.click(); });
+      else msg("rgMsg", "bad", err(e));
+    }
+  },
+  async exportCsv() {
+    // A download with the admin PIN header: fetch it, then save the file.
+    try {
+      const headers = {}; const pin = adminPin(); if (pin) headers["x-admin-pin"] = pin;
+      const r = await fetch("/api/candidates/export.csv", { headers });
+      if (r.status === 403) { setAdminPin(null); PinDlg.open(() => this.exportCsv()); return; }
+      if (!r.ok) throw { code: "unknown" };
+      const name = (/filename="([^"]+)"/.exec(r.headers.get("content-disposition") || "") || [])[1] || "testpoint-register.csv";
+      const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(await r.blob()), download: name });
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    } catch (e) { msg("rgMsg", "bad", err(e)); }
+  },
+  async open(id) {
+    let c;
+    try { c = await api("GET", `/api/candidates/${id}`); } catch (e) { msg("rgMsg", "bad", err(e)); return; }
+    this.openId = id;
+    const today = c.days.find(d => d.today), age = ageOf(c.dob);
+    const ev = (d, k) => { const a = d.tests[k]; return a ? `${a.count} <small class="hint">${gradeTxt(a.grade)}</small>` : "—"; };
+    const days = c.days.map(d => `<tr><td>${esc(d.date)}${d.today ? ` <span class="pill info">${t("rg_today_h")}</span>` : ""}</td><td>${statusPill(d.status)}</td><td>${d.bmi ?? "—"}</td>`
+      + `<td class="t">${d.run_time_s == null ? "—" : `${fmt(d.run_time_s)} <small class="hint">${gradeTxt(d.run_grade)}</small>`}</td><td class="t">${ev(d, "pushup")}</td><td class="t">${ev(d, "crunch")}</td><td>${verdictPill(d.verdict)}</td></tr>`).join("");
+    const photo = c.faces ? `<img src="/api/candidates/${c.id}/face.jpg?n=${c.faces}" alt="">` : `<div class="avatar">${initials(c)}</div>`;
+    $("pdBody").innerHTML = `<div class="pd-head">${photo}<div><b style="font-size:20px">${esc(c.name)}</b>${c.name_ar ? `<div dir="rtl">${esc(c.name_ar)}</div>` : ""}</div>
+      <dl><dt>ID</dt><dd>${esc(c.external_id)}</dd><dt>${t("lbl_gender")}</dt><dd>${c.gender ? t(c.gender === "M" ? "male" : "female") : "—"}</dd>
+      <dt>${t("lbl_dob")}</dt><dd>${esc(c.dob || "—")}${age != null ? ` (${age})` : ""}</dd><dt>${t("lbl_unit")}</dt><dd>${c.unit ? t("unit_" + c.unit) : "—"}</dd>
+      <dt>${t("rg_bib")}</dt><dd>${esc(c.bib ?? "—")}</dd><dt>${t("face")}</dt><dd>${c.faces}/3</dd></dl></div>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        ${today ? `<span class="pill ok">${t("rg_on_list")}</span>` : `<button class="btn amber sm" style="flex:0 0 auto" onclick="Register.addToday([${c.id}])">${t("rg_add_today")}</button>`}
+        <button class="btn sm" style="flex:0 0 auto" onclick="Register.face(${c.id})">${t("rg_take_face")}</button>
+        <button class="btn ghost sm" style="flex:0 0 auto" onclick="EditDlg.openPerson(${c.id})">${t("edit")}</button>
+        <span class="spacer"></span>
+        <button class="btn ghost sm danger" style="flex:0 0 auto" onclick="confirmClick('rgdel${c.id}', this, () => Register.remove(${c.id}), 'sure_delete_person')">${t("rg_delete")}</button>
+      </div>
+      <h3 class="sec" style="margin-top:0">${t("rg_days")}</h3>
+      ${days ? `<div class="scroll"><table><thead><tr><th>${t("rg_date")}</th><th>${t("status")}</th><th>BMI</th><th>${t("run")}</th><th>${t("pushup")}</th><th>${t("crunch")}</th><th>${t("rg_verdict")}</th></tr></thead><tbody>${days}</tbody></table></div>`
+              : `<p class="hint">${t("rg_no_days")}</p>`}`;
+    msg("pdMsg");
+    if (!$("personDlg").open) $("personDlg").showModal();
+  },
+  async remove(id, withResults) {
+    const c = this.rows.find(x => x.id === id) || { name: "", name_ar: null };
+    try {
+      await api("DELETE", `/api/candidates/${id}${withResults ? "?delete_results=true" : ""}`);
+      if ($("personDlg").open) $("personDlg").close();
+      this.sel.delete(id); msg("rgMsg", "ok", t("rg_deleted", { name: cname(c) })); refresh(); this.load();
+    } catch (e) {
+      if (e.code === "admin_pin_required") PinDlg.open(() => this.remove(id, withResults));
+      else if (e.code === "has_results") msg("pdMsg", "warn", t("rg_has_results") + ` <button class="btn sm danger" onclick="confirmClick('rgdelr${id}', this, () => Register.remove(${id}, true), 'sure_delete')">${t("rg_delete_all")}</button>`, true);
+      else msg("pdMsg", "bad", err(e));
+    }
+  },
+};
 
 /* ============================== review ============================== */
 const rvOpen = new Set();

@@ -211,6 +211,10 @@ class WeighInIn(BaseModel):
     """Missing gender / date of birth, and the unit type, confirmed at the scale."""
 
 
+class TodayIn(BaseModel):
+    ids: list[int] = Field(min_length=1, max_length=500)
+
+
 class CandidateEdit(BaseModel):
     """Corrections to a candidate; only the fields sent change (null clears an optional one)."""
     external_id: str | None = None
@@ -519,6 +523,75 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         text = S.decode_csv(await request.body())
         return S.import_csv(db, day, text)
 
+    # ------------------------------------------------------------------ register
+    # Everyone saved, on a test day or not (service: "the register"). Static paths come before
+    # /{candidate_id} so "export.csv" and "lookup" are never read as an id.
+    @app.get("/api/candidates")
+    def register(q: str = "", show: Literal["all", "no_face", "today", "not_today"] = "all",
+                 offset: int = 0, limit: int = 100, db: Session = Depends(get_db),
+                 day: Day = Depends(get_day)) -> dict:
+        return S.register_rows(db, day, q, show, offset, limit)
+
+    @app.get("/api/candidates/export.csv", dependencies=[Depends(admin)])
+    def register_export(db: Session = Depends(get_db), day: Day = Depends(get_day)) -> Response:
+        return Response(S.export_register(db, day), media_type="text/csv; charset=utf-8",
+                        headers={"Content-Disposition": f'attachment; filename="testpoint-register-{day.date}.csv"'})
+
+    @app.get("/api/candidates/lookup")
+    def register_lookup(q: str, db: Session = Depends(get_db)) -> dict:
+        """A person in the register by ID: the desk offers to add them to today's list."""
+        return S.candidate_dict(S.lookup_candidate(db, q))
+
+    @app.post("/api/candidates", status_code=201)
+    def register_add(body: CandidateIn, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        """Save a person without putting them on a test day."""
+        data = body.model_dump(exclude={"auto_bib", "walk_in"})
+        result: dict = {}
+        c = S.register_candidate(db, day, **data, result=result)
+        return S.candidate_dict(c) | {"outcome": result["outcome"]}
+
+    @app.post("/api/candidates/import", dependencies=[Depends(admin)])
+    async def register_import(request: Request, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        return S.import_csv(db, day, S.decode_csv(await request.body()), to_day=False)
+
+    @app.post("/api/candidates/today")
+    def register_to_today(body: TodayIn, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        return S.add_to_today(db, day, body.ids)
+
+    @app.get("/api/candidates/{candidate_id}")
+    def register_person(candidate_id: int, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        return S.candidate_history(db, day, S.get_candidate(db, candidate_id))
+
+    @app.patch("/api/candidates/{candidate_id}", dependencies=[Depends(admin)])
+    def register_edit(candidate_id: int, body: CandidateEdit, db: Session = Depends(get_db),
+                      day: Day = Depends(get_day)) -> dict:
+        c = S.get_candidate(db, candidate_id)
+        e = db.scalar(select(Entry).where(Entry.day_id == day.id, Entry.candidate_id == c.id))
+        S.edit_candidate(db, day, S.rules_for(db, day, rules), e, body.model_dump(exclude_unset=True), candidate=c)
+        return S.candidate_history(db, day, c)
+
+    @app.delete("/api/candidates/{candidate_id}", status_code=204, dependencies=[Depends(admin)])
+    def register_delete(candidate_id: int, delete_results: bool = False, db: Session = Depends(get_db),
+                        day: Day = Depends(get_day)) -> None:
+        S.delete_candidate(db, day, S.get_candidate(db, candidate_id), delete_results=delete_results)
+
+    @app.post("/api/candidates/{candidate_id}/face")
+    async def register_face(candidate_id: int, request: Request, db: Session = Depends(get_db),
+                            day: Day = Depends(get_day)) -> dict:
+        c = S.get_candidate(db, candidate_id)
+        return {"faces": S.enroll_face(db, day, None, await request.body(), engine(), candidate=c)}
+
+    @app.delete("/api/candidates/{candidate_id}/face", status_code=204, dependencies=[Depends(admin)])
+    def register_face_remove(candidate_id: int, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> None:
+        S.remove_faces(db, day, None, candidate=S.get_candidate(db, candidate_id))
+
+    @app.get("/api/candidates/{candidate_id}/face.jpg")
+    def register_face_jpg(candidate_id: int, db: Session = Depends(get_db)) -> Response:
+        jpg = S.face_photo(db, None, candidate_id)
+        if not jpg:
+            raise S.ServiceError("no_face_enrolled", "no face enrolled", 404)
+        return Response(jpg, media_type="image/jpeg")
+
     # ------------------------------------------------------------------ check-in
     @app.post("/api/checkin")
     def checkin(body: CheckinIn, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
@@ -614,10 +687,11 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         return entry_out(e, day, S.face_count(db, e.candidate_id))
 
     @app.delete("/api/entries/{entry_id}", status_code=204, dependencies=[Depends(admin)])
-    def entry_remove(entry_id: int, delete_results: bool = False, db: Session = Depends(get_db),
-                     day: Day = Depends(get_day)) -> None:
-        """Take someone off today's list; ``delete_results=true`` also when they have results."""
-        S.remove_entry(db, day, S.get_entry(db, day, entry_id), delete_results=delete_results)
+    def entry_remove(entry_id: int, delete_results: bool = False, forget: bool = False,
+                     db: Session = Depends(get_db), day: Day = Depends(get_day)) -> None:
+        """Take someone off today's list (they stay in the register); ``delete_results=true`` also
+        when they have results; ``forget=true`` for a registration made by mistake."""
+        S.remove_entry(db, day, S.get_entry(db, day, entry_id), delete_results=delete_results, forget=forget)
 
     @app.post("/api/run/waves/{wave_id}/void", dependencies=[Depends(admin)])
     def run_wave_void(wave_id: int, abort: bool = False, db: Session = Depends(get_db),
