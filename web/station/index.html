@@ -574,6 +574,11 @@
         <input type="file" id="camFile" class="hidden" onchange="Cam.fileChosen(this)">
         <span class="hint" id="camNote"></span>
       </div>
+      <div class="row camrow hidden" id="deskCamRow">
+        <select id="deskCamSel" onchange="Cam.pickDevice(this.value)" data-tl="rd_cam_pick"></select>
+        <button class="btn sm" type="button" onclick="Cam.use('webcam')" data-t="rd_cam_restart"></button>
+        <button class="btn ghost sm" type="button" onclick="Cam.free()" data-tl="rd_cam_free_hint"><span data-t="rd_cam_free"></span></button>
+      </div>
       <div class="viewer" id="viewer">
         <video id="camVideo" muted loop playsinline class="hidden"></video>
         <canvas id="camFx" class="fx"></canvas>
@@ -1287,6 +1292,9 @@ const I18N = {
     dd_results_one: "Also delete their test results on {d} day(s). Required: they have results.",
     dd_results_many: "Also delete the test results of the {n} who have them. Required to delete them.",
     dd_done: "{n} deleted.",
+    cam_fell_back: "The chosen camera did not open: using {cam}.",
+    cam_allow: "Allow the camera: the browser is asking at the top of the window.",
+    cam_blocked: "The camera is blocked for this page. Click the camera icon at the right of the address bar, choose Allow, then press Restart camera.",
     rd_cam_pick: "Camera", rd_cam_default: "Default camera", rd_cam_n: "Camera {n}", rd_cam_restart: "Restart camera", rd_cam_free: "Free the camera",
     rd_cam_free_hint: "Stops the desk camera and any camera service using a webcam, then starts this one",
     rd_cam_timeout: "The camera did not answer", rd_cam_gone: "That camera is not connected", rd_cam_try: "Pick another camera, Restart or Free the camera, or upload a photo.",
@@ -1547,6 +1555,9 @@ const I18N = {
     dd_results_one: "حذف نتائج اختباراته في {d} يوم أيضاً. مطلوب: لديه نتائج.",
     dd_results_many: "حذف نتائج الـ{n} الذين لديهم نتائج أيضاً. مطلوب لحذفهم.",
     dd_done: "حُذف {n}.",
+    cam_fell_back: "لم تُفتح الكاميرا المختارة: تُستخدم {cam}.",
+    cam_allow: "اسمح بالكاميرا: المتصفح يطلب ذلك أعلى النافذة.",
+    cam_blocked: "الكاميرا محظورة لهذه الصفحة. اضغط أيقونة الكاميرا يمين شريط العنوان، اختر السماح، ثم اضغط إعادة تشغيل الكاميرا.",
     rd_cam_pick: "الكاميرا", rd_cam_default: "الكاميرا الافتراضية", rd_cam_n: "كاميرا {n}", rd_cam_restart: "إعادة تشغيل الكاميرا", rd_cam_free: "تحرير الكاميرا",
     rd_cam_free_hint: "يوقف كاميرا المكتب وأي خدمة كاميرا تستخدم كاميرا ويب، ثم يشغّل هذه",
     rd_cam_timeout: "لم تستجب الكاميرا", rd_cam_gone: "هذه الكاميرا غير متصلة", rd_cam_try: "اختر كاميرا أخرى، أو أعد التشغيل، أو حرّر الكاميرا، أو ارفع صورة.",
@@ -1798,6 +1809,52 @@ function renderWeigh() { if (S.rules) $("wRange").textContent = t("bmi_range", {
 /* ============================== camera source ============================== */
 // One camera abstraction for every device: a live webcam, or a video/photo file for demos.
 // Switching to real hardware later is a choice in this picker, not a code change.
+// This device's camera, for the weigh-in desk, the start line and the face photo windows alike: the one
+// chosen here (kept on the device), else the browser's default; when that one fails (held by another
+// program, a virtual camera with nothing behind it, unplugged), the other real cameras in turn.
+// Returns { stream, label, fellBack }; throws the first error when no camera opens.
+async function cameraPermission() {   // "granted", "prompt" (the browser will ask), "denied", or "" when unknown
+  try { return (await navigator.permissions.query({ name: "camera" })).state; } catch { return ""; }
+}
+async function openCamera(want) {
+  // While the browser asks the person to allow the camera there is no time limit: they have to answer.
+  const asking = (await cameraPermission()) !== "granted";
+  const one = id => {
+    const ask = navigator.mediaDevices.getUserMedia({ audio: false, video: { width: { ideal: 1280 }, height: { ideal: 720 }, ...(id ? { deviceId: { exact: id } } : {}) } });
+    let late = false;
+    ask.then(st => { if (late) st.getTracks().forEach(tr => tr.stop()); }).catch(() => {});
+    // a camera that never answers must not leave a black box
+    return asking ? ask : Promise.race([ask, new Promise((_, no) => setTimeout(() => { late = true; no({ name: "Timeout" }); }, 8000))]);
+  };
+  let first = null;
+  try { const st = await one(want); return { stream: st, label: st.getVideoTracks()[0]?.label || "", fellBack: false }; }
+  catch (e) { first = e; if (e && (e.name === "NotAllowedError" || e.name === "SecurityError")) throw e; }
+  const cams = (await navigator.mediaDevices.enumerateDevices().catch(() => []))
+    .filter(d => d.kind === "videoinput" && d.deviceId && d.deviceId !== want && !/virtual|obs|snap|manycam/i.test(d.label));
+  for (const d of cams) {
+    try { const st = await one(d.deviceId); return { stream: st, label: d.label || st.getVideoTracks()[0]?.label || "", fellBack: true }; } catch { /* next one */ }
+  }
+  throw first;
+}
+async function cameraOptions(sel) {   // fill a camera <select> (labels are known once a camera was allowed)
+  const want = load("camDevice", "");
+  try {
+    const cams = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "videoinput");
+    sel.innerHTML = `<option value="">${t("rd_cam_default")}</option>` + cams.map((d, i) => `<option value="${esc(d.deviceId)}">${esc(d.label || t("rd_cam_n", { n: i + 1 }))}</option>`).join("");
+    sel.value = cams.some(d => d.deviceId === want) ? want : "";
+  } catch { sel.innerHTML = `<option value="">${t("rd_cam_default")}</option>`; }
+}
+// Force: stop whatever here holds a webcam (this page's cameras, the finish or station camera service
+// when it runs a webcam), so the camera can be opened again.
+async function freeWebcam() {
+  if (Cam.stream) { Cam.stop(); Cam.show(); }
+  if (typeof RegDlg !== "undefined" && RegDlg.stream) RegDlg.stopCam();
+  if (EnrolDlg.stream) EnrolDlg.close();
+  for (const [get, stop] of [["/api/finishcam", "/api/finishcam/stop"], ["/api/stationcam", "/api/stationcam/stop"]]) {
+    try { const st = await api("GET", get); if (st.available && st.running && st.config && st.config.kind === "webcam") await api("POST", stop); } catch { /* service off */ }
+  }
+  await new Promise(r => setTimeout(r, 800));
+}
 const Cam = {
   kind: load("camKind", ""), stream: null, fileName: "",
   el() { return this.kind === "photo" ? $("camImg") : $("camVideo"); },
@@ -1810,6 +1867,7 @@ const Cam = {
     $("camTag").textContent = live ? (this.kind === "webcam" ? t("src_note_webcam") : t("src_note_file", { name: this.fileName })) : "";
     $("viewer").classList.toggle("mirror", this.kind === "webcam");
     $("camNote").textContent = (!live && this.kind && this.kind !== "webcam") ? t("src_reselect") : "";
+    $("deskCamRow").classList.toggle("hidden", this.kind !== "webcam");
     $("idBtn").disabled = !live; $("autoBtn").disabled = !live;
   },
   stop() { if (this.stream) { this.stream.getTracks().forEach(tr => tr.stop()); this.stream = null; } BgFx.stop($("camVideo")); },
@@ -1817,31 +1875,36 @@ const Cam = {
     if (this.opening) return;
     this.stop(); this.kind = kind; save("camKind", kind); this.fileName = "";
     if (kind === "webcam") {
-      this.opening = true;
+      this.opening = true; $("deskCamRow").classList.remove("hidden");
       const box = role === "start" ? "sMsg" : "wMsg";
       try {
-        this.stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+        const perm = await cameraPermission();
+        if (perm === "prompt") msg(box, "warn", t("cam_allow"));
+        if (perm === "denied") throw { name: "NotAllowedError" };
+        const want = load("camDevice", ""), r = await openCamera(want);
+        this.stream = r.stream;
         const v = $("camVideo"); v.srcObject = this.stream; v.removeAttribute("src"); await v.play();
-        msg(box);
+        if (r.fellBack) msg(box, "warn", t("cam_fell_back", { cam: r.label || "—" })); else msg(box);
       } catch (e) {
-        if (e && e.name === "NotReadableError") await this.busy(box);
-        else msg(box, "bad", t("e_camera_denied"));
-      } finally { this.opening = false; }
+        if (e && e.name === "NotAllowedError") msg(box, "bad", t("cam_blocked"));
+        else await this.busy(box, e);
+      } finally { this.opening = false; cameraOptions($("deskCamSel")); }
     }
     this.show();
   },
-  // The webcam is held by another program. When it is the finish camera on this PC, offer to take it back.
-  async busy(box) {
+  // No camera opened: say why, and offer to free the webcam (the finish camera on this PC may hold it).
+  async busy(box, e) {
     let fc = null;
     try { fc = await api("GET", "/api/finishcam"); } catch {}
-    if (fc && fc.running && fc.config && fc.config.kind === "webcam")
-      $(box).innerHTML = `<div class="msg bad">${esc(t("cam_taken_finish"))} <button class="btn sm amber" onclick="Cam.takeBack()">${esc(t("cam_take_back"))}</button></div>`;
-    else msg(box, "bad", t("e_camera_busy"));
+    const why = fc && fc.running && fc.config && fc.config.kind === "webcam" ? t("cam_taken_finish")
+              : t(e && e.name === "Timeout" ? "rd_cam_timeout" : e && e.name === "OverconstrainedError" ? "rd_cam_gone" : "e_camera_busy");
+    if (e && e.name === "OverconstrainedError") save("camDevice", "");
+    $(box).innerHTML = `<div class="msg bad">${esc(why)} <span class="regactions" style="display:inline-flex;margin:6px 0 0">`
+      + `<button class="btn sm amber" type="button" onclick="Cam.free()">${esc(t("rd_cam_free"))}</button>`
+      + `<button class="btn sm ghost" type="button" onclick="Cam.use('webcam')">${esc(t("rd_try_again"))}</button></span></div>`;
   },
-  async takeBack() {
-    try { await api("POST", "/api/finishcam/stop"); } catch (e) { msg(role === "start" ? "sMsg" : "wMsg", "bad", err(e)); return; }
-    for (let i = 0; i < 4 && !this.stream; i++) { await new Promise(r => setTimeout(r, 700)); await this.use("webcam"); }
-  },
+  pickDevice(id) { save("camDevice", id); this.use("webcam"); },
+  async free() { msg(role === "start" ? "sMsg" : "wMsg", "warn", t("rd_cam_freed")); await freeWebcam(); this.use("webcam"); },
   pick(kind) { const f = $("camFile"); f.accept = kind === "video" ? "video/*" : "image/*"; f.dataset.kind = kind; f.click(); },
   fileChosen(input) {
     const file = input.files[0]; if (!file) return;
@@ -2186,9 +2249,9 @@ const EnrolDlg = {
     const run = ++this.run, dlg = $("enrolDlg"), video = $("enrolVideo");
     $("enrolWho").innerHTML = person ? personWho(person) : whoHtml(e); msg("enrolMsg"); dlg.showModal();
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+      this.stream = (await openCamera(load("camDevice", ""))).stream;
       video.srcObject = this.stream; await video.play();
-    } catch (x) { msg("enrolMsg", "bad", t(x && x.name === "NotReadableError" ? "e_camera_busy" : "e_camera_denied")); return; }
+    } catch (x) { msg("enrolMsg", "bad", t(x && x.name === "NotAllowedError" ? "e_camera_denied" : "e_camera_busy")); return; }
     const view = { video, canvas: $("enrolBox"), alive: () => run === this.run && dlg.open };
     try {
       const r = await guidedEnrol(view, person ? `/api/candidates/${id}/face` : id, (i, saved) => { if (!saved) msg("enrolMsg", "warn", `${i + 1}/${POSES.length} · ${t("pose_" + POSES[i])}`); });
@@ -3515,33 +3578,25 @@ const RegDlg = {
   },
   next() { this.save(true); },
   // The camera this desk uses for registering (kept on the device); empty = the browser's default.
-  pick(id) { save("regCam", id); this.camera(true); },
-  async cameras() {
-    const sel = $("regCamSel"), want = load("regCam", "");
-    try {
-      const cams = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "videoinput");
-      sel.innerHTML = `<option value="">${t("rd_cam_default")}</option>` + cams.map((d, i) => `<option value="${esc(d.deviceId)}">${esc(d.label || t("rd_cam_n", { n: i + 1 }))}</option>`).join("");
-      sel.value = cams.some(d => d.deviceId === want) ? want : "";
-    } catch { sel.innerHTML = `<option value="">${t("rd_cam_default")}</option>`; }
-  },
+  pick(id) { save("camDevice", id); this.camera(true); },
+  cameras() { return cameraOptions($("regCamSel")); },
   async camera(force) {
     if (force) this.stopCam();
-    const run = ++this.run, video = $("regVideo"), id = load("regCam", "");
-    msg("regMsg", "warn", t("rd_camera_starting"));
+    const run = ++this.run, video = $("regVideo"), perm = await cameraPermission();
+    if (perm === "denied") { msg("regMsg", "bad", t("cam_blocked")); return; }
+    msg("regMsg", "warn", t(perm === "prompt" ? "cam_allow" : "rd_camera_starting"));
     try {
-      const ask = navigator.mediaDevices.getUserMedia({ audio: false, video: { width: { ideal: 1280 }, height: { ideal: 720 }, ...(id ? { deviceId: { exact: id } } : {}) } });
-      // A camera that never answers (driver stuck, held by another program) must not leave a black box.
-      this.stream = await Promise.race([ask, new Promise((_, no) => setTimeout(() => no({ name: "Timeout" }), 10000))]);
-      ask.then(s => { if (s !== this.stream) s.getTracks().forEach(tr => tr.stop()); }).catch(() => {});
-      if (run !== this.run) { this.stream.getTracks().forEach(tr => tr.stop()); this.stream = null; return; }
-      video.srcObject = this.stream; await video.play();
+      const r = await openCamera(load("camDevice", ""));
+      if (run !== this.run) { r.stream.getTracks().forEach(tr => tr.stop()); return; }
+      this.stream = r.stream; video.srcObject = this.stream; await video.play();
+      if (r.fellBack) msg("regMsg", "warn", t("cam_fell_back", { cam: r.label || "—" }));
       this.cameras();   // labels are known once the browser has allowed a camera
     } catch (x) {
       if (run !== this.run) return;
       const why = t(x && x.name === "NotReadableError" ? "e_camera_busy" : x && x.name === "Timeout" ? "rd_cam_timeout"
                     : x && x.name === "OverconstrainedError" ? "rd_cam_gone" : "e_camera_denied");
       msg("regMsg", "bad", why + (/[.!?…]$/.test(why) ? " " : ". ") + t("rd_cam_try"));
-      if (x && x.name === "OverconstrainedError") save("regCam", "");
+      if (x && x.name === "OverconstrainedError") save("camDevice", "");
       this.cameras(); return;
     }
     const view = { video, canvas: $("regBox"), alive: () => run === this.run && $("regDlg").open && this.step === 2 };
@@ -3570,13 +3625,8 @@ const RegDlg = {
   // Force: stop whatever here holds a webcam (the desk camera on this page, the finish or station
   // camera service when it runs a webcam) and start again.
   async freeCamera() {
-    this.stopCam();
-    if (Cam.stream) { Cam.stop(); Cam.show(); }
-    for (const [get, stop] of [["/api/finishcam", "/api/finishcam/stop"], ["/api/stationcam", "/api/stationcam/stop"]]) {
-      try { const st = await api("GET", get); if (st.available && st.running && st.config && st.config.kind === "webcam") await api("POST", stop); } catch { /* service off */ }
-    }
-    msg("regMsg", "warn", t("rd_cam_freed"));
-    await new Promise(r => setTimeout(r, 800));
+    this.stopCam(); msg("regMsg", "warn", t("rd_cam_freed"));
+    await freeWebcam();
     this.camera(true);
   },
   photo(n) {
