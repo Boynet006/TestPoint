@@ -47,6 +47,31 @@
     --ok-text: #4a5418; --bad-text: #8a271f; --warn-text: #6b472c;
     --bar: linear-gradient(90deg, #c9ae86 0 25%, #a87a55 25% 50%, #7e4a35 50% 75%, #8f8a4c 75%); --bar-h: 4px;
     --pattern: none; }
+  /* Neural Aurora: drifting aurora light and a living neural network behind the panels.
+     Cheap by design: the aurora is soft gradients moved by transform only (GPU, no blur filter); the
+     network is a small canvas at 30 frames a second that stops in a hidden tab; reduced motion or
+     "Moving background: off" shows one still frame. */
+  [data-theme=neural] {
+    --bg: #060918; --bg2: #0d1230; --panel: rgba(14,19,46,.86); --line: #283062; --text: #eef0ff; --muted: #9ea7da; --dim: #5f679c;
+    --amber: #8b7bff; --amber-ink: #0a0726; --go: #34d399; --go-ink: #03201a; --stop: #fb5a7a; --info: #38bdf8;
+    --head: rgba(6,9,24,.84); --view: #04060f;
+    --bar: linear-gradient(90deg, #22d3ee, #8b7bff, #f472b6, #22d3ee); --bar-h: 3px; --pattern: none; }
+  [data-theme=neural] header::after { background-size: 300% 100%; animation: fxBar 9s linear infinite; }
+  @keyframes fxBar { to { background-position: 300% 0; } }
+  #fx { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; display: none; }
+  [data-theme=neural] #fx { display: block; }
+  #fx .blob { position: absolute; border-radius: 50%; will-change: transform; }
+  #fx .b1 { width: 75vmax; height: 75vmax; top: -30vmax; left: -20vmax; background: radial-gradient(circle, rgba(139,123,255,.42), transparent 62%); animation: fxA 26s ease-in-out infinite alternate; }
+  #fx .b2 { width: 80vmax; height: 80vmax; bottom: -38vmax; right: -25vmax; background: radial-gradient(circle, rgba(34,211,238,.30), transparent 62%); animation: fxB 33s ease-in-out infinite alternate; }
+  #fx .b3 { width: 55vmax; height: 55vmax; top: 15vh; left: 30vw; background: radial-gradient(circle, rgba(244,114,182,.20), transparent 62%); animation: fxC 41s ease-in-out infinite alternate; }
+  @keyframes fxA { to { transform: translate(18vw, 14vh) scale(1.15) rotate(25deg); } }
+  @keyframes fxB { to { transform: translate(-22vw, -12vh) scale(.9) rotate(-20deg); } }
+  @keyframes fxC { to { transform: translate(-14vw, 20vh) scale(1.25); } }
+  #fx canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  @media (prefers-reduced-motion: reduce) { #fx .blob, [data-theme=neural] header::after { animation: none; } }
+  html.still #fx .blob, html.still[data-theme=neural] header::after { animation: none; }
+  .themecard[data-k=neural] .sw { background: radial-gradient(circle at 18% 25%, rgba(139,123,255,.85), transparent 55%),
+    radial-gradient(circle at 85% 85%, rgba(34,211,238,.7), transparent 55%), radial-gradient(circle at 60% 10%, rgba(244,114,182,.5), transparent 45%), #060918; }
   /* Daylight: dark ink on white, readable on a tablet in full sun */
   [data-theme=daylight] {
     --bg: #e9edf1; --bg2: #ffffff; --panel: #ffffff; --line: #c3ccd6; --text: #0c1520; --muted: #46566a; --dim: #7a8899;
@@ -295,6 +320,7 @@
 </style>
 </head>
 <body>
+<div id="fx" aria-hidden="true"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div><canvas id="fxNet"></canvas></div>
 <header>
   <div class="brand"><div class="mono">T</div><div><b>TestPoint</b><small id="tagline"></small></div></div>
   <select id="role" onchange="setRole(this.value)">
@@ -737,6 +763,9 @@
         <label for="setThemeHere" data-t="set_theme_here"></label>
         <select id="setThemeHere" onchange="themeHere(this.value)"></select>
         <span class="hint" data-t="set_theme_here_hint"></span>
+        <label for="setMotion" data-t="set_motion"></label>
+        <select id="setMotion" onchange="motionHere(this.value)"><option value="on" data-t="on"></option><option value="off" data-t="off"></option></select>
+        <span class="hint" data-t="set_motion_hint"></span>
       </div>
       <div class="row" style="margin-top:14px"><button class="btn amber" style="flex:0 0 auto" onclick="saveSettings()" data-t="save_settings"></button></div>
       <div id="setMsg"></div>
@@ -858,6 +887,8 @@ const I18N = {
     th_daylight: "Daylight", th_daylight_d: "Dark ink on white, readable in full sun",
     th_track: "Running Track", th_track_d: "Tartan red-orange and lane lines on charcoal",
     th_falcon: "Falcon", th_falcon_d: "Deep navy and falcon gold",
+    th_neural: "Neural Aurora", th_neural_d: "Drifting aurora light and a living neural network (moves)",
+    set_motion: "Moving background", set_motion_hint: "Only this screen. Off keeps a still picture and saves power on the PC that runs the cameras.",
     save_settings: "Save settings", settings_saved: "Settings saved.", on: "On", off: "Off", none: "None",
     lbl_name_en: "Name (English)", lbl_name_ar: "Name (Arabic)", lbl_id: "ID number", lbl_gender: "Gender", lbl_dob: "Date of birth",
     ph_name_en: "Name (English)", import_csv: "Import CSV", add: "Add",
@@ -1058,6 +1089,8 @@ const I18N = {
     th_daylight: "نهاري", th_daylight_d: "حبر داكن على أبيض، واضح تحت الشمس",
     th_track: "مضمار الجري", th_track_d: "أحمر المضمار وخطوط الحارات على الفحمي",
     th_falcon: "الصقر", th_falcon_d: "كحلي داكن وذهبي الصقر",
+    th_neural: "الشفق الذكي", th_neural_d: "ضوء شفق متحرك وشبكة عصبية حية (متحرك)",
+    set_motion: "خلفية متحركة", set_motion_hint: "لهذه الشاشة فقط. الإيقاف يُبقي صورة ثابتة ويوفّر طاقة الجهاز الذي يشغّل الكاميرات.",
     save_settings: "حفظ الإعدادات", settings_saved: "تم حفظ الإعدادات.", on: "تشغيل", off: "إيقاف", none: "بدون",
     lbl_name_en: "الاسم (بالإنجليزية)", lbl_name_ar: "الاسم (بالعربية)", lbl_id: "رقم الهوية", lbl_gender: "الجنس", lbl_dob: "تاريخ الميلاد",
     ph_name_en: "الاسم (بالإنجليزية)", import_csv: "استيراد CSV", add: "إضافة",
@@ -2822,12 +2855,14 @@ const THEMES = {   // swatch colours for the picker: background, panel, accent, 
   daylight: ["#e9edf1", "#ffffff", "#a85f00", "#0a8a4b", "#d0262f"],
   track: ["#16171b", "#232429", "#f2673a", "#33d38e", "#ff2f5b"],
   falcon: ["#0b1322", "#152138", "#d6b04a", "#2fd093", "#ff4d5e"],
+  neural: ["#060918", "#0e132e", "#8b7bff", "#34d399", "#fb5a7a"],
 };
 function applyTheme(preview) {
   const station = THEMES[setting("theme")] ? setting("theme") : "night";
   save("stationTheme", station);   // the next page load paints in it from the first frame
   const here = load("theme", "");
   document.documentElement.dataset.theme = THEMES[here] ? here : (preview && THEMES[preview] ? preview : station);
+  NeuralFx.sync();
 }
 function themeCards() {
   const cur = $("setTheme").value;
@@ -2839,9 +2874,78 @@ function themeCards() {
   $("setThemeHere").innerHTML = `<option value="">${t("theme_station")}</option>`
     + Object.keys(THEMES).map(k => `<option value="${k}">${t("th_" + k)}</option>`).join("");
   $("setThemeHere").value = THEMES[here] ? here : "";
+  $("setMotion").value = load("motion", "on") === "off" ? "off" : "on";
 }
 function pickTheme(k) { $("setTheme").value = k; themeCards(); applyTheme(k); }
 function themeHere(k) { save("theme", k); applyTheme($("setTheme").value); }
+function motionHere(v) { save("motion", v); NeuralFx.sync(); }
+
+// ---- Neural Aurora's network: drifting nodes, links between neighbours, signals running along them
+const NeuralFx = {
+  raf: 0, last: 0, nodes: [], pulses: [], w: 0, h: 0, k: 1, spawn: 0, link: 165,
+  sync() {
+    const motion = load("motion", "on") !== "off";
+    document.documentElement.classList.toggle("still", !motion);
+    if (document.documentElement.dataset.theme !== "neural") { this.stop(); return; }
+    if (!this.nodes.length || this.w !== innerWidth || this.h !== innerHeight) this.setup();
+    if (!motion || matchMedia("(prefers-reduced-motion: reduce)").matches) { this.stop(); this.draw(); return; }
+    if (!this.raf) { this.last = performance.now(); this.raf = requestAnimationFrame(t => this.frame(t)); }
+  },
+  stop() { cancelAnimationFrame(this.raf); this.raf = 0; },
+  setup() {
+    const cv = $("fxNet"); this.w = innerWidth; this.h = innerHeight;
+    this.k = Math.min(devicePixelRatio || 1, 1.5);
+    cv.width = Math.round(this.w * this.k); cv.height = Math.round(this.h * this.k);
+    const n = Math.max(36, Math.min(90, Math.round(this.w * this.h / 15000)));
+    const r = Math.random;
+    this.nodes = Array.from({ length: n }, () => ({ x: r() * this.w, y: r() * this.h, vx: (r() - .5) * 16, vy: (r() - .5) * 16, s: 1 + r() * 1.4 }));
+    this.pulses = [];
+  },
+  frame(now) {
+    this.raf = requestAnimationFrame(t => this.frame(t));   // the browser pauses this in a hidden tab
+    if (now - this.last < 33) return;                        // 30 a second is plenty for a background
+    const dt = Math.min((now - this.last) / 1000, .1); this.last = now;
+    for (const p of this.nodes) {
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      if (p.x < -20) p.x = this.w + 20; else if (p.x > this.w + 20) p.x = -20;
+      if (p.y < -20) p.y = this.h + 20; else if (p.y > this.h + 20) p.y = -20;
+    }
+    if ((this.spawn -= dt) <= 0 && this.pulses.length < 6) {    // a signal fires from a random node
+      this.spawn = .35 + Math.random() * .6;
+      const a = this.nodes[Math.floor(Math.random() * this.nodes.length)];
+      const near = this.nodes.filter(b => b !== a && Math.hypot(a.x - b.x, a.y - b.y) < this.link);
+      if (near.length) this.pulses.push({ a, b: near[Math.floor(Math.random() * near.length)], t: 0, hops: 2 + Math.floor(Math.random() * 3) });
+    }
+    for (const q of this.pulses) {
+      q.t += dt / .9;
+      if (q.t >= 1 && --q.hops > 0) {                          // and travels on to a neighbour
+        const near = this.nodes.filter(b => b !== q.b && b !== q.a && Math.hypot(q.b.x - b.x, q.b.y - b.y) < this.link);
+        if (near.length) { q.a = q.b; q.b = near[Math.floor(Math.random() * near.length)]; q.t = 0; } else q.hops = 0;
+      }
+    }
+    this.pulses = this.pulses.filter(q => q.t < 1);
+    this.draw();
+  },
+  draw() {
+    const g = $("fxNet").getContext("2d"), L = this.link, N = this.nodes;
+    g.setTransform(this.k, 0, 0, this.k, 0, 0); g.clearRect(0, 0, this.w, this.h);
+    g.lineWidth = 1;
+    for (let i = 0; i < N.length; i++) for (let j = i + 1; j < N.length; j++) {
+      const d = Math.hypot(N[i].x - N[j].x, N[i].y - N[j].y);
+      if (d < L) { g.strokeStyle = `rgba(139,123,255,${(1 - d / L) * .35})`; g.beginPath(); g.moveTo(N[i].x, N[i].y); g.lineTo(N[j].x, N[j].y); g.stroke(); }
+    }
+    g.fillStyle = "rgba(205,212,255,.75)";
+    for (const p of N) { g.beginPath(); g.arc(p.x, p.y, p.s, 0, 7); g.fill(); }
+    for (const q of this.pulses) {
+      const x = q.a.x + (q.b.x - q.a.x) * q.t, y = q.a.y + (q.b.y - q.a.y) * q.t;
+      g.strokeStyle = "rgba(34,211,238,.55)"; g.beginPath(); g.moveTo(q.a.x, q.a.y); g.lineTo(x, y); g.stroke();
+      g.fillStyle = "rgba(34,211,238,.22)"; g.beginPath(); g.arc(x, y, 6, 0, 7); g.fill();
+      g.fillStyle = "#c9f6ff"; g.beginPath(); g.arc(x, y, 2, 0, 7); g.fill();
+    }
+  },
+};
+addEventListener("resize", () => { clearTimeout(NeuralFx.rs); NeuralFx.rs = setTimeout(() => { NeuralFx.nodes = []; NeuralFx.sync(); }, 200); });
+matchMedia("(prefers-reduced-motion: reduce)").addEventListener("change", () => NeuralFx.sync());
 function applySiteName() {
   const site = setting("site_name");
   $("tagline").textContent = site || t("tagline");
