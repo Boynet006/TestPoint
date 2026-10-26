@@ -644,7 +644,7 @@
       <h2 data-t="r_weigh"></h2>
       <div id="camSlot-weigh"><div id="camBlock">
       <div class="camsrc">
-        <div class="seg"><button id="src-webcam" onclick="Cam.use('webcam')" data-t="src_webcam"></button><button id="src-video" onclick="Cam.pick('video')" data-t="src_video"></button><button id="src-photo" onclick="Cam.pick('photo')" data-t="src_photo"></button></div>
+        <div class="seg"><button id="src-webcam" onclick="Cam.use('webcam')" data-t="src_webcam"></button><button id="src-video" onclick="Cam.pick('video')" data-t="src_video"></button><button id="src-photo" onclick="Cam.pick('photo')" data-t="src_photo"></button><button id="src-ipcam" class="hidden" onclick="Cam.use('ipcam')" data-t="fc_ipcam"></button></div>
         <input type="file" id="camFile" class="hidden" onchange="Cam.fileChosen(this)">
         <span class="hint" id="camNote"></span>
       </div>
@@ -652,6 +652,11 @@
         <select id="deskCamSel" onchange="Cam.pickDevice(this.value)" data-tl="rd_cam_pick"></select>
         <button class="btn sm" type="button" onclick="Cam.use('webcam')" data-t="rd_cam_restart"></button>
         <button class="btn ghost sm" type="button" onclick="Cam.free()" data-tl="rd_cam_free_hint"><span data-t="rd_cam_free"></span></button>
+      </div>
+      <div class="row camrow hidden" id="ipCamRow">
+        <input id="ipCamUrl" data-tp="ph_cam_url" autocomplete="off" style="flex:1">
+        <button class="btn sm amber" type="button" id="ipCamGo" onclick="StartCam.start()" data-t="fc_start"></button>
+        <button class="btn sm ghost hidden" type="button" id="ipCamStop" onclick="StartCam.stop()" data-t="fc_stop"></button>
       </div>
       <div class="viewer" id="viewer">
         <video id="camVideo" muted loop playsinline class="hidden"></video>
@@ -1338,7 +1343,7 @@ const I18N = {
     e_already_resolved: "Already assigned", e_network: "Cannot reach the server", e_unknown: "Error",
     rule_bmi: "BMI accepted", rule_run: "Run pass time", rule_cutoff: "Run cut-off (DNF)", rule_pushup: "Push-ups to pass", rule_crunch: "Crunches to pass", rule_time: "Exercise time", rule_version: "Rule set",
     src_webcam: "Webcam", src_video: "Video file", src_photo: "Photo", no_source: "Choose a camera source: webcam, or a video or photo for the demo",
-    src_note_file: "Demo source: {name}", src_note_webcam: "Live webcam", src_reselect: "Choose the file again after reloading the page",
+    src_note_file: "Demo source: {name}", src_note_webcam: "Live webcam", src_note_ipcam: "Live IP camera", ip_not_running: "Type the camera's address, then Start camera.", ip_waiting: "Connecting to the camera: the picture appears in a few seconds.", ip_failed: "The camera did not start. Check the address and password.", ip_no_picture: "No picture from the camera yet. Check the address, the password and the network.", ip_bad_url: "The address starts with rtsp://", ip_stopped: "Start-line camera stopped.", src_reselect: "Choose the file again after reloading the page",
     identify: "Identify face", auto_on: "Auto: on", auto_off: "Auto: off", identifying: "Looking…",
     recognised: "Recognised {name} · match {score}", not_recognised: "Not recognised. Type the bib, or register them as new.", not_sure: "Not sure who this is (best match {score}). Type the bib.",
     enroll_cam: "Save this face for the candidate", enroll_cam3: "Enrol face from camera (3 poses)",
@@ -1627,7 +1632,7 @@ const I18N = {
     e_already_resolved: "تم التعيين", e_network: "تعذر الاتصال بالخادم", e_unknown: "خطأ",
     rule_bmi: "مؤشر الكتلة المقبول", rule_run: "زمن النجاح في الجري", rule_cutoff: "الحد الأقصى للجري", rule_pushup: "الضغط للنجاح", rule_crunch: "البطن للنجاح", rule_time: "زمن التمرين", rule_version: "القواعد",
     src_webcam: "كاميرا الويب", src_video: "ملف فيديو", src_photo: "صورة", no_source: "اختر مصدر الكاميرا: كاميرا الويب، أو فيديو أو صورة للعرض التجريبي",
-    src_note_file: "مصدر تجريبي: {name}", src_note_webcam: "كاميرا ويب مباشرة", src_reselect: "اختر الملف مجدداً بعد إعادة تحميل الصفحة",
+    src_note_file: "مصدر تجريبي: {name}", src_note_webcam: "كاميرا ويب مباشرة", src_note_ipcam: "كاميرا IP مباشرة", ip_not_running: "اكتب عنوان الكاميرا ثم اضغط تشغيل الكاميرا.", ip_waiting: "جارٍ الاتصال بالكاميرا: تظهر الصورة خلال ثوانٍ.", ip_failed: "لم تبدأ الكاميرا. تحقق من العنوان وكلمة المرور.", ip_no_picture: "لا توجد صورة من الكاميرا بعد. تحقق من العنوان وكلمة المرور والشبكة.", ip_bad_url: "العنوان يبدأ بـ rtsp://", ip_stopped: "أُوقفت كاميرا خط البداية.", src_reselect: "اختر الملف مجدداً بعد إعادة تحميل الصفحة",
     identify: "التعرف على الوجه", auto_on: "تلقائي: يعمل", auto_off: "تلقائي: متوقف", identifying: "جارٍ البحث…",
     recognised: "تم التعرف على {name} · تطابق {score}", not_recognised: "لم يتم التعرف عليه. اكتب الرقم أو سجّله كمتقدم جديد.", not_sure: "لم يتم التأكد من الهوية (أفضل تطابق {score}). اكتب الرقم.",
     enroll_cam: "حفظ هذا الوجه للمتقدم", enroll_cam3: "تسجيل الوجه من الكاميرا (3 أوضاع)",
@@ -1854,6 +1859,7 @@ function setRole(r) { if (settingsOpen) closeSettings(); role = r;
   if (booted) {
     if (!CAM_ROLES.includes(r) && Cam.stream) { Cam.stop(); Cam.show(); }
     else if (CAM_ROLES.includes(r) && Cam.kind === "webcam" && !Cam.stream) Cam.use("webcam");
+    else if (Cam.kind === "ipcam") { if (r === "start") Cam.use("ipcam"); else { StartCam.detach(); Cam.show(); } }
   }
   refresh(); }
 const CAM_ROLES = ["weigh", "start"];   // stations that use this device's camera
@@ -2020,23 +2026,28 @@ async function freeWebcam() {
 }
 const Cam = {
   kind: load("camKind", ""), stream: null, fileName: "",
-  el() { return this.kind === "photo" ? $("camImg") : $("camVideo"); },
+  el() { return this.kind === "photo" || this.kind === "ipcam" ? $("camImg") : $("camVideo"); },
   show() {
-    const live = this.kind === "webcam" ? !!this.stream : !!this.fileName;
-    $("camVideo").classList.toggle("hidden", !(live && this.kind !== "photo"));
-    $("camImg").classList.toggle("hidden", !(live && this.kind === "photo"));
+    const ip = this.kind === "ipcam" && role === "start";
+    const live = this.kind === "webcam" ? !!this.stream : ip ? StartCam.live : this.kind === "ipcam" ? false : !!this.fileName;
+    const still = this.kind === "photo" || ip;   // shown in the <img>
+    $("camVideo").classList.toggle("hidden", !(live && !still));
+    $("camImg").classList.toggle("hidden", !(live && still));
     $("camEmpty").classList.toggle("hidden", live);
-    for (const k of ["webcam", "video", "photo"]) $("src-" + k).classList.toggle("active", k === this.kind);
-    $("camTag").textContent = live ? (this.kind === "webcam" ? t("src_note_webcam") : t("src_note_file", { name: this.fileName })) : "";
+    $("src-ipcam").classList.toggle("hidden", role !== "start");
+    for (const k of ["webcam", "video", "photo", "ipcam"]) $("src-" + k).classList.toggle("active", k === this.kind);
+    $("camTag").textContent = live ? (this.kind === "webcam" ? t("src_note_webcam") : ip ? t("src_note_ipcam") : t("src_note_file", { name: this.fileName })) : "";
     $("viewer").classList.toggle("mirror", this.kind === "webcam");
-    $("camNote").textContent = (!live && this.kind && this.kind !== "webcam") ? t("src_reselect") : "";
+    $("camNote").textContent = (!live && this.kind && this.kind !== "webcam" && this.kind !== "ipcam") ? t("src_reselect") : "";
     $("deskCamRow").classList.toggle("hidden", this.kind !== "webcam");
+    $("ipCamRow").classList.toggle("hidden", !ip);
     $("idBtn").disabled = !live; $("autoBtn").disabled = !live;
   },
-  stop() { if (this.stream) { this.stream.getTracks().forEach(tr => tr.stop()); this.stream = null; } BgFx.stop($("camVideo")); },
+  stop() { if (this.stream) { this.stream.getTracks().forEach(tr => tr.stop()); this.stream = null; } BgFx.stop($("camVideo")); if (typeof StartCam !== "undefined") StartCam.detach(); },
   async use(kind) {
     if (this.opening) return;
     this.stop(); this.kind = kind; save("camKind", kind); this.fileName = "";
+    if (kind === "ipcam") { await StartCam.attach(); return; }
     if (kind === "webcam") {
       this.opening = true; $("deskCamRow").classList.remove("hidden");
       const box = role === "start" ? "sMsg" : "wMsg";
@@ -2079,10 +2090,80 @@ const Cam = {
   },
   // Current frame as a JPEG blob, at the source's native resolution.
   async frame() {
+    if (this.kind === "ipcam") return StartCam.frame();
     const el = this.el(); const w = el.videoWidth || el.naturalWidth, h = el.videoHeight || el.naturalHeight;
     if (!w || !h) throw { code: "no_frame" };
     const c = document.createElement("canvas"); c.width = w; c.height = h; c.getContext("2d").drawImage(el, 0, 0, w, h);
     return { blob: await new Promise(r => c.toBlob(r, "image/jpeg", 0.92)), w, h };
+  },
+};
+// ---- start line: an IP camera (Hikvision etc.) instead of this device's webcam. A browser cannot
+// open rtsp://, so the camera service on the station PC runs testpoint.startcam, which sends the
+// picture to the app; the page shows it as a live stream and identifies faces on its newest frame.
+const StartCam = {
+  live: false, retry: null,
+  async attach() {
+    clearTimeout(this.retry);
+    if (!$("ipCamUrl").value) $("ipCamUrl").value = load("startCamUrl", "");
+    let st = null;
+    try { st = await api("GET", "/api/startcam"); } catch {}
+    this.buttons(st);
+    if (!st || !st.available) { msg("sMsg", "bad", t("e_camera_service_offline")); Cam.show(); return; }
+    if (st.config && st.config.source && !$("ipCamUrl").value) $("ipCamUrl").value = st.config.source;
+    if (st.running) await this.watch(); else { msg("sMsg", "warn", t("ip_not_running")); Cam.show(); }
+  },
+  buttons(st) {
+    const on = !!(st && st.running);
+    $("ipCamGo").textContent = t(on ? "fc_restart" : "fc_start");
+    $("ipCamStop").classList.toggle("hidden", !on);
+  },
+  // Wait for the first picture (the camera takes a few seconds to connect), then show the stream.
+  async watch() {
+    msg("sMsg", "warn", t("ip_waiting"));
+    for (let i = 0; i < 40 && Cam.kind === "ipcam"; i++) {
+      const r = await fetch("/api/engine/frame/start.jpg", { cache: "no-store" }).catch(() => null);
+      if (r && r.ok) {
+        const img = $("camImg");
+        img.onerror = () => { if (Cam.kind !== "ipcam") return; this.live = false; Cam.show(); this.retry = setTimeout(() => { if (Cam.kind === "ipcam" && role === "start") this.attach(); }, 3000); };
+        img.src = "/api/engine/stream/start?t=" + Date.now();
+        this.live = true; msg("sMsg"); Cam.show(); return;
+      }
+      if (i % 5 === 4) {   // did the camera program stop (wrong address or password)?
+        const st = await api("GET", "/api/startcam").catch(() => null);
+        if (st && !st.running) { this.buttons(st); msg("sMsg", "bad", t("ip_failed") + (st.log && st.log.length ? " " + st.log[st.log.length - 1] : "")); Cam.show(); return; }
+      }
+      await new Promise(r => setTimeout(r, 500));
+    }
+    if (Cam.kind === "ipcam") { msg("sMsg", "bad", t("ip_no_picture")); Cam.show(); }
+  },
+  async start() {
+    const url = $("ipCamUrl").value.trim();
+    if (!/^(rtsp|rtsps|http|https):\/\/\S+$/.test(url)) { msg("sMsg", "bad", t("ip_bad_url")); return; }
+    save("startCamUrl", url);
+    this.detach(); Cam.show();
+    try {
+      const st = await api("POST", "/api/startcam/start", { kind: "url", source: url, app_url: location.origin });
+      this.buttons(st);
+      await this.watch();
+    } catch (e) { msg("sMsg", "bad", err(e)); }
+  },
+  async stop() {
+    try { this.buttons(await api("POST", "/api/startcam/stop")); msg("sMsg", "ok", t("ip_stopped")); } catch (e) { msg("sMsg", "bad", err(e)); }
+    this.detach(); Cam.show();
+  },
+  detach() {
+    clearTimeout(this.retry);
+    if (!this.live) return;
+    this.live = false;
+    const img = $("camImg"); img.onerror = null; img.removeAttribute("src"); clearBox();
+  },
+  // The newest picture at the camera's full size, for face identification.
+  async frame() {
+    const r = await fetch("/api/engine/frame/start.jpg", { cache: "no-store" }).catch(() => null);
+    if (!r || !r.ok) throw { code: "no_frame" };
+    const blob = await r.blob(), bmp = await createImageBitmap(blob);
+    const out = { blob, w: bmp.width, h: bmp.height }; bmp.close();
+    return out;
   },
 };
 // ---- camera background: blur or a plain backdrop behind the person, like a video call.
@@ -4545,7 +4626,8 @@ async function savePin(remove) {
   setLaneCount(setting("lanes"));
   $("role").value = role; setMode(mode === "advanced" && setting("admin_pin_set") && !adminPin() ? "simple" : mode); setRole(role); setEvent(event);
   $("autoBtn").textContent = t("auto_off");
-  if (Cam.kind === "webcam" && CAM_ROLES.includes(role)) Cam.use("webcam"); else Cam.show();
+  if (Cam.kind === "webcam" && CAM_ROLES.includes(role)) Cam.use("webcam");
+  else if (Cam.kind === "ipcam" && role === "start") Cam.use("ipcam"); else Cam.show();
   booted = true;
   try { S.rules = await api("GET", "/api/rules"); } catch {}
   applySettings(true);
