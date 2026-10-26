@@ -78,6 +78,7 @@ function Start-CamHost {
 }
 
 function Stop-CamHost {
+    $stopped = $false
     if (Test-Path $CamHostPid) {
         $id = Get-Content $CamHostPid
         # /T: the finish camera it started goes too
@@ -85,8 +86,14 @@ function Stop-CamHost {
         & taskkill.exe /PID $id /T /F 2>$null | Out-Null
         $ErrorActionPreference = $old
         Remove-Item $CamHostPid -ErrorAction SilentlyContinue
-        Say 'Finish camera service stopped.' 'Green'
+        $stopped = $true
     }
+    # Any camera process of TestPoint still running (started by hand, or left behind): the camera
+    # service, the finish camera and the station engine all go, so the webcams are free again.
+    $left = @(Get-CimInstance Win32_Process -Filter "Name='python.exe'" -ErrorAction SilentlyContinue |
+        Where-Object { $_.CommandLine -match 'testpoint\.(camhost|finishcam|engine)' })
+    foreach ($p in $left) { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue; $stopped = $true }
+    if ($stopped) { Say 'Camera service and cameras stopped.' 'Green' }
 }
 
 function Start-DockerDesktop {
