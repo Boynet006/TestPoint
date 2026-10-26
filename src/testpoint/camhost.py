@@ -6,7 +6,9 @@ this PC, a video file (demo, training) or an IP camera address.
 
 - the finish camera (testpoint.finishcam), from the finish page;
 - the exercise-station engine (testpoint.engine), from the exercise station page, with the
-  exercise and the lanes drawn on its picture.
+  exercise and the lanes drawn on its picture;
+- the start-line camera (testpoint.startcam), from the start page: an IP camera's picture for
+  face check-in at the line.
 
 It listens on 127.0.0.1 only: the app reaches it through Docker's host.docker.internal, nothing
 else on the network can. One process of each kind at a time; output goes to data/logs/.
@@ -220,6 +222,15 @@ def finish_command(cfg: StartIn) -> list[str]:
     return cmd
 
 
+def start_command(cfg: SourceIn) -> list[str]:
+    cmd = [sys.executable, "-m", "testpoint.startcam", "--source", cfg.source, "--app", app_address(cfg.app_url)]
+    if cfg.kind == "video":
+        cmd.append("--realtime")
+        if cfg.loop:
+            cmd.append("--loop")
+    return cmd
+
+
 def station_command(cfg: StationIn, lanes_file: Path) -> list[str]:
     cmd = [sys.executable, "-m", "testpoint.engine", "--exercise", cfg.exercise, "--source", cfg.source,
            "--lanes-file", str(lanes_file), "--device", device(), "--app", app_address(cfg.app_url)]
@@ -237,6 +248,7 @@ def create_service(log_dir: Path | None = None, runner=subprocess.Popen) -> Fast
     logs = log_dir or ROOT / "data" / "logs"
     finish = CamProcess("finishcam", logs, runner=runner)
     station = CamProcess("station", logs, runner=runner)
+    startcam = CamProcess("startcam", logs, runner=runner)
     cache: dict = {"at": 0.0, "cameras": []}
 
     @app.get("/health")
@@ -284,8 +296,23 @@ def create_service(log_dir: Path | None = None, runner=subprocess.Popen) -> Fast
     def station_stop() -> dict:
         return station.stop()
 
+    # the start-line camera: relays an IP camera's picture for face check-in at the line
+    @app.get("/startcam")
+    def startcam_status() -> dict:
+        return startcam.status()
+
+    @app.post("/startcam/start")
+    def startcam_start(body: SourceIn) -> dict:
+        check_source(body)
+        return startcam.start(start_command(body), body.model_dump())
+
+    @app.post("/startcam/stop")
+    def startcam_stop() -> dict:
+        return startcam.stop()
+
     app.state.cam = finish
     app.state.station = station
+    app.state.startcam = startcam
     return app
 
 

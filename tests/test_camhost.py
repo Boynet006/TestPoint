@@ -166,3 +166,27 @@ def test_station_tuning_goes_to_the_engine():
     cmd = station_command(StationIn(kind="webcam", source="0", app_url="http://127.0.0.1:8080", exercise="pushup",
                                     tuning={"down_elbow_deg": 90}), Path("l.json"))
     assert cmd[cmd.index("--tuning") + 1] == '{"down_elbow_deg": 90.0}'
+
+
+def test_start_line_ip_camera(svc):
+    c, _ = svc
+    url = "rtsp://admin:pw@192.168.250.241:554/Streaming/Channels/101"
+    r = c.post("/startcam/start", json={"kind": "url", "source": url, "app_url": "http://localhost:8000"}).json()
+    assert r["running"] and r["config"]["source"] == url
+    cmd = FakeProc.last.cmd
+    assert cmd[1:3] == ["-m", "testpoint.startcam"] and cmd[cmd.index("--source") + 1] == url
+    assert cmd[cmd.index("--app") + 1] == "http://127.0.0.1:8000" and "--realtime" not in cmd
+    # its own process: the finish camera and the station keep running beside it
+    assert c.get("/finish").json()["running"] is False and c.get("/startcam").json()["running"]
+    assert c.post("/startcam/start", json={"kind": "url", "source": "file:///etc/passwd",
+                                           "app_url": "http://127.0.0.1:8000"}).status_code == 400
+    assert c.post("/startcam/stop").json()["running"] is False
+
+
+def test_app_reports_an_offline_start_camera_service(tmp_path):
+    from testpoint.api.app import create_app
+    app = create_app(db_url=f"sqlite:///{tmp_path / 'c.db'}", web_dir="none", camhost_url="http://127.0.0.1:9")
+    with TestClient(app) as c:
+        assert c.get("/api/startcam").json() == {"available": False, "running": False, "reason": "camera_service_offline"}
+        r = c.post("/api/startcam/start", json={"kind": "url", "source": "rtsp://x", "app_url": "http://127.0.0.1:8000"})
+        assert r.status_code == 503

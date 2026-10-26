@@ -179,6 +179,13 @@ class FinishCamIn(BaseModel):
     """A video file: play it on repeat."""
 
 
+class StartCamIn(BaseModel):
+    kind: Literal["webcam", "video", "url"]
+    source: str = Field(min_length=1, max_length=500)
+    app_url: str = Field(max_length=100)
+    loop: bool = False
+
+
 class StationCamIn(BaseModel):
     kind: Literal["webcam", "video", "url"]
     source: str = Field(min_length=1, max_length=500)
@@ -970,6 +977,22 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     @app.post("/api/stationcam/stop")
     def stationcam_stop() -> dict:
         return _camhost("POST", "/station/stop", {}, timeout=10.0)
+
+    # the start-line camera: an IP camera's picture relayed for face check-in (testpoint.startcam)
+    @app.get("/api/startcam")
+    def startcam_status() -> dict:
+        try:
+            return {"available": True, **_camhost("GET", "/startcam", timeout=2.0)}
+        except S.ServiceError as e:
+            return {"available": False, "running": False, "reason": e.code}
+
+    @app.post("/api/startcam/start")
+    def startcam_start(body: StartCamIn) -> dict:
+        return _camhost("POST", "/startcam/start", body.model_dump(), timeout=10.0)
+
+    @app.post("/api/startcam/stop")
+    def startcam_stop() -> dict:
+        return _camhost("POST", "/startcam/stop", {}, timeout=10.0)
 
     @app.get("/api/lanes")
     def lanes(station: str, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
