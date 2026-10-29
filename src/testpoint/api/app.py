@@ -732,6 +732,12 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         e = S.weigh_in(db, day, S.rules_for(db, day, rules), S.get_entry(db, day, entry_id), **body.model_dump())
         return entry_out(e, day)
 
+    @app.get("/api/entries/{entry_id}/results")
+    def entry_results(entry_id: int, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        """The results card: each test, its grade against the required level, the verdict."""
+        e = S.get_entry(db, day, entry_id)
+        return S.results_for(e) | {"entry": entry_out(e, day, S.face_count(db, e.candidate_id))}
+
     @app.post("/api/entries/{entry_id}/standard")
     def standard(entry_id: int, body: StandardIn, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
         """Before weighing: the age band, required level and what each grade needs (nothing is saved)."""
@@ -1107,7 +1113,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         v = sl.view(wall())
         e = db.get(Entry, v["entry_id"]) if v["entry_id"] else None
         v["entry"] = ({"id": e.id, "bib": e.candidate.bib, "name": e.candidate.name, "name_ar": e.candidate.name_ar,
-                       "faces": S.face_count(db, e.candidate_id), "verdict": S.verdict(e)} if e else None)
+                       "faces": S.face_count(db, e.candidate_id), "verdict": S.verdict(e), "status": e.status} if e else None)
         if e is not None and v["state"] in ("countdown", "started") and e.run_started_at is not None:
             v["go_at"] = iso(e.run_started_at)
         else:
@@ -1229,7 +1235,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         v = flow.view(wall())
         e = db.get(Entry, v["entry_id"]) if v["entry_id"] else None
         v["entry"] = ({"id": e.id, "bib": e.candidate.bib, "name": e.candidate.name, "name_ar": e.candidate.name_ar,
-                       "faces": S.face_count(db, e.candidate_id), "done": sorted(S.done_events(e))} if e else None)
+                       "faces": S.face_count(db, e.candidate_id), "done": sorted(S.done_events(e)), "status": e.status} if e else None)
         a = db.get(Attempt, v["attempt_id"]) if v["attempt_id"] else None
         v["result"] = ({"count": a.count, "passed": a.passed, "grade": a.grade, "status": a.status} if a and a.status == "finished" else None)
         seen = _last_report.get(S.EXERCISE_STATION)
