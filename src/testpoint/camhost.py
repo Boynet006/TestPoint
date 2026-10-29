@@ -77,18 +77,34 @@ def clean(line: str, limit: int = 300) -> str:
     return text if len(text) <= limit else text[:limit] + " …"
 
 
-def list_cameras(max_index: int = 4) -> list[dict]:
-    """Webcams that open right now. A camera another program holds (Chrome, say) does not."""
-    import cv2
-
-    found = []
-    for i in range(max_index):
+_PROBE = r"""
+import json, sys, cv2
+found = []
+for i in range(int(sys.argv[1])):
+    try:
         cap = cv2.VideoCapture(i, cv2.CAP_DSHOW) if sys.platform == "win32" else cv2.VideoCapture(i)
-        ok = cap.isOpened() and cap.read()[0]
-        if ok:
-            found.append({"index": i, "label": f"Camera {i + 1}", "size": [int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))]})
+        if cap.isOpened() and cap.read()[0]:
+            found.append({"index": i, "label": f"Camera {i + 1}",
+                          "size": [int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))]})
         cap.release()
-    return found
+    except Exception:
+        pass
+print(json.dumps(found))
+"""
+
+
+def list_cameras(max_index: int = 4) -> list[dict]:
+    """Webcams that open right now. A camera another program holds (Chrome, say) does not.
+
+    Looked for in a separate short-lived process: a webcam driver can crash inside OpenCV (it
+    did on the station PC), and that must never take the camera service, and with it the
+    control of every running camera, down with it."""
+    try:
+        r = subprocess.run([sys.executable, "-c", _PROBE, str(max_index)], capture_output=True, text=True,
+                           timeout=30, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        return json.loads(r.stdout.strip().splitlines()[-1]) if r.returncode == 0 and r.stdout.strip() else []
+    except (subprocess.TimeoutExpired, OSError, ValueError, IndexError):
+        return []
 
 
 def gpu_available() -> bool:
