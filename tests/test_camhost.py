@@ -267,6 +267,8 @@ def test_camera_addresses_saved_in_settings_never_show_the_password(svc, tmp_pat
             assert r["start"] == {"set": True, "address": "rtsp://admin:***@192.168.250.241:554/Streaming/Channels/101"}
             assert "example-pw" not in c.get("/api/settings").text and "example-pw" not in c.get("/api/settings/cameras").text
             assert c.put("/api/settings/cameras", json={"finish": "ftp://x"}).status_code == 400
+            # the station camera too (its name must not clash with anything in the audit record)
+            assert c.put("/api/settings/cameras", json={"station": url.replace(".241", ".243")}).json()["station"]["set"] is True
             # "saved": the server starts the real address; the screen gets it without the password
             st = c.post("/api/startcam/start", json={"kind": "saved", "app_url": "http://127.0.0.1:8000"}).json()
             assert st["running"] and "example-pw" not in str(st) and "***" in st["config"]["source"]

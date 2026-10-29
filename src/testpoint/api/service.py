@@ -315,7 +315,7 @@ def set_camera_urls(db: Session, day: Day, changes: dict[str, str | None]) -> di
         db.add(Setting(key=CAMERAS_KEY, value=json.dumps(urls)))
     else:
         row.value, row.updated_at = json.dumps(urls), utcnow()
-    _audit(db, day, "admin", "camera_urls", None, **{k: _redact(v) for k, v in urls.items()})
+    _audit(db, day, "admin", "camera_urls", None, cameras={k: _redact(v) for k, v in urls.items()})
     db.commit()
     return cameras_out(db)
 
