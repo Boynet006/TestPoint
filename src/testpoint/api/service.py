@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 import numpy as np
 
 from . import journey as J
-from .faces import FaceError, match as face_match
+from .faces import FaceError, QUALITY_OK, match as face_match, normalise
 from .models import Attempt, AuditLog, Candidate, Crossing, Day, Entry, FaceTemplate, Rep, Setting, Wave, utcnow
 from .rules import EVENTS, GRADES, UNITS, DayRules, age_on, bmi as compute_bmi
 
@@ -619,7 +619,15 @@ def require_gate(entry: Entry, day: Day, station: str) -> None:
 
 # --------------------------------------------------------------------------- faces
 
-MAX_TEMPLATES = 3
+MAX_ENROL = 4
+"""Registration templates kept per person: the newest, and always the one facing the camera best."""
+MAX_ADAPT = 2
+"""Templates added on the day from very sure matches at the start line, station or results screen:
+the venue's own light and angles, which a desk photo does not have. The oldest gives way."""
+MAX_TEMPLATES = MAX_ENROL + MAX_ADAPT
+ADAPT_SCORE, ADAPT_LEAD, ADAPT_QUALITY, ADAPT_NEW = 0.60, 0.15, 0.6, 0.85
+"""An adaptive template needs a match this sure (score, lead over the next person), a picture this
+good, and must differ from every template already kept (similarity below ADAPT_NEW)."""
 
 
 def _face(engine, data: bytes, require_single: bool):
@@ -631,17 +639,41 @@ def _face(engine, data: bytes, require_single: bool):
         raise ServiceError(e.code, e.message, 422) from None
 
 
+def _best_face(engine, frames: list[bytes]):
+    """The best picture of a burst for a template: the highest quality face (one person only).
+    Frames without a usable face are skipped; with none at all, the first frame's reason."""
+    faces, first = [], None
+    for data in frames:
+        try:
+            faces.append(_face(engine, data, require_single=True))
+        except ServiceError as e:
+            if e.status == 503:
+                raise
+            first = first or e
+    if not faces:
+        raise first
+    return max(faces, key=lambda f: f.quality if f.quality is not None else 0.0)
+
+
 def face_count(db: Session, candidate_id: int) -> int:
     return db.scalar(select(func.count()).select_from(FaceTemplate)
                      .where(FaceTemplate.candidate_id == candidate_id)) or 0
 
 
-def enroll_face(db: Session, day: Day, entry: Entry | None, data: bytes, engine,
+def enroll_face(db: Session, day: Day, entry: Entry | None, data: bytes | list[bytes], engine,
                 candidate: Candidate | None = None) -> int:
     """Store the face in ``data`` for this candidate (today's ``entry``, or a ``candidate``
-    from the register); keeps the newest MAX_TEMPLATES."""
+    from the register). ``data`` may be a burst of frames: the best one is kept. A picture too
+    poor to recognise the person by later (small, blurred, dark) is refused with what is wrong,
+    so the desk takes another. Keeps the newest MAX_ENROL (and the best frontal one)."""
     cid = entry.candidate_id if entry is not None else candidate.id
-    face = _face(engine, data, require_single=True)
+    frames = [data] if isinstance(data, (bytes, bytearray)) else list(data)
+    if not frames:
+        raise ServiceError("bad_image", "no picture", 400)
+    face = _best_face(engine, frames)
+    if face.quality is not None and face.quality < QUALITY_OK:
+        raise ServiceError("low_quality", f"picture quality {face.quality:.2f}: {', '.join(face.issues) or 'poor'}",
+                           422, issues=list(face.issues), quality=face.quality)
     # Guard against a mixed-up photo: refuse a face that already belongs to someone else.
     others: dict[int, list[np.ndarray]] = {}
     for other, emb in db.execute(select(FaceTemplate.candidate_id, FaceTemplate.embedding)
@@ -655,23 +687,45 @@ def enroll_face(db: Session, day: Day, entry: Entry | None, data: bytes, engine,
                            owner={"id": owner.id, "name": owner.name, "name_ar": owner.name_ar, "external_id": owner.external_id})
     db.add(FaceTemplate(candidate_id=cid,
                         embedding=np.asarray(face.embedding, np.float32).tobytes(),
-                        photo_jpeg=face.crop_jpeg, yaw=getattr(face, "yaw", None)))
+                        photo_jpeg=face.crop_jpeg, yaw=getattr(face, "yaw", None),
+                        quality=face.quality, source="enrol"))
     db.flush()
-    # Keep the newest MAX_TEMPLATES, but never drop the photo that faces the camera best:
+    # Keep the newest MAX_ENROL, but never drop the photo that faces the camera best:
     # it is the one shown on the card and at the finish line.
-    kept = list(db.scalars(select(FaceTemplate).where(FaceTemplate.candidate_id == cid)
-                           .order_by(FaceTemplate.created_at.desc(), FaceTemplate.id.desc())))
+    kept = [t for t in db.scalars(select(FaceTemplate).where(FaceTemplate.candidate_id == cid)
+                                  .order_by(FaceTemplate.created_at.desc(), FaceTemplate.id.desc()))
+            if t.source != "adapt"]
     front = _front(kept)
-    keep = kept[:MAX_TEMPLATES]
+    keep = kept[:MAX_ENROL]
     if front is not None and front not in keep:
-        keep = kept[:MAX_TEMPLATES - 1] + [front]
+        keep = kept[:MAX_ENROL - 1] + [front]
     for t in kept:
         if t not in keep:
             db.delete(t)
-    _audit(db, day, "admin", "enroll_face", entry, detection_score=face.score,
-           **({} if entry is not None else {"external_id": candidate.external_id}))
+    _audit(db, day, "admin", "enroll_face", entry, detection_score=face.score, quality=face.quality,
+           frames=len(frames), **({} if entry is not None else {"external_id": candidate.external_id}))
     db.commit()
     return face_count(db, cid)
+
+
+def adapt_template(db: Session, day: Day, entry: Entry, face, score: float, runner_up: float) -> bool:
+    """A very sure match at a station camera adds the picture as a template (the venue's light,
+    the camera's angle), when it shows the person differently from every template kept. Never
+    from the finish line (a wrong runner there would be learnt); the oldest adaptive one gives way."""
+    if face.quality is None or face.quality < ADAPT_QUALITY or score < ADAPT_SCORE or score - max(runner_up, 0.0) < ADAPT_LEAD:
+        return False
+    cid = entry.candidate_id
+    kept = list(db.scalars(select(FaceTemplate).where(FaceTemplate.candidate_id == cid).order_by(FaceTemplate.created_at)))
+    emb = np.asarray(face.embedding, np.float32)
+    if any(float(np.dot(emb, normalise(np.frombuffer(t.embedding, np.float32)))) >= ADAPT_NEW for t in kept):
+        return False
+    adapt = [t for t in kept if t.source == "adapt"]
+    for t in adapt[:max(0, len(adapt) - MAX_ADAPT + 1)]:
+        db.delete(t)
+    db.add(FaceTemplate(candidate_id=cid, embedding=emb.tobytes(), photo_jpeg=face.crop_jpeg,
+                        yaw=getattr(face, "yaw", None), quality=face.quality, source="adapt"))
+    _audit(db, day, "face", "adapt_template", entry, score=score, quality=face.quality)
+    return True
 
 
 def remove_faces(db: Session, day: Day, entry: Entry | None, candidate: Candidate | None = None) -> None:
@@ -687,13 +741,19 @@ def _front(templates: list[FaceTemplate]) -> FaceTemplate | None:
     recorded count as the oldest first (the guided capture starts looking straight)."""
     if not templates:
         return None
-    return min(templates, key=lambda t: (t.yaw is None, abs(t.yaw) if t.yaw is not None else 0.0, t.created_at, t.id))
+    return min(templates, key=lambda t: (t.source == "adapt", t.yaw is None, abs(t.yaw) if t.yaw is not None else 0.0,
+                                         t.created_at, t.id))
 
 
 def face_photo(db: Session, entry: Entry | None, candidate_id: int | None = None) -> bytes | None:
     cid = entry.candidate_id if entry is not None else candidate_id
     t = _front(list(db.scalars(select(FaceTemplate).where(FaceTemplate.candidate_id == cid))))
     return t.photo_jpeg if t else None
+
+
+ADAPT_STATIONS = {"lineup", "pushup", "crunch", "results"}
+"""Where a very sure match may add a template (not the weigh-in desk: same light as registration;
+not the finish: a mistake there would be learnt)."""
 
 
 def identify(db: Session, day: Day, data: bytes, engine, station: str | None = None) -> dict:
@@ -712,9 +772,11 @@ def identify(db: Session, day: Day, data: bytes, engine, station: str | None = N
     if m.candidate_id is not None:
         entry = db.get(Entry, m.candidate_id)
         out["entry"] = entry
-        if station:
+        if station in J.STATIONS:
             g = gate_for(entry, day, station)
             out["allowed"], out["reason"] = g.ok, (g.reason or None)
+        if station in ADAPT_STATIONS:
+            out["adapted"] = adapt_template(db, day, entry, face, m.score, m.runner_up)
     else:
         out["reason"] = "nobody_enrolled" if not gallery else "face_not_recognised"
         # Not on today's list: a candidate from another day with this face is a returning

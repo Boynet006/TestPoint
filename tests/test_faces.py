@@ -53,9 +53,12 @@ class FakeEngine:
             raise FaceError("multiple_faces")
         parts = data.split(b":")                        # b"face:A" or b"face:A:left" (a turned head)
         who = parts[1][:1] if len(parts) > 1 else parts[0][:1]
-        emb = vec(99, 0.2, self.people.get(who, vec(42)))
+        # b"...:venue": the same person in other light and angle (a less alike embedding)
+        emb = vec(77, 0.8, self.people.get(who, vec(42))) if b"venue" in data else vec(99, 0.2, self.people.get(who, vec(42)))
         turn = {b"left": 0.35, b"right": -0.35}.get(parts[2] if len(parts) > 2 else b"", 0.0)
-        return Face((10, 10, 100, 120), 0.95, emb, b"\xff\xd8jpeg" + data, yaw=turn)
+        # b"...:blurry" / b"...:sharp": a measured picture quality (otherwise not measured)
+        q, issues = (0.2, ("blurry",)) if b"blurry" in data else (0.95, ()) if b"sharp" in data else (None, ())
+        return Face((10, 10, 100, 120), 0.95, emb, b"\xff\xd8jpeg" + data, yaw=turn, quality=q, issues=issues)
 
 
 CSV = "external_id,name,bib\nC-1,Alpha,11\nC-2,Bravo,12\nC-3,Charlie,13\n"
@@ -114,7 +117,7 @@ def test_enrol_errors_and_limits(client):
     assert r.status_code == 422 and r.json()["detail"]["code"] == "multiple_faces"
     for _ in range(5):
         n = client.post(f"/api/entries/{i['11']}/face", content=b"face:A").json()["faces"]
-    assert n == 3                                         # only the newest 3 templates are kept
+    assert n == 4                                         # only the newest 4 registration templates are kept
     assert client.delete(f"/api/entries/{i['11']}/face").status_code == 204
     assert client.get(f"/api/entries/{i['11']}/face.jpg").status_code == 404
 
@@ -217,3 +220,34 @@ def test_finish_camera_face_fallback(client, monkeypatch):
     # a readable bib wins; the face is not used
     c = client.post("/api/engine/crossing", json={"bib": "12", "face": face(b"face:A")}).json()
     assert c["needs_review"] and c["note_code"] == "bib_not_running"            # 12 already finished above
+
+
+def test_burst_enrolment_keeps_the_best_frame_and_refuses_poor_ones(client):
+    import base64
+    i = ids(client)
+    b64 = lambda b: base64.b64encode(b).decode()
+    r = client.post(f"/api/entries/{i['11']}/face/burst", json={"frames": [b64(b"face:A:straight:blurry"), b64(b"none"),
+                                                                         b64(b"face:A:straight:sharp")]})
+    assert r.json() == {"faces": 1}
+    assert client.get(f"/api/entries/{i['11']}/face.jpg").content.endswith(b"sharp")
+    # nothing good enough: refused, with what is wrong, so the desk takes another
+    r = client.post(f"/api/entries/{i['12']}/face/burst", json={"frames": [b64(b"face:B:straight:blurry")]})
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "low_quality" and r.json()["detail"]["issues"] == ["blurry"]
+    r = client.post(f"/api/entries/{i['12']}/face/burst", json={"frames": [b64(b"none")]})
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "no_face"
+    assert client.post(f"/api/entries/{i['12']}/face/burst", json={"frames": []}).status_code == 422
+
+
+def test_very_sure_matches_at_stations_add_a_template_in_the_venue_light(client):
+    i = ids(client)
+    client.post(f"/api/entries/{i['11']}/face", content=b"face:A:straight:sharp")
+    # the weigh-in desk never adapts (same light as registration)
+    assert not client.post("/api/face/identify?station=weigh", content=b"face:A:x:venue:sharp").json().get("adapted")
+    # at the start line: a sure match that looks different from every template is kept
+    r = client.post("/api/face/identify?station=lineup", content=b"face:A:x:venue:sharp").json()
+    assert r["entry"]["id"] == i["11"] and r["adapted"] is True and r["entry"]["faces"] == 2
+    # the same look again adds nothing; a poor picture never does
+    assert client.post("/api/face/identify?station=lineup", content=b"face:A:x:venue:sharp").json()["adapted"] is False
+    assert client.post("/api/face/identify?station=lineup", content=b"face:A:x:venue:blurry").json()["adapted"] is False
+    # the photo shown stays the registration one
+    assert client.get(f"/api/entries/{i['11']}/face.jpg").content.endswith(b"sharp") and b"venue" not in client.get(f"/api/entries/{i['11']}/face.jpg").content

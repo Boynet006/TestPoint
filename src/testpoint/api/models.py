@@ -49,6 +49,10 @@ class FaceTemplate(Base):
     photo_jpeg: Mapped[bytes] = mapped_column(LargeBinary)
     yaw: Mapped[float | None] = mapped_column(Float)
     """Head turn when taken (faces.head_yaw): the photo shown is the one nearest 0, facing the camera."""
+    quality: Mapped[float | None] = mapped_column(Float)
+    """How good a template the picture made (faces.quality), 0..1; None for older ones."""
+    source: Mapped[str | None] = mapped_column(String(8))
+    """"enrol" (registration, kept) or "adapt" (a very sure match at a station, in the venue's light)."""
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
@@ -222,7 +226,7 @@ def make_sessionmaker(db_url: str) -> sessionmaker:
                 conn.exec_driver_sql(f"ALTER TABLE crossing ADD COLUMN {col} {typ}")
         for table, cols in (("day", (("rules_json", "TEXT"),)),
                             ("candidate", (("unit", "VARCHAR"),)),
-                            ("face_template", (("yaw", "FLOAT"),)),
+                            ("face_template", (("yaw", "FLOAT"), ("quality", "FLOAT"), ("source", "VARCHAR"))),
                             ("crossing", (("wave_id", "INTEGER"),)),
                             ("entry", (("age", "INTEGER"), ("band", "VARCHAR"), ("level", "INTEGER"), ("run_grade", "INTEGER"),
                                        ("wave_id", "INTEGER"), ("run_started_at", "DATETIME"), ("run_cutoff_at", "DATETIME"))),

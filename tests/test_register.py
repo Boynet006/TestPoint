@@ -117,7 +117,7 @@ def test_the_photo_shown_is_the_one_facing_the_camera(ctx):
         c.post(f"/api/candidates/{cid}/face", content=pose)
     assert c.get(f"/api/candidates/{cid}/face.jpg").content.endswith(b"face:A:straight")
     # more photos later, all turned: the front one stays on file and on the card
-    for pose in (b"face:A:left", b"face:A:right", b"face:A:left"):
+    for pose in (b"face:A:left", b"face:A:right", b"face:A:left", b"face:A:right"):
         c.post(f"/api/candidates/{cid}/face", content=pose)
-    assert c.get(f"/api/candidates/{cid}").json()["faces"] == 3
+    assert c.get(f"/api/candidates/{cid}").json()["faces"] == 4
     assert c.get(f"/api/candidates/{cid}/face.jpg").content.endswith(b"face:A:straight")
