@@ -863,6 +863,7 @@
       <span class="pill off" id="xCam"></span>
     </div>
     <div id="xCountdown" class="countdown hidden"><div class="cd-label" data-t="start_all_label"></div><div class="cd-num" id="xCdNum"></div></div>
+    <div id="xCall" class="callbox hidden" style="margin:0 0 16px"></div>
     <div class="stbody" id="stBody">
     <div class="card hidden" id="scCard">
       <div class="scgrid">
@@ -1191,6 +1192,17 @@
 /* ============================== i18n ============================== */
 const I18N = {
   en: {
+    e_all_done: "Push-ups and crunches are both done",
+    st_reset: "Reset",
+    st_all_done: "All tests done",
+    st_come_back: "Take a break: come back for the next test",
+    st_left_position: "Back into the start position",
+    st_timeout: "Not in position in time: step onto the mat again",
+    st_stepped_away: "They stepped away: step onto the mat again",
+    st_hold: "hold still…",
+    st_position: "get into the start position",
+    st_no_camera: "The station camera is not sending: start it with Camera",
+    st_step_up: "Step onto the mat and look at the camera",
     n_face_bib_disagree: "the bib read and the face disagree: the face looks like bib {bib}",
     call_timeout: "No hand raised: step onto the mark again",
     call_stepped_away: "The runner stepped away: step onto the mark again",
@@ -1502,6 +1514,17 @@ const I18N = {
     e_override_reason_required: "The count differs from the camera's: give a reason",
   },
   ar: {
+    e_all_done: "أُنجز الضغط والبطن كلاهما",
+    st_reset: "إعادة",
+    st_all_done: "اكتملت جميع الاختبارات",
+    st_come_back: "استرح: عد للاختبار التالي",
+    st_left_position: "عد إلى وضعية البداية",
+    st_timeout: "لم يتخذ الوضعية في الوقت: قف على البساط مجدداً",
+    st_stepped_away: "ابتعد: قف على البساط مجدداً",
+    st_hold: "اثبت…",
+    st_position: "اتخذ وضعية البداية",
+    st_no_camera: "كاميرا المحطة لا ترسل: شغّلها من زر الكاميرا",
+    st_step_up: "قف على البساط وانظر إلى الكاميرا",
     n_face_bib_disagree: "الرقم المقروء والوجه لا يتطابقان: الوجه يشبه الرقم {bib}",
     call_timeout: "لم تُرفع اليد: قف على العلامة مجدداً",
     call_stepped_away: "ابتعد العدّاء: قف على العلامة مجدداً",
@@ -3191,7 +3214,7 @@ const StationCam = {
     const k = this.pref.kind || "webcam", source = k === "webcam" ? $("scWebcam").value : k === "video" ? $("scVideo").value : $("scUrl").value.trim();
     const c = this.st && this.st.config;
     const use = auto && c ? { kind: c.kind, source: c.source } : { kind: k, source };
-    if (use.kind === "video" && this.src) {     // a video belongs to one exercise: switch with it
+    if (use.kind === "video" && this.src && !oneMat()) {     // a video belongs to one exercise: switch with it
       const v = this.src.videos.find(x => x.path === use.source);
       const mine = this.pref["video_" + event];   // the video last picked for this exercise, else the first
       if (v && v.group !== event) use.source = (this.src.videos.find(x => x.path === mine) || this.src.videos.find(x => x.group === event) || {}).path || "";
@@ -3200,7 +3223,7 @@ const StationCam = {
     if (!auto) { Object.assign(this.pref, { [k]: source }, k === "video" ? { ["video_" + event]: source } : {}); this.save(); }
     this.busy = true; this.render();
     try {
-      this.st = { available: true, ...(await api("POST", "/api/stationcam/start", { ...use, exercise: event, lanes: lanes.length, dividers: this.dividers(), app_url: location.origin, loop: use.kind === "video" && this.pref.loop !== false })) };
+      this.st = { available: true, ...(await api("POST", "/api/stationcam/start", { ...use, exercise: oneMat() ? "auto" : event, lanes: lanes.length, dividers: this.dividers(), app_url: location.origin, loop: use.kind === "video" && this.pref.loop !== false })) };
       msg("scMsg", "ok", t(auto ? "sc_followed" : "sc_started", { ex: t(event), n: lanes.length }));
       $("scDivs").innerHTML = "";
     } catch (e) { msg("scMsg", "bad", err(e)); }
@@ -3335,6 +3358,7 @@ function tickClocks() {
   $("clock").textContent = new Date(serverNow()).toLocaleTimeString(lang === "ar" ? "ar-EG" : "en-GB");
   if (role === "start" && S.state) tickStart();
   if (role === "start") StartCall.poll(); else if (StartCall.sig) StartCall.poll();
+  if (role === "station") StationCall.poll(); else if (StationCall.sig) StationCall.poll();
   if (role === "finish" && S.state) for (const r of runnersOut()) {
     const c = $("fc-" + r.entry_id);
     if (c) c.textContent = mmss((serverNow() - Date.parse(r.started_at)) / 1000);
@@ -3550,7 +3574,7 @@ async function pollLanes() {
   if (Date.now() - liveLast < (running ? 150 : 1000)) return;
   liveBusy = true;
   try {
-    const live = await api("GET", `/api/lanes?station=${event}`);
+    const live = await api("GET", `/api/lanes?station=${oneMat() ? "exercise" : event}`);
     liveLast = Date.now();
     S.live = live;
     const cam = $("xCam");
@@ -3666,6 +3690,10 @@ const LiveTune = {
 };
 function renderStation() {
   StationCam.poll(); StartAll.render();
+  // one mat, run by its camera: the call panel instead of the lanes and the exercise switch
+  const one = oneMat();
+  $("stLanes").classList.toggle("hidden", one);
+  for (const id of ["ev-pushup", "ev-crunch"]) $(id).parentElement.classList.toggle("hidden", one);
   if (!$("tunePanel").hidden && LiveTune.ex !== event) LiveTune.render();   // switched push-ups / crunches
   if (role !== "station" && !$("tunePanel").hidden) LiveTune.toggle(false);
   for (const x of ["pushup", "crunch"]) $("ev-" + x).classList.toggle("active", x === event);
@@ -3677,6 +3705,62 @@ function renderStation() {
   const host = $("lanes");
   if (!host.children.length) lanes.forEach(l => { const d = document.createElement("div"); d.className = "lane"; d.id = "lane-" + l.n; host.appendChild(d); renderLane(l); });
 }
+
+// ---- the exercise station with one mat, run by its camera (api/station.py): recognised ->
+// "PUSH-UPS: get into position" -> 3-2-1 -> counting with the time left -> the score. The next test
+// is chosen for them: push-ups first, crunches when they come back.
+const oneMat = () => lanes.length === 1;
+const StationCall = {
+  sig: "", busy: false, v: null,
+  active: () => role === "station" && mode === "simple" && oneMat(),
+  async poll() {
+    const box = $("xCall");
+    if (!this.active()) { box.classList.add("hidden"); this.sig = ""; return; }
+    if (this.busy) return; this.busy = true;
+    try { this.v = await api("GET", "/api/stationflow"); } catch { this.v = null; } finally { this.busy = false; }
+    this.render();
+  },
+  render() {
+    const v = this.v, box = $("xCall"); if (!v) return;
+    const e = v.entry, who = e ? `${esc(e.bib ?? "")} · ${esc(cname(e))}` : "";
+    const photo = e && e.faces ? `<img src="/api/entries/${e.id}/face.jpg" alt="">` : "<span></span>";
+    const ex = v.event ? t(v.event).toUpperCase() : "";
+    let cls = "", body;
+    if (v.state === "position") {
+      cls = "ask";
+      body = `<div><div class="c-who">${who}</div><div class="c-say">${esc(ex)}: ${esc(t(v.ready ? "st_hold" : "st_position"))}</div>${v.reason ? `<div class="hint">${esc(t("st_" + v.reason))}</div>` : ""}</div>`;
+    } else if (v.state === "countdown") {
+      const n = Math.ceil((Date.parse(v.go_at) - serverNow()) / 1000);
+      cls = "ask";
+      body = `<div><div class="c-who">${who} · ${esc(ex)}</div><div class="c-num">${n > 0 ? n : t("go")}</div></div>`;
+      Sound.countdown(Date.parse(v.go_at));
+    } else if (v.state === "testing") {
+      const left = Math.max(0, (Date.parse(v.ends_at) - serverNow()) / 1000), live = v.live || {};
+      cls = "go";
+      body = `<div><div class="c-who">${who} · ${esc(ex)} · ${mmss(left)}</div><div class="c-num">${live.count ?? 0}</div>${(live.faults || []).length ? `<div class="hint">${esc(live.faults.map(f => t("f_" + f)).join(" · "))}</div>` : ""}</div>`;
+    } else if (v.state === "done") {
+      const r = v.result || {};
+      cls = r.passed === false ? "no" : "go";
+      body = `<div><div class="c-who">${who} · ${esc(ex)}</div><div class="c-say">${r.count ?? "—"} ${r.grade != null ? "· " + esc(gradeTxt(r.grade)) : ""} ${r.passed === true ? "✓" : r.passed === false ? "✗" : ""}</div><div class="hint">${esc(t(e && e.done && e.done.length >= 2 ? "st_all_done" : "st_come_back"))}</div></div>`;
+    } else if (v.state === "refused") {
+      cls = "no";
+      body = `<div><div class="c-who">${who}</div><div class="c-say">${esc(t("e_" + v.reason))}</div></div>`;
+    } else {
+      body = `<div><div class="c-say">${esc(t(v.engine ? "st_step_up" : "st_no_camera"))}</div>${v.reason ? `<div class="hint">${esc(t("st_" + v.reason))}</div>` : ""}</div>`;
+    }
+    const reset = v.state !== "idle" ? `<div style="grid-column:1/-1;text-align:end"><button class="btn ghost sm" onclick="StationCall.reset()">${esc(t("st_reset"))}</button></div>` : "";
+    const html = (cls === "" ? "<span></span>" : photo) + body + reset, sig = cls + html;
+    box.classList.remove("hidden");
+    if (sig !== this.sig) { box.className = "callbox " + cls; box.innerHTML = html; this.sig = sig; }
+    if (v.state !== this.last) {
+      if (v.state === "position") Sound.chime();
+      if (v.state === "testing") Signal.start();
+      if (v.state === "done") { Signal.end(); refresh(); }
+    }
+    this.last = v.state;
+  },
+  async reset() { try { await api("POST", "/api/stationflow/reset"); } catch (e) { msg("scMsg", "bad", err(e)); } this.poll(); },
+};
 
 // ---- the official table, as the screens need it
 const RAN = ["run_passed", "run_failed", "run_done", "dnf"];   // took the run: on to the exercises
@@ -4205,7 +4289,7 @@ async function removeEntry(id, deleteResults) {
 // check says whether the camera is there, to show, restart or hide the stream.
 const CamLive = {
   busy: false, last: 0, misses: 0, streaming: null,
-  target() { return role === "station" ? { el: "camLive-station", station: event } : role === "finish" ? { el: "camLive-finish", station: "finish" } : null; },
+  target() { return role === "station" ? { el: "camLive-station", station: oneMat() ? "exercise" : event } : role === "finish" ? { el: "camLive-finish", station: "finish" } : null; },
   stopStream() {
     if (!this.streaming) return;
     const img = $(this.streaming.el).querySelector("img"); img.removeAttribute("src");
