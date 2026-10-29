@@ -441,6 +441,7 @@
   .countdown .cd-label { font-family: var(--cond); letter-spacing: 2px; text-transform: uppercase; color: var(--muted); font-size: 18px; }
   .countdown .cd-num { font-family: var(--cond); font-size: 120px; font-weight: 800; line-height: 1.05; color: var(--amber); }
   .countdown.go .cd-num { color: var(--go); }
+  .camsel { display: flex; gap: 8px; flex: 1; min-width: 0; } .camsel select { flex: 1; min-width: 0; } .camsel input { flex: 2; min-width: 0; }
   /* the results card: pass / fail and every test, large, closes by itself */
   .rcard { max-width: 760px; width: 92vw; padding: 0; }
   .rcard .rc-head { display: grid; grid-template-columns: auto 1fr; gap: 18px; align-items: center; padding: 22px 24px; border-bottom: 1px solid var(--line); }
@@ -679,7 +680,8 @@
         <button class="btn ghost sm" type="button" onclick="Cam.free()" data-tl="rd_cam_free_hint"><span data-t="rd_cam_free"></span></button>
       </div>
       <div class="row camrow hidden" id="ipCamRow">
-        <input id="ipCamUrl" data-tp="ph_cam_url" autocomplete="off" style="flex:1">
+        <select id="ipCamSel" onchange="camPick(this, 'ipCamUrl')" style="flex:1"></select>
+        <input id="ipCamUrl" class="hidden" data-tp="ph_cam_url" autocomplete="off" style="flex:1">
         <button class="btn sm amber" type="button" id="ipCamGo" onclick="StartCam.start()" data-t="fc_start"></button>
         <button class="btn sm ghost hidden" type="button" id="ipCamStop" onclick="StartCam.stop()" data-t="fc_stop"></button>
       </div>
@@ -829,7 +831,7 @@
     <div>
       <div class="card" id="fcCard">
         <div class="row" style="align-items:baseline"><h2 style="margin:0" data-t="fc_title"></h2><span class="spacer"></span><span class="pill" id="fcState"></span></div>
-        <div class="camlive fcview hidden" id="camLive-finish"><img alt=""><canvas class="fx" id="fxFinish"></canvas><div class="fcline" id="fcLine"></div><div class="viewer-tag" data-t="cam_view"></div></div>
+        <div class="camlive fcview hidden" id="camLive-finish"><img alt=""><canvas class="fx" id="fxFinish"></canvas><div class="viewer-tag" data-t="cam_view"></div></div>
         <div id="fcOffline" class="msg warn hidden" data-t="fc_offline"></div>
         <div id="fcForm">
           <div class="seg" style="margin-top:10px"><button id="fck-webcam" onclick="FinishCam.kind('webcam')" data-t="src_webcam"></button><button id="fck-video" onclick="FinishCam.kind('video')" data-t="src_video"></button><button id="fck-url" onclick="FinishCam.kind('url')" data-t="fc_ipcam"></button></div>
@@ -837,15 +839,15 @@
             <select id="fcWebcam" class="fcsrc"></select>
             <select id="fcVideo" class="fcsrc hidden"></select>
             <label class="fcsrc loopbox hidden" id="fcLoop"><input type="checkbox" id="fcLoopOn" onchange="FinishCam.pref.loop = this.checked; FinishCam.save()"><span data-t="vid_repeat"></span></label>
-            <input id="fcUrl" class="fcsrc hidden" data-tp="ph_cam_url" autocomplete="off" style="flex:1">
+            <span id="fcUrl" class="fcsrc hidden camsel"><select id="fcCamSel" onchange="camPick(this, 'fcUrlIn')"></select><input id="fcUrlIn" class="hidden" data-tp="ph_cam_url" autocomplete="off"></span>
             <button class="btn ghost sm" style="flex:0 0 auto" onclick="FinishCam.sources(true)" data-t="fc_refresh"></button>
           </div>
           <div class="settings" style="margin-top:8px">
             <label for="fcLineY" data-t="fc_line"></label>
-            <input id="fcLineY" type="range" min="5" max="95" step="1" oninput="FinishCam.showLine()">
+            <input id="fcLineY" type="range" min="5" max="95" step="1" onchange="FinishCam.lineChanged()">
             <span class="hint" data-t="fc_line_hint"></span>
             <label for="fcDir" data-t="fc_dir"></label>
-            <select id="fcDir"><option value="down" data-t="fc_dir_down"></option><option value="up" data-t="fc_dir_up"></option><option value="any" data-t="fc_dir_any"></option></select>
+            <select id="fcDir" onchange="FinishCam.lineChanged()"><option value="down" data-t="fc_dir_down"></option><option value="up" data-t="fc_dir_up"></option><option value="any" data-t="fc_dir_any"></option></select>
             <span class="hint" data-t="fc_dir_hint"></span>
           </div>
           <div class="row" style="margin-top:10px">
@@ -909,7 +911,7 @@
             <div class="row" style="margin-top:8px">
               <select id="scWebcam" class="scsrc"></select><select id="scVideo" class="scsrc hidden"></select>
               <label class="scsrc loopbox hidden" id="scLoop"><input type="checkbox" id="scLoopOn" onchange="StationCam.pref.loop = this.checked; StationCam.save()"><span data-t="vid_repeat"></span></label>
-              <input id="scUrl" class="scsrc hidden" data-tp="ph_cam_url" autocomplete="off" style="flex:1">
+              <span id="scUrl" class="scsrc hidden camsel"><select id="scCamSel" onchange="camPick(this, 'scUrlIn')"></select><input id="scUrlIn" class="hidden" data-tp="ph_cam_url" autocomplete="off"></span>
               <button class="btn ghost sm" style="flex:0 0 auto" onclick="StationCam.sources(true)" data-t="fc_refresh"></button>
             </div>
             <p class="hint" id="scWhat"></p>
@@ -1245,6 +1247,8 @@
 /* ============================== i18n ============================== */
 const I18N = {
   en: {
+    fc_line_applying: "Applying the new line: the camera restarts (a few seconds).",
+    ipc_other: "Type an address…",
     set_finish_face_hint: "How alike the face at the finish must be to the registration photo to stop a runner's clock. Lower: more runners recognised, more risk of a mix-up; higher: more crossings left for review. Strangers usually score under 0.25.",
     ff_auto: "Automatic (0.36 while 10 or fewer are out, else 0.45)",
     set_finish_face: "Finish face match",
@@ -1335,7 +1339,7 @@ const I18N = {
     dnf_injured: "Injured", dnf_gave_up: "Gave up", dnf_left_course: "Left the course", dnf_unwell: "Unwell", ph_dnf_other: "Other / details", mark_dnf: "Mark DNF",
     dnf_saved: "{name}: DNF recorded.", dnf_undone: "{name} is running again.", e_reason_required_dnf: "Pick or type the reason", e_not_dnf: "Not marked DNF",
     fc_title: "Finish camera", fc_ipcam: "IP camera", ph_cam_url: "rtsp://user:password@192.168.1.64:554/Streaming/Channels/101", fc_refresh: "Refresh",
-    fc_line: "Finish line position", fc_line_hint: "The dashed line on the picture: put it where the runners cross.",
+    fc_line: "Finish line position", fc_line_hint: "The red line on the picture is the finish line: put it on the floor where the runners' feet cross. It applies at once.",
     fc_dir: "Runners come", fc_dir_down: "Towards the camera (down)", fc_dir_up: "Away from the camera (up)", fc_dir_any: "Either way",
     fc_dir_hint: "A crossing counts only in this direction.", fc_start: "Start camera", fc_restart: "Restart with these settings", fc_stop: "Stop camera",
     fc_offline: "The camera service is not running on the station PC. Start TestPoint.cmd starts it (or run: python -m testpoint.camhost). Until then, time by hand with CROSSING.",
@@ -1591,6 +1595,8 @@ const I18N = {
     e_override_reason_required: "The count differs from the camera's: give a reason",
   },
   ar: {
+    fc_line_applying: "تطبيق الخط الجديد: تُعاد تشغيل الكاميرا (ثوانٍ قليلة).",
+    ipc_other: "اكتب عنواناً…",
     set_finish_face_hint: "مدى تشابه الوجه عند خط النهاية مع صورة التسجيل لإيقاف وقت العدّاء. أقل: يُتعرف على عدّائين أكثر مع خطر خلط أكبر؛ أعلى: عبورات أكثر للمراجعة. الغرباء عادة أقل من 0.25.",
     ff_auto: "تلقائي (0.36 إذا كان في المسار 10 أو أقل، وإلا 0.45)",
     set_finish_face: "مطابقة الوجه عند النهاية",
@@ -1681,7 +1687,7 @@ const I18N = {
     dnf_injured: "إصابة", dnf_gave_up: "انسحب", dnf_left_course: "خرج من المسار", dnf_unwell: "متوعك", ph_dnf_other: "سبب آخر / تفاصيل", mark_dnf: "تسجيل لم يُكمل",
     dnf_saved: "{name}: سُجّل لم يُكمل.", dnf_undone: "{name} يجري مجدداً.", e_reason_required_dnf: "اختر السبب أو اكتبه", e_not_dnf: "غير مسجّل لم يُكمل",
     fc_title: "كاميرا النهاية", fc_ipcam: "كاميرا IP", ph_cam_url: "rtsp://user:password@192.168.1.64:554/Streaming/Channels/101", fc_refresh: "تحديث",
-    fc_line: "موضع خط النهاية", fc_line_hint: "الخط المتقطع على الصورة: ضعه حيث يعبر العدّاؤون.",
+    fc_line: "موضع خط النهاية", fc_line_hint: "الخط الأحمر على الصورة هو خط النهاية: ضعه على الأرض حيث تعبر أقدام العدّائين. يُطبّق فوراً.",
     fc_dir: "اتجاه العدّائين", fc_dir_down: "نحو الكاميرا (لأسفل)", fc_dir_up: "بعيداً عن الكاميرا (لأعلى)", fc_dir_any: "أي اتجاه",
     fc_dir_hint: "يُحتسب العبور في هذا الاتجاه فقط.", fc_start: "تشغيل الكاميرا", fc_restart: "إعادة التشغيل بهذه الإعدادات", fc_stop: "إيقاف الكاميرا",
     fc_offline: "خدمة الكاميرا لا تعمل على جهاز المحطة. Start TestPoint.cmd يشغّلها (أو: python -m testpoint.camhost). حتى ذلك الحين، وقّت يدوياً بزر عبور.",
@@ -2272,12 +2278,11 @@ const StartCam = {
   async attach() {
     clearTimeout(this.retry);
     await SavedCams.load();
-    if (!$("ipCamUrl").value && !SavedCams.has("start")) $("ipCamUrl").value = load("startCamUrl", "");
+    if (!$("ipCamUrl").value) $("ipCamUrl").value = load("startCamUrl", "");
     let st = null;
     try { st = await api("GET", "/api/startcam"); } catch {}
     this.buttons(st);
     if (!st || !st.available) { msg("sMsg", "bad", t("e_camera_service_offline")); Cam.show(); return; }
-    if (st.config && st.config.source && !$("ipCamUrl").value && !SavedCams.has("start")) $("ipCamUrl").value = st.config.source;
     if (st.running) await this.watch(); else { msg("sMsg", "warn", t("ip_not_running")); Cam.show(); }
   },
   buttons(st) {
@@ -2305,12 +2310,12 @@ const StartCam = {
     if (Cam.kind === "ipcam") { msg("sMsg", "bad", t("ip_no_picture")); Cam.show(); }
   },
   async start() {
-    const url = $("ipCamUrl").value.trim(), saved = (!url || url.includes("***")) && SavedCams.has("start");
-    if (!saved && !/^(rtsp|rtsps|http|https):\/\/\S+$/.test(url)) { msg("sMsg", "bad", t(SavedCams.has("start") ? "ip_bad_url" : "ip_no_saved")); return; }
-    if (!saved) save("startCamUrl", url);
+    const pick = camChoice("ipCamSel", "ipCamUrl");
+    if (pick.kind === "url" && !/^(rtsp|rtsps|http|https):\/\/\S+$/.test(pick.source)) { msg("sMsg", "bad", t("ip_bad_url")); return; }
+    if (pick.kind === "url") save("startCamUrl", pick.source);
     this.detach(); Cam.show();
     try {
-      const st = await api("POST", "/api/startcam/start", saved ? { kind: "saved", app_url: location.origin } : { kind: "url", source: url, app_url: location.origin });
+      const st = await api("POST", "/api/startcam/start", { ...pick, app_url: location.origin });
       this.buttons(st);
       await this.watch();
     } catch (e) { msg("sMsg", "bad", err(e)); }
@@ -2984,11 +2989,21 @@ const SavedCams = {
   async load(force) {
     if (!force && Date.now() - this.at < 30000) return;
     try { this.v = await api("GET", "/api/settings/cameras"); this.at = Date.now(); } catch { return; }
-    const ph = w => this.has(w) ? t("ipc_saved_ph", { a: this.v[w].address }) : null;
-    for (const [w, inp] of [["start", "ipCamUrl"], ["finish", "fcUrl"], ["station", "scUrl"]]) { const p = ph(w); if (p) $(inp).placeholder = p; }
+    this.fill();
     for (const [w, id] of [["start", "ipcStart"], ["finish", "ipcFinish"], ["station", "ipcStation"]]) {
       $(id).value = ""; $(id).placeholder = this.has(w) ? this.v[w].address : t("ph_cam_url");
       $(id + "Now").textContent = this.has(w) ? t("ipc_now", { a: this.v[w].address }) : t("ipc_none");
+    }
+  },
+  // Each camera screen's dropdown: the saved cameras (its own first), then "type an address".
+  fill() {
+    for (const [own, sel, inp] of [["start", "ipCamSel", "ipCamUrl"], ["finish", "fcCamSel", "fcUrlIn"], ["station", "scCamSel", "scUrlIn"]]) {
+      const el = $(sel), keep = el.value;
+      const cams = ["start", "finish", "station"].filter(w => this.has(w));
+      el.innerHTML = cams.map(w => `<option value="${w}">${esc(t("ipc_" + w))} · ${esc(this.v[w].address.replace(/^\w+:\/\/[^@]*@/, ""))}</option>`).join("")
+        + `<option value="__other">${esc(t("ipc_other"))}</option>`;
+      el.value = cams.includes(keep) || keep === "__other" ? keep : cams.includes(own) ? own : cams[0] || "__other";
+      camPick(el, inp);
     }
   },
   async save() {
@@ -3003,6 +3018,13 @@ const SavedCams = {
     catch (e) { if (e.code === "admin_pin_required") PinDlg.open(() => this.save()); else msg("ipcMsg", "bad", err(e)); }
   },
 };
+// The IP camera chosen in a dropdown: a saved camera (the server puts in its address), or the
+// address typed in the box next to it.
+function camPick(sel, inputId) { $(inputId).classList.toggle("hidden", sel.value !== "__other"); }
+function camChoice(selId, inputId) {
+  const v = $(selId).value;
+  return v && v !== "__other" ? { kind: "saved", source: "saved:" + v } : { kind: "url", source: $(inputId).value.trim() };
+}
 // ---- the start line run by its camera (IP camera at the start): recognised -> "raise your LEFT
 // hand" -> 3-2-1-GO. The camera process and the server decide (api/startline.py); this panel only
 // shows it, large enough to read from the mark.
@@ -3163,10 +3185,16 @@ const FinishCam = {
     if (!this.handTouched) { const d = $("fHand"); if (d.open === timing) { d.open = !timing; this.handTouched = false; } }
     this.showLine();
   },
-  showLine() { $("fcLine").style.top = $("fcLineY").value + "%"; },
+  showLine() {},
+  // The line (or direction) changed: a running camera restarts with it at once, so the red line on
+  // the picture, drawn by the camera itself, is always the line in use.
+  lineChanged() {
+    this.pref.line = +$("fcLineY").value; this.pref.dir = $("fcDir").value; this.save();
+    if (this.st && this.st.running) { msg("fcMsg", "warn", t("fc_line_applying")); this.start(); }
+  },
   async start() {
-    let k = this.pref.kind || "webcam", source = k === "webcam" ? $("fcWebcam").value : k === "video" ? $("fcVideo").value : $("fcUrl").value.trim();
-    if (k === "url" && source === "" && SavedCams.has("finish")) { k = "saved"; source = "saved"; }   // the address saved in Settings
+    let k = this.pref.kind || "webcam", source = k === "webcam" ? $("fcWebcam").value : k === "video" ? $("fcVideo").value : "";
+    if (k === "url") ({ kind: k, source } = camChoice("fcCamSel", "fcUrlIn"));
     if (source === "") { msg("fcMsg", "bad", t("fc_pick_source")); return; }
     if (k !== "saved") Object.assign(this.pref, { [k]: source }); Object.assign(this.pref, { line: +$("fcLineY").value, dir: $("fcDir").value }); this.save();
     this.busy = true; this.render();
@@ -3185,7 +3213,7 @@ const FinishCam = {
   init() {
     this.kind(this.pref.kind || "webcam");
     $("fcLineY").value = this.pref.line ?? 85; $("fcDir").value = this.pref.dir || "down";
-    if (this.pref.url) $("fcUrl").value = this.pref.url;
+    if (this.pref.url) $("fcUrlIn").value = this.pref.url;
   },
 };
 
@@ -3346,10 +3374,10 @@ const StationCam = {
     if (live && !$("scDivs").children.length) this.drawDividers();
   },
   async start(auto) {
-    const k = this.pref.kind || "webcam", source = k === "webcam" ? $("scWebcam").value : k === "video" ? $("scVideo").value : $("scUrl").value.trim();
+    const k = this.pref.kind || "webcam", source = k === "webcam" ? $("scWebcam").value : k === "video" ? $("scVideo").value : "-";
     const c = this.st && this.st.config;
     const use = auto && c ? { kind: c.kind, source: c.source } : { kind: k, source };
-    if ((use.kind === "url" && (use.source === "" || String(use.source).includes("***")) && SavedCams.has("station"))) Object.assign(use, { kind: "saved", source: "saved" });
+    if (use.kind === "url" && (!auto || !use.source || String(use.source).includes("***"))) Object.assign(use, camChoice("scCamSel", "scUrlIn"));
     if (use.kind === "video" && this.src && !oneMat()) {     // a video belongs to one exercise: switch with it
       const v = this.src.videos.find(x => x.path === use.source);
       const mine = this.pref["video_" + event];   // the video last picked for this exercise, else the first
@@ -3371,7 +3399,7 @@ const StationCam = {
     catch (e) { msg("scMsg", "bad", err(e)); }
     finally { this.busy = false; this.render(); }
   },
-  init() { this.kind(this.pref.kind || "webcam"); if (this.pref.url) $("scUrl").value = this.pref.url; },
+  init() { this.kind(this.pref.kind || "webcam"); if (this.pref.url) $("scUrlIn").value = this.pref.url; },
 };
 
 // ---- DNF for one runner, with the reason (audited)
@@ -4952,6 +4980,7 @@ async function savePin(remove) {
 (async function boot() {
   applyI18n();
   try { S.settings = await api("GET", "/api/settings"); } catch {}
+  SavedCams.load(true);
   setLaneCount(setting("lanes"));
   $("role").value = role; setMode(mode === "advanced" && setting("admin_pin_set") && !adminPin() ? "simple" : mode); setRole(role); setEvent(event);
   $("autoBtn").textContent = t("auto_off");

@@ -274,7 +274,13 @@ def test_camera_addresses_saved_in_settings_never_show_the_password(svc, tmp_pat
             assert st["running"] and "example-pw" not in str(st) and "***" in st["config"]["source"]
             assert FakeProc.last.cmd[FakeProc.last.cmd.index("--source") + 1] == url
             assert "example-pw" not in c.get("/api/startcam").text
-            # not saved yet: said so
+            # a camera picked by name from the dropdown: the finish camera, its address put in on the server
+            c.put("/api/settings/cameras", json={"finish": url.replace(".241", ".242")})
+            assert c.post("/api/finishcam/start", json={"kind": "saved", "source": "saved:finish", "app_url": "x"}).json()["running"]
+            assert ".242" in FakeProc.last.cmd[FakeProc.last.cmd.index("--source") + 1]
+            assert c.post("/api/startcam/start", json={"kind": "saved", "source": "saved:kitchen", "app_url": "x"}).status_code == 400
+            # not saved (removed again): said so
+            c.put("/api/settings/cameras", json={"finish": ""})
             r = c.post("/api/finishcam/start", json={"kind": "saved", "app_url": "http://127.0.0.1:8000"})
             assert r.status_code == 409 and r.json()["detail"]["code"] == "no_saved_camera"
             # an empty address removes it; the admin PIN guards the change

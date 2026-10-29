@@ -1032,7 +1032,11 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     def _source(db: Session, which: str, body: dict) -> dict:
         """kind "saved": the camera address saved in Settings (the page never sees its password)."""
         if body.get("kind") == "saved":
-            return body | {"kind": "url", "source": S.saved_camera(db, which)}
+            src = str(body.get("source") or "")
+            name = src.split(":", 1)[1] if src.startswith("saved:") else which     # "saved:finish": that camera
+            if name not in S.CAMERAS:
+                raise S.ServiceError("unknown_camera", f"unknown camera {name!r}", 400)
+            return body | {"kind": "url", "source": S.saved_camera(db, name)}
         return body
 
     @app.get("/api/settings/cameras")
