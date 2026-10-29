@@ -195,7 +195,7 @@ class FinishCam:
     UPPER_SHARE = 0.7
     """The part of a person box kept for the face: the upper body, so a raised arm (which makes
     the box taller) does not push the face out of the snapshot; the face detector finds it."""
-    FACE_SNAPSHOTS = 3
+    FACE_SNAPSHOTS = 5
     FACE_SPACING_S = 0.3
     """Snapshots kept per runner, at least this far apart: the last moments before the line, from
     different angles (one where they look down or an arm covers the face is not the only one)."""

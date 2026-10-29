@@ -1165,6 +1165,16 @@ def resolve_crossing(db: Session, day: Day, rules: DayRules, crossing_id: int,
     return crossing
 
 
+FINISH_FEW_OUT = 10
+"""With this many runners out or fewer, a face at the finish is matched at the normal setting (the
+same as the weigh-in desk): it only has to be told apart from these few, and the finish camera's
+angle and light make every face score lower than at the desk. With more out, the strict setting."""
+
+
+def finish_face_match(runners_out: int) -> tuple[float, float]:
+    return FACE_MATCH["normal"] if runners_out <= FINISH_FEW_OUT else FACE_MATCH["strict"]
+
+
 def face_for_crossing(db: Session, day: Day, rules: DayRules, crossing: Crossing, data: bytes | list[bytes],
                       engine) -> dict | None:
     """A finish crossing the camera could not tie to a runner by bib: compare the runner's face
@@ -1186,7 +1196,7 @@ def face_for_crossing(db: Session, day: Day, rules: DayRules, crossing: Crossing
         _audit(db, day, "finish", "face_at_finish", None, crossing_id=crossing.id, outcome="nobody_out_with_a_face")
         db.commit()
         return None
-    threshold, margin = FACE_MATCH["strict"]
+    threshold, margin = finish_face_match(len(gallery))
     m = best = None
     found = 0
     for shot in shots:

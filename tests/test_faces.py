@@ -281,3 +281,9 @@ def test_finish_face_and_bib_must_agree(client, monkeypatch):
     # no face in the snapshots: the bib alone decides
     c = client.post("/api/engine/crossing", json={"bib": "11", "faces": [face(b"none")]}).json()
     assert not c["needs_review"] and c["entry_id"] == i["11"]
+
+
+def test_the_finish_matches_faces_at_the_normal_setting_when_few_are_out():
+    from testpoint.api import service as S
+    assert S.finish_face_match(1) == S.FACE_MATCH["normal"] and S.finish_face_match(10) == S.FACE_MATCH["normal"]
+    assert S.finish_face_match(11) == S.FACE_MATCH["strict"]
