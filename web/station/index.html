@@ -404,6 +404,11 @@
   .autobib b { color: var(--muted); font-weight: 600; }
   .settings { display: grid; grid-template-columns: 250px minmax(140px, 220px) 1fr; gap: 12px 16px; align-items: center; margin-top: 10px; }
   .settings label { font-family: var(--cond); letter-spacing: .5px; color: var(--text); }
+  /* long values (camera addresses): the box takes the whole width, its note goes under it */
+  .settings.wide { grid-template-columns: 250px 1fr; }
+  .settings.wide input { width: 100%; font-family: ui-monospace, Consolas, monospace; font-size: 15px; }
+  .settings.wide .hint { grid-column: 2; margin-top: -6px; }
+  @media (max-width: 860px) { .settings.wide { grid-template-columns: 1fr; } .settings.wide .hint { grid-column: 1; } }
   @media (max-width: 900px) { .settings { grid-template-columns: 1fr; } }
   /* labelled form fields (registration): label above, every control the same size */
   .std { margin: 4px 0 12px; } .std .field { margin-bottom: 8px; }
@@ -1099,7 +1104,7 @@
     <div class="card setpanel" data-p="ipcams" data-scope="pin">
       <h2 data-t="sec_ipcams"></h2>
       <p class="hint" data-t="ipc_hint"></p>
-      <div class="settings">
+      <div class="settings wide">
         <label for="ipcStart" data-t="ipc_start"></label>
         <input id="ipcStart" autocomplete="off" spellcheck="false">
         <span class="hint" id="ipcStartNow"></span>
