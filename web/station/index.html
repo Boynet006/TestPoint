@@ -3351,12 +3351,14 @@ const StationCam = {
     this.autoRestart();
     this.render();
   },
+  // One mat: the engine follows the person checked in ("auto"); several: the exercise on this page.
+  exercise() { return oneMat() ? "auto" : event; },
   // The page decides the exercise and the lanes: when they change, the engine follows (when no lane is busy).
   autoRestart() {
     const st = this.st, c = st && st.config;
     if (!st || !st.running || !c || this.busy) return;
     if (lanes.some(l => ["running", "stopped"].includes(l.state) || l.busy)) return;
-    if (c.exercise !== event || c.lanes !== lanes.length) this.start(true);
+    if (c.exercise !== this.exercise() || c.lanes !== lanes.length) this.start(true);
   },
   render() {
     const st = this.st || { available: false };
@@ -3369,7 +3371,7 @@ const StationCam = {
     $("scState").textContent = !st.available ? t("fc_state_offline") : st.running ? (live ? t("fc_state_live") : t("fc_state_starting")) : st.exit_code ? t("fc_state_error") : t("fc_state_stopped");
     const ended = !st.running && st.exit_code === 0 && st.config && st.config.kind === "video";
     if (ended && !this.endedSaid) { msg("scMsg", "warn", t("vid_ended")); this.endedSaid = true; } if (st.running) this.endedSaid = false;
-    const c = st.config, changed = st.running && c && (c.exercise !== event || c.lanes !== lanes.length || JSON.stringify(c.dividers || []) !== JSON.stringify(this.dividers()));
+    const c = st.config, changed = st.running && c && (c.exercise !== this.exercise() || c.lanes !== lanes.length || JSON.stringify(c.dividers || []) !== JSON.stringify(this.dividers()));
     $("scStart").textContent = st.running ? (changed ? t("fc_restart") : t("sc_running")) : t("fc_start");
     $("scStart").disabled = $("scStart").disabled || (st.running && !changed);
     $("scStop").classList.toggle("hidden", !st.running);
@@ -3400,7 +3402,7 @@ const StationCam = {
     if (!auto) { Object.assign(this.pref, { [k]: source }, k === "video" ? { ["video_" + event]: source } : {}); this.save(); }
     this.busy = true; this.render();
     try {
-      this.st = { available: true, ...(await api("POST", "/api/stationcam/start", { ...use, exercise: oneMat() ? "auto" : event, lanes: lanes.length, dividers: this.dividers(), app_url: location.origin, loop: use.kind === "video" && this.pref.loop !== false })) };
+      this.st = { available: true, ...(await api("POST", "/api/stationcam/start", { ...use, exercise: this.exercise(), lanes: lanes.length, dividers: this.dividers(), app_url: location.origin, loop: use.kind === "video" && this.pref.loop !== false })) };
       msg("scMsg", "ok", t(auto ? "sc_followed" : "sc_started", { ex: t(event), n: lanes.length }));
       $("scDivs").innerHTML = "";
     } catch (e) { msg("scMsg", "bad", err(e)); }
