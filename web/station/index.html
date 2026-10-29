@@ -1056,7 +1056,7 @@
         <select id="setCancelWin"><option value="120" data-t="min_2"></option><option value="300" data-t="min_5"></option><option value="600" data-t="min_10"></option><option value="1800" data-t="min_30"></option><option value="0" data-t="until_first_finisher"></option></select>
         <span class="hint" data-t="set_cancel_win_hint"></span>
         <label for="setFinishFace" data-t="set_finish_face"></label>
-        <select id="setFinishFace"><option value="0" data-t="ff_auto"></option><option value="0.3">0.30</option><option value="0.33">0.33</option><option value="0.36">0.36</option><option value="0.4">0.40</option><option value="0.45">0.45</option><option value="0.5">0.50</option><option value="0.55">0.55</option></select>
+        <select id="setFinishFace"><option value="0" data-t="ff_auto"></option><option value="0.3">0.30</option><option value="0.33">0.33</option><option value="0.36">0.36</option><option value="0.4">0.40</option><option value="0.45">0.45</option><option value="0.5">0.50</option><option value="0.55">0.55</option><option value="0.6" data-t="ff_060"></option><option value="0.65" data-t="ff_065"></option><option value="0.7" data-t="ff_070"></option></select>
         <span class="hint" data-t="set_finish_face_hint"></span>
       </div>
     </div>
@@ -1248,6 +1248,9 @@
 /* ============================== i18n ============================== */
 const I18N = {
   en: {
+    ff_070: "0.70 (very strict)",
+    ff_065: "0.65 (very strict)",
+    ff_060: "0.60 (strict: many runners to review)",
     fc_box_line: "the finish line: a crossing is the bottom of a box (the feet) passing it towards the camera",
     fc_box_crossed: "counted as crossing (once per person)",
     fc_box_open: "a person followed, not crossed yet",
@@ -1599,6 +1602,9 @@ const I18N = {
     e_override_reason_required: "The count differs from the camera's: give a reason",
   },
   ar: {
+    ff_070: "0.70 (صارم جداً)",
+    ff_065: "0.65 (صارم جداً)",
+    ff_060: "0.60 (صارم: كثير من العدّائين للمراجعة)",
     fc_box_line: "خط النهاية: العبور هو مرور أسفل المربع (القدمين) فوقه باتجاه الكاميرا",
     fc_box_crossed: "احتُسب عبوره (مرة واحدة لكل شخص)",
     fc_box_open: "شخص متابَع لم يعبر بعد",
