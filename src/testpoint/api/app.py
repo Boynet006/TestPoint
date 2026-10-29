@@ -170,9 +170,16 @@ class StartIn(BaseModel):
     """Seconds of countdown before the time starts; default: the start_countdown_s setting."""
 
 
+class CamerasIn(BaseModel):
+    """Camera addresses for Settings > Cameras: empty removes, missing keeps."""
+    start: str | None = Field(default=None, max_length=500)
+    finish: str | None = Field(default=None, max_length=500)
+    station: str | None = Field(default=None, max_length=500)
+
+
 class FinishCamIn(BaseModel):
-    kind: Literal["webcam", "video", "url"]
-    source: str = Field(min_length=1, max_length=500)
+    kind: Literal["webcam", "video", "url", "saved"]
+    source: str = Field(default="saved", min_length=1, max_length=500)
     line_y: float = Field(default=0.85, ge=0.05, le=0.95)
     direction: Literal["down", "up", "any"] = "down"
     app_url: str = Field(max_length=100)
@@ -182,15 +189,15 @@ class FinishCamIn(BaseModel):
 
 
 class StartCamIn(BaseModel):
-    kind: Literal["webcam", "video", "url"]
-    source: str = Field(min_length=1, max_length=500)
+    kind: Literal["webcam", "video", "url", "saved"]
+    source: str = Field(default="saved", min_length=1, max_length=500)
     app_url: str = Field(max_length=100)
     loop: bool = False
 
 
 class StationCamIn(BaseModel):
-    kind: Literal["webcam", "video", "url"]
-    source: str = Field(min_length=1, max_length=500)
+    kind: Literal["webcam", "video", "url", "saved"]
+    source: str = Field(default="saved", min_length=1, max_length=500)
     exercise: Literal["pushup", "crunch", "auto"]
     """"auto": the combined station (one person, face check-in, push-ups then crunches)."""
     lanes: int = Field(default=3, ge=1, le=4)
@@ -985,6 +992,13 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     # vision libraries in Docker. The finish page picks the source here; the service starts it.
     camhost = (camhost_url or os.environ.get("TESTPOINT_CAMHOST", "http://127.0.0.1:8099")).rstrip("/")
 
+    def _shown(st: dict) -> dict:
+        """A camera's status for the screens: its address with the password hidden."""
+        c = st.get("config")
+        if isinstance(c, dict) and isinstance(c.get("source"), str):
+            st = st | {"config": c | {"source": S._redact(c["source"])}}
+        return st
+
     def _camhost(method: str, path: str, body: dict | None = None, timeout: float = 4.0) -> dict:
         import urllib.error
         import urllib.request
@@ -1002,13 +1016,27 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     @app.get("/api/finishcam")
     def finishcam_status() -> dict:
         try:
-            return {"available": True, **_camhost("GET", "/finish", timeout=2.0)}
+            return {"available": True, **_shown(_camhost("GET", "/finish", timeout=2.0))}
         except S.ServiceError as e:
             return {"available": False, "running": False, "reason": e.code}
 
     @app.get("/api/finishcam/sources")
     def finishcam_sources(refresh: bool = False) -> dict:
         return _camhost("GET", f"/sources{'?refresh=true' if refresh else ''}", timeout=15.0)
+
+    def _source(db: Session, which: str, body: dict) -> dict:
+        """kind "saved": the camera address saved in Settings (the page never sees its password)."""
+        if body.get("kind") == "saved":
+            return body | {"kind": "url", "source": S.saved_camera(db, which)}
+        return body
+
+    @app.get("/api/settings/cameras")
+    def cameras(db: Session = Depends(get_db)) -> dict:
+        return S.cameras_out(db)
+
+    @app.put("/api/settings/cameras", dependencies=[Depends(admin)])
+    def cameras_update(body: CamerasIn, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        return S.set_camera_urls(db, day, body.model_dump())
 
     def _loopback(request: Request) -> str:
         """This app as the camera processes on the station PC reach it: the scheme and port the
@@ -1018,8 +1046,8 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         return f"{request.url.scheme}://127.0.0.1:{port}"
 
     @app.post("/api/finishcam/start")
-    def finishcam_start(body: FinishCamIn, request: Request) -> dict:
-        return _camhost("POST", "/finish/start", body.model_dump() | {"app_url": _loopback(request)}, timeout=10.0)
+    def finishcam_start(body: FinishCamIn, request: Request, db: Session = Depends(get_db)) -> dict:
+        return _shown(_camhost("POST", "/finish/start", _source(db, "finish", body.model_dump()) | {"app_url": _loopback(request)}, timeout=10.0))
 
     @app.post("/api/finishcam/stop")
     def finishcam_stop() -> dict:
@@ -1029,15 +1057,15 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     @app.get("/api/stationcam")
     def stationcam_status() -> dict:
         try:
-            return {"available": True, **_camhost("GET", "/station", timeout=2.0)}
+            return {"available": True, **_shown(_camhost("GET", "/station", timeout=2.0))}
         except S.ServiceError as e:
             return {"available": False, "running": False, "reason": e.code}
 
     @app.post("/api/stationcam/start")
     def stationcam_start(body: StationCamIn, request: Request, db: Session = Depends(get_db)) -> dict:
         tuning = S.get_settings(db)["count_tuning"].get(body.exercise, {})
-        return _camhost("POST", "/station/start", body.model_dump() | {"tuning": tuning, "app_url": _loopback(request)},
-                        timeout=10.0)
+        return _shown(_camhost("POST", "/station/start", _source(db, "station", body.model_dump()) | {"tuning": tuning, "app_url": _loopback(request)},
+                               timeout=10.0))
 
     @app.post("/api/stationcam/stop")
     def stationcam_stop() -> dict:
@@ -1047,13 +1075,13 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     @app.get("/api/startcam")
     def startcam_status() -> dict:
         try:
-            return {"available": True, **_camhost("GET", "/startcam", timeout=2.0)}
+            return {"available": True, **_shown(_camhost("GET", "/startcam", timeout=2.0))}
         except S.ServiceError as e:
             return {"available": False, "running": False, "reason": e.code}
 
     @app.post("/api/startcam/start")
-    def startcam_start(body: StartCamIn, request: Request) -> dict:
-        return _camhost("POST", "/startcam/start", body.model_dump() | {"app_url": _loopback(request)}, timeout=10.0)
+    def startcam_start(body: StartCamIn, request: Request, db: Session = Depends(get_db)) -> dict:
+        return _shown(_camhost("POST", "/startcam/start", _source(db, "start", body.model_dump()) | {"app_url": _loopback(request)}, timeout=10.0))
 
     @app.get("/testpoint-ca.crt")
     def https_ca() -> Response:

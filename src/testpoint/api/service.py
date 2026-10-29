@@ -11,6 +11,7 @@ import csv
 import dataclasses
 import io
 import json
+import re
 from datetime import datetime, timedelta
 
 from sqlalchemy import func, select
@@ -269,6 +270,62 @@ def set_background(db: Session, day: Day, data: bytes | None) -> None:
             row.value, row.updated_at = value, utcnow()
         _audit(db, day, "admin", "background_image", None, bytes=len(data), type=kind)
     db.commit()
+
+
+CAMERAS_KEY = "camera_urls"
+CAMERAS = ("start", "finish", "station")
+"""The IP cameras' addresses (rtsp://user:password@ip/...), saved once in Settings. Kept apart from
+the settings every device reads: a screen only ever gets them with the password hidden, and the
+server puts the real address in when it starts a camera."""
+CAMERA_URL = re.compile(r"^(rtsp|rtsps|http|https)://\S+$")
+
+
+def _redact(url: str) -> str:
+    return re.sub(r"(://[^/@:]+:)[^@/]*@", r"\1***@", url)
+
+
+def camera_urls(db: Session) -> dict[str, str]:
+    row = db.get(Setting, CAMERAS_KEY)
+    return {k: v for k, v in (json.loads(row.value) if row else {}).items() if k in CAMERAS and v}
+
+
+def cameras_out(db: Session) -> dict:
+    """What a screen may see: whether each camera has an address, and the address without its password."""
+    urls = camera_urls(db)
+    return {k: {"set": k in urls, "address": _redact(urls[k]) if k in urls else None} for k in CAMERAS}
+
+
+def set_camera_urls(db: Session, day: Day, changes: dict[str, str | None]) -> dict:
+    """Save camera addresses; an empty one removes it, one not given stays as it is."""
+    urls = camera_urls(db)
+    for k, v in changes.items():
+        if k not in CAMERAS:
+            raise ServiceError("unknown_camera", f"unknown camera {k!r}", 400)
+        if v is None:
+            continue
+        v = v.strip()
+        if not v:
+            urls.pop(k, None)
+        elif not CAMERA_URL.match(v) or len(v) > 500:
+            raise ServiceError("bad_camera_url", "a camera address starts with rtsp:// (or http://)", 400)
+        else:
+            urls[k] = v
+    row = db.get(Setting, CAMERAS_KEY)
+    if row is None:
+        db.add(Setting(key=CAMERAS_KEY, value=json.dumps(urls)))
+    else:
+        row.value, row.updated_at = json.dumps(urls), utcnow()
+    _audit(db, day, "admin", "camera_urls", None, **{k: _redact(v) for k, v in urls.items()})
+    db.commit()
+    return cameras_out(db)
+
+
+def saved_camera(db: Session, which: str) -> str:
+    """The real address of a saved camera, for the server to start it."""
+    url = camera_urls(db).get(which)
+    if not url:
+        raise ServiceError("no_saved_camera", f"no address saved for the {which} camera: add it in Settings > Cameras", 409)
+    return url
 
 
 def _pin_hash(pin: str, salt: str) -> str:

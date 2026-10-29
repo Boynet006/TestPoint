@@ -990,6 +990,7 @@
       <div class="grp" data-t="nav_rules"></div>
       <button type="button" data-p="rules" onclick="SetNav.show('rules')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4h6v3H9z"/><path d="M8 5H5v16h14V5h-3"/><path d="m9 14 2 2 4-4"/></svg><span data-t="sec_rules"></span><i class="dot"></i></button>
       <div class="grp" data-t="nav_equipment"></div>
+      <button type="button" data-p="ipcams" onclick="SetNav.show('ipcams')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="13" height="10" rx="2"/><path d="M16 11l5-3v8l-5-3"/></svg><span data-t="sec_ipcams"></span><i class="dot"></i></button>
       <button type="button" data-p="camera" onclick="SetNav.show('camera')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span data-t="sec_camera"></span><i class="dot"></i></button>
       <button type="button" data-p="look" onclick="SetNav.show('look')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="8" cy="10" r="1.3"/><circle cx="12" cy="7.5" r="1.3"/><circle cx="16" cy="10" r="1.3"/><path d="M12 21c-1.5 0-2-1-1.5-2.2.6-1.4 2-1.8 3.5-1.8H17"/></svg><span data-t="sec_look"></span><i class="dot"></i></button>
       <div class="grp" data-t="nav_device"></div>
@@ -1094,6 +1095,25 @@
       </div>
       <div class="row" style="margin-top:14px"><button class="btn amber" style="flex:0 0 auto" onclick="saveRules()" data-t="save_rules"></button><span class="hint" data-t="rules_save_hint"></span></div>
       <div id="ruMsg"></div>
+    </div>
+    <div class="card setpanel" data-p="ipcams" data-scope="pin">
+      <h2 data-t="sec_ipcams"></h2>
+      <p class="hint" data-t="ipc_hint"></p>
+      <div class="settings">
+        <label for="ipcStart" data-t="ipc_start"></label>
+        <input id="ipcStart" autocomplete="off" spellcheck="false">
+        <span class="hint" id="ipcStartNow"></span>
+        <label for="ipcFinish" data-t="ipc_finish"></label>
+        <input id="ipcFinish" autocomplete="off" spellcheck="false">
+        <span class="hint" id="ipcFinishNow"></span>
+        <label for="ipcStation" data-t="ipc_station"></label>
+        <input id="ipcStation" autocomplete="off" spellcheck="false">
+        <span class="hint" id="ipcStationNow"></span>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn amber" style="flex:0 0 auto" onclick="SavedCams.save()" data-t="ipc_save"></button>
+      </div>
+      <div id="ipcMsg"></div>
     </div>
     <div class="card setpanel" data-p="camera" data-scope="station">
       <h2 data-t="sec_camera"></h2>
@@ -1217,6 +1237,18 @@
 /* ============================== i18n ============================== */
 const I18N = {
   en: {
+    ip_no_saved: "Type the camera's address, or save it in Settings > Cameras",
+    ipc_saved_ph: "Saved camera: {a} (leave empty to use it)",
+    ipc_nothing: "Type an address to save (or - to remove one).",
+    ipc_saved: "Camera addresses saved.",
+    ipc_none: "Not saved",
+    ipc_now: "Saved: {a}",
+    ipc_save: "Save camera addresses",
+    ipc_station: "Exercise station camera",
+    ipc_finish: "Finish line camera",
+    ipc_start: "Start line camera",
+    ipc_hint: "The IP cameras' addresses, saved on the station PC: rtsp://user:password@ip:554/Streaming/Channels/101. Screens never see the password; a camera screen whose IP camera box is left empty uses the address saved here. Type a dash (-) to remove one.",
+    sec_ipcams: "Cameras (addresses)",
     rc_run: "3.2 km run",
     rc_pending: "to do",
     rc_pending_all: "NOT FINISHED YET",
@@ -1476,11 +1508,11 @@ const I18N = {
     tt_banner: "Troubleshooting time limit: {t}. Not an official test.",
     set_trouble_run: "Run cut-off (every device)", set_trouble_run_hint: "A short cut-off so a test wave closes quickly (runners still out become DNF). Saved with Save settings; a banner shows on every screen.",
     tt_1: "1 minute", tt_2: "2 minutes", tt_run_banner: "Troubleshooting: run cut-off {t}. Not an official test.",
-    rd_day_title: "Reset today", rd_day_hint: "Deletes today's weigh-ins, waves, finish times and exercise attempts. People and faces in Candidates, the settings and the rules are kept; the audit log keeps a record.",
+    rd_day_title: "Reset today", rd_day_hint: "Deletes today's weigh-ins, run starts, finish times and exercise attempts. People and faces in Candidates, the settings and the rules are kept; the audit log keeps a record.",
     rd_keep: "Keep today's list", rd_keep_d: "Everyone stays on the list, back to 'expected'.", rd_clear: "Clear today's list too", rd_clear_d: "Today starts empty (people stay in Candidates).",
     rd_open: "An exercise attempt is still open for <b>{who}</b> (perhaps being counted now).", rd_stop_reset: "Stop it and reset",
     rd_go: "Reset today", rd_type_date: "Type {d} to confirm", sec_admin_nav: "PIN and reset", e_confirm_date: "Type today's date exactly to reset it",
-    rd_done_keep: "Today is reset: {p} people back to expected, {w} wave(s) and {a} attempt(s) deleted.", rd_done_clear: "Today is reset and its list emptied ({p} people, {w} wave(s), {a} attempt(s)).", nav_device: "This screen", nav_admin: "Security",
+    rd_done_keep: "Today is reset: {p} people back to expected, {a} attempt(s) deleted.", rd_done_clear: "Today is reset and its list emptied ({p} people, {a} attempt(s)).", nav_device: "This screen", nav_admin: "Security",
     set_dots: "Dots in the moving background", set_dots_hint: "Neural Aurora, Mirage and Desert Stars. Fewer dots are calmer and lighter on the PC.", dots_auto: "Auto",
     sec_look: "Appearance", sec_screen: "Theme and motion", sec_sounds_nav: "Sounds", ph_search_settings: "Search settings",
     set_no_match: "No setting matches.", screen_hint: "Only this device: each screen can look and move its own way.",
@@ -1548,6 +1580,18 @@ const I18N = {
     e_override_reason_required: "The count differs from the camera's: give a reason",
   },
   ar: {
+    ip_no_saved: "اكتب عنوان الكاميرا، أو احفظه في الإعدادات > الكاميرات",
+    ipc_saved_ph: "الكاميرا المحفوظة: {a} (اتركه فارغاً لاستخدامها)",
+    ipc_nothing: "اكتب عنواناً للحفظ (أو - للحذف).",
+    ipc_saved: "حُفظت عناوين الكاميرات.",
+    ipc_none: "غير محفوظ",
+    ipc_now: "المحفوظ: {a}",
+    ipc_save: "حفظ عناوين الكاميرات",
+    ipc_station: "كاميرا محطة التمارين",
+    ipc_finish: "كاميرا خط النهاية",
+    ipc_start: "كاميرا خط البداية",
+    ipc_hint: "عناوين كاميرات IP محفوظة على جهاز المحطة: rtsp://user:password@ip:554/Streaming/Channels/101. لا تظهر كلمة المرور على أي شاشة؛ وإذا تُرك حقل كاميرا IP فارغاً تُستخدم العنوان المحفوظ هنا. اكتب (-) لحذف عنوان.",
+    sec_ipcams: "الكاميرات (العناوين)",
     rc_run: "جري 3.2 كم",
     rc_pending: "متبقٍ",
     rc_pending_all: "لم يكتمل بعد",
@@ -1811,7 +1855,7 @@ const I18N = {
     rd_keep: "الإبقاء على قائمة اليوم", rd_keep_d: "يبقى الجميع في القائمة، بحالة «متوقع».", rd_clear: "إفراغ قائمة اليوم أيضاً", rd_clear_d: "يبدأ اليوم فارغاً (يبقى الأشخاص في المرشحين).",
     rd_open: "ما زالت محاولة تمرين مفتوحة لـ <b>{who}</b> (ربما يُعد الآن).", rd_stop_reset: "أوقفها وأعد التعيين",
     rd_go: "إعادة تعيين اليوم", rd_type_date: "اكتب {d} للتأكيد", sec_admin_nav: "الرمز وإعادة التعيين", e_confirm_date: "اكتب تاريخ اليوم بالضبط لإعادة تعيينه",
-    rd_done_keep: "أُعيد تعيين اليوم: {p} شخص عادوا إلى «متوقع»، وحُذفت {w} موجة و{a} محاولة.", rd_done_clear: "أُعيد تعيين اليوم وأُفرغت قائمته ({p} شخص، {w} موجة، {a} محاولة).", nav_device: "هذه الشاشة", nav_admin: "الأمان",
+    rd_done_keep: "أُعيد تعيين اليوم: {p} شخص عادوا إلى «متوقع»، وحُذفت {a} محاولة.", rd_done_clear: "أُعيد تعيين اليوم وأُفرغت قائمته ({p} شخص، {a} محاولة).", nav_device: "هذه الشاشة", nav_admin: "الأمان",
     set_dots: "عدد النقاط في الخلفية المتحركة", set_dots_hint: "الشفق الذكي والسراب ونجوم الصحراء. نقاط أقل أهدأ وأخف على الجهاز.", dots_auto: "تلقائي",
     sec_look: "المظهر", sec_screen: "المظهر والحركة", sec_sounds_nav: "الأصوات", ph_search_settings: "ابحث في الإعدادات",
     set_no_match: "لا يوجد إعداد مطابق.", screen_hint: "لهذا الجهاز فقط: لكل شاشة مظهرها وحركتها.",
@@ -2213,12 +2257,13 @@ const StartCam = {
   live: false, retry: null,
   async attach() {
     clearTimeout(this.retry);
-    if (!$("ipCamUrl").value) $("ipCamUrl").value = load("startCamUrl", "");
+    await SavedCams.load();
+    if (!$("ipCamUrl").value && !SavedCams.has("start")) $("ipCamUrl").value = load("startCamUrl", "");
     let st = null;
     try { st = await api("GET", "/api/startcam"); } catch {}
     this.buttons(st);
     if (!st || !st.available) { msg("sMsg", "bad", t("e_camera_service_offline")); Cam.show(); return; }
-    if (st.config && st.config.source && !$("ipCamUrl").value) $("ipCamUrl").value = st.config.source;
+    if (st.config && st.config.source && !$("ipCamUrl").value && !SavedCams.has("start")) $("ipCamUrl").value = st.config.source;
     if (st.running) await this.watch(); else { msg("sMsg", "warn", t("ip_not_running")); Cam.show(); }
   },
   buttons(st) {
@@ -2246,12 +2291,12 @@ const StartCam = {
     if (Cam.kind === "ipcam") { msg("sMsg", "bad", t("ip_no_picture")); Cam.show(); }
   },
   async start() {
-    const url = $("ipCamUrl").value.trim();
-    if (!/^(rtsp|rtsps|http|https):\/\/\S+$/.test(url)) { msg("sMsg", "bad", t("ip_bad_url")); return; }
-    save("startCamUrl", url);
+    const url = $("ipCamUrl").value.trim(), saved = (!url || url.includes("***")) && SavedCams.has("start");
+    if (!saved && !/^(rtsp|rtsps|http|https):\/\/\S+$/.test(url)) { msg("sMsg", "bad", t(SavedCams.has("start") ? "ip_bad_url" : "ip_no_saved")); return; }
+    if (!saved) save("startCamUrl", url);
     this.detach(); Cam.show();
     try {
-      const st = await api("POST", "/api/startcam/start", { kind: "url", source: url, app_url: location.origin });
+      const st = await api("POST", "/api/startcam/start", saved ? { kind: "saved", app_url: location.origin } : { kind: "url", source: url, app_url: location.origin });
       this.buttons(st);
       await this.watch();
     } catch (e) { msg("sMsg", "bad", err(e)); }
@@ -2917,6 +2962,33 @@ async function lineIdentify(quiet) {
   finally { idBusy = false; }
 }
 
+// ---- camera addresses saved in Settings > Cameras: saved on the server (the screens only see
+// them with the password hidden). A camera screen whose IP camera box is left empty uses it.
+const SavedCams = {
+  v: {}, at: 0,
+  has(which) { return !!(this.v[which] && this.v[which].set); },
+  async load(force) {
+    if (!force && Date.now() - this.at < 30000) return;
+    try { this.v = await api("GET", "/api/settings/cameras"); this.at = Date.now(); } catch { return; }
+    const ph = w => this.has(w) ? t("ipc_saved_ph", { a: this.v[w].address }) : null;
+    for (const [w, inp] of [["start", "ipCamUrl"], ["finish", "fcUrl"], ["station", "scUrl"]]) { const p = ph(w); if (p) $(inp).placeholder = p; }
+    for (const [w, id] of [["start", "ipcStart"], ["finish", "ipcFinish"], ["station", "ipcStation"]]) {
+      $(id).value = ""; $(id).placeholder = this.has(w) ? this.v[w].address : t("ph_cam_url");
+      $(id + "Now").textContent = this.has(w) ? t("ipc_now", { a: this.v[w].address }) : t("ipc_none");
+    }
+  },
+  async save() {
+    const body = {};
+    for (const [w, id] of [["start", "ipcStart"], ["finish", "ipcFinish"], ["station", "ipcStation"]]) {
+      const v = $(id).value.trim();
+      if (v === "-") body[w] = "";            // a dash removes the saved address
+      else if (v) body[w] = v;
+    }
+    if (!Object.keys(body).length) { msg("ipcMsg", "warn", t("ipc_nothing")); return; }
+    try { this.v = await api("PUT", "/api/settings/cameras", body); this.at = 0; await this.load(true); msg("ipcMsg", "ok", t("ipc_saved")); }
+    catch (e) { if (e.code === "admin_pin_required") PinDlg.open(() => this.save()); else msg("ipcMsg", "bad", err(e)); }
+  },
+};
 // ---- the start line run by its camera (IP camera at the start): recognised -> "raise your LEFT
 // hand" -> 3-2-1-GO. The camera process and the server decide (api/startline.py); this panel only
 // shows it, large enough to read from the mark.
@@ -3079,9 +3151,10 @@ const FinishCam = {
   },
   showLine() { $("fcLine").style.top = $("fcLineY").value + "%"; },
   async start() {
-    const k = this.pref.kind || "webcam", source = k === "webcam" ? $("fcWebcam").value : k === "video" ? $("fcVideo").value : $("fcUrl").value.trim();
+    let k = this.pref.kind || "webcam", source = k === "webcam" ? $("fcWebcam").value : k === "video" ? $("fcVideo").value : $("fcUrl").value.trim();
+    if (k === "url" && source === "" && SavedCams.has("finish")) { k = "saved"; source = "saved"; }   // the address saved in Settings
     if (source === "") { msg("fcMsg", "bad", t("fc_pick_source")); return; }
-    Object.assign(this.pref, { [k]: source, line: +$("fcLineY").value, dir: $("fcDir").value }); this.save();
+    if (k !== "saved") Object.assign(this.pref, { [k]: source }); Object.assign(this.pref, { line: +$("fcLineY").value, dir: $("fcDir").value }); this.save();
     this.busy = true; this.render();
     try {
       this.st = { available: true, ...(await api("POST", "/api/finishcam/start", { kind: k, source, line_y: $("fcLineY").value / 100, direction: $("fcDir").value, app_url: location.origin, loop: k === "video" && this.pref.loop !== false })) };
@@ -3262,6 +3335,7 @@ const StationCam = {
     const k = this.pref.kind || "webcam", source = k === "webcam" ? $("scWebcam").value : k === "video" ? $("scVideo").value : $("scUrl").value.trim();
     const c = this.st && this.st.config;
     const use = auto && c ? { kind: c.kind, source: c.source } : { kind: k, source };
+    if ((use.kind === "url" && (use.source === "" || String(use.source).includes("***")) && SavedCams.has("station"))) Object.assign(use, { kind: "saved", source: "saved" });
     if (use.kind === "video" && this.src && !oneMat()) {     // a video belongs to one exercise: switch with it
       const v = this.src.videos.find(x => x.path === use.source);
       const mine = this.pref["video_" + event];   // the video last picked for this exercise, else the first
@@ -4812,7 +4886,7 @@ const SetNav = {
 };
 function openSettings() {
   if (setting("admin_pin_set") && !adminPin()) { PinDlg.open(openSettings); return; }
-  settingsOpen = true; showSettings(); SetNav.addResets(); applyI18n(); SetNav.show(load("setPanel", "rules"));
+  settingsOpen = true; showSettings(); SetNav.addResets(); applyI18n(); SetNav.show(load("setPanel", "rules")); SavedCams.load(true);
   SetNav.defaults().then(() => tuningRows());   // the counting rules' ranges come from the server
   for (const x of ["simple", "advanced"]) $(x).classList.add("hidden");
   $("settingsPage").classList.remove("hidden"); $("setBtn").classList.add("active"); window.scrollTo(0, 0);

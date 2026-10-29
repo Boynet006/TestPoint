@@ -244,3 +244,41 @@ def test_the_combined_station_runs_one_engine_for_both_exercises(svc):
     assert r["running"] and r["config"]["rects"] == [{"name": "S", "rect": [0.0, 0.0, 1.0, 1.0]}]
     cmd = FakeProc.last.cmd
     assert cmd[cmd.index("--station") + 1] == "exercise" and cmd[cmd.index("--exercise") + 1] == "pushup"
+
+
+def test_camera_addresses_saved_in_settings_never_show_the_password(svc, tmp_path, monkeypatch):
+    from testpoint.api.app import create_app
+    monkeypatch.setenv("TESTPOINT_CERT_DIR", str(tmp_path / "no-certs"))
+    service = camhost.create_service(log_dir=tmp_path / "logs4", runner=FakeProc)
+    server = uvicorn.Server(uvicorn.Config(service, host="127.0.0.1", port=8196, log_level="error"))
+    th = threading.Thread(target=server.run, daemon=True)
+    th.start()
+    try:
+        import time
+        for _ in range(50):
+            if server.started:
+                break
+            time.sleep(0.1)
+        app = create_app(db_url=f"sqlite:///{tmp_path / 'e.db'}", web_dir="none", camhost_url="http://127.0.0.1:8196")
+        with TestClient(app) as c:
+            url = "rtsp://admin:example-pw@192.168.250.241:554/Streaming/Channels/101"
+            assert c.get("/api/settings/cameras").json()["start"] == {"set": False, "address": None}
+            r = c.put("/api/settings/cameras", json={"start": url}).json()
+            assert r["start"] == {"set": True, "address": "rtsp://admin:***@192.168.250.241:554/Streaming/Channels/101"}
+            assert "example-pw" not in c.get("/api/settings").text and "example-pw" not in c.get("/api/settings/cameras").text
+            assert c.put("/api/settings/cameras", json={"finish": "ftp://x"}).status_code == 400
+            # "saved": the server starts the real address; the screen gets it without the password
+            st = c.post("/api/startcam/start", json={"kind": "saved", "app_url": "http://127.0.0.1:8000"}).json()
+            assert st["running"] and "example-pw" not in str(st) and "***" in st["config"]["source"]
+            assert FakeProc.last.cmd[FakeProc.last.cmd.index("--source") + 1] == url
+            assert "example-pw" not in c.get("/api/startcam").text
+            # not saved yet: said so
+            r = c.post("/api/finishcam/start", json={"kind": "saved", "app_url": "http://127.0.0.1:8000"})
+            assert r.status_code == 409 and r.json()["detail"]["code"] == "no_saved_camera"
+            # an empty address removes it; the admin PIN guards the change
+            assert c.put("/api/settings/cameras", json={"start": ""}).json()["start"]["set"] is False
+            c.put("/api/settings/admin-pin", json={"pin": "2468"})
+            assert c.put("/api/settings/cameras", json={"start": url}).status_code == 403
+    finally:
+        server.should_exit = True
+        th.join(timeout=5)
