@@ -134,7 +134,8 @@ class FinishCam:
     def __init__(self, detector, line: FinishLine, reader: BibReader | None,
                  tracker: IoUTracker | None = None, evidence: EvidenceWriter | None = None,
                  evidence_folder: str = "run", on_crossing: Callable[[Crossing], None] | None = None,
-                 log: Callable[[str], None] = print, ocr_async: bool = False, faces: bool = True) -> None:
+                 log: Callable[[str], None] = print, ocr_async: bool = False, faces: bool = True,
+                 face_finder: Callable[[np.ndarray], tuple | None] | None = None) -> None:
         """``ocr_async``: read bibs on a worker thread, so a crossing never stalls the frame
         loop (OCR of eight crops takes about a second, and a runner close behind must still
         be tracked). The crossing is then reported when its bib is decided, with its true
@@ -155,8 +156,13 @@ class FinishCam:
         self._pending_clips: list[tuple[float, float, str]] = []
         """``(t_from, t_to, name)``: clips to cut once the frame clock passes ``t_to``."""
         self.faces = faces
+        self.face_finder = face_finder
+        """Finds a face in an upper-body snapshot: (x, y, w, h, score) or None. With it, only
+        snapshots that show a face are kept, the best ones over the whole approach (the face
+        models on the GPU); without it, the last upper-body snapshots before the line."""
         self._heads: dict[int, list[tuple[float, np.ndarray]]] = {}
-        """Per track, the last few upper-body snapshots, spaced in time (newest last)."""
+        """Per track, the face snapshots kept: (time or quality, picture)."""
+        self._head_t: dict[int, float] = {}
 
     CLIP_BEFORE_S = 1.5
     CLIP_AFTER_S = 1.0
@@ -188,6 +194,8 @@ class FinishCam:
         self.line.forget(live)
         for tid in [t for t in self._heads if t not in live]:
             del self._heads[tid]
+        for tid in [t for t in self._head_t if t not in live]:
+            del self._head_t[tid]
         if self.reader is not None:
             self.reader.forget(live)
         return out
@@ -200,16 +208,41 @@ class FinishCam:
     """Snapshots kept per runner, at least this far apart: the last moments before the line, from
     different angles (one where they look down or an arm covers the face is not the only one)."""
 
+    FACE_LOOK_S = 0.12
+    """With a face finder: how often each runner's face is looked for while they approach."""
+    MIN_FACE_PX = 40
+
     def _keep_head(self, track_id: int, frame: np.ndarray, box, t: float = 0.0) -> None:
         shots = self._heads.setdefault(track_id, [])
-        if shots and t - shots[-1][0] < self.FACE_SPACING_S:
+        last = self._head_t.get(track_id)
+        if last is not None and t - last < (self.FACE_LOOK_S if self.face_finder else self.FACE_SPACING_S):
             return
+        self._head_t[track_id] = t
         h, w = frame.shape[:2]
         x0, x1 = max(0, int(box.x0 - 0.1 * box.width)), min(w, int(box.x1 + 0.1 * box.width))
         y0, y1 = max(0, int(box.y0 - 0.05 * box.height)), min(h, int(box.y0 + self.UPPER_SHARE * box.height))
         if x1 - x0 < 24 or y1 - y0 < 24:
             return
         crop = frame[y0:y1, x0:x1]
+        if self.face_finder is not None:
+            found = self.face_finder(crop)
+            if not found:
+                return
+            fx, fy, fw, fh, score = found
+            if min(fw, fh) < self.MIN_FACE_PX:
+                return
+            # the head with room around it, at most 320 wide: plenty for recognition, small to send
+            m = 0.7 * max(fw, fh)
+            hx0, hy0 = max(0, int(fx - m)), max(0, int(fy - m))
+            hx1, hy1 = min(crop.shape[1], int(fx + fw + m)), min(crop.shape[0], int(fy + fh + m))
+            head = crop[hy0:hy1, hx0:hx1]
+            if head.shape[1] > 320:
+                k = 320 / head.shape[1]
+                head = cv2.resize(head, (320, max(1, int(head.shape[0] * k))), interpolation=cv2.INTER_AREA)
+            shots.append((min(fw, fh) * float(score), head.copy()))
+            shots.sort(key=lambda s: -s[0])                   # the clearest faces first
+            del shots[self.FACE_SNAPSHOTS:]
+            return
         if crop.shape[1] > 480:
             k = 480 / crop.shape[1]
             crop = cv2.resize(crop, (480, int(crop.shape[0] * k)))
@@ -339,8 +372,22 @@ def main(argv: list[str] | None = None) -> int:
 
     evidence = EvidenceWriter(args.evidence, [whole_frame("1")], fps=source.fps, keep_s=4.0, pad_s=0.0) if args.evidence else None
     poster = None if args.no_app else CrossingPoster(args.app)
+    finder = None
+    try:
+        from .api.faces import get_engine
+        eng = get_engine()
+
+        def finder(img):
+            rows = eng.detect(img)
+            if len(rows) == 0:
+                return None
+            r = max(rows, key=lambda r: r[2] * r[3])
+            return float(r[0]), float(r[1]), float(r[2]), float(r[3]), float(r[14])
+        print(f"faces looked for on {eng.device}")
+    except Exception as e:          # noqa: BLE001 - no face models: upper-body snapshots as before
+        print(f"face snapshots without a face finder ({e})")
     cam = FinishCam(detector, line, reader, evidence=evidence,
-                    on_crossing=(poster.post if poster else None), ocr_async=True)
+                    on_crossing=(poster.post if poster else None), ocr_async=True, face_finder=finder)
     print(f"finish cam: source {getattr(source, 'display_url', args.source)}  line {args.line} {args.direction}"
           f"  crop {args.crop or 'full'}  app {'off' if args.no_app else args.app}  ocr {'off' if reader is None else 'on'}")
 

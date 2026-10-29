@@ -276,3 +276,22 @@ def test_crossing_payload_defaults():
     c = Crossing(t=12.5, bib=None, confidence=0.0, readings=[])
     p = c.payload(c.wall + 2)
     assert p == {"bib": None, "confidence": 0.0, "readings": [], "latency_s": 2.0, "t": 12.5, "clip": None, "track": 0}
+
+
+def test_the_finish_keeps_the_clearest_faces_of_the_approach():
+    """With a face finder: frames without a face are skipped, the clearest faces are kept."""
+    import numpy as np
+    sizes = iter([None, 50, 30, 90, None, 70, 60, 120, 45])   # face size found in each look (None: no face)
+
+    def finder(img):
+        s = next(sizes)
+        return None if s is None else (10.0, 10.0, float(s), float(s), 0.9)
+
+    cam = FinishCam(detector=None, line=FinishLine(), reader=None, face_finder=finder)
+    frame = np.zeros((1000, 1000, 3), np.uint8)
+    for i in range(9):
+        cam._keep_head(1, frame, Box(100, 100, 500, 900), t=i * 0.2)
+    kept = [q for q, _img in cam._heads[1]]
+    assert len(kept) == FinishCam.FACE_SNAPSHOTS
+    assert kept == sorted(kept, reverse=True) and kept[0] == 120 * 0.9   # 30 px is too small to keep
+    assert all(q >= 45 * 0.9 for q in kept)
