@@ -134,6 +134,7 @@ class SettingsIn(BaseModel):
     lanes: int | None = Field(default=None, ge=1, le=4)
     start_countdown_s: int | None = Field(default=None, ge=0, le=30)
     cancel_window_s: int | None = Field(default=None, ge=0, le=3600)
+    finish_face_threshold: float | None = Field(default=None, ge=0, le=0.8)
     site_name: str | None = Field(default=None, max_length=80)
     default_language: Literal["en", "ar"] | None = None
     trouble_run_cutoff_s: int | None = Field(default=None, ge=0, le=3600)

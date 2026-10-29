@@ -287,3 +287,9 @@ def test_the_finish_matches_faces_at_the_normal_setting_when_few_are_out():
     from testpoint.api import service as S
     assert S.finish_face_match(1) == S.FACE_MATCH["normal"] and S.finish_face_match(10) == S.FACE_MATCH["normal"]
     assert S.finish_face_match(11) == S.FACE_MATCH["strict"]
+
+
+def test_finish_face_match_from_settings():
+    from testpoint.api import service as S
+    assert S.finish_face_match(1, 0.4) == (0.4, S.FACE_MATCH["normal"][1])
+    assert S.finish_face_match(30, 0.33)[0] == 0.33 and S.finish_face_match(30, 0.0) == S.FACE_MATCH["strict"]

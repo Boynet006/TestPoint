@@ -223,6 +223,7 @@ SETTINGS: dict[str, object] = {
     # run start
     "start_countdown_s": 3,      # the 3-2-1 before a runner's GO (their clock starts at GO)
     "cancel_window_s": 120,      # a start can be cancelled without the admin PIN this long; 0 = until the first finisher
+    "finish_face_threshold": 0.0, # face match needed at the finish (0.30-0.60); 0 = automatic (normal while few are out)
     # display
     "site_name": "",             # shown in the header; empty = "Fitness examination station"
     "default_language": "en",    # a device that never chose a language: "en" or "ar"
@@ -1171,7 +1172,10 @@ same as the weigh-in desk): it only has to be told apart from these few, and the
 angle and light make every face score lower than at the desk. With more out, the strict setting."""
 
 
-def finish_face_match(runners_out: int) -> tuple[float, float]:
+def finish_face_match(runners_out: int, setting: float = 0.0) -> tuple[float, float]:
+    """The face match needed at the finish: the Settings value when one is set, else automatic."""
+    if setting:
+        return float(setting), FACE_MATCH["normal"][1]
     return FACE_MATCH["normal"] if runners_out <= FINISH_FEW_OUT else FACE_MATCH["strict"]
 
 
@@ -1196,7 +1200,7 @@ def face_for_crossing(db: Session, day: Day, rules: DayRules, crossing: Crossing
         _audit(db, day, "finish", "face_at_finish", None, crossing_id=crossing.id, outcome="nobody_out_with_a_face")
         db.commit()
         return None
-    threshold, margin = finish_face_match(len(gallery))
+    threshold, margin = finish_face_match(len(gallery), float(get_settings(db).get("finish_face_threshold") or 0))
     m = best = None
     found = 0
     for shot in shots:

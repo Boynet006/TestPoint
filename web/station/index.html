@@ -1052,6 +1052,9 @@
         <label for="setCancelWin" data-t="set_cancel_win"></label>
         <select id="setCancelWin"><option value="120" data-t="min_2"></option><option value="300" data-t="min_5"></option><option value="600" data-t="min_10"></option><option value="1800" data-t="min_30"></option><option value="0" data-t="until_first_finisher"></option></select>
         <span class="hint" data-t="set_cancel_win_hint"></span>
+        <label for="setFinishFace" data-t="set_finish_face"></label>
+        <select id="setFinishFace"><option value="0" data-t="ff_auto"></option><option value="0.3">0.30</option><option value="0.33">0.33</option><option value="0.36">0.36</option><option value="0.4">0.40</option><option value="0.45">0.45</option><option value="0.5">0.50</option><option value="0.55">0.55</option></select>
+        <span class="hint" data-t="set_finish_face_hint"></span>
       </div>
     </div>
     <div class="card setpanel" data-p="station" data-scope="station">
@@ -1242,6 +1245,9 @@
 /* ============================== i18n ============================== */
 const I18N = {
   en: {
+    set_finish_face_hint: "How alike the face at the finish must be to the registration photo to stop a runner's clock. Lower: more runners recognised, more risk of a mix-up; higher: more crossings left for review. Strangers usually score under 0.25.",
+    ff_auto: "Automatic (0.36 while 10 or fewer are out, else 0.45)",
+    set_finish_face: "Finish face match",
     ip_no_saved: "Type the camera's address, or save it in Settings > Cameras",
     ipc_saved_ph: "Saved camera: {a} (leave empty to use it)",
     ipc_nothing: "Type an address to save (or - to remove one).",
@@ -1585,6 +1591,9 @@ const I18N = {
     e_override_reason_required: "The count differs from the camera's: give a reason",
   },
   ar: {
+    set_finish_face_hint: "مدى تشابه الوجه عند خط النهاية مع صورة التسجيل لإيقاف وقت العدّاء. أقل: يُتعرف على عدّائين أكثر مع خطر خلط أكبر؛ أعلى: عبورات أكثر للمراجعة. الغرباء عادة أقل من 0.25.",
+    ff_auto: "تلقائي (0.36 إذا كان في المسار 10 أو أقل، وإلا 0.45)",
+    set_finish_face: "مطابقة الوجه عند النهاية",
     ip_no_saved: "اكتب عنوان الكاميرا، أو احفظه في الإعدادات > الكاميرات",
     ipc_saved_ph: "الكاميرا المحفوظة: {a} (اتركه فارغاً لاستخدامها)",
     ipc_nothing: "اكتب عنواناً للحفظ (أو - للحذف).",
@@ -4488,7 +4497,7 @@ const CamLive = {
 /* ============================== settings ============================== */
 // Station settings from the server (shared by every device); see service.SETTINGS.
 const SETTING_DEFAULTS = { auto_identify: true, camera_background: "off", camera_bg_places: ["weigh", "start", "photo"], backdrop_color: "#8a949e", background_image: null, face_match: "normal", face_required: false, walk_ins: true, default_gender: "M", default_unit: "combat",
-                           bib_start: 1, lanes: 3, start_countdown_s: 3, cancel_window_s: 120, site_name: "", default_language: "en", theme: "night", admin_pin_set: false };
+                           bib_start: 1, lanes: 3, start_countdown_s: 3, cancel_window_s: 120, finish_face_threshold: 0, site_name: "", default_language: "en", theme: "night", admin_pin_set: false };
 const setting = k => (S.settings && k in S.settings ? S.settings[k] : SETTING_DEFAULTS[k]);
 function applySettings(first) {
   if (first && load("lang", null) == null && setting("default_language") !== lang) setLang(setting("default_language"), false);
@@ -4648,7 +4657,7 @@ const SET_FIELDS = {   // input id -> [setting, read, write]
   setAuto: ["auto_identify", v => v === "1", v => (v ? "1" : "0")], setBg: ["camera_background"], setMatch: ["face_match"], setFaceReq: ["face_required", v => v === "1", v => (v ? "1" : "0")],
   setWalk: ["walk_ins", v => v === "1", v => (v ? "1" : "0")], setGender: ["default_gender"], setUnit: ["default_unit"], setBib: ["bib_start", v => parseInt(v, 10)],
   setLanes: ["lanes", v => parseInt(v, 10), String],
-  setCountdown: ["start_countdown_s", v => parseInt(v, 10), String], setCancelWin: ["cancel_window_s", v => parseInt(v, 10), String], setSite: ["site_name", v => v.trim()], setTuning: ["count_tuning", v => JSON.parse(v || "{}"), o => JSON.stringify(o || {})], setTroubleRun: ["trouble_run_cutoff_s", v => parseInt(v, 10) || 0, String], setBgPlaces: ["camera_bg_places", v => (v ? v.split(",") : []), a => (a || []).join(",")], setLang: ["default_language"], setTheme: ["theme"],
+  setCountdown: ["start_countdown_s", v => parseInt(v, 10), String], setCancelWin: ["cancel_window_s", v => parseInt(v, 10), String], setFinishFace: ["finish_face_threshold", v => parseFloat(v) || 0, v => String(+v || 0)], setSite: ["site_name", v => v.trim()], setTuning: ["count_tuning", v => JSON.parse(v || "{}"), o => JSON.stringify(o || {})], setTroubleRun: ["trouble_run_cutoff_s", v => parseInt(v, 10) || 0, String], setBgPlaces: ["camera_bg_places", v => (v ? v.split(",") : []), a => (a || []).join(",")], setLang: ["default_language"], setTheme: ["theme"],
 };
 function showSettings() {
   for (const [id, [k, , out]] of Object.entries(SET_FIELDS)) $(id).value = out ? out(setting(k)) : setting(k);
