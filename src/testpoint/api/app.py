@@ -60,7 +60,7 @@ def entry_out(e: Entry, day: Day | None = None, faces: int | None = None) -> dic
         "weight_kg": e.weight_kg, "height_cm": e.height_cm, "bmi": e.bmi,
         "run_time_s": e.run_time_s, "events": events,
         "standard": {"age": e.age, "band": e.band, "level": e.level},
-        "wave": e.wave.number if e.wave else None,
+        "run_started_at": iso(e.run_started_at),
         "run_grade": e.run_grade, "verdict": S.verdict(e),
     }
     if faces is not None:
@@ -71,7 +71,7 @@ def entry_out(e: Entry, day: Day | None = None, faces: int | None = None) -> dic
 
 
 def crossing_out(c: Crossing) -> dict:
-    return {"id": c.id, "entry_id": c.entry_id, "wave_id": c.wave_id, "at": iso(c.at), "time_s": c.time_s,
+    return {"id": c.id, "entry_id": c.entry_id, "at": iso(c.at), "time_s": c.time_s,
             "bib_read": c.bib_read, "source": c.source, "needs_review": c.needs_review,
             "note": c.note, "note_code": c.note_code, "note_bib": c.note_bib,
             "note_status": c.note_status, "confidence": c.confidence, "clip": c.clip_path}
@@ -129,7 +129,6 @@ class SettingsIn(BaseModel):
     default_unit: Literal["combat", "admin", "special"] | None = None
     bib_start: int | None = Field(default=None, ge=1, le=99999)
     lanes: int | None = Field(default=None, ge=1, le=4)
-    wave_size: int | None = Field(default=None, ge=1, le=200)
     start_countdown_s: int | None = Field(default=None, ge=0, le=30)
     cancel_window_s: int | None = Field(default=None, ge=0, le=3600)
     site_name: str | None = Field(default=None, max_length=80)
@@ -202,10 +201,6 @@ class TagIn(BaseModel):
 
 class DnfIn(BaseModel):
     reason: str
-
-
-class CloseIn(BaseModel):
-    wave_id: int | None = None
 
 
 class CheckinIn(BaseModel):
@@ -359,8 +354,6 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     zone = ZoneInfo(tz or os.environ.get("TESTPOINT_TZ", "Asia/Dubai"))
     rules = rules or DayRules()
     SessionLocal = make_sessionmaker(db_url)
-    with SessionLocal() as _db:
-        S.migrate_single_runs(_db)
     today = today or (lambda: datetime.now(zone).date().isoformat())
 
     app = FastAPI(title="TestPoint station", version="0.3.0")
@@ -432,9 +425,9 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
             db.close()
 
     @app.middleware("http")
-    async def _close_overdue_waves(request: Request, call_next):
-        # Every station polls /api/state every 2 s: a wave past its cut-off is closed here,
-        # under the same lock as every other write, so nobody has to remember to close it.
+    async def _dnf_overdue_runners(request: Request, call_next):
+        # Every station polls /api/state every 2 s: a runner past their cut-off becomes DNF here,
+        # under the same lock as every other write, so nobody has to remember to close the run.
         if request.method == "GET" and request.url.path == "/api/state":
             async with write_lock:
                 await run_in_threadpool(_auto_close)
@@ -521,9 +514,10 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     def state(db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
         s = S.summary(db, day)
         s["run_started_at"] = iso(s["run_started_at"])
-        s["run_closed_at"] = iso(s["run_closed_at"])
-        for w in s["waves"]:
-            w["started_at"], w["closed_at"], w["settles_at"] = iso(w["started_at"]), iso(w["closed_at"]), iso(w["settles_at"])
+        for r in s["runners"]:
+            r["started_at"], r["cutoff_at"] = iso(r["started_at"]), iso(r["cutoff_at"])
+        if s["starting"]:
+            s["starting"]["go_at"] = iso(s["starting"]["go_at"])
         s["server_time"] = iso(S.utcnow())
         return s
 
@@ -727,25 +721,26 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         when they have results; ``forget=true`` for a registration made by mistake."""
         S.remove_entry(db, day, S.get_entry(db, day, entry_id), delete_results=delete_results, forget=forget)
 
-    @app.post("/api/run/waves/{wave_id}/void", dependencies=[Depends(admin)])
-    def run_wave_void(wave_id: int, abort: bool = False, db: Session = Depends(get_db),
-                      day: Day = Depends(get_day)) -> dict:
-        """Take back a wave started by mistake; ``abort=true`` also deletes its finish times
-        (the wave runs again). Either way its people wait for a wave again."""
-        return S.void_wave(db, day, wave_id, abort=abort)
-
     @app.post("/api/run/line/clear")
     def run_line_clear(db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
         return {"cleared": S.clear_line(db, day)}
 
-    @app.post("/api/run/start/cancel")
-    def run_start_cancel(request: Request, late: bool = False, db: Session = Depends(get_db),
-                         day: Day = Depends(get_day)) -> dict:
-        """``late=true``: after the first 2 minutes, an administrator decision (PIN when one is set)."""
+    @app.post("/api/entries/{entry_id}/start")
+    def runner_start(entry_id: int, body: StartIn | None = None, db: Session = Depends(get_db),
+                     day: Day = Depends(get_day)) -> dict:
+        """Start one runner: 3-2-1 (the start_countdown_s setting unless given), then their clock runs."""
+        countdown = body.countdown_s if body and body.countdown_s is not None else int(S.get_settings(db)["start_countdown_s"])
+        e = S.start_runner(db, day, S.rules_for(db, day, rules), S.get_entry(db, day, entry_id), countdown_s=countdown)
+        return entry_out(e, day)
+
+    @app.post("/api/entries/{entry_id}/start/cancel")
+    def runner_start_cancel(entry_id: int, request: Request, late: bool = False, db: Session = Depends(get_db),
+                            day: Day = Depends(get_day)) -> dict:
+        """A start by mistake: back to the line. ``late=true``: after the cancel window, an
+        administrator decision (PIN when one is set)."""
         if late:
             S.check_admin_pin(db, request.headers.get("x-admin-pin"))
-        w = S.cancel_start(db, day, late=late)
-        return {"wave": w.number, "run_started_at": None}
+        return entry_out(S.cancel_start(db, day, S.get_entry(db, day, entry_id), late=late), day)
 
     @app.post("/api/run/crossings/{crossing_id}/tag")
     def run_tag(crossing_id: int, body: TagIn, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
@@ -768,12 +763,6 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     def run_discard(crossing_id: int, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> None:
         S.discard_crossing(db, day, crossing_id)
 
-    @app.post("/api/run/start")
-    def run_start(body: StartIn | None = None, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
-        countdown = body.countdown_s if body and body.countdown_s is not None else 0
-        w = S.start_run(db, day, countdown_s=countdown)
-        return {"wave": w.number, "wave_id": w.id, "run_started_at": iso(w.started_at)}
-
     @app.post("/api/run/finish", status_code=201)
     def run_finish(body: FinishIn, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
         return crossing_out(S.record_finish(db, day, S.rules_for(db, day, rules), body.bib))
@@ -785,9 +774,9 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         return crossing_out(c)
 
     @app.post("/api/run/close")
-    def run_close(body: CloseIn | None = None, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
-        w = S.close_run(db, day, wave_id=body.wave_id if body else None)
-        return {"wave": w.number, "run_closed_at": iso(w.closed_at)}
+    def run_close(db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        """End of the run: everyone still out becomes DNF."""
+        return {"dnf": S.close_run(db, day)}
 
     # ------------------------------------------------------------------ exercises
     @app.post("/api/attempts", status_code=201)

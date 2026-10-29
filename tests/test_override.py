@@ -12,6 +12,7 @@ from testpoint.api import app as app_mod
 from testpoint.api import models
 from testpoint.api.app import create_app
 from testpoint.api.models import Attempt, AuditLog
+from runhelp import start_lined_up
 
 CSV = """external_id,name,bib,gender,dob
 C-1,Ahmed Hassan,11,M,2000-01-01
@@ -71,7 +72,7 @@ def passed(client, monkeypatch):
                        json={"weight_kg": 70, "height_cm": 175, "accept": True}))
         ok(client.post(f"/api/entries/{e['id']}/line-up"))
     t0 = app_mod.S.utcnow()
-    ok(client.post("/api/run/start"))
+    ok(start_lined_up(client))
     for bib in (11, 12):
         monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0 + timedelta(minutes=14))
         ok(client.post("/api/run/finish", json={"bib": str(bib)}), 201)

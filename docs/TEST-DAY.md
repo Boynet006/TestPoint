@@ -45,7 +45,11 @@ device's station type once.
 | Run finish | Laptop/tablet at the finish | Elapsed clock, finishers streaming in (bib, name, time, pass/fail), review-queue counter for unidentified crossings, DNF at cut-off. |
 | Exercise station | Laptop/tablet by the mats | Lane board (3–4 lanes); check-in shows NOT QUALIFIED if the run is not passed. |
 
-## Start: mass start, not waves
+## Start: one runner at a time (superseded)
+
+> Since 2026-10-29 every runner starts on their own: recognised at the line, 3-2-1-GO, their own clock. The section below is the earlier reasoning, kept for the record.
+
+### Earlier: mass start, not waves
 
 The owner wants a marathon-style single start once everyone is lined up.
 Consequences:
