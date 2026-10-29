@@ -35,7 +35,7 @@ ROOT = Path(__file__).resolve().parents[2]
 VIDEO_EXT = {".mp4", ".mov", ".mkv", ".avi", ".webm"}
 VIDEO_GROUPS = ("run", "pushup", "crunch")
 DEFAULT_VIDEO_ROOTS = [ROOT / "data" / "clips", Path.home() / "Desktop" / "TestPoint test videos"]
-APP_URL = re.compile(r"^http://(127\.0\.0\.1|localhost)(:\d{1,5})?$")
+APP_URL = re.compile(r"^https?://(127\.0\.0\.1|localhost)(:\d{1,5})?$")
 CAMERA_URL = re.compile(r"^(rtsp|rtsps|http|https)://\S+$")
 
 
@@ -128,7 +128,7 @@ class StationIn(SourceIn):
 
 def check_source(cfg: SourceIn) -> None:
     if not APP_URL.match(cfg.app_url):
-        raise HTTPException(400, "the app address must be http://127.0.0.1 or localhost")
+        raise HTTPException(400, "the app address must be 127.0.0.1 or localhost on this PC")
     if cfg.kind == "webcam" and not cfg.source.isdigit():
         raise HTTPException(400, "a webcam is chosen by its number")
     if cfg.kind == "video" and cfg.source not in {v["path"] for v in list_videos()}:

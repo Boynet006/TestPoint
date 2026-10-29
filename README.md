@@ -200,6 +200,24 @@ To run it without Docker while developing:
 .venv\Scripts\python.exe -m testpoint.api.app --port 8000 --db sqlite:///data/dev.db
 ```
 
+### HTTPS: cameras on other devices
+
+Browsers allow a camera only on `localhost` or HTTPS pages, so a registration desk or a tablet
+that opens `http://<station PC>:8000` cannot use its webcam. Serve HTTPS instead:
+
+1. On the station PC: `.\scripts\https-cert.ps1` makes TestPoint's own certificate authority
+   and a certificate for this PC's addresses in `data\certs` (again after an IP change; the
+   authority stays, so devices keep trusting it).
+2. Start the app with `--https` (or `TESTPOINT_HTTPS=1`).
+3. Allow TCP 8000 in Windows Firewall for the LAN (as administrator):
+   `New-NetFirewallRule -DisplayName "TestPoint app 8000" -Direction Inbound -Protocol TCP -LocalPort 8000 -RemoteAddress 192.168.250.0/24 -Action Allow`
+4. On each device, once: open `https://<station PC>:8000/testpoint-ca.crt`, open the file,
+   *Install Certificate* → *Local Machine* → *Trusted Root Certification Authorities*, then
+   restart the browser. `https://<station PC>:8000` then opens with no warning and the camera works.
+
+The camera processes on the station PC are always given the app's loopback address
+(`https://127.0.0.1:8000`), whichever device starts them, and skip the certificate check there only.
+
 A sample list to import is in `samples/candidates.csv` (columns
 `external_id,name,name_ar,gender,dob,bib`). The API is documented at
 http://localhost:8080/docs.

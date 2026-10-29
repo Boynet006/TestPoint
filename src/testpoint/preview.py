@@ -26,6 +26,8 @@ from collections.abc import Callable
 import cv2
 import numpy as np
 
+from .applink import ssl_context
+
 FRAME_PATH = "/api/engine/frame/"
 _NO_STATE = object()
 
@@ -99,8 +101,11 @@ class FramePublisher(threading.Thread):
         u = urllib.parse.urlsplit(self.url)
         for attempt in (0, 1):
             if self._conn is None:
-                kind = http.client.HTTPSConnection if u.scheme == "https" else http.client.HTTPConnection
-                self._conn = kind(u.hostname, u.port, timeout=self.timeout_s)
+                if u.scheme == "https":
+                    self._conn = http.client.HTTPSConnection(u.hostname, u.port, timeout=self.timeout_s,
+                                                             context=ssl_context(self.url))
+                else:
+                    self._conn = http.client.HTTPConnection(u.hostname, u.port, timeout=self.timeout_s)
             try:
                 if self._conn.sock is None:
                     self._conn.connect()
