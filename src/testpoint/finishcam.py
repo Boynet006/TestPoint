@@ -74,8 +74,11 @@ class Crossing:
 class CrossingPoster:
     """Sends crossings to the app from a thread, in order, retrying while unreachable."""
 
-    def __init__(self, app_url: str, timeout_s: float = 3.0, log: Callable[[str], None] = print) -> None:
+    def __init__(self, app_url: str, timeout_s: float = 3.0, log: Callable[[str], None] = print,
+                 on_reply: Callable[[Crossing, dict], None] | None = None) -> None:
         self.url = app_url.rstrip("/") + CROSSING_PATH
+        self.on_reply = on_reply
+        """Told what the app made of each crossing (who it was), for the picture."""
         self.timeout_s = timeout_s
         self.log = log
         self.queue: list[Crossing] = []
@@ -120,6 +123,11 @@ class CrossingPoster:
             with self._cv:
                 self.queue.pop(0)
                 self.sent.append(reply)
+            if self.on_reply is not None:
+                try:
+                    self.on_reply(c, reply)
+                except Exception:          # noqa: BLE001 - the picture's label must never stop the reports
+                    pass
 
     def close(self, timeout_s: float = 10.0) -> None:
         with self._cv:
@@ -163,6 +171,8 @@ class FinishCam:
         self._heads: dict[int, list[tuple[float, np.ndarray]]] = {}
         """Per track, the face snapshots kept: (time or quality, picture)."""
         self._head_t: dict[int, float] = {}
+        self.names: dict[int, str] = {}
+        """Per track, who the app said crossed (bib and name), or "to review"; shown on the picture."""
 
     CLIP_BEFORE_S = 1.5
     CLIP_AFTER_S = 1.0
@@ -301,10 +311,11 @@ def draw(frame: np.ndarray, cam: FinishCam, fps: float) -> None:
         crossed = tr.id in cam.line._crossed
         colour = (0, 200, 0) if crossed else (255, 180, 0)      # green: counted; blue: followed, not crossed yet
         cv2.rectangle(frame, (int(b.x0), int(b.y0)), (int(b.x1), int(b.y1)), colour, 2)
-        label = f"#{tr.id} {'crossed' if crossed else 'not crossed yet'}"
+        who = cam.names.get(tr.id)
+        label = f"#{tr.id} " + (f"crossed - {who}" if crossed and who else "crossed" if crossed else "not crossed yet")
         # readable on the screen: the picture is sent at most 960 wide, so the text grows with the camera
-        scale = max(0.6, min(2.6, w / 1000))
-        thick = max(2, int(scale * 1.5))
+        scale = max(0.5, min(1.6, w / 1700))
+        thick = max(1, int(scale * 1.6))
         (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, scale, thick)
         x, y = int(b.x0), max(th + 8, int(b.y0) - 8)
         cv2.rectangle(frame, (x, y - th - 8), (x + tw + 10, y + 6), (0, 0, 0), -1)
@@ -378,7 +389,12 @@ def main(argv: list[str] | None = None) -> int:
             print("bib OCR disabled: pip install rapidocr-onnxruntime", file=sys.stderr)
 
     evidence = EvidenceWriter(args.evidence, [whole_frame("1")], fps=source.fps, keep_s=4.0, pad_s=0.0) if args.evidence else None
-    poster = None if args.no_app else CrossingPoster(args.app)
+    names: dict[int, str] = {}
+
+    def heard(c: Crossing, reply: dict) -> None:
+        r = reply.get("runner")
+        names[c.track_id] = f"{r.get('bib') or ''} {r.get('name') or ''}".strip() if r else "to review" if reply.get("needs_review") else ""
+    poster = None if args.no_app else CrossingPoster(args.app, on_reply=heard)
     finder = None
     try:
         from .api.faces import get_engine
@@ -395,6 +411,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"face snapshots without a face finder ({e})")
     cam = FinishCam(detector, line, reader, evidence=evidence,
                     on_crossing=(poster.post if poster else None), ocr_async=True, face_finder=finder)
+    cam.names = names
     print(f"finish cam: source {getattr(source, 'display_url', args.source)}  line {args.line} {args.direction}"
           f"  crop {args.crop or 'full'}  app {'off' if args.no_app else args.app}  ocr {'off' if reader is None else 'on'}")
 

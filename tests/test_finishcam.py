@@ -216,6 +216,7 @@ def test_camera_crossing_lands_as_result_or_review(client, monkeypatch):
                                                      "clip": "run/000899200-t3.mp4"}), 201)
     assert c["time_s"] == 899.2 and c["source"] == "camera" and c["confidence"] == 0.81
     assert c["clip"] == "run/000899200-t3.mp4" and not c["needs_review"]
+    assert c["runner"] == {"bib": "11", "name": "Ahmed Hassan"}          # who it was, for the camera's picture
     # unreadable bib: review queue, clip kept
     c = ok(client.post("/api/engine/crossing", json={"bib": None, "confidence": 0.0, "clip": "run/x.mp4"}), 201)
     assert c["needs_review"] and c["note_code"] == "no_bib_read" and c["clip"] == "run/x.mp4"

@@ -990,7 +990,11 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
                 else:
                     S.check_finish_face(db, day, c, data, eng)
                 db.refresh(c)
-        return crossing_out(c)
+        out = crossing_out(c)
+        if c.entry_id is not None:          # who it was, for the camera's picture
+            e = db.get(Entry, c.entry_id)
+            out["runner"] = {"bib": e.candidate.bib, "name": e.candidate.name}
+        return out
 
     # ---------------------------------------------------------- finish camera
     # The camera runs on the station PC (testpoint.camhost): this app has no camera access or
