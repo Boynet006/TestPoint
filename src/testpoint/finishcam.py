@@ -298,10 +298,17 @@ def draw(frame: np.ndarray, cam: FinishCam, fps: float) -> None:
     cv2.line(frame, (x0, y0), (x1, y1), (0, 0, 230), 2)
     for tr in cam.last_tracks:
         b = tr.box
-        colour = (0, 200, 0) if tr.id in cam.line._crossed else (255, 180, 0)
+        crossed = tr.id in cam.line._crossed
+        colour = (0, 200, 0) if crossed else (255, 180, 0)      # green: counted; blue: followed, not crossed yet
         cv2.rectangle(frame, (int(b.x0), int(b.y0)), (int(b.x1), int(b.y1)), colour, 2)
-        cv2.putText(frame, f"#{tr.id}", (int(b.x0), max(14, int(b.y0) - 4)),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, colour, 1)
+        label = f"#{tr.id} {'crossed' if crossed else 'not crossed yet'}"
+        # readable on the screen: the picture is sent at most 960 wide, so the text grows with the camera
+        scale = max(0.6, min(2.6, w / 1000))
+        thick = max(2, int(scale * 1.5))
+        (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, scale, thick)
+        x, y = int(b.x0), max(th + 8, int(b.y0) - 8)
+        cv2.rectangle(frame, (x, y - th - 8), (x + tw + 10, y + 6), (0, 0, 0), -1)
+        cv2.putText(frame, label, (x + 5, y), cv2.FONT_HERSHEY_SIMPLEX, scale, colour, thick)
     y = 20
     for c in cam.crossings[-4:]:
         cv2.putText(frame, f"{c.t:7.2f}s  bib {c.bib or '?'}  {c.confidence:.2f}", (8, y),

@@ -832,6 +832,7 @@
       <div class="card" id="fcCard">
         <div class="row" style="align-items:baseline"><h2 style="margin:0" data-t="fc_title"></h2><span class="spacer"></span><span class="pill" id="fcState"></span></div>
         <div class="camlive fcview hidden" id="camLive-finish"><img alt=""><canvas class="fx" id="fxFinish"></canvas><div class="viewer-tag" data-t="cam_view"></div></div>
+        <p class="hint camlegend"><span style="color:#00b4ff">■</span> <span data-t="fc_box_open"></span> &nbsp; <span style="color:#00c800">■</span> <span data-t="fc_box_crossed"></span> &nbsp; <span style="color:#e00000">━</span> <span data-t="fc_box_line"></span></p>
         <div id="fcOffline" class="msg warn hidden" data-t="fc_offline"></div>
         <div id="fcForm">
           <div class="seg" style="margin-top:10px"><button id="fck-webcam" onclick="FinishCam.kind('webcam')" data-t="src_webcam"></button><button id="fck-video" onclick="FinishCam.kind('video')" data-t="src_video"></button><button id="fck-url" onclick="FinishCam.kind('url')" data-t="fc_ipcam"></button></div>
@@ -1247,6 +1248,9 @@
 /* ============================== i18n ============================== */
 const I18N = {
   en: {
+    fc_box_line: "the finish line: a crossing is the bottom of a box (the feet) passing it towards the camera",
+    fc_box_crossed: "counted as crossing (once per person)",
+    fc_box_open: "a person followed, not crossed yet",
     fc_line_applying: "Applying the new line: the camera restarts (a few seconds).",
     ipc_other: "Type an address…",
     set_finish_face_hint: "How alike the face at the finish must be to the registration photo to stop a runner's clock. Lower: more runners recognised, more risk of a mix-up; higher: more crossings left for review. Strangers usually score under 0.25.",
@@ -1595,6 +1599,9 @@ const I18N = {
     e_override_reason_required: "The count differs from the camera's: give a reason",
   },
   ar: {
+    fc_box_line: "خط النهاية: العبور هو مرور أسفل المربع (القدمين) فوقه باتجاه الكاميرا",
+    fc_box_crossed: "احتُسب عبوره (مرة واحدة لكل شخص)",
+    fc_box_open: "شخص متابَع لم يعبر بعد",
     fc_line_applying: "تطبيق الخط الجديد: تُعاد تشغيل الكاميرا (ثوانٍ قليلة).",
     ipc_other: "اكتب عنواناً…",
     set_finish_face_hint: "مدى تشابه الوجه عند خط النهاية مع صورة التسجيل لإيقاف وقت العدّاء. أقل: يُتعرف على عدّائين أكثر مع خطر خلط أكبر؛ أعلى: عبورات أكثر للمراجعة. الغرباء عادة أقل من 0.25.",
