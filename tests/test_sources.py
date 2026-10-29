@@ -1,7 +1,11 @@
 import numpy as np
 import pytest
 
-from testpoint.vision.sources import RtspSource, SourceError, is_rtsp, redact_url
+import socket
+import threading
+
+from testpoint.vision import sources
+from testpoint.vision.sources import RtspSource, SourceError, is_rtsp, redact_url, rtsp_login_check
 
 URL = "rtsp://admin:secret@192.168.1.64:554/Streaming/Channels/101"
 
@@ -197,3 +201,39 @@ def test_realtime_video_on_repeat_starts_again():
     assert got == [0, 1, 2, 0, 1, 2, 0] and vid.loops == 2
     once = RealtimeVideo(Inner(3), clock=lambda: now["t"], sleep=sleep)
     assert [once.read() for _ in range(4)] == [0, 1, 2, None]
+
+def _fake_camera(second_answer: bytes) -> int:
+    """A one-shot RTSP server: asks for digest auth, then gives ``second_answer``."""
+    srv = socket.socket()
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(1)
+
+    def run():
+        conn, _ = srv.accept()
+        conn.recv(4096)
+        conn.sendall(b'RTSP/1.0 401 Unauthorized\r\nCSeq: 1\r\nWWW-Authenticate: Digest realm="IP Camera", nonce="abc"\r\n\r\n')
+        assert b'response="' in conn.recv(4096)
+        conn.sendall(second_answer)
+        conn.close()
+        srv.close()
+
+    threading.Thread(target=run, daemon=True).start()
+    return srv.getsockname()[1]
+
+
+def test_login_check_tells_a_wrong_password_from_a_right_one():
+    port = _fake_camera(b"RTSP/1.0 401 Unauthorized\r\nCSeq: 2\r\n\r\n")
+    assert rtsp_login_check(f"rtsp://admin:wrong@127.0.0.1:{port}/s") is False
+    port = _fake_camera(b"RTSP/1.0 200 OK\r\nCSeq: 2\r\n\r\n")
+    assert rtsp_login_check(f"rtsp://admin:right@127.0.0.1:{port}/s") is True
+    assert rtsp_login_check("rtsp://127.0.0.1:1/s") is None            # no password to check
+    assert rtsp_login_check("rtsp://a:b@127.0.0.1:1/s", 1) is None     # nobody answering
+
+
+def test_wrong_password_stops_at_once_without_retrying(monkeypatch):
+    monkeypatch.setattr(sources, "rtsp_login_check", lambda url: False)
+    opened = []
+    monkeypatch.setattr(RtspSource, "_open_capture", lambda self, url: opened.append(url))
+    with pytest.raises(SourceError, match="401"):
+        RtspSource("rtsp://admin:example-pw@10.0.0.1/s", sleep=lambda s: None, log=lambda m: None)
+    assert opened == []
