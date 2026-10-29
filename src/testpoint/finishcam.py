@@ -58,9 +58,9 @@ class Crossing:
     wall: float = field(default_factory=time.time)
     """Wall-clock time the crossing was detected (the frame after the line)."""
     face_jpegs: list[bytes] = field(default_factory=list, repr=False)
-    """Snapshots of the runner's upper body just before the line, sent only when the bib was not
-    read with confidence: the app looks for the face in each and compares it with the runners
-    still out (they are not stored)."""
+    """Snapshots of the runner's upper body just before the line, always sent: the app recognises
+    the face among the runners still out, and a bib read that disagrees with the face goes to
+    the examiner (the pictures are not stored)."""
 
     def payload(self, now: float | None = None) -> dict:
         now = time.time() if now is None else now
@@ -199,8 +199,6 @@ class FinishCam:
     FACE_SPACING_S = 0.3
     """Snapshots kept per runner, at least this far apart: the last moments before the line, from
     different angles (one where they look down or an arm covers the face is not the only one)."""
-    FACE_SEND_BELOW = 0.9
-    """A bib read with less confidence than this also sends the face, as a second opinion."""
 
     def _keep_head(self, track_id: int, frame: np.ndarray, box, t: float = 0.0) -> None:
         shots = self._heads.setdefault(track_id, [])
@@ -236,7 +234,7 @@ class FinishCam:
                 heads: list[np.ndarray] | None = None) -> Crossing:
         result = self.reader.read_crops(crops) if self.reader is not None else BibResult(None, 0.0, [])
         faces = []
-        if heads and (result.bib is None or result.confidence < self.FACE_SEND_BELOW):
+        if heads:
             for head in heads:
                 ok, buf = cv2.imencode(".jpg", head, [cv2.IMWRITE_JPEG_QUALITY, 88])
                 if ok:

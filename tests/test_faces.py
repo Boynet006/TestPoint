@@ -251,3 +251,33 @@ def test_very_sure_matches_at_stations_add_a_template_in_the_venue_light(client)
     assert client.post("/api/face/identify?station=lineup", content=b"face:A:x:venue:blurry").json()["adapted"] is False
     # the photo shown stays the registration one
     assert client.get(f"/api/entries/{i['11']}/face.jpg").content.endswith(b"sharp") and b"venue" not in client.get(f"/api/entries/{i['11']}/face.jpg").content
+
+
+def test_finish_face_and_bib_must_agree(client, monkeypatch):
+    """The bib read names a runner, but the face is clearly someone else still out: review."""
+    import base64
+    from datetime import timedelta
+
+    from testpoint.api import app as app_mod
+    i = ids(client)
+    for bib, who in (("11", b"A"), ("12", b"B")):
+        client.post(f"/api/entries/{i[bib]}/face", content=b"face:" + who)
+        client.patch(f"/api/entries/{i[bib]}/candidate", json={"gender": "M", "dob": "2000-01-01"})
+        client.post(f"/api/entries/{i[bib]}/weigh-in", json={"weight_kg": 70, "height_cm": 175, "accept": True})
+        client.post(f"/api/entries/{i[bib]}/line-up")
+    t0 = models.utcnow()
+    monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0)
+    start_lined_up(client)
+    monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0 + timedelta(minutes=15))
+    face = lambda b: base64.b64encode(b).decode()
+    # bib 12 read, but it is A (11) crossing: back to review, A suggested, 12 still out
+    c = client.post("/api/engine/crossing", json={"bib": "12", "faces": [face(b"face:A")]}).json()
+    assert c["needs_review"] and c["entry_id"] is None and c["note_code"] == "face_bib_disagree" and c["note_bib"] == "11"
+    assert client.get(f"/api/entries/{i['12']}").json()["status"] == "running"
+    assert client.get(f"/api/entries/{i['11']}").json()["status"] == "running"
+    # bib and face agree: recorded
+    c = client.post("/api/engine/crossing", json={"bib": "12", "faces": [face(b"face:B")]}).json()
+    assert not c["needs_review"] and c["entry_id"] == i["12"]
+    # no face in the snapshots: the bib alone decides
+    c = client.post("/api/engine/crossing", json={"bib": "11", "faces": [face(b"none")]}).json()
+    assert not c["needs_review"] and c["entry_id"] == i["11"]
