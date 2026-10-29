@@ -5,6 +5,7 @@ face also needs a picture with one face: TESTPOINT_FACE_SAMPLE=<path to a photo>
 """
 
 import os
+from itertools import pairwise
 from pathlib import Path
 
 import numpy as np
@@ -20,7 +21,7 @@ needs_gpu = pytest.mark.skipif(not (face_gpu.cuda_available() and (MODELS / "fac
 def test_tiles_cover_the_picture_with_overlap():
     assert face_gpu._starts(640) == [0] and face_gpu._starts(300) == [0]
     s = face_gpu._starts(1280)
-    assert s[0] == 0 and s[-1] == 1280 - 640 and all(b - a <= 640 * 0.75 for a, b in zip(s, s[1:]))
+    assert s[0] == 0 and s[-1] == 1280 - 640 and all(b - a <= 640 * 0.75 for a, b in pairwise(s))
 
 
 @needs_gpu
