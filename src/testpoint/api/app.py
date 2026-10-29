@@ -961,6 +961,10 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         suggested; no usable bib: the face among the runners still out names them; neither: review.
         Either way with the evidence clip."""
         at = S.utcnow() - timedelta(seconds=body.latency_s)
+        if not S.running_entries(db, day, at):
+            # nobody out on the course: whoever the camera saw is not a runner (an official,
+            # someone walking past); nothing for the review queue
+            return {"ignored": True, "reason": "nobody_running"}
         r = S.rules_for(db, day, rules)
         c = S.record_finish(db, day, r, body.bib, now=at, source="camera",
                             confidence=body.confidence, clip_path=body.clip)

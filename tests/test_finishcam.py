@@ -49,7 +49,8 @@ def test_line_crossing_is_interpolated_and_counted_once():
     line = FinishLine((0, 0.5, 1, 0.5), "down")       # horizontal line at mid height
     tr = IoUTracker()
     w, h = 1000, 1000
-    # feet at y=460 then 520: the line (500) is crossed 2/3 of the way between the frames
+    # coming from y=400, feet at y=460 then 520: the line (500) is crossed 2/3 of the way between the frames
+    tr.update([Box(100, 100, 140, 400)], 0.7)
     tr.update([Box(100, 160, 140, 460)], 1.0)
     tr.update([Box(100, 220, 140, 520)], 1.3)
     events = line.check(tr.tracks, w, h)
@@ -61,6 +62,7 @@ def test_line_crossing_is_interpolated_and_counted_once():
     assert line.check(tr.tracks, w, h) == []
     # a new track crossing upwards is ignored with direction "down"
     tr2 = IoUTracker()
+    tr2.update([Box(500, 320, 540, 620)], 1.7)
     tr2.update([Box(500, 260, 540, 560)], 2.0)
     tr2.update([Box(500, 180, 540, 480)], 2.3)
     assert line.check(tr2.tracks, w, h) == []
@@ -76,9 +78,20 @@ def test_line_first_frame_and_unconfirmed_tracks_do_not_cross():
     assert line.check(tr.tracks, 100, 1000) == []       # never seen before the line
 
 
+def test_someone_sitting_or_shifting_on_the_line_is_not_a_crossing():
+    """A person at a desk under the line: their box edge wobbles across it without coming from
+    anywhere. Only someone who came from before the line and moved through it counts."""
+    line = FinishLine((0, 0.5, 1, 0.5), "down")
+    tr = IoUTracker()
+    for i, y in enumerate((490, 497, 503, 495, 506, 499, 508)):
+        tr.update([Box(100, y - 300, 140, y)], i * 0.1)
+        assert line.check(tr.tracks, 1000, 1000) == []
+
+
 def test_vertical_line_directions():
     line = FinishLine((0.5, 0, 0.5, 1), "right")
     tr = IoUTracker()
+    tr.update([Box(360, 0, 520, 100)], -0.5)            # coming from x=440
     tr.update([Box(400, 0, 560, 100)], 0.0)
     tr.update([Box(440, 0, 600, 100)], 0.5)             # feet x 480 -> 520 across x=500
     ev = line.check(tr.tracks, 1000, 1000)
@@ -192,10 +205,10 @@ def test_camera_crossing_lands_as_result_or_review(client, monkeypatch):
     t0 = app_mod.S.utcnow()
     monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0)
     ok(start_lined_up(client))
-    # a crossing timed before the start is refused
+    # a crossing timed before anyone started: nobody was out, so it is not a runner (ignored)
     monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0 + timedelta(seconds=30.0))
     r = client.post("/api/engine/crossing", json={"bib": "12", "latency_s": 59})
-    assert r.status_code == 409 and r.json()["detail"]["code"] == "before_start"
+    assert r.status_code == 201 and r.json() == {"ignored": True, "reason": "nobody_running"}
     monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0 + timedelta(seconds=900.0))
 
     # known running bib, seen 0.8 s before the report: a result stamped at the true instant

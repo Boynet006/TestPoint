@@ -217,9 +217,9 @@ def test_finish_camera_face_fallback(client, monkeypatch):
     # several snapshots: the one with a face counts (12 = B is still out)
     c = client.post("/api/engine/crossing", json={"bib": None, "faces": [face(b"none"), face(b"face:B")]}).json()
     assert not c["needs_review"] and c["entry_id"] == i["12"]
-    # a readable bib wins; the face is not used
+    # everyone is in now: the camera's crossings are not runners and are not queued for review
     c = client.post("/api/engine/crossing", json={"bib": "12", "face": face(b"face:A")}).json()
-    assert c["needs_review"] and c["note_code"] == "bib_not_running"            # 12 already finished above
+    assert c == {"ignored": True, "reason": "nobody_running"}
 
 
 def test_burst_enrolment_keeps_the_best_frame_and_refuses_poor_ones(client):
