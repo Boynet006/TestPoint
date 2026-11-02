@@ -55,6 +55,11 @@ def test_sources_and_start_stop(svc):
     assert cmd[1:3] == ["-m", "testpoint.finishcam"] and "--realtime" in cmd
     assert cmd[cmd.index("--line") + 1] == "0,0.7,1,0.7" and cmd[cmd.index("--app") + 1] == "http://127.0.0.1:8080"
     first = FakeProc.last
+    # asked again with the same settings: left running, not restarted
+    since = c.get("/finish").json()["since"]
+    again = c.post("/finish/start", json={"kind": "video", "source": video, "line_y": 0.7, "direction": "down",
+                                           "app_url": "http://127.0.0.1:8080"}).json()
+    assert FakeProc.last is first and again["since"] == since
     # a webcam replaces it (one finish camera at a time)
     assert c.post("/finish/start", json={"kind": "webcam", "source": "0", "app_url": "http://localhost:8001"}).json()["running"]
     assert first.code == 0 and "--realtime" not in FakeProc.last.cmd

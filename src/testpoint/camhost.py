@@ -174,11 +174,16 @@ class CamProcess:
         self.runner = runner
         self.proc = None
         self.config: dict | None = None
+        self.cmd: list[str] | None = None
         self.since: float | None = None
         self.lock = threading.Lock()
 
     def start(self, cmd: list[str], config: dict) -> dict:
+        """Start the process; the same command while it runs is left running (a page asking again
+        must not restart the camera: every restart costs seconds of model loading and picture)."""
         with self.lock:
+            if self.proc is not None and self.proc.poll() is None and cmd == self.cmd and config == self.config:
+                return self.status()
             self._stop()
             self.log_dir.mkdir(parents=True, exist_ok=True)
             flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
@@ -186,7 +191,7 @@ class CamProcess:
             env = {**os.environ, "PYTHONUNBUFFERED": "1"}
             self.proc = self.runner(cmd, cwd=str(ROOT), stdout=out, stderr=subprocess.STDOUT, creationflags=flags, env=env)
             out.close()
-            self.config = config
+            self.config, self.cmd = config, cmd
             self.since = time.time()
         return self.status()
 
