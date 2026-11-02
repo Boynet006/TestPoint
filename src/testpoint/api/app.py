@@ -1293,6 +1293,16 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         station_flow(db, day).reset(wall())
         return {"state": "idle"}
 
+    @app.post("/api/attempts/{attempt_id}/redo", dependencies=[Depends(admin)])
+    def attempt_redo(attempt_id: int, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        """Take a saved exercise result back: the person does that test again (admin PIN when set)."""
+        e = S.redo_attempt(db, day, S.rules_for(db, day, rules), attempt_id)
+        flow = station_flow(db, day)
+        flow.recent.pop(e.id, None)     # the camera may recognise them again at once
+        if flow.entry_id == e.id:
+            flow.reset(wall())
+        return entry_out(e, day)
+
     @app.get("/api/lanes")
     def lanes(station: str, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
         """The live picture for the station tablet: engine health and per-lane counts."""

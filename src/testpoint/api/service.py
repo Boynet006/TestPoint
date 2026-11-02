@@ -672,7 +672,7 @@ def results_for(entry: Entry) -> dict:
     for ev in EVENTS:
         a = finished.get(ev)
         tests.append({"test": ev, "value": a.count if a else None, "grade": a.grade if a else None,
-                      "passed": a.passed if a else None, "dnf": False})
+                      "passed": a.passed if a else None, "dnf": False, "attempt_id": a.id if a else None})
     return {"entry_id": entry.id, "status": entry.status, "verdict": verdict(entry), "level": level,
             "band": entry.band, "age": entry.age, "complete": entry.status == J.COMPLETE, "tests": tests}
 
@@ -1468,6 +1468,34 @@ def cancel_attempt(db: Session, day: Day, attempt_id: int) -> None:
     attempt.ended_at = utcnow()
     _audit(db, day, attempt.event, "cancel_attempt", attempt.entry, attempt_id=attempt.id)
     db.commit()
+
+
+def redo_attempt(db: Session, day: Day, rules: DayRules, attempt_id: int) -> Entry:
+    """A saved exercise result is taken back so the person can do the test again (it went wrong,
+    e.g. they were not ready): the attempt and its reps are deleted, the audit log keeps a copy."""
+    attempt = db.get(Attempt, attempt_id)
+    if attempt is None or attempt.entry.day_id != day.id:
+        raise ServiceError("not_found", f"attempt {attempt_id} not found", 404)
+    if attempt.status != "finished":
+        raise ServiceError("attempt_not_finished", "only a saved result can be done again", 409)
+    entry = attempt.entry
+    _audit(db, day, attempt.event, "redo_attempt", entry, attempt_id=attempt.id, count=attempt.count,
+           rejected=attempt.rejected, grade=attempt.grade, passed=attempt.passed, auto_count=attempt.auto_count,
+           auto_rejected=attempt.auto_rejected, override_reason=attempt.override_reason, reps=len(attempt.reps))
+    for r in list(attempt.reps):
+        db.delete(r)
+    db.delete(attempt)
+    db.flush()
+    db.expire(entry, ["attempts"])
+    if entry.status == J.COMPLETE:      # both exercises were done: back to how the run went
+        if entry.run_time_s is None:
+            entry.status = J.DNF
+        else:
+            band = rules.find_band(entry.band)
+            pass_s = band.run_s[GRADES.index(entry.level)] if band and entry.level in GRADES else None
+            entry.status = J.after_finish(entry.run_time_s, pass_s, rules.run_cutoff_s)
+    db.commit()
+    return entry
 
 
 # ------------------------------------------------------------------ engine link

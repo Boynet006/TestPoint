@@ -1282,6 +1282,8 @@ const I18N = {
     r_results: "Results",
     e_all_done: "Push-ups and crunches are both done",
     st_reset: "Reset",
+    st_redo: "Redo this test",
+    e_attempt_not_finished: "Only a saved result can be done again",
     st_all_done: "All tests done",
     st_come_back: "Take a break: come back for the next test",
     st_left_position: "Back into the start position",
@@ -1636,6 +1638,8 @@ const I18N = {
     r_results: "النتائج",
     e_all_done: "أُنجز الضغط والبطن كلاهما",
     st_reset: "إعادة",
+    st_redo: "إعادة هذا الاختبار",
+    e_attempt_not_finished: "يمكن إعادة النتيجة المحفوظة فقط",
     st_all_done: "اكتملت جميع الاختبارات",
     st_come_back: "استرح: عد للاختبار التالي",
     st_left_position: "عد إلى وضعية البداية",
@@ -3945,7 +3949,8 @@ const StationCall = {
     } else {
       body = `<div><div class="c-say">${esc(t(v.engine ? "st_step_up" : "st_no_camera"))}</div>${v.reason ? `<div class="hint">${esc(t("st_" + v.reason))}</div>` : ""}</div>`;
     }
-    const reset = v.state !== "idle" ? `<div style="grid-column:1/-1;text-align:end"><button class="btn ghost sm" onclick="StationCall.reset()">${esc(t("st_reset"))}</button></div>` : "";
+    const redo = v.state === "done" && v.attempt_id ? `<button class="btn ghost sm" onclick="StationCall.redo(${v.attempt_id}, this)">${esc(t("st_redo"))}</button> ` : "";
+    const reset = v.state !== "idle" ? `<div style="grid-column:1/-1;text-align:end">${redo}<button class="btn ghost sm" onclick="StationCall.reset()">${esc(t("st_reset"))}</button></div>` : "";
     const html = (cls === "" ? "<span></span>" : photo) + body + reset, sig = cls + html;
     box.classList.remove("hidden");
     if (sig !== this.sig) { box.className = "callbox " + cls; box.innerHTML = html; this.sig = sig; }
@@ -3957,6 +3962,13 @@ const StationCall = {
     this.last = v.state;
   },
   async reset() { try { await api("POST", "/api/stationflow/reset"); } catch (e) { msg("scMsg", "bad", err(e)); } this.poll(); },
+  // A saved result taken back: the person does the test again (second press confirms).
+  redo(id, btn) {
+    confirmClick("redo" + id, btn, async () => {
+      try { await api("POST", `/api/attempts/${id}/redo`); refresh(); } catch (e) { msg("scMsg", "bad", err(e)); }
+      this.poll();
+    });
+  },
 };
 
 // ---- the results card: the person's day, large; on the Results screen and on any camera that
@@ -3970,16 +3982,24 @@ const ResultsCard = {
     this.shown[entryId] = Date.now();
     const e = r.entry, c = e.candidate, v = r.verdict || "pending";
     const val = x => x.test === "run" ? (x.dnf ? "DNF" : x.value != null ? mmss(x.value) : "—") : (x.value ?? "—");
+    const redoable = role === "station" || mode === "advanced";   // the examiner's, not on the candidates' results screen
     const mark = x => x.passed === true ? `<span style="color:var(--go)">✓ ${esc(gradeTxt(x.grade))}</span>` : x.passed === false ? `<span style="color:var(--bad)">✗ ${esc(gradeTxt(x.grade))}</span>` : `<span class="hint">${esc(t("rc_pending"))}</span>`;
     $("rcBody").innerHTML = `<div class="rc-head">${e.faces ? `<img src="/api/entries/${e.id}/face.jpg" alt="">` : "<span></span>"}`
       + `<div><div class="rc-name">${esc(c.bib ?? "")} · ${esc(cname(c))}</div><div class="hint">${r.level ? esc(t("std_needs", { level: r.level })) : ""}</div>`
       + `<div class="rc-verdict ${v === "pass" ? "pass" : v === "fail" ? "fail" : "pending"}">${esc(t("rc_" + (["pass", "fail"].includes(v) ? v : "pending_all")))}</div></div></div>`
-      + `<table>${r.tests.map(x => `<tr><td>${esc(t(x.test === "run" ? "rc_run" : x.test))}</td><td class="v">${esc(String(val(x)))}</td><td style="text-align:end">${mark(x)}</td></tr>`).join("")}</table>`;
+      + `<table>${r.tests.map(x => `<tr><td>${esc(t(x.test === "run" ? "rc_run" : x.test))}</td><td class="v">${esc(String(val(x)))}</td><td style="text-align:end">${mark(x)}</td>${redoable ? `<td style="text-align:end">${x.attempt_id ? `<button class="btn ghost sm" onclick="ResultsCard.redo(${x.attempt_id}, ${e.id}, this)">${esc(t("st_redo"))}</button>` : ""}</td>` : ""}</tr>`).join("")}</table>`;
     $("resultsDlg").showModal();
     if (v === "pass") Sound.done?.(); 
     clearTimeout(this.timer); this.timer = setTimeout(() => this.close(), ms);
   },
   close() { clearTimeout(this.timer); if (this.isOpen()) $("resultsDlg").close(); },
+  redo(id, entryId, btn) {
+    confirmClick("redo" + id, btn, async () => {
+      try { await api("POST", `/api/attempts/${id}/redo`); }
+      catch (e) { btn.textContent = err(e); return; }
+      this.close(); this.shown[entryId] = 0; refresh(); this.show(entryId);
+    });
+  },
 };
 async function resultsIdentify(quiet) {
   if (idBusy) return; idBusy = true;

@@ -568,3 +568,35 @@ def test_results_card_lists_every_test_against_the_level(client, monkeypatch):
     assert run["value"] == 840.0 and run["passed"] is True
     assert (push["value"], push["passed"]) == (45, True) and (crunch["value"], crunch["passed"]) == (10, False)
     assert r["entry"]["candidate"]["bib"] == "11"
+
+
+def test_redo_takes_a_saved_exercise_back(client, monkeypatch):
+    ok(client.post("/api/entries/import", content=CSV.encode()))
+    e = entry_by_bib(client, 11)
+    ok(client.post(f"/api/entries/{e['id']}/weigh-in", json={"weight_kg": 72, "height_cm": 176, "accept": True}))
+    ok(client.post(f"/api/entries/{e['id']}/line-up"))
+    t0 = models.utcnow()
+    monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0)
+    start_lined_up(client)
+    monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0 + timedelta(minutes=14))
+    ok(client.post("/api/run/finish", json={"bib": "11"}), 201)
+    ran = ok(client.get(f"/api/entries/{e['id']}/results"))["status"]
+    ids = {}
+    for ev, n in (("pushup", 0), ("crunch", 50)):
+        a = ok(client.post("/api/attempts", json={"entry_id": e["id"], "event": ev, "lane": "1"}), 201)
+        ok(client.post(f"/api/attempts/{a['id']}/finish", json={"count": n}))
+        ids[ev] = a["id"]
+    r = ok(client.get(f"/api/entries/{e['id']}/results"))
+    assert r["complete"] and [t.get("attempt_id") for t in r["tests"][1:]] == [ids["pushup"], ids["crunch"]]
+
+    ok(client.post(f"/api/attempts/{ids['pushup']}/redo"))
+    r = ok(client.get(f"/api/entries/{e['id']}/results"))
+    run, push, crunch = r["tests"]
+    assert not r["complete"] and r["status"] == ran            # the run outcome is back, its time kept
+    assert run["value"] == 840.0 and push["value"] is None and crunch["value"] == 50
+    assert client.post(f"/api/attempts/{ids['pushup']}/redo").status_code == 404      # already gone
+    # they can do it again
+    a = ok(client.post("/api/attempts", json={"entry_id": e["id"], "event": "pushup", "lane": "1"}), 201)
+    assert client.post(f"/api/attempts/{a['id']}/redo").status_code == 409             # still running
+    ok(client.post(f"/api/attempts/{a['id']}/finish", json={"count": 45}))
+    assert ok(client.get(f"/api/entries/{e['id']}/results"))["complete"]
