@@ -461,23 +461,28 @@
   .callbox .c-time { font-family: var(--cond); font-size: 120px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
   .callbox .c-time.low { color: var(--bad); }
   .callbox .c-label { font-family: var(--cond); font-size: 18px; color: var(--muted); }
-  /* One mat: everything on one screen, the picture as large as the window leaves room for. */
-  main:has(#stOne:not(.hidden):not(#v-station.hidden #stOne)) { max-width: none; padding-block: 8px 0; }
-  #stOne { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr); gap: 12px; height: calc(100vh - var(--st-top, 80px) - 10px); }
+  /* One mat: two columns like the start and finish screens. "Full screen" (st-fit, a toggle kept on the
+     device): the whole window, the picture as large as the room left, no scrolling. */
+  #stOne { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr); gap: 12px; align-items: start; }
   #stOne.hidden { display: none; }
-  #stOne > * { min-height: 0; overflow: auto; } #stOne .card { padding: 10px 12px; } #stOne .callbox { margin-top: 8px; padding: 8px 12px; }
-  #stOne .stmain { display: flex; flex-direction: column; }
+  #stOne .card { padding: 10px 12px; } #stOne .callbox { margin-top: 8px; padding: 8px 12px; }
   #stOne .stcol { display: flex; flex-direction: column; gap: 12px; } #stOne .stcol > * { margin: 0; flex: 0 0 auto; }
-  #stOne .callbox img { width: 72px; height: 90px; } #stOne .callbox .c-say { font-size: clamp(24px, 3.4vh, 42px); }
-  #stOne .callbox .c-num, #stOne .callbox .c-time { font-size: clamp(64px, 11vh, 120px); }
-  #stOne .search { margin-top: 8px !important; } #stOne .hint { margin: 4px 0; }
-  #scOnePic { flex: 1 1 0; min-height: 120px; display: flex; } #scOnePic .scview { flex: 1; display: flex; min-width: 0; min-height: 0; margin-top: 6px; }
-  #scOnePic .camlive { width: 100%; height: 100%; margin: 0; display: flex; align-items: center; justify-content: center; background: var(--view); }
-  #scOnePic .camlive.hidden { display: none; }
-  #scOnePic .camlive img { width: 100%; height: 100%; max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
-  #xTuneSlot .ltgrid { row-gap: 4px; } #xTuneSlot label { font-size: 14px; line-height: 1.15; } #xTuneSlot .seg { margin-bottom: 6px !important; }
-  body.st-one { overflow: hidden; }
-  @media (max-width: 1100px) { #stOne { display: block; height: auto; } #stOne > * { overflow: visible; margin-bottom: 12px; } #scOnePic { display: block; } #scOnePic .camlive img { height: auto; } body.st-one { overflow: auto; } }
+  #stOne .callbox img { width: 72px; height: 90px; } #stOne .search { margin-top: 8px !important; } #stOne .hint { margin: 4px 0; }
+  #scOnePic .scview { display: block; margin-top: 6px; } #scOnePic .camlive { margin: 0; } #scOnePic .camlive.hidden { display: none; }
+  #scOnePic .camlive img { width: 100%; height: auto; max-width: 100%; max-height: none; display: block; }
+  body.st-fit main { max-width: none; padding-block: 8px 0; }
+  body.st-fit { overflow: hidden; }
+  body.st-fit #stOne { height: calc(100vh - var(--st-top, 80px) - 10px); align-items: stretch; }
+  body.st-fit #stOne > * { min-height: 0; overflow: auto; }
+  body.st-fit #stOne .stmain { display: flex; flex-direction: column; }
+  body.st-fit #stOne .callbox .c-say { font-size: clamp(24px, 3.4vh, 42px); }
+  body.st-fit #stOne .callbox .c-num, body.st-fit #stOne .callbox .c-time { font-size: clamp(64px, 11vh, 120px); }
+  body.st-fit #scOnePic { flex: 1 1 0; min-height: 120px; display: flex; }
+  body.st-fit #scOnePic .scview { flex: 1; display: flex; min-width: 0; min-height: 0; }
+  body.st-fit #scOnePic .camlive { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: var(--view); }
+  body.st-fit #scOnePic .camlive.hidden { display: none; }
+  body.st-fit #scOnePic .camlive img { height: 100%; max-height: 100%; object-fit: contain; }
+  @media (max-width: 1100px) { #stOne, body.st-fit #stOne { display: block; height: auto; } #stOne > * { overflow: visible; margin-bottom: 12px; } body.st-fit #scOnePic { display: block; } body.st-fit #scOnePic .camlive img { height: auto; } body.st-fit { overflow: auto; } }
   #scOneCam .scgrid { display: block; } #scOneCam #scViewHome { display: none; }
   .calbar { position: relative; height: 26px; margin: 12px 0 8px; background: var(--bg2); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
   .calbar i { position: absolute; inset-block: 0; inset-inline-start: 0; background: var(--amber); transition: width .1s linear; }
@@ -923,7 +928,7 @@
   <div id="v-station" class="hidden">
     <div id="stOne" class="hidden">
       <div class="card stmain">
-        <div class="row" style="align-items:center"><h2 style="margin:0" data-t="r_station"></h2><span class="spacer"></span><button class="btn ghost sm" style="flex:0 0 auto" id="xOneTune" onclick="LiveTune.toggle()" data-t="lt_button"></button><span id="xOneCam"></span></div>
+        <div class="row" style="align-items:center"><h2 style="margin:0" data-t="r_station"></h2><span class="spacer"></span><button class="btn ghost sm" style="flex:0 0 auto" id="xOneFit" onclick="stationFit()" data-t="st_fit"></button><button class="btn ghost sm" style="flex:0 0 auto" id="xOneTune" onclick="LiveTune.toggle()" data-t="lt_button"></button><span id="xOneCam"></span></div>
         <div id="scOnePic"></div>
         <div id="scOneCall"></div>
         <div class="search" style="margin-top:10px"><input id="xQuery" data-tp="ph_bib" autocomplete="off" onkeydown="if(event.key==='Enter')StationCall.manual()"><button class="btn amber" onclick="StationCall.manual()" data-t="st_manual"></button><button class="btn ghost" style="flex:0 0 auto" onclick="StationCall.results()" data-t="r_results"></button></div>
@@ -1340,7 +1345,7 @@ const I18N = {
     cal_title: "Auto-calibration, live", cal_sliders: "Adjust", cal_off: "Off", cal_learning: "Learning {n}/{m}", cal_done: "Calibrated", cal_nobody: "Nobody measured yet",
     cal_now: "Now", cal_work: "Depth that counts (same for everyone)", cal_rest: "Back at the start (learned from this person)", cal_fixed: "Back at the start, before learning", cal_range: "How far this person moves",
     tn_auto_share: "Auto-calibration: back at the start", tnh_auto_share: "Share of the person's own movement, learned over the first 3 reps. 0 turns it off.",
-    st_manual: "Start manually", st_go_now: "Start now", st_start: "Start", st_reps: "Count", st_time_left: "Time left",
+    st_fit: "Full screen", st_manual: "Start manually", st_go_now: "Start now", st_start: "Start", st_reps: "Count", st_time_left: "Time left",
     st_waiting: "Waiting for this station", st_waiting_hint: "They finished the run. The camera recognises them on the mat, or press Start.",
     up_pick: "Upload video", up_busy: "Uploading the video: {pct}%", up_ok: "Uploaded: {name}",
     e_bad_video: "Choose a video file (mp4, mov, mkv, avi, webm)", e_video_too_large: "Videos are limited to 2 GB",
@@ -1707,7 +1712,7 @@ const I18N = {
     cal_title: "المعايرة التلقائية مباشرة", cal_sliders: "الضبط", cal_off: "متوقفة", cal_learning: "تتعلم {n}/{m}", cal_done: "تمت المعايرة", cal_nobody: "لم يُقَس أحد بعد",
     cal_now: "الآن", cal_work: "العمق المطلوب (نفسه للجميع)", cal_rest: "العودة للبداية (متعلَّمة من هذا الشخص)", cal_fixed: "العودة للبداية قبل التعلم", cal_range: "مدى حركة هذا الشخص",
     tn_auto_share: "المعايرة التلقائية: العودة للبداية", tnh_auto_share: "نسبة من حركة الشخص نفسه، تُتعلَّم من أول 3 عدات. 0 يوقفها.",
-    st_manual: "بدء يدوي", st_go_now: "ابدأ الآن", st_start: "بدء", st_reps: "العدد", st_time_left: "الوقت المتبقي",
+    st_fit: "ملء الشاشة", st_manual: "بدء يدوي", st_go_now: "ابدأ الآن", st_start: "بدء", st_reps: "العدد", st_time_left: "الوقت المتبقي",
     st_waiting: "بانتظار هذه المحطة", st_waiting_hint: "أنهوا الجري. تتعرف عليهم الكاميرا على البساط، أو اضغط بدء.",
     up_pick: "رفع فيديو", up_busy: "جارٍ رفع الفيديو: {pct}%", up_ok: "تم الرفع: {name}",
     e_bad_video: "اختر ملف فيديو (mp4, mov, mkv, avi, webm)", e_video_too_large: "الحد الأقصى للفيديو 2 غيغابايت",
@@ -2122,7 +2127,7 @@ function render() {
 }
 function setRole(r) { if (settingsOpen) closeSettings(); role = r;
   /* one camera, moved to the station in use */ const slot = $("camSlot-" + r); if (slot && !slot.contains($("camBlock"))) { slot.appendChild($("camBlock")); clearBox(); const v = $("camVideo"); if (v.srcObject || v.getAttribute("src")) v.play().catch(() => {}); }   /* moving a video pauses it */
-   save("role", r); $("role").value = r; document.body.classList.remove("st-one"); BgFx.refresh(); if (r !== "station" && typeof LiveTune !== "undefined") LiveTune.toggle(false); for (const x of ["weigh", "start", "finish", "station", "results"]) $("v-" + x).classList.toggle("hidden", x !== r);
+   save("role", r); $("role").value = r; document.body.classList.remove("st-one", "st-fit"); BgFx.refresh(); if (r !== "station" && typeof LiveTune !== "undefined") LiveTune.toggle(false); for (const x of ["weigh", "start", "finish", "station", "results"]) $("v-" + x).classList.toggle("hidden", x !== r);
   if (booted) {
     const want = CAM_ROLES.includes(r) ? Cam.kindFor(r) : null;
     if (want && want !== Cam.kind && ["webcam", "ipcam"].includes(want)) Cam.use(want);
@@ -4029,11 +4034,16 @@ const LiveTune = {
     return this.put(ex, ordered).then(ok => { if (ok && !$("tunePanel").hidden) this.render(); });
   },
 };
+// The station screen fills the window (no scrolling) or sits like the other screens; kept on this device.
+function stationFit() { save("stFit", load("stFit", "1") === "1" ? "0" : "1"); stationLayout(oneMat()); }
 // One mat: the same two columns as the start and finish screens. Several mats: the lanes.
 function stationLayout(one) {
   const put = (id, host, first) => { const el = $(id); if (el.parentElement !== host) { if (first) host.prepend(el); else host.appendChild(el); } };
   $("stOne").classList.toggle("hidden", !one); $("xBar").classList.toggle("hidden", one); $("stBody").classList.toggle("hidden", one);
-  document.body.classList.toggle("st-one", one && role === "station" && mode === "simple");
+  const here = one && role === "station" && mode === "simple";
+  document.body.classList.toggle("st-one", here);
+  document.body.classList.toggle("st-fit", here && load("stFit", "1") === "1");
+  $("xOneFit").classList.toggle("active", load("stFit", "1") === "1");
   if (one) document.documentElement.style.setProperty("--st-top", `${Math.round($("v-station").getBoundingClientRect().top)}px`);
   $("scTune").classList.add("hidden");   // one mat: the Tune button is in the station's own header
   if (one) { put("xCall", $("scOneCall")); put("scView", $("scOnePic")); put("scCard", $("scOneCam")); put("xCam", $("xOneCam")); }
