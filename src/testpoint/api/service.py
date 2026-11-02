@@ -59,8 +59,6 @@ def rules_for(db: Session, day: Day, seed: DayRules, judging: bool = True) -> Da
 
 
 def day_has_results(db: Session, day: Day) -> bool:
-    if db.scalar(select(func.count()).select_from(Wave).where(Wave.day_id == day.id, Wave.started_at.is_not(None))):
-        return True
     if db.scalar(select(func.count()).select_from(Entry).where(Entry.day_id == day.id, Entry.status != J.EXPECTED)):
         return True
     return bool(db.scalar(select(func.count()).select_from(Attempt).join(Entry).where(Entry.day_id == day.id)))
@@ -100,10 +98,10 @@ def update_rules(db: Session, day: Day, seed: DayRules, changes: dict) -> dict:
 
 
 def get_or_create_day(db: Session, date: str, rules: DayRules) -> Day:
-    # A wave still out on the course keeps its day, even past midnight (waves close
+    # Runners still out on the course keep their day, even past midnight (they become DNF by
     # themselves after the cut-off, see auto_close, so this never lasts long).
-    open_run = db.scalar(select(Day).join(Wave, Wave.day_id == Day.id)
-                         .where(Wave.started_at.is_not(None), Wave.closed_at.is_(None))
+    open_run = db.scalar(select(Day).join(Entry, Entry.day_id == Day.id)
+                         .where(Entry.status == J.RUNNING)
                          .order_by(Day.date.desc()))
     if open_run is not None and open_run.date < date:
         return open_run
@@ -126,32 +124,21 @@ def summary(db: Session, day: Day) -> dict:
     ).all())
     review = db.scalar(select(func.count()).select_from(Crossing).where(
         Crossing.day_id == day.id, Crossing.needs_review.is_(True)))
-    ws = list_waves(db, day)
-    per = {}
-    for wid, status, n in db.execute(select(Entry.wave_id, Entry.status, func.count())
-                                      .where(Entry.day_id == day.id, Entry.wave_id.is_not(None))
-                                      .group_by(Entry.wave_id, Entry.status)).all():
-        per.setdefault(wid, {})[status] = n
-    pend = dict(db.execute(select(Crossing.wave_id, func.count()).where(
-        Crossing.day_id == day.id, Crossing.needs_review.is_(True)).group_by(Crossing.wave_id)).all())
-
-    def wave_out(w: Wave) -> dict:
-        c = per.get(w.id, {})
-        return {"id": w.id, "number": w.number, "started_at": w.started_at, "closed_at": w.closed_at,
-                "closed_by": w.closed_by, "runners": sum(c.values()), "lined_up": c.get(J.LINED_UP, 0),
-                "running": c.get(J.RUNNING, 0), "dnf": c.get(J.DNF, 0), "review": pend.get(w.id, 0),
-                "finished": sum(n for s, n in c.items() if s not in (J.LINED_UP, J.RUNNING, J.DNF)),
-                "settles_at": wave_settles_at(db, w)}
-    started = [w for w in ws if w.started_at is not None]
+    now = utcnow()
+    # the runners out on the course (and the one in their 3-2-1), for every screen's clocks
+    runners = [{"entry_id": e.id, "bib": e.candidate.bib, "name": e.candidate.name, "name_ar": e.candidate.name_ar,
+                "started_at": e.run_started_at, "cutoff_at": e.run_cutoff_at}
+               for e in list_entries(db, day, J.RUNNING) if e.run_started_at is not None]
+    runners.sort(key=lambda r: r["started_at"])
+    last = db.scalar(select(func.max(Entry.run_started_at)).where(Entry.day_id == day.id))
     return {
         "date": day.date,
         "rules_version": day.rules_version,
         "counts": {s: counts.get(s, 0) for s in J.STATUSES},
         "total": sum(counts.values()),
-        "waves": [wave_out(w) for w in ws],
-        # the latest start, and whether every wave is closed (screens written for one start)
-        "run_started_at": started[-1].started_at if started else None,
-        "run_closed_at": max(w.closed_at for w in started) if started and all(w.closed_at for w in started) else None,
+        "runners": runners,
+        "starting": next(({"entry_id": r["entry_id"], "go_at": r["started_at"]} for r in runners if r["started_at"] > now), None),
+        "run_started_at": last,
         "review_queue": review or 0,
     }
 
@@ -233,8 +220,7 @@ SETTINGS: dict[str, object] = {
     # exercise station
     "lanes": 3,                  # lanes per exercise station (must match the engine's --lanes)
     # run start
-    "wave_size": 50,             # most runners in one wave (what the finish line can time and check)
-    "start_countdown_s": 10,     # "get ready", 3-2-1 and the horn before the time starts
+    "start_countdown_s": 3,      # the 3-2-1 before a runner's GO (their clock starts at GO)
     "cancel_window_s": 120,      # a start can be cancelled without the admin PIN this long; 0 = until the first finisher
     # display
     "site_name": "",             # shown in the header; empty = "Fitness examination station"
@@ -807,72 +793,44 @@ def weigh_in(db: Session, day: Day, rules: DayRules, entry: Entry, *, weight_kg:
 
 
 # ---------------------------------------------------------------------------- run
+#
+# Every runner starts on their own: recognised at the start line, 3-2-1-GO, and their clock
+# runs from their own GO (``Entry.run_started_at``) until their finish crossing. Nobody waits
+# for a group; whoever is still out after the cut-off becomes DNF by themselves.
 
-# --------------------------------------------------------------------------- waves
-
-WAVE_GRACE_S = 120
-"""After the run cut-off, a wave waits this long for late finishers before it closes itself."""
-WAVE_SETTLE_S = 60
-"""Everyone of a wave is in (finished or DNF): it closes itself this long after the last finish,
-time enough to fix a wrong bib (which needs the wave open)."""
-
-
-def wave_settles_at(db: Session, w: Wave) -> datetime | None:
-    """When a wave whose runners are all in closes itself; None while someone is still out
-    or a crossing of it waits for review."""
-    if w.started_at is None or w.closed_at is not None:
-        return None
-    people = db.scalar(select(func.count()).select_from(Entry).where(Entry.wave_id == w.id)) or 0
-    out = db.scalar(select(func.count()).select_from(Entry).where(Entry.wave_id == w.id, Entry.status == J.RUNNING)) or 0
-    review = db.scalar(select(func.count()).select_from(Crossing).where(Crossing.wave_id == w.id, Crossing.needs_review.is_(True))) or 0
-    if not people or out or review:
-        return None
-    last = db.scalar(select(func.max(Crossing.at)).where(Crossing.wave_id == w.id))
-    return (last + timedelta(seconds=WAVE_SETTLE_S)) if last else w.started_at
+RUN_GRACE_S = 120
+"""After the run cut-off, a runner still out is given this long (a late finish may still come in)
+before they become DNF by themselves."""
 
 
-def list_waves(db: Session, day: Day) -> list[Wave]:
-    return list(db.scalars(select(Wave).where(Wave.day_id == day.id).order_by(Wave.number)))
+def running_entries(db: Session, day: Day, at: datetime | None = None) -> list[Entry]:
+    """Out on the course: running and started (not still in their countdown) at ``at``."""
+    at = at or utcnow()
+    return [e for e in list_entries(db, day, J.RUNNING) if e.run_started_at is not None and e.run_started_at <= at]
 
 
-def forming_wave(db: Session, day: Day, create: bool = False) -> Wave | None:
-    """The wave people are lining up for (not started yet)."""
-    w = db.scalar(select(Wave).where(Wave.day_id == day.id, Wave.started_at.is_(None)).order_by(Wave.number))
-    if w is None and create:
-        last = db.scalar(select(func.max(Wave.number)).where(Wave.day_id == day.id)) or 0
-        w = Wave(day_id=day.id, number=last + 1)
-        db.add(w)
-        db.flush()
-    return w
-
-
-def open_waves(db: Session, day: Day) -> list[Wave]:
-    """Started (or counting down) and not closed, oldest first."""
-    return list(db.scalars(select(Wave).where(Wave.day_id == day.id, Wave.started_at.is_not(None),
-                                              Wave.closed_at.is_(None)).order_by(Wave.started_at)))
+def counting_down(db: Session, day: Day, now: datetime | None = None) -> Entry | None:
+    """The runner whose 3-2-1 is on now (their GO still ahead), if any."""
+    now = now or utcnow()
+    return next((e for e in list_entries(db, day, J.RUNNING)
+                 if e.run_started_at is not None and e.run_started_at > now), None)
 
 
 def line_up(db: Session, day: Day, entry: Entry, by: str = "typed") -> Entry:
-    """At the start line: joins the wave that is lining up (a new one after a start)."""
+    """At the start line, checked: next to start."""
     require_gate(entry, day, "lineup")
-    w = forming_wave(db, day, create=True)
-    size = int(get_settings(db)["wave_size"])
-    lined = db.scalar(select(func.count()).select_from(Entry).where(Entry.wave_id == w.id, Entry.status == J.LINED_UP)) or 0
-    if lined >= size:
-        raise ServiceError("wave_full", f"wave {w.number} is full ({size}): start it, then line up for the next", 409)
     entry.status = J.LINED_UP
     entry.lined_up_at = utcnow()
-    entry.wave = w
-    _audit(db, day, "start", "line_up", entry, wave=w.number, by=by)
+    _audit(db, day, "start", "line_up", entry, by=by)
     db.commit()
     return entry
 
 
 def clear_line(db: Session, day: Day) -> int:
-    """Everyone at the line (the wave not started yet) goes back to waiting."""
+    """Everyone at the line (not started) goes back to waiting."""
     n = 0
     for e in list_entries(db, day, J.LINED_UP):
-        e.status, e.lined_up_at, e.wave = J.ACCEPTED, None, None
+        e.status, e.lined_up_at = J.ACCEPTED, None
         n += 1
     if n:
         _audit(db, day, "start", "clear_line", people=n)
@@ -881,12 +839,11 @@ def clear_line(db: Session, day: Day) -> int:
 
 
 def undo_line_up(db: Session, day: Day, entry: Entry) -> Entry:
-    """Marked at the line by mistake: back to accepted (only before their wave starts)."""
+    """Marked at the line by mistake: back to accepted (only before they start)."""
     if entry.status != J.LINED_UP:
         raise ServiceError("not_lined_up", f"{entry.candidate.name} is not at the line")
     entry.status = J.ACCEPTED
     entry.lined_up_at = None
-    entry.wave = None
     _audit(db, day, "start", "undo_line_up", entry)
     db.commit()
     return entry
@@ -959,84 +916,67 @@ def remove_entry(db: Session, day: Day, entry: Entry, delete_results: bool = Fal
 START_COUNTDOWN_MAX_S = 30
 
 
-def start_run(db: Session, day: Day, countdown_s: int = 0, now: datetime | None = None) -> Wave:
-    """Start the wave at the line. With a countdown the start is set that many seconds ahead,
-    so every device shows the same countdown and the time is taken exactly at the horn."""
+def start_runner(db: Session, day: Day, rules: DayRules, entry: Entry, countdown_s: int = 0,
+                 now: datetime | None = None, by: str = "examiner") -> Entry:
+    """Start one runner: their GO is ``countdown_s`` from now (every screen shows the same 3-2-1)
+    and their clock runs from it. One runner at a time: a start waits for the countdown before it."""
     if not 0 <= countdown_s <= START_COUNTDOWN_MAX_S:
         raise ServiceError("bad_countdown", f"the countdown is 0 to {START_COUNTDOWN_MAX_S} s", 400)
-    w = forming_wave(db, day)
-    lined = list_entries(db, day, J.LINED_UP)
-    lined = [e for e in lined if w is not None and e.wave_id == w.id]
-    if not lined:
-        raise ServiceError("nobody_lined_up", "nobody is at the start line")
-    w.started_at = (now or utcnow()) + timedelta(seconds=countdown_s)
-    for e in lined:
-        e.status = J.RUNNING
-    _audit(db, day, "start", "wave_start", wave=w.number, at=w.started_at, runners=len(lined), countdown_s=countdown_s)
+    now = now or utcnow()
+    if entry.status != J.LINED_UP:
+        require_gate(entry, day, "lineup")
+    busy = counting_down(db, day, now)
+    if busy is not None and busy.id != entry.id:
+        raise ServiceError("start_in_progress", f"{busy.candidate.name} is starting now; wait for their GO")
+    go = now + timedelta(seconds=countdown_s)
+    entry.status = J.RUNNING
+    entry.lined_up_at = entry.lined_up_at or now
+    entry.run_started_at = go
+    entry.run_cutoff_at = go + timedelta(seconds=rules.run_cutoff_s + RUN_GRACE_S)
+    _audit(db, day, "start", "runner_start", entry, at=go, countdown_s=countdown_s, by=by)
     db.commit()
-    return w
+    return entry
 
 
-def cancel_start(db: Session, day: Day, now: datetime | None = None, late: bool = False) -> Wave:
-    """START pressed by mistake: undo the latest start, so its runners are back at the line.
+def cancel_start(db: Session, day: Day, entry: Entry, now: datetime | None = None, late: bool = False) -> Entry:
+    """A start by mistake (wrong person, false start): back to the line, clock cleared.
 
-    During the countdown and the first 2 minutes anyone at the start line can; later only
-    with ``late`` (an administrator, PIN-checked by the API), and never once a runner of
-    that wave has crossed the finish."""
-    started = open_waves(db, day)
-    if not started:
-        raise ServiceError("run_not_started", "no wave has started")
-    w = max(started, key=lambda x: x.started_at)
-    window = int(get_settings(db)["cancel_window_s"])   # 0: no limit (until the first finisher)
-    if window and (now or utcnow()) - w.started_at > timedelta(seconds=window) and not late:
+    During the countdown and the first minutes anyone at the start line can; later only with
+    ``late`` (an administrator, PIN-checked by the API), and never once they crossed the finish."""
+    now = now or utcnow()
+    if entry.status != J.RUNNING or entry.run_started_at is None:
+        raise ServiceError("not_running", f"{entry.candidate.name} has not started")
+    window = int(get_settings(db)["cancel_window_s"])   # 0: no limit (until they finish)
+    if window and now - entry.run_started_at > timedelta(seconds=window) and not late:
         raise ServiceError("too_late_to_cancel", f"after {window // 60} min a start can only be cancelled by an administrator")
-    if db.scalar(select(func.count()).select_from(Crossing).where(Crossing.wave_id == w.id)):
-        raise ServiceError("finishers_exist", "runners of this wave have already crossed the finish line")
-    for e in list_entries(db, day, J.RUNNING):
-        if e.wave_id == w.id:
-            e.status = J.LINED_UP
-    # people who lined up for the next wave meanwhile join this one again
-    nxt = forming_wave(db, day)
-    if nxt is not None and nxt.id != w.id:
-        for e in list_entries(db, day, J.LINED_UP):
-            if e.wave_id == nxt.id:
-                e.wave = w
-        db.flush()
-        db.delete(nxt)
-    _audit(db, day, "start", "cancel_start", wave=w.number, started_at=w.started_at, late=late)
-    w.started_at = None
+    _audit(db, day, "start", "cancel_start", entry, started_at=entry.run_started_at, late=late)
+    entry.status = J.LINED_UP
+    entry.run_started_at = entry.run_cutoff_at = None
     db.commit()
-    return w
+    return entry
 
 
-def _elapsed(wave: Wave, at: datetime) -> float:
-    return round((at - wave.started_at).total_seconds(), 1)
+def _elapsed(entry: Entry, at: datetime) -> float:
+    return round((at - entry.run_started_at).total_seconds(), 1)
 
 
 def record_finish(db: Session, day: Day, rules: DayRules, bib: str | None,
                   now: datetime | None = None, source: str = "manual",
                   confidence: float | None = None, clip_path: str | None = None) -> Crossing:
-    """A finish crossing. A known runner's time counts from their own wave's start; anything
-    else goes to the review queue, timed from the wave that was running then."""
+    """A finish crossing. A runner known by bib gets their time from their own GO; anything else
+    goes to the review queue (the time is set when it is assigned to a runner)."""
     at = now or utcnow()
     bib = norm_bib(bib)
     entry = db.scalar(select(Entry).join(Candidate).where(Entry.day_id == day.id, Candidate.bib == bib)) if bib else None
-    if entry is not None and entry.status == J.RUNNING and entry.wave is not None and entry.wave.closed_at is None:
-        wave = entry.wave
-        if at < wave.started_at:
-            raise ServiceError("before_start", f"the crossing is before wave {wave.number} started")
-    else:
-        live = [w for w in open_waves(db, day) if w.started_at <= at]
-        if not live:
-            if not open_waves(db, day):
-                raise ServiceError("run_already_closed" if day_has_results(db, day) and list_waves(db, day) and
-                                   all(w.closed_at for w in list_waves(db, day) if w.started_at) else "run_not_started",
-                                   "no wave is running")
-            raise ServiceError("before_start", "the crossing is before the start")
-        wave = live[-1]
-    crossing = Crossing(day_id=day.id, at=at, time_s=_elapsed(wave, at), source=source, wave_id=wave.id,
-                        bib_read=bib, confidence=confidence, clip_path=clip_path)
-    if entry is not None and entry.status == J.RUNNING and entry.wave_id == wave.id:
+    if entry is not None and entry.status == J.RUNNING and entry.run_started_at is not None and at < entry.run_started_at:
+        raise ServiceError("before_start", f"the crossing is before {entry.candidate.name}'s GO")
+    if not db.scalar(select(func.count()).select_from(Entry).where(
+            Entry.day_id == day.id, Entry.run_started_at.is_not(None), Entry.run_started_at <= at)):
+        raise ServiceError("run_not_started", "nobody has started the run yet")
+    out = running_entries(db, day, at)
+    crossing = Crossing(day_id=day.id, at=at, time_s=0.0, source=source, bib_read=bib,
+                        confidence=confidence, clip_path=clip_path)
+    if entry is not None and entry in out:
         _assign(day, rules, crossing, entry)
     else:
         crossing.needs_review = True
@@ -1051,16 +991,16 @@ def record_finish(db: Session, day: Day, rules: DayRules, bib: str | None,
             crossing.note_code, crossing.note_bib, crossing.note_status = "bib_not_running", crossing.bib_read, entry.status
     db.add(crossing)
     db.flush()
-    _audit(db, day, "finish", "crossing", entry, bib=crossing.bib_read, time_s=crossing.time_s, wave=wave.number,
+    _audit(db, day, "finish", "crossing", entry if not crossing.needs_review else None, bib=crossing.bib_read,
+           time_s=crossing.time_s if not crossing.needs_review else None,
            needs_review=crossing.needs_review, source=source, confidence=confidence)
     db.commit()
     return crossing
 
 
 def _assign(day: Day, rules: DayRules, crossing: Crossing, entry: Entry) -> None:
-    # the time counts from the runner's own wave
-    crossing.wave_id = entry.wave_id
-    crossing.time_s = _elapsed(entry.wave, crossing.at)
+    # the time counts from the runner's own GO
+    crossing.time_s = _elapsed(entry, crossing.at)
     crossing.entry_id = entry.id
     crossing.needs_review = False
     entry.run_time_s = crossing.time_s
@@ -1080,8 +1020,8 @@ def resolve_crossing(db: Session, day: Day, rules: DayRules, crossing_id: int,
         raise ServiceError("already_resolved", "this crossing is already assigned")
     if entry.status != J.RUNNING:
         raise ServiceError("not_running", f"{entry.candidate.name} is {entry.status}, not running")
-    if crossing.at < entry.wave.started_at:
-        raise ServiceError("before_start", f"this crossing is before {entry.candidate.name}'s wave started")
+    if entry.run_started_at is None or crossing.at < entry.run_started_at:
+        raise ServiceError("before_start", f"this crossing is before {entry.candidate.name} started")
     _assign(day, rules, crossing, entry)
     crossing.note = (crossing.note or "") + " | assigned by examiner"
     crossing.note_code, crossing.note_bib, crossing.note_status = "assigned_by_examiner", entry.candidate.bib, None
@@ -1100,10 +1040,10 @@ def face_for_crossing(db: Session, day: Day, rules: DayRules, crossing: Crossing
     if not crossing.needs_review:
         return None
     shots = [data] if isinstance(data, (bytes, bytearray)) else list(data)
-    live = [w.id for w in open_waves(db, day) if w.started_at <= crossing.at]
+    live = [e.id for e in running_entries(db, day, crossing.at)]
     rows = db.execute(select(Entry.id, FaceTemplate.embedding).join(
         FaceTemplate, FaceTemplate.candidate_id == Entry.candidate_id).where(
-        Entry.day_id == day.id, Entry.status == J.RUNNING, Entry.wave_id.in_(live))).all()
+        Entry.day_id == day.id, Entry.id.in_(live))).all()
     gallery: dict[int, list[np.ndarray]] = {}
     for entry_id, emb in rows:
         gallery.setdefault(entry_id, []).append(np.frombuffer(emb, np.float32))
@@ -1169,7 +1109,7 @@ def tag_crossing(db: Session, day: Day, rules: DayRules, crossing_id: int, bib: 
     return resolve_crossing(db, day, rules, crossing_id, entry)
 
 
-def mark_dnf(db: Session, day: Day, entry: Entry, reason: str | None) -> Entry:
+def mark_dnf(db: Session, day: Day, entry: Entry, reason: str | None, by: str = "examiner") -> Entry:
     """One runner stops (injured, gave up, left the course): DNF now, with the reason."""
     reason = " ".join((reason or "").split())
     if entry.status != J.RUNNING:
@@ -1177,17 +1117,17 @@ def mark_dnf(db: Session, day: Day, entry: Entry, reason: str | None) -> Entry:
     if not reason:
         raise ServiceError("reason_required", "say why the runner did not finish", 400)
     entry.status = J.DNF
-    _audit(db, day, "finish", "mark_dnf", entry, reason=reason, wave=entry.wave.number if entry.wave else None)
+    _audit(db, day, "finish", "mark_dnf", entry, reason=reason, by=by)
     db.commit()
     return entry
 
 
-def undo_dnf(db: Session, day: Day, entry: Entry) -> Entry:
-    """DNF marked by mistake while the wave is still out: running again."""
+def undo_dnf(db: Session, day: Day, entry: Entry, now: datetime | None = None) -> Entry:
+    """DNF marked by mistake while they are still out: running again (until their cut-off)."""
     if entry.status != J.DNF or entry.run_time_s is not None:
         raise ServiceError("not_dnf", f"{entry.candidate.name} is not marked DNF", 409)
-    if entry.wave is None or entry.wave.closed_at is not None:
-        raise ServiceError("run_already_closed", "the wave is closed")
+    if entry.run_cutoff_at is None or (now or utcnow()) > entry.run_cutoff_at:
+        raise ServiceError("run_already_closed", f"{entry.candidate.name}'s run time is over")
     entry.status = J.RUNNING
     _audit(db, day, "finish", "undo_dnf", entry)
     db.commit()
@@ -1195,16 +1135,14 @@ def undo_dnf(db: Session, day: Day, entry: Entry) -> Entry:
 
 
 def unassign_crossing(db: Session, day: Day, crossing_id: int) -> Crossing:
-    """Wrong bib typed at the finish: the crossing goes back to the review queue and
-    the runner back to running (their real crossing can then be assigned)."""
+    """Wrong runner given a finish: the crossing goes back to the review queue and the runner
+    back to running (their real crossing can then be assigned)."""
     crossing = db.get(Crossing, crossing_id)
     if crossing is None or crossing.day_id != day.id:
         raise ServiceError("not_found", f"crossing {crossing_id} not found", 404)
     if crossing.needs_review or crossing.entry_id is None:
         raise ServiceError("not_assigned", "this crossing is not assigned to anyone")
     entry = db.get(Entry, crossing.entry_id)
-    if entry.wave is not None and entry.wave.closed_at is not None:
-        raise ServiceError("run_already_closed", f"wave {entry.wave.number} is closed")
     if any(a.status in ("running", "finished") for a in entry.attempts):
         raise ServiceError("results_exist", f"{entry.candidate.name} already has exercise results")
     entry.status = J.RUNNING
@@ -1236,111 +1174,40 @@ def list_crossings(db: Session, day: Day) -> list[Crossing]:
     return list(db.scalars(select(Crossing).where(Crossing.day_id == day.id).order_by(Crossing.at)))
 
 
-def close_run(db: Session, day: Day, wave_id: int | None = None, now: datetime | None = None,
-              by: str = "examiner") -> Wave:
-    """Close a wave (the oldest one out on the course unless ``wave_id`` says which):
-    everyone of it still running becomes DNF."""
+def close_run(db: Session, day: Day, now: datetime | None = None, by: str = "examiner") -> int:
+    """End of the run for today: everyone still out becomes DNF. Refused while a crossing waits
+    for review (it may be one of them)."""
     now = now or utcnow()
-    live = [w for w in open_waves(db, day) if w.started_at <= now]
-    if wave_id is not None:
-        live = [w for w in live if w.id == wave_id]
-    if not live:
-        if any(w.started_at and w.closed_at is None for w in list_waves(db, day)):
-            raise ServiceError("countdown_running", "the wave has not started yet")
-        raise ServiceError("run_already_closed" if any(w.started_at for w in list_waves(db, day)) else "run_not_started",
-                           "no wave to close")
-    w = live[0]
+    out = running_entries(db, day, now)
     pending = db.scalar(select(func.count()).select_from(Crossing).where(
-        Crossing.wave_id == w.id, Crossing.needs_review.is_(True)))
+        Crossing.day_id == day.id, Crossing.needs_review.is_(True)))
     if pending:
-        raise ServiceError("review_pending",
-                           f"{pending} crossing(s) of wave {w.number} still wait for review; assign or discard them first")
-    w.closed_at, w.closed_by = now, by
-    dnf = 0
-    for e in list_entries(db, day, J.RUNNING):
-        if e.wave_id == w.id:
-            e.status = J.after_close(e.status)
-            dnf += 1
-    _audit(db, day, "finish", "close_wave", wave=w.number, dnf=dnf, by=by)
+        raise ServiceError("review_pending", f"{pending} crossing(s) still wait for review; assign or discard them first")
+    if not out:
+        return 0
+    for e in out:
+        e.status = J.after_close(e.status)
+    _audit(db, day, "finish", "close_run", dnf=len(out), by=by)
     db.commit()
-    return w
-
-
-def void_wave(db: Session, day: Day, wave_id: int, abort: bool = False) -> dict:
-    """Take a wave back; its people wait for a wave again and run it again.
-
-    Without ``abort``: only a wave nobody of it finished (started by mistake). With ``abort``
-    (an incident, a run that went wrong): always possible. Whoever already did push-ups or
-    crunches keeps their run (their exercise results depend on it); everyone else's time is
-    deleted, crossings waiting for review are discarded, and the audit log keeps all of it."""
-    w = db.get(Wave, wave_id)
-    if w is None or w.day_id != day.id or w.started_at is None:
-        raise ServiceError("not_found", "no such started wave", 404)
-    crossings = list(db.scalars(select(Crossing).where(Crossing.wave_id == w.id)))
-    if crossings and not abort:
-        raise ServiceError("finishers_exist", f"runners of wave {w.number} have crossed the finish line")
-    people = [e for e in list_entries(db, day) if e.wave_id == w.id]
-    keep = {e.id for e in people if e.attempts}
-    deleted = []
-    for c in crossings:
-        if c.entry_id in keep:
-            continue
-        deleted.append({"bib": c.bib_read, "time_s": c.time_s, "entry_id": c.entry_id, "review": c.needs_review})
-        db.delete(c)
-    back = []
-    for e in people:
-        if e.id in keep:
-            continue
-        e.status, e.wave, e.lined_up_at = J.ACCEPTED, None, None
-        e.run_time_s = e.run_grade = e.finished_at = None
-        back.append(e.candidate.bib)
-    _audit(db, day, "admin", "abort_wave" if abort else "void_wave", wave=w.number, started_at=w.started_at,
-           closed_at=w.closed_at, back_to_waiting=back, kept=len(keep), deleted_crossings=deleted or None)
-    if keep:      # the wave stays (closed) for the runs that stand
-        w.closed_at, w.closed_by = w.closed_at or utcnow(), w.closed_by or "abort"
-    else:
-        db.flush()
-        db.delete(w)
-    db.commit()
-    return {"back_to_waiting": len(back), "kept": len(keep)}
+    return len(out)
 
 
 def auto_close(db: Session, day: Day, rules: DayRules, now: datetime | None = None) -> list[int]:
-    """Close every wave that is done: everyone in (finished or DNF) and the settle time passed,
-    or its cut-off (plus a grace period) passed; never while a crossing of it waits for review.
-    Nobody has to remember to close the run."""
+    """Runners still out after their cut-off (plus the grace for late finishers) become DNF by
+    themselves; nobody has to close the run. Not while a crossing waits for review: it may be
+    theirs (the screens show the queue)."""
     now = now or utcnow()
-    closed = []
-    for w in open_waves(db, day):
-        settles = wave_settles_at(db, w)
-        if (settles is not None and now >= settles and now >= w.started_at) or \
-                now - w.started_at > timedelta(seconds=rules.run_cutoff_s + WAVE_GRACE_S):
-            try:
-                close_run(db, day, wave_id=w.id, now=now, by="auto")
-                closed.append(w.number)
-            except ServiceError:
-                db.rollback()       # a review is pending: the screens show it
-    return closed
-
-
-def migrate_single_runs(db: Session) -> int:
-    """Days recorded before waves existed: their one mass start becomes wave 1."""
-    n = 0
-    for day in db.scalars(select(Day).where(Day.run_started_at.is_not(None))):
-        if db.scalar(select(func.count()).select_from(Wave).where(Wave.day_id == day.id)):
-            continue
-        w = Wave(day_id=day.id, number=1, started_at=day.run_started_at, closed_at=day.run_closed_at,
-                 closed_by="examiner" if day.run_closed_at else None)
-        db.add(w)
-        db.flush()
-        for e in db.scalars(select(Entry).where(Entry.day_id == day.id)):
-            if e.status in (J.RUNNING, *J.RAN, J.COMPLETE) or e.run_time_s is not None:
-                e.wave_id = w.id
-        for c in db.scalars(select(Crossing).where(Crossing.day_id == day.id)):
-            c.wave_id = w.id
-        n += 1
+    late = [e for e in list_entries(db, day, J.RUNNING) if e.run_cutoff_at is not None and now > e.run_cutoff_at]
+    if not late:
+        return []
+    if db.scalar(select(func.count()).select_from(Crossing).where(
+            Crossing.day_id == day.id, Crossing.needs_review.is_(True))):
+        return []
+    for e in late:
+        e.status = J.after_close(e.status)
+        _audit(db, day, "finish", "dnf_cutoff", e, started_at=e.run_started_at, by="auto")
     db.commit()
-    return n
+    return [e.id for e in late]
 
 
 # ---------------------------------------------------------------------- exercises
@@ -1668,7 +1535,7 @@ def export_register(db: Session, day: Day) -> str:
 # --------------------------------------------------------------------------- reset a day
 
 def reset_day(db: Session, day: Day, seed: DayRules, keep_list: bool = True, stop_running: bool = False) -> dict:
-    """Start today again: every weigh-in, wave, finish and exercise attempt (with its reps) of
+    """Start today again: every weigh-in, run start, finish and exercise attempt (with its reps) of
     the day is deleted. ``keep_list``: everyone stays on today's list as expected; otherwise
     the list is emptied too. The register (people and faces), the settings and the rules are
     kept; the audit log keeps the history and a summary of what was reset. An exercise attempt
@@ -1678,7 +1545,7 @@ def reset_day(db: Session, day: Day, seed: DayRules, keep_list: bool = True, sto
     if open_ and not stop_running:
         raise ServiceError("in_progress", f"an exercise attempt is open for {', '.join(open_)}", 409, open=open_)
     counts = {"people": len(entries), "with_results": sum(1 for e in entries if e.status != J.EXPECTED or e.attempts),
-              "attempts": 0, "crossings": 0, "waves": 0}
+              "attempts": 0, "crossings": 0}
     for e in entries:
         for a in list(e.attempts):
             for r in list(a.reps):
@@ -1692,7 +1559,7 @@ def reset_day(db: Session, day: Day, seed: DayRules, keep_list: bool = True, sto
     for e in entries:
         if keep_list:
             e.status = J.EXPECTED
-            for k in ("weight_kg", "height_cm", "bmi", "weighed_at", "lined_up_at", "wave_id", "run_time_s",
+            for k in ("weight_kg", "height_cm", "bmi", "weighed_at", "lined_up_at", "wave_id", "run_started_at", "run_cutoff_at", "run_time_s",
                       "finished_at", "age", "band", "level", "run_grade"):
                 setattr(e, k, None)
         else:
@@ -1700,9 +1567,8 @@ def reset_day(db: Session, day: Day, seed: DayRules, keep_list: bool = True, sto
                 a.entry_id = None   # keep the history, drop the link to the deleted row
             db.delete(e)
     db.flush()
-    for w in db.scalars(select(Wave).where(Wave.day_id == day.id)):
+    for w in db.scalars(select(Wave).where(Wave.day_id == day.id)):   # legacy group starts
         db.delete(w)
-        counts["waves"] += 1
     day.run_started_at = day.run_closed_at = None
     r = current_rules(db, seed)   # nothing is scored any more: today follows the current rules again
     day.rules_version, day.rules_json = r.version, json.dumps(r.to_dict())

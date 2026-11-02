@@ -1,14 +1,14 @@
 """The candidate journey for one test day, as pure functions.
 
-    expected ─ weigh-in ─► accepted ─ line-up ─► lined_up ─ START ─► running      (one wave)
-        │                                 │                            │
-        └──► rejected (BMI)        (waits for the next wave)          ├─► run_passed ─┐
-                                                                       ├─► run_failed ─┼─► exercises ─► complete
-                                                                       ├─► run_done ───┤   (no pass table for them)
-                                                                       └─► dnf ────────┘
+    expected ─ weigh-in ─► accepted ─ line-up ─► lined_up ─ 3-2-1-GO ─► running   (their own clock)
+        │                                                                 │
+        └──► rejected (BMI)                                               ├─► run_passed ─┐
+                                                                          ├─► run_failed ─┼─► exercises ─► complete
+                                                                          ├─► run_done ───┤   (no pass table for them)
+                                                                          └─► dnf ────────┘
 
-The run goes in waves: whoever is not at the line when a wave starts simply lines up
-for the next one. ``absent`` only remains on days recorded before waves existed.
+Every runner starts on their own, one after another, and is timed from their own GO.
+``absent`` only remains on days recorded before that.
 
 Everyone who ran takes all three tests (the pass table lists three separate tests); the final
 verdict needs every test at the person's required level (service.verdict).

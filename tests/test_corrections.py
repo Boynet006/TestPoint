@@ -9,6 +9,7 @@ from sqlalchemy.pool import StaticPool
 from testpoint.api import app as app_mod
 from testpoint.api import models
 from testpoint.api.app import create_app
+from runhelp import start_lined_up
 
 CSV = "external_id,name,bib,gender,dob\nC-1,Alpha,11,M,2000-01-01\nC-2,Bravo,12,M,2000-01-01\nC-3,Charlie,13,M,2000-01-01\n"
 W = {"weight_kg": 70, "height_cm": 175, "accept": True}
@@ -44,7 +45,7 @@ def test_undo_line_up_before_start_only(client):
     assert client.post(f"/api/entries/{i['11']}/line-up/undo").json()["status"] == "accepted"
     assert code(client.post(f"/api/entries/{i['11']}/line-up/undo")) == "not_lined_up"
     client.post(f"/api/entries/{i['11']}/line-up")
-    client.post("/api/run/start")
+    start_lined_up(client)
     assert code(client.post(f"/api/entries/{i['11']}/line-up/undo")) == "not_lined_up"   # running now
 
 
@@ -71,33 +72,32 @@ def test_cancel_accidental_start(client, monkeypatch):
     for b in ("11", "12"):
         client.post(f"/api/entries/{i[b]}/weigh-in", json=W)
     client.post(f"/api/entries/{i['11']}/line-up")          # 12 accepted but not at the line
-    client.post("/api/run/start")
-    assert status(client, i["11"]) == "running" and status(client, i["12"]) == "accepted"
-    client.post(f"/api/entries/{i['12']}/line-up")          # 12 lines up for wave 2 meanwhile
-    assert client.post("/api/run/start/cancel").status_code == 200
-    # both are back in wave 1, waiting for the real start
-    assert status(client, i["11"]) == "lined_up" and status(client, i["12"]) == "lined_up"
-    assert [w["number"] for w in client.get("/api/state").json()["waves"]] == [1]
-    assert client.get("/api/state").json()["run_started_at"] is None
-    # too late after 2 minutes
-    client.post("/api/run/start")
     t0 = models.utcnow()
+    monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0)
+    start_lined_up(client)
+    assert status(client, i["11"]) == "running" and status(client, i["12"]) == "accepted"
+    # the wrong person was started: only they go back to the line, their clock cleared
+    r = client.post(f"/api/entries/{i['11']}/start/cancel")
+    assert r.status_code == 200 and r.json()["status"] == "lined_up" and r.json()["run_started_at"] is None
+    assert status(client, i["12"]) == "accepted" and client.get("/api/state").json()["runners"] == []
+    # too late after 2 minutes
+    start_lined_up(client)
     monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0 + timedelta(minutes=3))
-    assert code(client.post("/api/run/start/cancel")) == "too_late_to_cancel"
-    # an administrator can still call it off while nobody of the wave has finished
+    assert code(client.post(f"/api/entries/{i['11']}/start/cancel")) == "too_late_to_cancel"
+    # an administrator can still call it off while they have not finished
     client.put("/api/settings/admin-pin", json={"pin": "2468"})
-    assert code(client.post("/api/run/start/cancel", params={"late": True})) == "admin_pin_required"
-    r = client.post("/api/run/start/cancel", params={"late": True}, headers={"X-Admin-Pin": "2468"})
+    assert code(client.post(f"/api/entries/{i['11']}/start/cancel", params={"late": True})) == "admin_pin_required"
+    r = client.post(f"/api/entries/{i['11']}/start/cancel", params={"late": True}, headers={"X-Admin-Pin": "2468"})
     assert r.status_code == 200 and status(client, i["11"]) == "lined_up"
 
 
-def test_cancel_start_refused_once_someone_finished(client):
+def test_cancel_start_refused_once_they_finished(client):
     i = ids(client)
     client.post(f"/api/entries/{i['11']}/weigh-in", json=W)
     client.post(f"/api/entries/{i['11']}/line-up")
-    client.post("/api/run/start")
+    start_lined_up(client)
     client.post("/api/run/finish", json={"bib": "11"})
-    assert code(client.post("/api/run/start/cancel")) == "finishers_exist"
+    assert code(client.post(f"/api/entries/{i['11']}/start/cancel")) == "not_running"
 
 
 def test_wrong_bib_at_finish_can_be_unassigned_and_reassigned(client):
@@ -105,7 +105,7 @@ def test_wrong_bib_at_finish_can_be_unassigned_and_reassigned(client):
     for b in ("11", "12"):
         client.post(f"/api/entries/{i[b]}/weigh-in", json=W)
         client.post(f"/api/entries/{i[b]}/line-up")
-    client.post("/api/run/start")
+    start_lined_up(client)
     wrong = client.post("/api/run/finish", json={"bib": "12"}).json()   # it was actually 11
     assert status(client, i["12"]) == "run_passed"
     r = client.post(f"/api/run/crossings/{wrong['id']}/unassign").json()
@@ -119,7 +119,7 @@ def test_discard_and_close_rules(client):
     i = ids(client)
     client.post(f"/api/entries/{i['11']}/weigh-in", json=W)
     client.post(f"/api/entries/{i['11']}/line-up")
-    client.post("/api/run/start")
+    start_lined_up(client)
     ghost = client.post("/api/run/finish", json={"bib": None}).json()
     assert code(client.post("/api/run/close")) == "review_pending"       # cannot close with an open review
     assert client.delete(f"/api/run/crossings/{ghost['id']}").status_code == 204
@@ -131,7 +131,7 @@ def test_unassign_refused_after_exercise_results(client):
     i = ids(client)
     client.post(f"/api/entries/{i['11']}/weigh-in", json=W)
     client.post(f"/api/entries/{i['11']}/line-up")
-    client.post("/api/run/start")
+    start_lined_up(client)
     c = client.post("/api/run/finish", json={"bib": "11"}).json()
     a = client.post("/api/attempts", json={"entry_id": i["11"], "event": "pushup"}).json()
     client.post(f"/api/attempts/{a['id']}/finish", json={"count": 30})
@@ -142,7 +142,7 @@ def test_review_notes_carry_a_code_for_translation(client):
     i = ids(client)
     client.post(f"/api/entries/{i['11']}/weigh-in", json=W)
     client.post(f"/api/entries/{i['11']}/line-up")
-    client.post("/api/run/start")
+    start_lined_up(client)
     no_bib = client.post("/api/run/finish", json={"bib": None}).json()
     stranger = client.post("/api/run/finish", json={"bib": "999"}).json()
     assert (no_bib["note_code"], stranger["note_code"], stranger["note_bib"]) == ("no_bib_read", "bib_not_on_list", "999")
@@ -166,58 +166,15 @@ def test_clear_the_line_and_cancel_window_setting(client, monkeypatch):
     client.post(f"/api/entries/{i['11']}/line-up")
     t0 = models.utcnow()
     monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0)
-    client.post("/api/run/start")
+    start_lined_up(client)
     monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0 + timedelta(minutes=9))
-    assert client.post("/api/run/start/cancel").status_code == 200
+    assert client.post(f"/api/entries/{i['11']}/start/cancel").status_code == 200
     monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0)
-    client.post("/api/run/start")
+    start_lined_up(client)
     monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0 + timedelta(minutes=11))
-    assert code(client.post("/api/run/start/cancel")) == "too_late_to_cancel"
+    assert code(client.post(f"/api/entries/{i['11']}/start/cancel")) == "too_late_to_cancel"
     client.put("/api/settings", json={"cancel_window_s": 0})
-    assert client.post("/api/run/start/cancel").status_code == 200
-
-
-def test_void_a_wave_started_and_closed_by_mistake(client, monkeypatch):
-    i = ids(client)
-    client.post(f"/api/entries/{i['11']}/weigh-in", json=W)
-    client.post(f"/api/entries/{i['11']}/line-up")
-    client.post("/api/run/start")
-    client.post("/api/run/close")
-    assert status(client, i["11"]) == "dnf"
-    w = client.get("/api/state").json()["waves"][0]
-    client.put("/api/settings/admin-pin", json={"pin": "2468"})
-    assert code(client.post(f"/api/run/waves/{w['id']}/void")) == "admin_pin_required"
-    r = client.post(f"/api/run/waves/{w['id']}/void", headers={"X-Admin-Pin": "2468"})
-    assert r.status_code == 200 and r.json() == {"back_to_waiting": 1, "kept": 0}
-    assert status(client, i["11"]) == "accepted" and client.get("/api/state").json()["waves"] == []
-    # with a finisher it cannot be voided
-    pin = {"X-Admin-Pin": "2468"}
-    client.post(f"/api/entries/{i['11']}/line-up")
-    client.post("/api/run/start")
-    client.post("/api/run/finish", json={"bib": "11"})
-    w = client.get("/api/state").json()["waves"][0]
-    assert code(client.post(f"/api/run/waves/{w['id']}/void", headers=pin)) == "finishers_exist"
-    # an incident: abort deletes the wave's times and everyone runs again
-    client.post("/api/run/finish", json={"bib": None})            # and a crossing waiting for review
-    r = client.post(f"/api/run/waves/{w['id']}/void", params={"abort": True}, headers=pin)
-    assert r.status_code == 200 and status(client, i["11"]) == "accepted"
-    assert client.get("/api/run/crossings").json() == [] and client.get("/api/state").json()["waves"] == []
-    assert client.get(f"/api/entries/{i['11']}").json()["run_time_s"] is None
-    # someone who already did an exercise keeps their run; the others run again
-    for b in ("11", "12"):
-        client.post(f"/api/entries/{i[b]}/weigh-in", json=W) if b == "12" else None
-        client.post(f"/api/entries/{i[b]}/line-up")
-    client.post("/api/run/start")
-    client.post("/api/run/finish", json={"bib": "11"})
-    a = client.post("/api/attempts", json={"entry_id": i["11"], "event": "pushup"}).json()
-    client.post(f"/api/attempts/{a['id']}/finish", json={"count": 30})
-    client.post("/api/run/finish", json={"bib": None})
-    w = client.get("/api/state").json()["waves"][0]
-    r = client.post(f"/api/run/waves/{w['id']}/void", params={"abort": True}, headers=pin)
-    assert r.json() == {"back_to_waiting": 1, "kept": 1}
-    assert status(client, i["12"]) == "accepted" and client.get(f"/api/entries/{i['11']}").json()["run_time_s"] is not None
-    st = client.get("/api/state").json()
-    assert st["review_queue"] == 0 and st["waves"][0]["closed_by"] == "abort"
+    assert client.post(f"/api/entries/{i['11']}/start/cancel").status_code == 200
 
 
 def test_tap_first_then_tag_the_bib_and_individual_dnf(client, monkeypatch):
@@ -227,7 +184,7 @@ def test_tap_first_then_tag_the_bib_and_individual_dnf(client, monkeypatch):
         client.post(f"/api/entries/{i[b]}/line-up")
     t0 = models.utcnow()
     monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0)
-    client.post("/api/run/start")
+    start_lined_up(client)
     # the examiner taps at the instant of crossing (16:40.0), types the bib a few seconds later
     monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0 + timedelta(seconds=1000))
     tap = client.post("/api/run/finish", json={"bib": None}).json()

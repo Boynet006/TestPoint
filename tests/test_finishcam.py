@@ -17,6 +17,7 @@ from testpoint.vision.bib import BibReader, BibVote, torso_crop
 from testpoint.vision.detect import Box
 from testpoint.vision.line import FinishLine, parse_line
 from testpoint.vision.tracker import IoUTracker
+from runhelp import start_lined_up
 
 
 def box(x, y, w=40, h=100):
@@ -190,7 +191,7 @@ def test_camera_crossing_lands_as_result_or_review(client, monkeypatch):
         ok(client.post(f"/api/entries/{e['id']}/line-up"))
     t0 = app_mod.S.utcnow()
     monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0)
-    ok(client.post("/api/run/start"))
+    ok(start_lined_up(client))
     # a crossing timed before the start is refused
     monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0 + timedelta(seconds=30.0))
     r = client.post("/api/engine/crossing", json={"bib": "12", "latency_s": 59})

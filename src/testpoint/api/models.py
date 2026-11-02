@@ -64,11 +64,9 @@ class Day(Base):
 
 
 class Wave(Base):
-    """One start of the 3.2 km run. A test day has as many waves as it needs: people line up
-    for the next wave while earlier ones are out on the course.
-
-    ``started_at`` None: still lining up. A start in the future: the countdown is running
-    (every device shows the same countdown). ``closed_at``: everyone still out became DNF."""
+    """Legacy: group starts of the 3.2 km run, from before every runner started on their own.
+    Kept only so databases of those days still open; nothing writes it any more (each
+    runner's start is ``Entry.run_started_at``, filled in from the wave for old days)."""
 
     __tablename__ = "wave"
     __table_args__ = (UniqueConstraint("day_id", "number"),)
@@ -97,6 +95,12 @@ class Entry(Base):
     weighed_at: Mapped[datetime | None] = mapped_column(DateTime)
     lined_up_at: Mapped[datetime | None] = mapped_column(DateTime)
     wave_id: Mapped[int | None] = mapped_column(ForeignKey("wave.id"))
+    """Legacy (group starts): see ``Wave``."""
+    run_started_at: Mapped[datetime | None] = mapped_column(DateTime)
+    """This runner's GO (server clock): the run time counts from here. In the future while the
+    3-2-1 countdown runs."""
+    run_cutoff_at: Mapped[datetime | None] = mapped_column(DateTime)
+    """Still out after this: DNF by itself (the run cut-off plus a short grace for late finishers)."""
     run_time_s: Mapped[float | None] = mapped_column(Float)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime)
     # The standard this person is judged by, fixed at weigh-in (age on the test day).
@@ -108,7 +112,6 @@ class Entry(Base):
     run_grade: Mapped[int | None] = mapped_column(Integer)
 
     candidate: Mapped[Candidate] = relationship(lazy="joined")
-    wave: Mapped[Wave | None] = relationship(lazy="joined")
     attempts: Mapped[list["Attempt"]] = relationship(back_populates="entry", lazy="selectin",
                                                      order_by="Attempt.id")
 
@@ -134,7 +137,7 @@ class Crossing(Base):
     confidence: Mapped[float | None] = mapped_column(Float)
     clip_path: Mapped[str | None] = mapped_column(String(300))
     wave_id: Mapped[int | None] = mapped_column(ForeignKey("wave.id"))
-    """The wave the time is measured from (the runner's, or the wave running then for a review)."""
+    """Legacy (group starts): see ``Wave``."""
 
 
 class Attempt(Base):
@@ -222,13 +225,20 @@ def make_sessionmaker(db_url: str) -> sessionmaker:
                             ("face_template", (("yaw", "FLOAT"),)),
                             ("crossing", (("wave_id", "INTEGER"),)),
                             ("entry", (("age", "INTEGER"), ("band", "VARCHAR"), ("level", "INTEGER"), ("run_grade", "INTEGER"),
-                                       ("wave_id", "INTEGER"))),
+                                       ("wave_id", "INTEGER"), ("run_started_at", "DATETIME"), ("run_cutoff_at", "DATETIME"))),
                             ("attempt", (("auto_count", "INTEGER"), ("auto_rejected", "INTEGER"),
                                          ("override_reason", "VARCHAR"), ("grade", "INTEGER")))):
             have = {row[1] for row in conn.exec_driver_sql(f"PRAGMA table_info({table})")} if db_url.startswith("sqlite") else None
             for col, typ in cols:
                 if have is not None and col not in have:
                     conn.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {col} {typ}")
+        # Runs from the days of group starts: each runner's start is their wave's (or the day's
+        # one mass start before waves existed).
+        conn.exec_driver_sql(
+            "UPDATE entry SET run_started_at = COALESCE("
+            "(SELECT started_at FROM wave WHERE wave.id = entry.wave_id),"
+            "(SELECT run_started_at FROM day WHERE day.id = entry.day_id)) "
+            "WHERE run_started_at IS NULL AND (wave_id IS NOT NULL OR run_time_s IS NOT NULL OR status = 'running')")
         # At most one running attempt per candidate, enforced by the database itself
         # (a double tap or two devices cannot create two). IF NOT EXISTS also upgrades
         # databases created before this index existed.

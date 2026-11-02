@@ -8,6 +8,7 @@ from sqlalchemy.pool import StaticPool
 from testpoint.api import models
 from testpoint.api.app import create_app
 from testpoint.api.faces import Face, FaceError, match
+from runhelp import start_lined_up
 
 
 def vec(seed, noise=0.0, base=None):
@@ -195,7 +196,7 @@ def test_finish_camera_face_fallback(client, monkeypatch):
         client.post(f"/api/entries/{i[bib]}/line-up")
     t0 = models.utcnow()
     monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0)
-    client.post("/api/run/start")
+    start_lined_up(client)
     monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0 + timedelta(minutes=15))
     face = lambda b: base64.b64encode(b).decode()
     # A crosses, bib unreadable: recorded for 11 by face

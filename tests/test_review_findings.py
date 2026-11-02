@@ -11,6 +11,7 @@ from testpoint.api import app as app_mod
 from testpoint.api import journey as J
 from testpoint.api import models
 from testpoint.api.app import create_app
+from runhelp import start_lined_up
 
 W = {"weight_kg": 70, "height_cm": 175, "accept": True}
 
@@ -119,7 +120,7 @@ def setup_runner(c, bib="1"):
 
 def test_one_running_attempt_even_with_parallel_requests(client):
     i = setup_runner(client)
-    client.post("/api/run/start")
+    start_lined_up(client)
     client.post("/api/run/finish", json={"bib": "1"})
     results = []
     def go():
@@ -129,23 +130,25 @@ def test_one_running_attempt_even_with_parallel_requests(client):
     assert sorted(results).count(201) == 1 and results.count(409) == 5
 
 
-def test_finish_after_cutoff_is_dnf_and_closed_run_takes_no_finishes(client, monkeypatch):
+def test_finish_after_cutoff_is_dnf_and_a_later_crossing_waits_for_review(client, monkeypatch):
     i = setup_runner(client)
     t0 = models.utcnow()
     monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0)
-    client.post("/api/run/start")
+    start_lined_up(client)
     monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0 + timedelta(minutes=26))
     client.post("/api/run/finish", json={"bib": "1"})
     assert client.get(f"/api/entries/{i}").json()["status"] == "dnf"
     client.post("/api/run/close")
-    assert code(client.post("/api/run/finish", json={"bib": "1"})) == "run_already_closed"
+    # nobody is out any more: a crossing is kept for the examiner, never lost, never timed
+    again = client.post("/api/run/finish", json={"bib": "1"}).json()
+    assert again["needs_review"] and again["note_code"] == "bib_not_running" and again["entry_id"] is None
 
 
 def test_open_run_keeps_its_day_past_midnight(monkeypatch):
     app, box = make(monkeypatch, "2026-10-20")
     with TestClient(app) as c:
         setup_runner(c)
-        c.post("/api/run/start")
+        start_lined_up(c)
         box["today"] = "2026-10-21"                       # midnight passes during the run
         assert c.get("/api/state").json()["date"] == "2026-10-20"
         assert c.post("/api/run/finish", json={"bib": "1"}).status_code == 201
