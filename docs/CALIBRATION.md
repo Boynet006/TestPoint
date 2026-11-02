@@ -1,4 +1,4 @@
-# Counter calibration: push-ups and crunches (2026-10-19)
+﻿# Counter calibration: push-ups and crunches (2026-10-19)
 
 The rep counter and its fault rules were checked against public videos standing
 in for the station camera, before real footage exists. Clips are in
@@ -111,7 +111,7 @@ come from the signed-off rules, not from these clips.
 
 Real recordings from the station's IP camera, low and to the side, with the true counts known:
 10 push-ups and 10 crunches, each with getting into position, walking away and sitting at a desk
-around them. Their poses are in `tests/data` (keypoints only, no pictures) and
+around them. Their poses are in `tests/recordings` (keypoints only, no pictures) and
 `tests/test_counting_recordings.py` replays them through the real session and counter.
 
 | Finding | Before | Now |

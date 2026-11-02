@@ -1,4 +1,4 @@
-"""Real recordings from the station camera, replayed through the real session and counter. The
+﻿"""Real recordings from the station camera, replayed through the real session and counter. The
 true counts are known: 10 push-ups and 10 crunches, with getting into position, walking away and
 sitting at a desk around them. The files hold the poses only, no pictures."""
 
@@ -15,7 +15,7 @@ from testpoint.vision.keypoints import Person
 from testpoint.vision.lanes import whole_frame
 from testpoint.vision.session import MultiLaneSession
 
-DATA = Path(__file__).parent / "data"
+DATA = Path(__file__).parent / "recordings"
 
 
 class Recorded:
