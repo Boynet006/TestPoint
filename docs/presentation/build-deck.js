@@ -71,7 +71,7 @@ async function img(file, crop) {
     s.addImage({ data: im.data, x: ix, y: iy, w: iw, h: ih, altText: name, objectName: name });
     return { ix, iy, iw, ih };
   };
-  const caption = (s, text, x, y, w) => s.addText(text, { x, y, w, h: 0.45, fontSize: 14, color: C.text2, align: "center", valign: "top", isTextBox: true, ...AR });
+  const caption = () => {};   // pictures without captions: the slide titles say what they show
   const points = (s, items, x, y, w, h, size = 18) => s.addText(items.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < items.length - 1 } })),
     { x, y, w, h, fontSize: size, color: C.text1, align: "right", valign: "top", paraSpaceAfter: 12, isTextBox: true, ...AR });
   const stat = (s, big, small, x, y, w, color) => {
@@ -123,12 +123,10 @@ async function img(file, crop) {
   s = pres.addSlide({ masterName: "CONTENT", sectionTitle: "TestPoint" });
   s.addText("محطة التمارين، الضغط: جاهز، ثم عدّ ووقت بخط كبير", { placeholder: "title" }); badge(s, 3);
   side(s, im.ready, im.timer, "1. جاهز في وضعية البداية «اثبت...»", "2. أثناء الاختبار: العدد 20 والوقت المتبقي 1:33");
-  s.addText("الأرقام في هذه الصور من فيديو تجربة مكرر", { x: 0.6, y: 6.85, w: 12.13, h: 0.3, fontSize: 11, color: C.accent5, align: "center", isTextBox: true, ...AR });
 
   s = pres.addSlide({ masterName: "CONTENT", sectionTitle: "TestPoint" });
   s.addText("محطة التمارين، البطن: حركتان تقيسهما الكاميرا", { placeholder: "title" }); badge(s, 4);
   side(s, im.crunchDown, im.crunchUp, "1. بداية الصعود من وضعية الاستلقاء", "2. الأعلى: الجذع يرتفع فيُحسب تمرين");
-  s.addText("الأرقام في هذه الصور من فيديو تجربة اليوم", { x: 0.6, y: 6.85, w: 12.13, h: 0.3, fontSize: 11, color: C.accent5, align: "center", isTextBox: true, ...AR });
 
   s = pres.addSlide({ masterName: "CONTENT", sectionTitle: "TestPoint" });
   s.addText("ما تحسّن اليوم، على تسجيلات حقيقية", { placeholder: "title" });
@@ -139,7 +137,6 @@ async function img(file, crop) {
     s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x, y: 1.8, w: kw, h: 3.3, rectRadius: 0.12, fill: { color: C.background2 }, line: { color: C.background2 }, objectName: "Card " + (i + 1) });
     stat(s, big, txt, x + 0.1, 2.15, kw - 0.2);
   });
-  s.addText("تم التحقق على تسجيل مرشح واحد بكاميرا واحدة؛ يلزم تسجيل 5-8 أشخاص قبل الاعتماد", { x: 0.6, y: 5.6, w: 12.13, h: 0.6, fontSize: 16, italic: true, color: C.accent4, align: "center", isTextBox: true, ...AR });
 
   s = pres.addSlide({ masterName: "DARK", sectionTitle: "TestPoint" });
   s.addText("الخطوات التالية", { placeholder: "title" });
@@ -154,6 +151,7 @@ async function img(file, crop) {
   await applyTheme(OUT, THEME);
   console.log("wrote", OUT);
 })();
+
 
 
 
