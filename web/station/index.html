@@ -1181,6 +1181,14 @@
 /* ============================== i18n ============================== */
 const I18N = {
   en: {
+    e_low_quality: "The photo is not good enough to recognise them by later (blurred, dark or too small): take another",
+    q_poor: "Picture not good enough: once more",
+    q_unclear: "Face not clear: look at the camera",
+    q_low_contrast: "Flat light: light the face from the front",
+    q_too_bright: "Too bright: less light, or turn away from the window",
+    q_too_dark: "Too dark: more light on the face",
+    q_blurry: "Hold still: the picture is blurred",
+    q_too_small: "Come closer to the camera",
     e_start_in_progress: "Someone is starting now: wait for their GO",
     run_closed_n: "Run closed: {n} still out became DNF.",
     runner_counting_down: "A runner is counting down…",
@@ -1475,6 +1483,14 @@ const I18N = {
     e_override_reason_required: "The count differs from the camera's: give a reason",
   },
   ar: {
+    e_low_quality: "?????? ??? ????? ?????? ???? ?????? (??? ????? ?? ????? ?? ?????): ????? ???? ????",
+    q_poor: "?????? ??? ?????: ??? ????",
+    q_unclear: "????? ??? ????: ???? ??? ????????",
+    q_low_contrast: "????? ?????: ??? ????? ?? ??????",
+    q_too_bright: "????? ????: ????? ??? ?? ????? ?? ???????",
+    q_too_dark: "????? ????: ????? ???? ??? ?????",
+    q_blurry: "????: ?????? ??? ?????",
+    q_too_small: "????? ?? ????????",
     e_start_in_progress: "هناك من ينطلق الآن: انتظر انطلاقه",
     run_closed_n: "أُغلق الجري: {n} ممن بقوا في المسار لم يكملوا.",
     runner_counting_down: "عدّاء في العد التنازلي…",
@@ -2419,6 +2435,17 @@ function drawGuide(view, step, done, state, text) {
   const ty = Math.min(vh - 14, cy + ry + 54); g.strokeText(text, cx, ty); g.fillText(text, cx, ty);
 }
 
+const BURST_FRAMES = 6, BURST_GAP_MS = 110;
+// Frames of the live video as base64 JPEGs, ``gap`` ms apart (full camera size).
+async function grabBurst(video, n, gap) {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const blob = await grabFrame(video, 1920, 0.92);
+    out.push(await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(String(fr.result).split(",")[1]); fr.readAsDataURL(blob); }));
+    if (i < n - 1) await new Promise(r => setTimeout(r, gap));
+  }
+  return out;
+}
 // One pose: poll the head turn, capture when it is right for POSE_HOLD checks in a row
 // (or after POSE_TIMEOUT_MS with any single face). Returns the enrol result, or null if stopped.
 async function capturePose(view, entryId, step) {
@@ -2440,8 +2467,16 @@ async function capturePose(view, entryId, step) {
     drawGuide(view, step, step, state, text);
     const timedOut = Date.now() - t0 > POSE_TIMEOUT_MS && last && last.face && last.faces === 1;
     if (streak >= POSE_HOLD || timedOut) {
-      try { return await apiImage(faceUrl, await grabFrame(view.video, 1920, 0.92)); }
-      catch (x) { if (x.code === "face_belongs_to_other") throw x; streak = 0; }   // blurred / no face: keep trying
+      // a short burst while they hold the pose: the server keeps the sharpest, best-lit frame
+      try { return await api("POST", faceUrl + "/burst", { frames: await grabBurst(view.video, BURST_FRAMES, BURST_GAP_MS) }); }
+      catch (x) {
+        if (x.code === "face_belongs_to_other") throw x;
+        streak = 0;                                              // not good enough: say why, keep trying
+        if (x.code === "low_quality" && view.alive()) {
+          drawGuide(view, step, step, "search", (x.issues || []).map(k => t("q_" + k)).join(" · ") || t("q_poor"));
+          await new Promise(r => setTimeout(r, 1200));
+        }
+      }
     }
     await new Promise(r => setTimeout(r, 120));
   }

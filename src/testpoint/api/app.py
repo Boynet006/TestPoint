@@ -203,6 +203,25 @@ class DnfIn(BaseModel):
     reason: str
 
 
+class BurstIn(BaseModel):
+    frames: list[str] = Field(min_length=1, max_length=12)
+    """Base64 JPEG frames of one pose; the best one is kept (each at most 2 MB)."""
+
+
+def burst_frames(body: BurstIn) -> list[bytes]:
+    import base64
+    import binascii
+    out = []
+    for f in body.frames:
+        if len(f) > 2_800_000:
+            raise S.ServiceError("too_large", "a frame is larger than 2 MB", 413)
+        try:
+            out.append(base64.b64decode(f.split(",", 1)[-1], validate=True))
+        except (binascii.Error, ValueError):
+            raise S.ServiceError("bad_image", "a frame is not base64", 400) from None
+    return out
+
+
 class CheckinIn(BaseModel):
     station: str
     query: str
@@ -609,6 +628,13 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         c = S.get_candidate(db, candidate_id)
         return {"faces": S.enroll_face(db, day, None, await request.body(), engine(), candidate=c)}
 
+    @app.post("/api/candidates/{candidate_id}/face/burst")
+    def register_face_burst(candidate_id: int, body: BurstIn, db: Session = Depends(get_db),
+                            day: Day = Depends(get_day)) -> dict:
+        """Several frames of one pose: the sharpest, best-lit one is kept (low_quality if none is good)."""
+        c = S.get_candidate(db, candidate_id)
+        return {"faces": S.enroll_face(db, day, None, burst_frames(body), engine(), candidate=c)}
+
     @app.delete("/api/candidates/{candidate_id}/face", status_code=204, dependencies=[Depends(admin)])
     def register_face_remove(candidate_id: int, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> None:
         S.remove_faces(db, day, None, candidate=S.get_candidate(db, candidate_id))
@@ -643,6 +669,12 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         data = await request.body()
         return {"faces": S.enroll_face(db, day, S.get_entry(db, day, entry_id), data, engine())}
 
+    @app.post("/api/entries/{entry_id}/face/burst")
+    def face_enroll_burst(entry_id: int, body: BurstIn, db: Session = Depends(get_db),
+                          day: Day = Depends(get_day)) -> dict:
+        """Several frames of one pose: the sharpest, best-lit one is kept (low_quality if none is good)."""
+        return {"faces": S.enroll_face(db, day, S.get_entry(db, day, entry_id), burst_frames(body), engine())}
+
     @app.delete("/api/entries/{entry_id}/face", status_code=204, dependencies=[Depends(admin)])
     def face_remove(entry_id: int, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> None:
         S.remove_faces(db, day, S.get_entry(db, day, entry_id))
@@ -668,7 +700,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     @app.post("/api/face/identify")
     async def face_identify(request: Request, station: str | None = None,
                             db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
-        if station is not None and station not in J.STATIONS:
+        if station is not None and station not in J.STATIONS and station != "results":
             raise S.ServiceError("unknown_station", f"unknown station {station!r}", 400)
         r = S.identify(db, day, await request.body(), engine(), station)
         if r["entry"] is not None:
