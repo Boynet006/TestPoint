@@ -897,7 +897,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         _last_report[body.station] = (clock(), body)
         if body.station == S.EXERCISE_STATION:
             flow = station_flow(db, day)
-            watch = flow.watching or flow.event or "pushup"
+            watch = flow.watching or flow.event or idle_watch["exercise"]
             for lane in reply["lanes"].values():
                 lane["exercise"] = watch
             return reply | {"tuning": S.get_settings(db)["count_tuning"].get(watch, {})}
@@ -1205,6 +1205,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     # One station, one camera, one person at a time: recognised by face, their next test chosen
     # (push-ups, then crunches), 3-2-1 once in position, counted for the time, saved (station.py).
     flows: dict[str, StationFlow] = {}
+    idle_watch = {"exercise": "pushup"}     # what the one-mat engine watches with nobody being tested (tuning)
 
     def station_flow(db: Session, day: Day) -> StationFlow:
         f = flows.get(day.date)
@@ -1284,9 +1285,18 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         v["live"] = ({"count": lane.count, "rejected": lane.rejected, "phase": lane.phase, "person": lane.person,
                       "faults": lane.pending_faults, "depth": lane.depth} if lane else None)
         v["engine"] = lane is not None
+        v["idle_watch"] = idle_watch["exercise"]
         for k in ("go_at", "ends_at", "since"):
             v[k] = at_wall(v[k])
         return v
+
+    @app.put("/api/stationflow/watch/{exercise}")
+    def stationflow_watch(exercise: str) -> dict:
+        """Tuning at the one-mat station: the exercise to watch while nobody is being tested."""
+        if exercise not in EVENTS:
+            raise S.ServiceError("unknown_event", f"unknown event {exercise!r}", 400)
+        idle_watch["exercise"] = exercise
+        return idle_watch
 
     @app.post("/api/stationflow/reset")
     def stationflow_reset(db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:

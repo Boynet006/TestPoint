@@ -627,6 +627,7 @@
 <aside class="drawer" id="tunePanel" aria-labelledby="ltTitle" hidden>
   <div class="dlg-head"><h2 id="ltTitle" data-t="lt_title"></h2><span class="spacer"></span><button class="btn ghost sm" type="button" onclick="LiveTune.toggle(false)" data-t="rg_close"></button></div>
   <p class="hint" data-t="lt_hint"></p>
+  <div class="seg" id="ltEx" style="margin-bottom:10px"><button id="ltEx-pushup" type="button" onclick="LiveTune.pick('pushup')" data-t="pushup"></button><button id="ltEx-crunch" type="button" onclick="LiveTune.pick('crunch')" data-t="crunch"></button></div>
   <div id="ltBox"></div><div id="ltMsg"></div>
 </aside>
 <dialog id="personDlg" class="dlg" style="max-width:860px">
@@ -1375,6 +1376,9 @@ const I18N = {
     tn_max_knee_deg: "Bent knee", tnh_max_knee_deg: "The knee test applies only when the knee is bent below this angle.",
     tn_min_knee_drop: "Knee drop (feet raised)", tnh_min_knee_drop: "With the feet raised, how far the knee must be below hip and ankle to count as down.",
     tn_rest_in_down_s: "Rest in the down position", tnh_rest_in_down_s: "Longest time away from the top before the rep is rejected.",
+    tn_min_drop: "Depth: shoulders come down", tnh_min_drop: "Share of the body's length the shoulders must drop at the bottom. Works when the elbow angle cannot be read.",
+    tn_max_torso_deg: "Most upright to measure", tnh_max_torso_deg: "Above this torso angle the person is sitting or standing and nothing is counted.",
+    tn_crouch_knee_deg: "Crouching below", tnh_crouch_knee_deg: "A knee bent more than this means getting up or down, and nothing is counted.",
     tn_fault_min_s: "Fault must last", tnh_fault_min_s: "Shorter faults are pose jitter and do not reject the rep.",
     tn_up_torso_deg: "Depth: rise to count", tnh_up_torso_deg: "Torso rise above the lying level that counts as up.",
     tn_down_torso_deg: "Back down", tnh_down_torso_deg: "Below this rise the candidate is back on the floor (lower than the rise).",
@@ -1731,6 +1735,9 @@ const I18N = {
     tn_max_knee_deg: "ثني الركبة", tnh_max_knee_deg: "يُطبّق اختبار الركبة فقط عندما تنثني الركبة أقل من هذه الزاوية.",
     tn_min_knee_drop: "نزول الركبة (القدمان مرفوعتان)", tnh_min_knee_drop: "مع رفع القدمين، مقدار نزول الركبة تحت الورك والكاحل لتُعد على الأرض.",
     tn_rest_in_down_s: "الراحة في الأسفل", tnh_rest_in_down_s: "أطول وقت بعيداً عن الأعلى قبل رفض التكرار.",
+    tn_min_drop: "العمق: نزول الكتفين", tnh_min_drop: "نسبة طول الجسم التي يجب أن ينزلها الكتفان في الأسفل. تعمل عندما تتعذر قراءة زاوية المرفق.",
+    tn_max_torso_deg: "أقصى استقامة للقياس", tnh_max_torso_deg: "فوق هذه الزاوية يكون الشخص جالساً أو واقفاً فلا يُحسب شيء.",
+    tn_crouch_knee_deg: "القرفصاء تحت", tnh_crouch_knee_deg: "ركبة مثنية أكثر من هذا تعني النهوض أو النزول فلا يُحسب شيء.",
     tn_fault_min_s: "مدة الخطأ", tnh_fault_min_s: "الأخطاء الأقصر اهتزاز في الوضعية ولا ترفض التكرار.",
     tn_up_torso_deg: "الارتفاع للعد", tnh_up_torso_deg: "ارتفاع الجذع فوق مستوى الاستلقاء الذي يُعد صعوداً.",
     tn_down_torso_deg: "العودة للأسفل", tnh_down_torso_deg: "تحت هذا الارتفاع يعود المرشح إلى الأرض (أقل من الارتفاع للعد).",
@@ -3354,7 +3361,7 @@ const StationCam = {
     try {
       this.src = await api("GET", `/api/finishcam/sources${refresh ? "?refresh=true" : ""}`);
       $("scWebcam").innerHTML = this.src.cameras.map(c => `<option value="${c.index}">${esc(c.label)} · ${c.size[0]}×${c.size[1]}</option>`).join("") || `<option value="">${t("fc_no_webcam")}</option>`;
-      const vids = this.src.videos.filter(v => v.group === event);
+      const vids = this.src.videos.filter(v => oneMat() ? v.group === "pushup" || v.group === "crunch" : v.group === event);   // one mat: both exercises
       $("scVideo").innerHTML = vids.map(v => `<option value="${esc(v.path)}">${esc(v.label)} · ${v.mb} MB</option>`).join("") || `<option value="">${t("fc_no_video")}</option>`;
       if (this.pref.webcam != null) $("scWebcam").value = this.pref.webcam;
       const mine = this.pref["video_" + event] || this.pref.video;
@@ -3392,7 +3399,9 @@ const StationCam = {
     $("scState").textContent = !st.available ? t("fc_state_offline") : st.running ? (live ? t("fc_state_live") : t("fc_state_starting")) : st.exit_code ? t("fc_state_error") : t("fc_state_stopped");
     const ended = !st.running && st.exit_code === 0 && st.config && st.config.kind === "video";
     if (ended && !this.endedSaid) { msg("scMsg", "warn", t("vid_ended")); this.endedSaid = true; } if (st.running) this.endedSaid = false;
-    const c = st.config, changed = st.running && c && (c.exercise !== this.exercise() || c.lanes !== lanes.length || JSON.stringify(c.dividers || []) !== JSON.stringify(this.dividers()));
+    const k = this.pref.kind || "webcam", picked = k === "video" ? $("scVideo").value : k === "webcam" ? $("scWebcam").value : null;
+    const c = st.config, changed = st.running && c && (c.exercise !== this.exercise() || c.lanes !== lanes.length || JSON.stringify(c.dividers || []) !== JSON.stringify(this.dividers())
+      || (c.kind !== k && !(k === "url" && c.kind === "saved")) || (picked != null && picked !== "" && String(c.source) !== picked));
     $("scStart").textContent = st.running ? (changed ? t("fc_restart") : t("sc_running")) : t("fc_start");
     $("scStart").disabled = $("scStart").disabled || (st.running && !changed);
     $("scStop").classList.toggle("hidden", !st.running);
@@ -3854,15 +3863,25 @@ const LiveTune = {
     if (show) this.render();
   },
   async render() {
-    const d = await SetNav.defaults(); if (!d || !d.tuning[event]) return;
-    this.ex = event;
-    const cur = (setting("count_tuning") || {})[event] || {};
-    $("ltBox").innerHTML = `<div class="ltgrid">` + Object.entries(d.tuning[event]).map(([k, r]) => {
+    if (oneMat() && !this.ex) { try { this.ex = (await api("GET", "/api/stationflow")).idle_watch; } catch { /* the page's exercise */ } }
+    const ex = oneMat() && this.ex ? this.ex : event;
+    const d = await SetNav.defaults(); if (!d || !d.tuning[ex]) return;
+    this.ex = ex;
+    $("ltEx").classList.toggle("hidden", !oneMat());
+    for (const e of ["pushup", "crunch"]) $("ltEx-" + e).classList.toggle("active", e === ex);
+    const cur = (setting("count_tuning") || {})[ex] || {};
+    $("ltBox").innerHTML = `<div class="ltgrid">` + Object.entries(d.tuning[ex]).map(([k, r]) => {
       const v = cur[k] != null ? cur[k] : r.default, changed = Math.abs(v - r.default) > 1e-9;
       return `<label for="lt-${k}" title="${esc(t("tnh_" + k))}">${t("tn_" + k)}</label><div class="pair"><input id="lt-${k}" type="range" min="${r.min}" max="${r.max}" step="${r.step}" value="${v}" oninput="LiveTune.picked('${k}', this)">
         <span class="kv tunev${changed ? " changed" : ""}" id="ltv-${k}">${+(+v).toFixed(2)}${TUNE_UNIT(k)}</span>
         <button class="btn ghost sm${changed ? "" : " hidden"}" type="button" id="ltr-${k}" onclick="LiveTune.reset('${k}')" title="${t("tn_default", { v: r.default + TUNE_UNIT(k) })}">↺</button></div>`;
     }).join("") + `</div>`;
+  },
+  // One mat: choose which exercise's rules to tune; the camera watches it while nobody is being tested.
+  async pick(ex) {
+    this.ex = ex;
+    try { await api("PUT", `/api/stationflow/watch/${ex}`); } catch (e) { msg("ltMsg", "bad", err(e)); }
+    this.render();
   },
   picked(k, el) {
     const r = S.defaults.tuning[this.ex][k], v = +el.value, changed = Math.abs(v - r.default) > 1e-9;
@@ -3894,7 +3913,7 @@ function renderStation() {
   const one = oneMat();
   $("stLanes").classList.toggle("hidden", one);
   for (const id of ["ev-pushup", "ev-crunch"]) $(id).parentElement.classList.toggle("hidden", one);
-  if (!$("tunePanel").hidden && LiveTune.ex !== event) LiveTune.render();   // switched push-ups / crunches
+  if (!$("tunePanel").hidden && !oneMat() && LiveTune.ex !== event) LiveTune.render();   // switched push-ups / crunches
   if (role !== "station" && !$("tunePanel").hidden) LiveTune.toggle(false);
   for (const x of ["pushup", "crunch"]) $("ev-" + x).classList.toggle("active", x === event);
   if (S.rules) $("xLimit").textContent = troubleLimit() === 0 ? "∞" : mmss(limit()).replace(/^0/, "");
@@ -3945,7 +3964,7 @@ const StationCall = {
     } else if (v.state === "refused") {
       cls = "no";
       body = `<div><div class="c-who">${who}</div><div class="c-say">${esc(t("e_" + v.reason))}</div></div>`;
-      if (e && v.reason === "all_done") ResultsCard.show(e.id);
+      if (e && v.reason === "all_done" && $("tunePanel").hidden) ResultsCard.show(e.id);   // not over the sliders
     } else {
       body = `<div><div class="c-say">${esc(t(v.engine ? "st_step_up" : "st_no_camera"))}</div>${v.reason ? `<div class="hint">${esc(t("st_" + v.reason))}</div>` : ""}</div>`;
     }

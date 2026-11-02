@@ -81,6 +81,13 @@ class RepCounterConfig:
     Getting into position (lying down, a plank) is never a rep. 0 = ``min_rest_frames`` only.
     With a relative metric: how many seconds of rest-position data the rest level needs
     (a candidate who crunches without pausing never holds still for a second)."""
+    drop_work: float | None = None
+    """A second way to see the bottom of a rep: the body's ``height`` has fallen this far from
+    its top level (push-ups: the elbow angle cannot be read from every camera). None = off."""
+    drop_rest: float = 0.05
+    """With ``drop_work``: the height is back within this of its top level, the rep is done."""
+    drop_window_s: float = 6.0
+    """With ``drop_work``: seconds over which the top level is taken."""
     rest_limit: float | None = None
     """Absolute bound the raw metric must be on the rest side of to count as the rest
     position (crunches: lying, not sitting). Frames beyond it never arm the counter, never
@@ -133,6 +140,7 @@ class RepCounter:
     """When each fault reported on the current frame was first seen without a break."""
     _rest_since: float | None = None
     _history: deque = field(default_factory=deque)
+    _heights: deque = field(default_factory=deque)
     """``(t, metric)`` over the last ``floor_window_s`` seconds, for the rest level."""
     floor: float | None = None
     """The current rest level when the metric is relative (shown on the overlay)."""
@@ -191,14 +199,27 @@ class RepCounter:
             self.floor = float(np.percentile([m for _t, m in h], q))
         return metric - (self.floor if self.floor is not None else metric)
 
-    def update(self, metric: float | None, t: float, faults: Iterable[str] = ()) -> RepEvent | None:
-        """Feed one frame. Returns a RepEvent when a rep completes (valid or rejected)."""
+    def _drop(self, height: float | None, t: float) -> float | None:
+        """How far the height is below its top level over the last ``drop_window_s`` seconds."""
+        if self.cfg.drop_work is None or height is None:
+            return None
+        h = self._heights
+        h.append((t, height))
+        while h and h[0][0] < t - self.cfg.drop_window_s:
+            h.popleft()
+        return float(np.percentile([v for _t, v in h], 90)) - height
+
+    def update(self, metric: float | None, t: float, faults: Iterable[str] = (),
+               height: float | None = None) -> RepEvent | None:
+        """Feed one frame. Returns a RepEvent when a rep completes (valid or rejected).
+        ``height``: the body's height for ``drop_work``, when the exercise uses it."""
         if metric is None:
             self._missing += 1
             self._fault_since.clear()
             if self._missing > self.cfg.max_missing_frames:
                 self.reset()
                 self._history.clear()
+                self._heights.clear()
             return None
         self._missing = 0
         faults = self._persistent(faults, t)
@@ -208,6 +229,10 @@ class RepCounter:
 
         in_work = self.cfg.in_work(metric)
         in_rest = self.cfg.in_rest(metric) and restable
+        drop = self._drop(height, t)
+        if drop is not None:
+            in_work = in_work or drop >= self.cfg.drop_work
+            in_rest = (in_rest or drop <= self.cfg.drop_rest) and not in_work
 
         if self.phase is Phase.WAITING:
             self._rest_streak = self._rest_streak + 1 if in_rest else 0

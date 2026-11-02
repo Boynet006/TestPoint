@@ -105,7 +105,7 @@ class MultiLaneSession:
             metrics = (
                 self.analyzer.analyze(person) if person is not None else FrameMetrics(metric=None)
             )
-            event = counter.update(metrics.metric, t, metrics.faults)
+            event = counter.update(metrics.metric, t, metrics.faults, metrics.height)
             results[lane.name] = FrameResult(
                 t=t,
                 person=person,
