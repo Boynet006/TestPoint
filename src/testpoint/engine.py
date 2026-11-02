@@ -27,6 +27,7 @@ from dataclasses import dataclass, field
 # Must be in the environment before OpenCV loads its FFmpeg plugin (see vision/sources.py).
 os.environ.setdefault("OPENCV_FFMPEG_CAPTURE_OPTIONS", "rtsp_transport;tcp")
 
+from .applink import ssl_context
 from .evidence import EvidenceWriter
 from .preview import FramePublisher
 from .vision.counter import RepCounter, RepCounterConfig
@@ -198,7 +199,7 @@ class HttpTransport:
             self.url, data=json.dumps(report).encode(), method="POST",
             headers={"Content-Type": "application/json"},
         )
-        with urllib.request.urlopen(req, timeout=self.timeout_s) as resp:
+        with urllib.request.urlopen(req, timeout=self.timeout_s, context=ssl_context(self.url)) as resp:
             return json.loads(resp.read().decode() or "{}")
 
 

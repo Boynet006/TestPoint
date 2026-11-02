@@ -190,3 +190,48 @@ def test_app_reports_an_offline_start_camera_service(tmp_path):
         assert c.get("/api/startcam").json() == {"available": False, "running": False, "reason": "camera_service_offline"}
         r = c.post("/api/startcam/start", json={"kind": "url", "source": "rtsp://x", "app_url": "http://127.0.0.1:8000"})
         assert r.status_code == 503
+
+
+def test_camera_processes_skip_the_certificate_check_only_on_this_pc():
+    import ssl
+
+    from testpoint.applink import ssl_context
+    assert ssl_context("http://127.0.0.1:8000/api/engine/report") is None
+    assert ssl_context("https://192.168.250.149:8000/api") is None          # another address: verified
+    for url in ("https://127.0.0.1:8000/api", "https://localhost:8443/x"):
+        ctx = ssl_context(url)
+        assert ctx is not None and ctx.verify_mode == ssl.CERT_NONE and not ctx.check_hostname
+
+
+def test_https_app_address_is_accepted():
+    from testpoint.camhost import APP_URL
+    assert APP_URL.match("https://127.0.0.1:8000") and APP_URL.match("http://localhost:8080")
+    assert not APP_URL.match("https://192.168.250.149:8000")
+
+
+def test_the_app_tells_cameras_its_own_loopback_address(svc, tmp_path, monkeypatch):
+    """A page opened on another computer sends that computer's view of the address; the camera
+    processes on the station PC get the app's loopback address with the request's scheme and port."""
+    from testpoint.api.app import create_app
+    monkeypatch.setenv("TESTPOINT_CERT_DIR", str(tmp_path / "no-certs"))
+    service = camhost.create_service(log_dir=tmp_path / "logs3", runner=FakeProc)
+    server = uvicorn.Server(uvicorn.Config(service, host="127.0.0.1", port=8198, log_level="error"))
+    th = threading.Thread(target=server.run, daemon=True)
+    th.start()
+    try:
+        import time
+        for _ in range(50):
+            if server.started:
+                break
+            time.sleep(0.1)
+        app = create_app(db_url=f"sqlite:///{tmp_path / 'd.db'}", web_dir="none", camhost_url="http://127.0.0.1:8198")
+        with TestClient(app, base_url="https://192.168.250.149:8000") as c:
+            r = c.post("/api/startcam/start", json={"kind": "url", "source": "rtsp://cam/101",
+                                                    "app_url": "https://192.168.250.149:8000"})
+            assert r.status_code == 200
+            cmd = FakeProc.last.cmd
+            assert cmd[cmd.index("--app") + 1] == "https://127.0.0.1:8000"
+            assert c.get("/testpoint-ca.crt").status_code == 404           # no certificate made here
+    finally:
+        server.should_exit = True
+        th.join(timeout=5)

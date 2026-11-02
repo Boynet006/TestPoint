@@ -953,9 +953,16 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     def finishcam_sources(refresh: bool = False) -> dict:
         return _camhost("GET", f"/sources{'?refresh=true' if refresh else ''}", timeout=15.0)
 
+    def _loopback(request: Request) -> str:
+        """This app as the camera processes on the station PC reach it: the scheme and port the
+        request came in on, on the loopback address, whichever device's page asked (a page
+        opened on another computer has that computer's view of the address)."""
+        port = request.url.port or (443 if request.url.scheme == "https" else 80)
+        return f"{request.url.scheme}://127.0.0.1:{port}"
+
     @app.post("/api/finishcam/start")
-    def finishcam_start(body: FinishCamIn) -> dict:
-        return _camhost("POST", "/finish/start", body.model_dump(), timeout=10.0)
+    def finishcam_start(body: FinishCamIn, request: Request) -> dict:
+        return _camhost("POST", "/finish/start", body.model_dump() | {"app_url": _loopback(request)}, timeout=10.0)
 
     @app.post("/api/finishcam/stop")
     def finishcam_stop() -> dict:
@@ -970,9 +977,10 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
             return {"available": False, "running": False, "reason": e.code}
 
     @app.post("/api/stationcam/start")
-    def stationcam_start(body: StationCamIn, db: Session = Depends(get_db)) -> dict:
+    def stationcam_start(body: StationCamIn, request: Request, db: Session = Depends(get_db)) -> dict:
         tuning = S.get_settings(db)["count_tuning"].get(body.exercise, {})
-        return _camhost("POST", "/station/start", body.model_dump() | {"tuning": tuning}, timeout=10.0)
+        return _camhost("POST", "/station/start", body.model_dump() | {"tuning": tuning, "app_url": _loopback(request)},
+                        timeout=10.0)
 
     @app.post("/api/stationcam/stop")
     def stationcam_stop() -> dict:
@@ -987,8 +995,19 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
             return {"available": False, "running": False, "reason": e.code}
 
     @app.post("/api/startcam/start")
-    def startcam_start(body: StartCamIn) -> dict:
-        return _camhost("POST", "/startcam/start", body.model_dump(), timeout=10.0)
+    def startcam_start(body: StartCamIn, request: Request) -> dict:
+        return _camhost("POST", "/startcam/start", body.model_dump() | {"app_url": _loopback(request)}, timeout=10.0)
+
+    @app.get("/testpoint-ca.crt")
+    def https_ca() -> Response:
+        """TestPoint's local certificate authority (public part), for the devices that open this
+        app over HTTPS: installed once as trusted, the browser shows no warning and allows the
+        camera. Made by scripts/https-cert.ps1."""
+        ca = Path(os.environ.get("TESTPOINT_CERT_DIR", "data/certs")) / "testpoint-ca.crt"
+        if not ca.is_file():
+            raise S.ServiceError("no_https", "HTTPS is not set up on this station", 404)
+        return Response(ca.read_bytes(), media_type="application/x-x509-ca-cert",
+                        headers={"Content-Disposition": 'attachment; filename="testpoint-ca.crt"'})
 
     @app.post("/api/startcam/stop")
     def startcam_stop() -> dict:
@@ -1041,7 +1060,17 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--web", default=None, help="station UI folder (default $TESTPOINT_WEB or web/station)")
     p.add_argument("--reload", action="store_true",
                    help="development: restart by itself whenever the Python code changes")
+    p.add_argument("--https", action="store_true", default=os.environ.get("TESTPOINT_HTTPS") == "1",
+                   help="serve HTTPS with the certificate in data/certs (scripts/https-cert.ps1): "
+                        "other devices can then use their camera in the browser")
     args = p.parse_args(argv)
+    tls = {}
+    if args.https:
+        certs = Path(os.environ.get("TESTPOINT_CERT_DIR", "data/certs"))
+        cert, key = certs / "server.crt", certs / "server.key"
+        if not (cert.is_file() and key.is_file()):
+            raise SystemExit(f"no certificate in {certs}: run scripts/https-cert.ps1 first")
+        tls = {"ssl_certfile": str(cert), "ssl_keyfile": str(key)}
     if args.reload:
         # The reloader imports the app afresh in a child process: hand the options over by environment.
         if args.db:
@@ -1049,9 +1078,9 @@ def main(argv: list[str] | None = None) -> None:
         if args.web:
             os.environ["TESTPOINT_WEB"] = args.web
         uvicorn.run("testpoint.api.app:create_app", factory=True, reload=True,
-                    reload_dirs=[str(Path(__file__).resolve().parents[1])], host=args.host, port=args.port)
+                    reload_dirs=[str(Path(__file__).resolve().parents[1])], host=args.host, port=args.port, **tls)
         return
-    uvicorn.run(create_app(db_url=args.db, web_dir=args.web), host=args.host, port=args.port)
+    uvicorn.run(create_app(db_url=args.db, web_dir=args.web), host=args.host, port=args.port, **tls)
 
 
 if __name__ == "__main__":

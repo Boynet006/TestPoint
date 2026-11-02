@@ -58,6 +58,14 @@ for ($i=0; $i -lt 30; $i++) {
 
 Expect `200` and `Application startup complete.` in `data\srv.err`.
 
+### Other devices (registration desk, tablets)
+
+Use `--host 0.0.0.0 --https` instead (see README, "HTTPS: cameras on other devices"):
+run `scripts\https-cert.ps1` once first. The URL becomes `https://<PC address>:8000`;
+`http://` on a LAN address leaves the browser's camera blocked. Opening port 8000 in
+Windows Firewall and trusting `testpoint-ca.crt` on each device are the user's steps
+(security settings), not yours. Also start the camera service: `python -m testpoint.camhost`.
+
 ## 3. Drive it
 
 Open http://127.0.0.1:8000 in the browser pane; it redirects to `/ui/`

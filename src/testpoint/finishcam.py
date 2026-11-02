@@ -34,6 +34,7 @@ os.environ.setdefault("OPENCV_FFMPEG_CAPTURE_OPTIONS", "rtsp_transport;tcp")
 import cv2
 import numpy as np
 
+from .applink import ssl_context
 from .evidence import EvidenceWriter
 from .preview import FramePublisher
 from .vision.bib import BibReader, BibResult, BibVote
@@ -92,7 +93,7 @@ class CrossingPoster:
     def _send(self, c: Crossing) -> dict:
         req = urllib.request.Request(self.url, data=json.dumps(c.payload()).encode(), method="POST",
                                      headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=self.timeout_s) as resp:
+        with urllib.request.urlopen(req, timeout=self.timeout_s, context=ssl_context(self.url)) as resp:
             return json.loads(resp.read().decode() or "{}")
 
     def _run(self) -> None:
