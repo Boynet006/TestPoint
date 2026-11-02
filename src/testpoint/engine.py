@@ -338,7 +338,7 @@ def run(session: MultiLaneSession, source, reporter: Reporter, sender: Sender,
     ``analyzers`` (the combined station): the exercises it may be asked to watch; ``faces``: the
     face check-in of the person on the mat."""
     frames = 0
-    fps = 0.0
+    fps = gap = 0.0
     last = time.monotonic()
     for frame, t in iter_frames(source, realtime=realtime):
         ex = reporter.take_exercise() if analyzers else None
@@ -368,7 +368,10 @@ def run(session: MultiLaneSession, source, reporter: Reporter, sender: Sender,
             evidence.push(frame, t)       # before the counter sees it: the clip ends on this frame
         res = session.process(frame, t)
         now = time.monotonic()
-        fps = 0.9 * fps + 0.1 / max(now - last, 1e-6) if fps else 1.0 / max(now - last, 1e-6)
+        # Average the time between frames, not the rate: with the detector running every few frames
+        # the gaps alternate short and long, and an average of 1/gap would read many times too high.
+        gap = 0.9 * gap + 0.1 * max(now - last, 1e-6) if gap else max(now - last, 1e-6)
+        fps = 1.0 / gap
         last = now
         new = reporter.observe(res, fps)
         if faces is not None:

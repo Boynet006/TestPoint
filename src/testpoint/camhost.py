@@ -34,7 +34,7 @@ from pydantic import BaseModel, Field
 ROOT = Path(__file__).resolve().parents[2]
 VIDEO_EXT = {".mp4", ".mov", ".mkv", ".avi", ".webm"}
 VIDEO_GROUPS = ("run", "pushup", "crunch")
-DEFAULT_VIDEO_ROOTS = [ROOT / "data" / "clips", Path.home() / "Desktop" / "TestPoint test videos"]
+DEFAULT_VIDEO_ROOTS = [ROOT / "data" / "clips", ROOT / "test-videos", Path.home() / "Desktop" / "TestPoint test videos"]
 APP_URL = re.compile(r"^https?://(127\.0\.0\.1|localhost)(:\d{1,5})?$")
 CAMERA_URL = re.compile(r"^(rtsp|rtsps|http|https)://\S+$")
 

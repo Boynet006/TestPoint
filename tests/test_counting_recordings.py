@@ -139,3 +139,28 @@ def test_calibration_can_be_turned_off():
     _crunches(counter, rise=40, back=2, n=4)
     c = counter.calibration()
     assert c["state"] == "off" and c["rest"] == c["fixed_rest"] == 12
+
+
+def test_the_reps_it_learns_from_count_too():
+    from testpoint.vision.counter import RepCounter
+
+    counter = RepCounter(make_analyzer("crunch").counter_config())
+    _crunches(counter, rise=40, back=2, n=1)
+    assert counter.count == 1 and counter.calibration()["reps"] == 1      # the very first one
+
+
+def test_a_video_of_every_start_and_none_of_a_cancelled_one(tmp_path):
+    from testpoint.evidence import EvidenceWriter
+    from testpoint.startcam import StartClips
+    from testpoint.vision.lanes import whole_frame
+
+    ev = EvidenceWriter(tmp_path, [whole_frame("1")], fps=10, keep_s=30.0, pad_s=0.0, day="d")
+    clips = StartClips(ev, width=64)
+    frame = np.zeros((96, 128, 3), np.uint8)
+    states = ["idle"] * 10 + ["countdown"] * 5 + ["idle"] * 5 + ["countdown"] * 5 + ["started"] * 40
+    for i, state in enumerate(states):
+        clips.state({"state": state, "entry_id": 7}, i * 0.1)
+        clips.push(frame, i * 0.1)
+    ev.close()
+    files = list((tmp_path / "start").glob("*.mp4"))
+    assert clips.saved == 1 and len(files) == 1 and files[0].name.endswith("-entry7.mp4")
