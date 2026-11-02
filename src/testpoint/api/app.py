@@ -16,7 +16,7 @@ import os
 import re
 import time
 from collections.abc import Iterator
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Literal
 from zoneinfo import ZoneInfo
@@ -25,6 +25,7 @@ from zoneinfo import ZoneInfo
 mimetypes.add_type("text/javascript", ".mjs")
 mimetypes.add_type("application/wasm", ".wasm")
 
+import numpy as np
 from fastapi import Depends, FastAPI, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.exceptions import RequestValidationError
@@ -36,6 +37,7 @@ from sqlalchemy.orm import Session
 
 from . import journey as J
 from . import service as S
+from .startline import Look, StartLine
 from .models import Attempt, Crossing, Day, Entry, FaceTemplate, Rep, make_sessionmaker
 from .rules import EVENTS, GRADES, TESTS, DayRules
 
@@ -341,6 +343,15 @@ class CrossingIn(BaseModel):
 ENGINE_STALE_S = 2.0
 FRAME_STALE_S = 5.0
 """A camera picture older than this is not shown (the engine stopped)."""
+class StartObsIn(BaseModel):
+    """What the start-line camera sees at the mark (testpoint.startcam), a few times a second."""
+    present: bool
+    hand: Literal["left", "right"] | None = None
+    emb: str | None = Field(default=None, max_length=2000)
+    """The face embedding (128 float32, base64) when a face was looked at in this frame."""
+    quality: float | None = None
+
+
 FRAME_STATION = re.compile(r"[a-z][a-z0-9_-]{0,23}")
 JPEG_SOI = bytes([0xFF, 0xD8])
 """JPEG start-of-image marker: the first two bytes of every JPEG file."""
@@ -1033,6 +1044,96 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     @app.post("/api/startcam/stop")
     def startcam_stop() -> dict:
         return _camhost("POST", "/startcam/stop", {}, timeout=10.0)
+
+    # --------------------------------------------------------------- start line
+    # The start camera recognises the runner at the mark, asks for a raised hand, and starts
+    # them (startline.py decides; here its actions are carried out on the day's list).
+    lines: dict[str, StartLine] = {}
+
+    def wall() -> float:
+        return S.utcnow().replace(tzinfo=timezone.utc).timestamp()
+
+    def at_wall(t: float | None) -> str | None:
+        return None if t is None else iso(datetime.fromtimestamp(t, timezone.utc).replace(tzinfo=None))
+
+    def start_line(db: Session, day: Day) -> StartLine:
+        sl = lines.get(day.date)
+        if sl is None:
+            lines.clear()
+            sl = lines[day.date] = StartLine(countdown_s=float(S.get_settings(db)["start_countdown_s"]))
+        # the examiner may have acted meanwhile (removed from the line, started or cancelled by hand)
+        if sl.entry_id is not None and sl.state in ("raise_hand", "countdown"):
+            e = db.get(Entry, sl.entry_id)
+            want = J.LINED_UP if sl.state == "raise_hand" else J.RUNNING
+            if e is None or e.status != want:
+                sl.reset(wall())
+        return sl
+
+    def start_match(db: Session, day: Day, emb: np.ndarray) -> tuple[int, bool, str | None] | None:
+        gallery: dict[int, list[np.ndarray]] = {}
+        for entry_id, t in db.execute(select(Entry.id, FaceTemplate.embedding).join(
+                FaceTemplate, FaceTemplate.candidate_id == Entry.candidate_id).where(Entry.day_id == day.id)).all():
+            gallery.setdefault(entry_id, []).append(np.frombuffer(t, np.float32))
+        threshold, margin = S.FACE_MATCH.get(S.get_settings(db)["face_match"], S.FACE_MATCH["normal"])
+        m = S.face_match(emb, gallery, threshold=threshold, margin=margin)
+        if m.candidate_id is None:
+            return None
+        e = db.get(Entry, m.candidate_id)
+        if e.status == J.LINED_UP:
+            return e.id, True, None
+        g = S.gate_for(e, day, "lineup")
+        return e.id, g.ok, g.reason or None
+
+    def startline_out(db: Session, day: Day, sl: StartLine) -> dict:
+        v = sl.view(wall())
+        e = db.get(Entry, v["entry_id"]) if v["entry_id"] else None
+        v["entry"] = ({"id": e.id, "bib": e.candidate.bib, "name": e.candidate.name, "name_ar": e.candidate.name_ar,
+                       "faces": S.face_count(db, e.candidate_id), "verdict": S.verdict(e)} if e else None)
+        if e is not None and v["state"] in ("countdown", "started") and e.run_started_at is not None:
+            v["go_at"] = iso(e.run_started_at)
+        else:
+            v["go_at"] = at_wall(v["go_at"])
+        v["since"] = at_wall(v["since"])
+        return v
+
+    @app.post("/api/engine/start/obs")
+    def start_obs(body: StartObsIn, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        import base64
+        sl = start_line(db, day)
+        now = wall()
+        match = None
+        if body.emb and sl.state == "idle":
+            try:
+                emb = np.frombuffer(base64.b64decode(body.emb, validate=True), np.float32)
+            except ValueError:
+                raise S.ServiceError("bad_input", "emb: not base64", 422) from None
+            if emb.shape == (128,):
+                match = start_match(db, day, emb)
+        for act, entry_id in sl.observe(now, Look(body.present, match, body.hand)):
+            e = db.get(Entry, entry_id)
+            try:
+                if act == "line_up" and e.status != J.LINED_UP:
+                    S.line_up(db, day, e, by="face")
+                elif act == "start":
+                    S.start_runner(db, day, S.rules_for(db, day, rules), e, countdown_s=round(sl.countdown_s), by="camera")
+                elif act == "cancel" and e.status == J.RUNNING:
+                    S.cancel_start(db, day, e)
+            except S.ServiceError as err:          # the examiner did something else meanwhile
+                db.rollback()
+                sl.reset(now)
+                sl.reason = err.code
+        return startline_out(db, day, sl)
+
+    @app.get("/api/startline")
+    def startline_view(db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        return startline_out(db, day, start_line(db, day))
+
+    @app.post("/api/startline/reset")
+    def startline_reset(db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        """The examiner clears the start line screen (the runner stays at the line)."""
+        sl = start_line(db, day)
+        sl.reset(wall())
+        return startline_out(db, day, sl)
 
     @app.get("/api/lanes")
     def lanes(station: str, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:

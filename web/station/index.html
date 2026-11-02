@@ -436,6 +436,15 @@
   .countdown .cd-label { font-family: var(--cond); letter-spacing: 2px; text-transform: uppercase; color: var(--muted); font-size: 18px; }
   .countdown .cd-num { font-family: var(--cond); font-size: 120px; font-weight: 800; line-height: 1.05; color: var(--amber); }
   .countdown.go .cd-num { color: var(--go); }
+  /* start line run by its camera: what the runner at the mark is asked to do, readable from metres away */
+  .callbox { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center; margin-top: 12px; padding: 16px 18px; background: var(--bg2); border: 1px solid var(--line); border-inline-start: 6px solid var(--muted); }
+  .callbox img { width: 96px; height: 120px; object-fit: cover; border-radius: 4px; background: var(--bg); }
+  .callbox .c-who { font-family: var(--cond); font-size: 22px; color: var(--muted); }
+  .callbox .c-say { font-family: var(--cond); font-size: 46px; font-weight: 800; line-height: 1.05; }
+  .callbox .c-num { font-family: var(--cond); font-size: 120px; font-weight: 800; line-height: 1; color: var(--amber); }
+  .callbox.ask { border-inline-start-color: var(--amber); } .callbox.ask .c-say { color: var(--amber); }
+  .callbox.go { border-inline-start-color: var(--go); } .callbox.go .c-say, .callbox.go .c-num { color: var(--go); }
+  .callbox.no { border-inline-start-color: var(--bad); } .callbox.no .c-say { color: var(--bad); font-size: 34px; }
   .waverow { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
   .waverow .wclock { font-family: var(--cond); font-size: 40px; font-weight: 700; text-align: end; }
   .waverow .wbtns { grid-column: 1 / -1; display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
@@ -733,6 +742,7 @@
     <div class="card">
       <h2 data-t="r_start"></h2>
       <div id="camSlot-start"></div>
+      <div id="sCall" class="callbox hidden"></div>
       <div class="search" style="margin-top:10px"><input id="sQuery" data-tp="ph_bib" autocomplete="off" onkeydown="if(event.key==='Enter')lineUp()"><button class="btn amber" onclick="lineUp()" data-t="mark_present"></button></div>
       <div id="sMsg"></div>
       <div id="sLast" class="lastmark hidden"></div>
@@ -1181,6 +1191,14 @@
 /* ============================== i18n ============================== */
 const I18N = {
   en: {
+    call_timeout: "No hand raised: step onto the mark again",
+    call_stepped_away: "The runner stepped away: step onto the mark again",
+    side_right: "RIGHT",
+    side_left: "LEFT",
+    call_other_hand: "Your other hand: the {side} one",
+    call_raise: "Raise your {side} hand",
+    call_no_camera: "The start camera is not sending: check it below",
+    call_step_up: "Step onto the mark and look at the camera",
     e_low_quality: "The photo is not good enough to recognise them by later (blurred, dark or too small): take another",
     q_poor: "Picture not good enough: once more",
     q_unclear: "Face not clear: look at the camera",
@@ -1208,7 +1226,7 @@ const I18N = {
     wave_n: "Wave {n}", wave_short: "W{n}", wave_fill: "{n} / {max} at the line", wave_runners: "{n} runners", start_wave: "Start wave {n}", line_empty: "Nobody at the line yet",
     on_course: "On the course", wave_counts: "{out} out · {fin} in", review_n: "{n} to review", cutoff_in: "cut-off in {t}", cutoff_passed: "cut-off passed: closes itself", all_in_closing: "everyone in: closes itself in {t}",
     close_wave: "Close wave", close_wave_n: "Close wave {n}", wave_closed: "Wave {n} closed: anyone still out is DNF.",
-    get_ready: "Get ready", go: "GO", waiting_list: "Waiting for a wave", waiting_hint: "Weighed in, not run yet. Tap Present, or let the camera mark them.",
+    get_ready: "Get ready", go: "GO", waiting_list: "Waiting to start", waiting_hint: "Weighed in, not run yet. Tap Present, or the start camera marks them when they step onto the mark.",
     by_face: "face checked", by_typed: "typed", check_bib: "Check the bib they are wearing.", undo: "Undo",
     line_not_recognised: "Not recognised: type the bib",
     e_wave_full: "This wave is full: start it, then line up for the next", e_still_running: "Still out on the course", e_already_ran: "Already ran today",
@@ -1483,6 +1501,14 @@ const I18N = {
     e_override_reason_required: "The count differs from the camera's: give a reason",
   },
   ar: {
+    call_timeout: "لم تُرفع اليد: قف على العلامة مجدداً",
+    call_stepped_away: "ابتعد العدّاء: قف على العلامة مجدداً",
+    side_right: "اليمنى",
+    side_left: "اليسرى",
+    call_other_hand: "اليد الأخرى: {side}",
+    call_raise: "ارفع يدك {side}",
+    call_no_camera: "كاميرا البداية لا ترسل: تحقق منها أدناه",
+    call_step_up: "قف على العلامة وانظر إلى الكاميرا",
     e_low_quality: "?????? ??? ????? ?????? ???? ?????? (??? ????? ?? ????? ?? ?????): ????? ???? ????",
     q_poor: "?????? ??? ?????: ??? ????",
     q_unclear: "????? ??? ????: ???? ??? ????????",
@@ -1510,7 +1536,7 @@ const I18N = {
     wave_n: "الموجة {n}", wave_short: "م{n}", wave_fill: "{n} / {max} عند الخط", wave_runners: "{n} عدّاء", start_wave: "انطلاق الموجة {n}", line_empty: "لا أحد عند الخط بعد",
     on_course: "في المسار", wave_counts: "{out} في المسار · {fin} وصلوا", review_n: "{n} للمراجعة", cutoff_in: "الحد الأقصى بعد {t}", cutoff_passed: "انتهى الحد الأقصى: تُغلق تلقائياً", all_in_closing: "وصل الجميع: تُغلق تلقائياً بعد {t}",
     close_wave: "إغلاق الموجة", close_wave_n: "إغلاق الموجة {n}", wave_closed: "أُغلقت الموجة {n}: من بقي في المسار لم يُكمل.",
-    get_ready: "استعد", go: "انطلق", waiting_list: "بانتظار موجة", waiting_hint: "تم وزنهم ولم يجروا بعد. اضغط حاضر أو دع الكاميرا تسجّلهم.",
+    get_ready: "استعد", go: "انطلق", waiting_list: "بانتظار الانطلاق", waiting_hint: "تم وزنهم ولم يجروا بعد. اضغط حاضر، أو تسجّلهم كاميرا البداية عند وقوفهم على العلامة.",
     by_face: "تم التحقق بالوجه", by_typed: "مكتوب", check_bib: "تحقق من الرقم الذي يرتديه.", undo: "تراجع",
     line_not_recognised: "لم يتم التعرف: اكتب الرقم",
     e_wave_full: "الموجة ممتلئة: أطلقها ثم سجّل للموجة التالية", e_still_running: "ما زال في المسار", e_already_ran: "جرى اليوم",
@@ -2345,7 +2371,7 @@ function clearBox() { const cv = $("camBox"); cv.getContext("2d").clearRect(0, 0
 let autoId = false, autoTimer = null, idBusy = false;
 function toggleAuto() { autoId = !autoId; $("autoBtn").textContent = autoId ? t("auto_on") : t("auto_off"); $("autoBtn").classList.toggle("on", autoId);
   clearInterval(autoTimer); if (autoId) autoTimer = setInterval(() => { if (mode !== "simple" || settingsOpen) return;
-    if (role === "start") { if (!startingNow()) identifyNow(true); return; }
+    if (role === "start") { if (!startingNow() && !StartCall.active()) identifyNow(true); return; }
     if (!wEntry && wSource !== "typed" && !enrolBusy && $("wNew").classList.contains("hidden") && role === "weigh") identifyNow(true); }, 1500); }
 async function identifyNow(quiet) {
   if (role === "start") return lineIdentify(quiet);
@@ -2819,6 +2845,47 @@ async function lineIdentify(quiet) {
   finally { idBusy = false; }
 }
 
+// ---- the start line run by its camera (IP camera at the start): recognised -> "raise your LEFT
+// hand" -> 3-2-1-GO. The camera process and the server decide (api/startline.py); this panel only
+// shows it, large enough to read from the mark.
+const StartCall = {
+  sig: "", busy: false,
+  active: () => role === "start" && mode === "simple" && Cam.kind === "ipcam" && StartCam.live,
+  async poll() {
+    const box = $("sCall");
+    if (!this.active()) { box.classList.add("hidden"); this.sig = ""; return; }
+    if (this.busy) return; this.busy = true;
+    try { this.v = await api("GET", "/api/startline"); } catch { this.v = null; } finally { this.busy = false; }
+    this.render();
+  },
+  render() {
+    const v = this.v, box = $("sCall"); if (!v) return;
+    const e = v.entry, who = e ? `${esc(e.bib ?? "")} · ${esc(cname(e))}` : "";
+    const photo = e && e.faces ? `<img src="/api/entries/${e.id}/face.jpg" alt="">` : "<span></span>";
+    let cls = "", body = "";
+    if (v.state === "raise_hand") {
+      cls = "ask";
+      body = `<div><div class="c-who">${who}</div><div class="c-say">✋ ${esc(t(v.wrong_hand ? "call_other_hand" : "call_raise", { side: t("side_" + v.side) }))}</div></div>`;
+    } else if (v.state === "countdown" || v.state === "started") {
+      const left = (Date.parse(v.go_at) - serverNow()) / 1000, n = Math.ceil(left);
+      cls = n <= 0 ? "go" : "ask";
+      body = `<div><div class="c-who">${who}</div><div class="c-num">${n > 0 ? n : t("go")}</div></div>`;
+      Sound.countdown(Date.parse(v.go_at));
+    } else if (v.state === "refused") {
+      cls = "no";
+      body = `<div><div class="c-who">${who}</div><div class="c-say">${esc(t("e_" + v.reason))}</div></div>`;
+    } else {
+      body = `<div><div class="c-say">${esc(t(v.camera ? "call_step_up" : "call_no_camera"))}</div>${v.reason ? `<div class="hint">${esc(t("call_" + v.reason))}</div>` : ""}</div>`;
+    }
+    const html = (cls === "" ? "<span></span>" : photo) + body, sig = cls + html;
+    box.classList.remove("hidden");
+    if (sig !== this.sig) { box.className = "callbox " + cls; box.innerHTML = html; this.sig = sig; }
+    if (v.state === "countdown" && this.lastState !== "countdown") refresh();     // the runner list updates at once
+    if (v.state !== this.lastState && v.state === "raise_hand") Sound.chime();
+    this.lastState = v.state;
+  },
+};
+
 /* ============================== run finish ============================== */
 let closeArmed = false, lastReviewSig = "";
 // ---- finish line: tap first (the time is the instant of the tap), identify after
@@ -3265,6 +3332,7 @@ function tickClocks() {
   const el = runElapsed();
   $("clock").textContent = new Date(serverNow()).toLocaleTimeString(lang === "ar" ? "ar-EG" : "en-GB");
   if (role === "start" && S.state) tickStart();
+  if (role === "start") StartCall.poll(); else if (StartCall.sig) StartCall.poll();
   if (role === "finish" && S.state) for (const r of runnersOut()) {
     const c = $("fc-" + r.entry_id);
     if (c) c.textContent = mmss((serverNow() - Date.parse(r.started_at)) / 1000);
