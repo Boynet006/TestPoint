@@ -1191,6 +1191,7 @@
 /* ============================== i18n ============================== */
 const I18N = {
   en: {
+    n_face_bib_disagree: "the bib read and the face disagree: the face looks like bib {bib}",
     call_timeout: "No hand raised: step onto the mark again",
     call_stepped_away: "The runner stepped away: step onto the mark again",
     side_right: "RIGHT",
@@ -1501,6 +1502,7 @@ const I18N = {
     e_override_reason_required: "The count differs from the camera's: give a reason",
   },
   ar: {
+    n_face_bib_disagree: "الرقم المقروء والوجه لا يتطابقان: الوجه يشبه الرقم {bib}",
     call_timeout: "لم تُرفع اليد: قف على العلامة مجدداً",
     call_stepped_away: "ابتعد العدّاء: قف على العلامة مجدداً",
     side_right: "اليمنى",
@@ -3244,7 +3246,7 @@ function suggestFor(c, runners) {
     const [x, y] = a.length < b.length ? [a, b] : [b, a];
     return y.length - x.length === 1 && [...y].some((_, i) => y.slice(0, i) + y.slice(i + 1) === x);
   };
-  if (c.note_code === "face_suggests") { const f = runners.find(e => e.candidate.bib === c.note_bib); if (f) return f.id; }
+  if (c.note_code === "face_suggests" || c.note_code === "face_bib_disagree") { const f = runners.find(e => e.candidate.bib === c.note_bib); if (f) return f.id; }
   const close = runners.filter(e => near(read, e.candidate.bib || ""));
   if (close.length === 1) return close[0].id;
   return runners.length === 1 ? runners[0].id : null;

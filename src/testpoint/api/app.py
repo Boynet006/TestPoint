@@ -927,15 +927,16 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     @app.post("/api/engine/crossing", status_code=201)
     def engine_crossing(body: CrossingIn, db: Session = Depends(get_db),
                         day: Day = Depends(get_day)) -> dict:
-        """The finish camera saw a runner cross: a result when the bib is a known runner,
-        otherwise a review-queue entry; either way with the evidence clip."""
+        """The finish camera saw a runner cross. The face (always sent) and the bib read must agree:
+        a bib's runner whose face is clearly someone else goes to review with the face's runner
+        suggested; no usable bib: the face among the runners still out names them; neither: review.
+        Either way with the evidence clip."""
         at = S.utcnow() - timedelta(seconds=body.latency_s)
         r = S.rules_for(db, day, rules)
         c = S.record_finish(db, day, r, body.bib, now=at, source="camera",
                             confidence=body.confidence, clip_path=body.clip)
-        # No usable bib: the face, compared with the runners still out, as a second way to know them.
         shots_b64 = [*body.faces, *([body.face] if body.face else [])]
-        if c.needs_review and shots_b64:
+        if shots_b64:
             import base64
             import binascii
             data = []
@@ -948,10 +949,13 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
             eng = None
             try:
                 eng = engine()
-            except Exception:       # no face models on this install: the crossing stays in review
+            except Exception:       # no face models on this install: the bib alone decides
                 eng = None
             if data and eng is not None:
-                S.face_for_crossing(db, day, r, c, data, eng)
+                if c.needs_review:
+                    S.face_for_crossing(db, day, r, c, data, eng)
+                else:
+                    S.check_finish_face(db, day, c, data, eng)
                 db.refresh(c)
         return crossing_out(c)
 

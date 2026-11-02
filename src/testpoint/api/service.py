@@ -1160,6 +1160,51 @@ def face_for_crossing(db: Session, day: Day, rules: DayRules, crossing: Crossing
     return None
 
 
+def check_finish_face(db: Session, day: Day, crossing: Crossing, data: list[bytes], engine) -> dict | None:
+    """A crossing the camera tied to a runner by their bib: does the face agree? The face is
+    compared with everyone still out and the runner the bib named (strict setting). When it
+    clearly is someone else the bib was misread: the crossing goes back to the review queue with
+    the face's runner suggested, and the bib's runner is out on the course again. A face that is
+    unclear or missing leaves the bib's result as it is."""
+    if crossing.needs_review or crossing.entry_id is None or not data:
+        return None
+    named = db.get(Entry, crossing.entry_id)
+    ids = {e.id for e in running_entries(db, day, crossing.at)} | {named.id}
+    gallery: dict[int, list[np.ndarray]] = {}
+    for entry_id, emb in db.execute(select(Entry.id, FaceTemplate.embedding).join(
+            FaceTemplate, FaceTemplate.candidate_id == Entry.candidate_id).where(Entry.id.in_(ids))).all():
+        gallery.setdefault(entry_id, []).append(np.frombuffer(emb, np.float32))
+    if len(gallery) < 2 and named.id in gallery:
+        return None                      # nobody else to tell the runner from
+    threshold, margin = FACE_MATCH["strict"]
+    best = None
+    for shot in data:
+        try:
+            face = engine.face_from_bytes(shot, require_single=False)
+        except Exception:                # noqa: BLE001 - no face in this snapshot
+            continue
+        m = face_match(face.embedding, gallery, threshold=threshold, margin=margin)
+        if m.candidate_id is not None and (best is None or m.score > best.score):
+            best = m
+    if best is None or best.candidate_id == named.id:
+        if best is not None:
+            _audit(db, day, "finish", "face_at_finish", named, crossing_id=crossing.id, outcome="confirms_bib", score=best.score)
+            db.commit()
+        return {"agrees": best is not None} if best is not None else None
+    face_entry = db.get(Entry, best.candidate_id)
+    # the bib was misread: the runner it named is out again, the crossing waits for the examiner
+    named.status = J.RUNNING
+    named.run_time_s = named.run_grade = named.finished_at = None
+    crossing.entry_id = None
+    crossing.needs_review = True
+    crossing.note = f"bib {crossing.bib_read} read, but the face looks like bib {face_entry.candidate.bib} ({best.score:.2f})"
+    crossing.note_code, crossing.note_bib, crossing.note_status = "face_bib_disagree", face_entry.candidate.bib, None
+    _audit(db, day, "finish", "face_at_finish", face_entry, crossing_id=crossing.id, outcome="disagrees_with_bib",
+           bib_read=crossing.bib_read, score=best.score)
+    db.commit()
+    return {"agrees": False, "face_entry_id": face_entry.id}
+
+
 def tag_crossing(db: Session, day: Day, rules: DayRules, crossing_id: int, bib: str | None) -> Crossing:
     """Tap first, identify after: attach a bib to a time recorded at the instant of crossing."""
     bib = norm_bib(bib)
