@@ -659,7 +659,7 @@
     <div class="row" style="margin-top:10px"><button class="btn amber" type="submit" id="eSave" data-t="edit_save"></button></div>
   </form>
 </dialog>
-<dialog id="resultsDlg" class="dlg rcard" onclick="ResultsCard.close()"><div id="rcBody"></div></dialog>
+<dialog id="resultsDlg" class="dlg rcard" onclick="if (!event.target.closest('button')) ResultsCard.close()"><div id="rcBody"></div></dialog>
 <dialog id="pinDlg" class="dlg" style="max-width:360px">
   <h2 data-t="pin_title"></h2>
   <p class="hint" data-t="pin_hint"></p>
@@ -4127,6 +4127,7 @@ const ResultsCard = {
   },
   close() { clearTimeout(this.timer); if (this.isOpen()) $("resultsDlg").close(); },
   redo(id, entryId, btn) {
+    clearTimeout(this.timer); this.timer = setTimeout(() => this.close(), 30000);   // time to confirm
     confirmClick("redo" + id, btn, async () => {
       try { await api("POST", `/api/attempts/${id}/redo`); }
       catch (e) { btn.textContent = err(e); return; }
