@@ -1309,7 +1309,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         e = S.find_entry(db, day, body.query)
         event = next_event(S.done_events(e), EVENTS)
         if event is None:
-            raise S.ServiceError("all_done", f"{e.candidate.name}: both exercises are done", 409)
+            raise S.ServiceError("all_done", f"{e.candidate.name}: both exercises are done", 409, entry_id=e.id)
         g = S.gate_for(e, day, event)
         if not g.ok:
             raise S.ServiceError(g.reason, f"{e.candidate.name}: {g.reason.replace('_', ' ')}", 409)

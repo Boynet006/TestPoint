@@ -899,7 +899,7 @@
         <div class="row" style="align-items:center"><h2 style="margin:0" data-t="r_station"></h2><span class="spacer"></span><span id="xOneCam"></span></div>
         <div id="scOnePic"></div>
         <div id="scOneCall"></div>
-        <div class="search" style="margin-top:10px"><input id="xQuery" data-tp="ph_bib" autocomplete="off" onkeydown="if(event.key==='Enter')StationCall.manual()"><button class="btn amber" onclick="StationCall.manual()" data-t="st_manual"></button></div>
+        <div class="search" style="margin-top:10px"><input id="xQuery" data-tp="ph_bib" autocomplete="off" onkeydown="if(event.key==='Enter')StationCall.manual()"><button class="btn amber" onclick="StationCall.manual()" data-t="st_manual"></button><button class="btn ghost" style="flex:0 0 auto" onclick="StationCall.results()" data-t="r_results"></button></div>
         <div id="xMsg"></div>
       </div>
       <div>
@@ -4078,8 +4078,18 @@ const StationCall = {
     const q = query || $("xQuery").value.trim();
     if (!q) { msg("xMsg", "bad", t("e_empty_query")); return; }
     try { await api("POST", "/api/stationflow/start", { query: q }); $("xQuery").value = ""; msg("xMsg"); }
-    catch (e) { msg("xMsg", "bad", err(e)); }
+    catch (e) {
+      msg("xMsg", "bad", err(e));
+      if (e.code === "all_done" && e.entry_id) { ResultsCard.shown[e.entry_id] = 0; ResultsCard.show(e.entry_id, 30000); $("xQuery").value = ""; }   // to redo a test
+    }
     this.poll();
+  },
+  // The person's results with their Redo buttons, for the bib or ID typed here.
+  results() {
+    const q = $("xQuery").value.trim(), e = S.entries.find(x => String(x.candidate.bib ?? "") === q || x.candidate.external_id === q);
+    if (!q) { msg("xMsg", "bad", t("e_empty_query")); return; }
+    if (!e) { msg("xMsg", "bad", err({ code: "not_found" })); return; }
+    msg("xMsg"); ResultsCard.shown[e.id] = 0; ResultsCard.show(e.id, 30000); $("xQuery").value = "";
   },
   async go() {
     try { await api("POST", "/api/stationflow/go"); msg("xMsg"); } catch (e) { msg("xMsg", "bad", err(e)); }
@@ -4120,7 +4130,7 @@ const ResultsCard = {
     confirmClick("redo" + id, btn, async () => {
       try { await api("POST", `/api/attempts/${id}/redo`); }
       catch (e) { btn.textContent = err(e); return; }
-      this.close(); this.shown[entryId] = 0; refresh(); this.show(entryId);
+      this.close(); this.shown[entryId] = 0; refresh(); this.show(entryId, 30000);
     });
   },
 };
