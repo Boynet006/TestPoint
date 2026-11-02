@@ -38,6 +38,7 @@ from sqlalchemy.orm import Session
 from . import journey as J
 from . import service as S
 from .startline import Look, StartLine
+from .station import StationFlow, StationLook, next_event
 from .models import Attempt, Crossing, Day, Entry, FaceTemplate, Rep, make_sessionmaker
 from .rules import EVENTS, GRADES, TESTS, DayRules
 
@@ -190,7 +191,8 @@ class StartCamIn(BaseModel):
 class StationCamIn(BaseModel):
     kind: Literal["webcam", "video", "url"]
     source: str = Field(min_length=1, max_length=500)
-    exercise: Literal["pushup", "crunch"]
+    exercise: Literal["pushup", "crunch", "auto"]
+    """"auto": the combined station (one person, face check-in, push-ups then crunches)."""
     lanes: int = Field(default=3, ge=1, le=4)
     dividers: list[float] = Field(default=[], max_length=3)
     app_url: str = Field(max_length=100)
@@ -314,6 +316,11 @@ class EngineLaneIn(BaseModel):
     work_seconds: float = 0.0
     depth: float | None = Field(default=None, ge=0, le=2)
     events: list[EngineEventIn] = []
+    # the combined exercise station (engine --station exercise): what it watches, the start
+    # posture, and the face of the person on the mat while nobody is being tested
+    exercise: str | None = None
+    ready: bool = False
+    face: str | None = Field(default=None, max_length=2000)
 
 
 class EngineReportIn(BaseModel):
@@ -869,9 +876,17 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     def engine_report(body: EngineReportIn, db: Session = Depends(get_db),
                       day: Day = Depends(get_day)) -> dict:
         """The camera engine's report; the answer says which attempt each lane counts for."""
+        if body.station == S.EXERCISE_STATION:
+            flow_look(db, day, body)
         reply = S.engine_report(db, day, body.station,
                                 {name: lane.model_dump() for name, lane in body.lanes.items()})
         _last_report[body.station] = (clock(), body)
+        if body.station == S.EXERCISE_STATION:
+            flow = station_flow(db, day)
+            watch = flow.watching or flow.event or "pushup"
+            for lane in reply["lanes"].values():
+                lane["exercise"] = watch
+            return reply | {"tuning": S.get_settings(db)["count_tuning"].get(watch, {})}
         # the counting rules to use now: a change in Settings or the tune panel reaches the engine
         # with its next report (a fraction of a second), without restarting the camera
         return reply | {"tuning": S.get_settings(db)["count_tuning"].get(body.station, {})}
@@ -1139,10 +1154,102 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         sl.reset(wall())
         return startline_out(db, day, sl)
 
+    # ------------------------------------------------------- exercise station
+    # One station, one camera, one person at a time: recognised by face, their next test chosen
+    # (push-ups, then crunches), 3-2-1 once in position, counted for the time, saved (station.py).
+    flows: dict[str, StationFlow] = {}
+
+    def station_flow(db: Session, day: Day) -> StationFlow:
+        f = flows.get(day.date)
+        if f is None:
+            flows.clear()
+            f = flows[day.date] = StationFlow(countdown_s=float(S.get_settings(db)["start_countdown_s"]),
+                                              time_s=float(S.rules_for(db, day, rules).exercise_time_s))
+        if f.attempt_id is not None and f.state == "testing":
+            a = db.get(Attempt, f.attempt_id)
+            if a is None or a.status != "running":       # saved or cancelled by the examiner
+                f.reset(wall())
+        return f
+
+    def flow_match(db: Session, day: Day, emb: np.ndarray) -> tuple[int, str | None, str | None] | None:
+        gallery: dict[int, list[np.ndarray]] = {}
+        for entry_id, t in db.execute(select(Entry.id, FaceTemplate.embedding).join(
+                FaceTemplate, FaceTemplate.candidate_id == Entry.candidate_id).where(Entry.day_id == day.id)).all():
+            gallery.setdefault(entry_id, []).append(np.frombuffer(t, np.float32))
+        threshold, margin = S.FACE_MATCH.get(S.get_settings(db)["face_match"], S.FACE_MATCH["normal"])
+        m = S.face_match(emb, gallery, threshold=threshold, margin=margin)
+        if m.candidate_id is None:
+            return None
+        e = db.get(Entry, m.candidate_id)
+        ev = next_event(S.done_events(e), EVENTS)
+        if ev is None:
+            return e.id, None, "all_done"
+        g = S.gate_for(e, day, ev)
+        return (e.id, ev, None) if g.ok else (e.id, None, g.reason)
+
+    def flow_act(db: Session, day: Day, flow: StationFlow, acts: list[tuple]) -> None:
+        for act in acts:
+            try:
+                if act[0] == "start":
+                    a = S.start_attempt(db, day, S.get_entry(db, day, act[1]), act[2], S.EXERCISE_LANE)
+                    flow.started(a.id)
+                elif act[0] == "finish":
+                    a = db.get(Attempt, act[1])
+                    if a is not None and a.status == "running":
+                        S.finish_attempt(db, day, S.rules_for(db, day, rules), a.id,
+                                         count=a.auto_count or 0, rejected=a.auto_rejected or 0)
+            except S.ServiceError as err:           # the examiner did something else meanwhile
+                db.rollback()
+                flow.reset(wall())
+                flow.reason = err.code
+
+    def flow_look(db: Session, day: Day, body: EngineReportIn) -> None:
+        import base64
+        flow = station_flow(db, day)
+        lane = body.lanes.get(S.EXERCISE_LANE) or next(iter(body.lanes.values()), None)
+        if lane is None:
+            return
+        flow_act(db, day, flow, flow.tick(wall()))       # a score shown long enough clears first
+        match = None
+        if lane.face and flow.state == "idle":
+            try:
+                emb = np.frombuffer(base64.b64decode(lane.face, validate=True), np.float32)
+            except ValueError:
+                emb = None
+            if emb is not None and emb.shape == (128,):
+                match = flow_match(db, day, emb)
+        ready = lane.ready and lane.exercise is not None and lane.exercise == flow.watching
+        flow_act(db, day, flow, flow.observe(wall(), StationLook(lane.person, match, ready)))
+
+    @app.get("/api/stationflow")
+    def stationflow_view(db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        """What the exercise station screen shows (and the time limit, also without the camera)."""
+        flow = station_flow(db, day)
+        flow_act(db, day, flow, flow.tick(wall()))
+        v = flow.view(wall())
+        e = db.get(Entry, v["entry_id"]) if v["entry_id"] else None
+        v["entry"] = ({"id": e.id, "bib": e.candidate.bib, "name": e.candidate.name, "name_ar": e.candidate.name_ar,
+                       "faces": S.face_count(db, e.candidate_id), "done": sorted(S.done_events(e))} if e else None)
+        a = db.get(Attempt, v["attempt_id"]) if v["attempt_id"] else None
+        v["result"] = ({"count": a.count, "passed": a.passed, "grade": a.grade, "status": a.status} if a and a.status == "finished" else None)
+        seen = _last_report.get(S.EXERCISE_STATION)
+        lane = seen[1].lanes.get(S.EXERCISE_LANE) if seen and clock() - seen[0] <= ENGINE_STALE_S else None
+        v["live"] = ({"count": lane.count, "rejected": lane.rejected, "phase": lane.phase, "person": lane.person,
+                      "faults": lane.pending_faults, "depth": lane.depth} if lane else None)
+        v["engine"] = lane is not None
+        for k in ("go_at", "ends_at", "since"):
+            v[k] = at_wall(v[k])
+        return v
+
+    @app.post("/api/stationflow/reset")
+    def stationflow_reset(db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        station_flow(db, day).reset(wall())
+        return {"state": "idle"}
+
     @app.get("/api/lanes")
     def lanes(station: str, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
         """The live picture for the station tablet: engine health and per-lane counts."""
-        if station not in J.STATIONS:
+        if station not in J.STATIONS and station != S.EXERCISE_STATION:
             raise S.ServiceError("unknown_station", f"unknown station {station!r}", 400)
         running = S.running_attempts(db, day, station)
         seen = _last_report.get(station)

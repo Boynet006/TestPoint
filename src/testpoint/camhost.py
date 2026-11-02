@@ -119,7 +119,8 @@ class StationIn(SourceIn):
     """The exercise-station engine: one camera watching side-by-side lanes."""
     tuning: dict[str, float] = {}
     """Counting rules to replace for this exercise (the station's settings; the engine checks them)."""
-    exercise: str = Field(pattern="^(pushup|crunch)$")
+    exercise: str = Field(pattern="^(pushup|crunch|auto)$")
+    """"auto": the combined station, one person at a time: face check-in, push-ups then crunches."""
     lanes: int = Field(default=3, ge=1, le=4)
     dividers: list[float] = []
     """Lane boundaries across the picture (0..1 from the left), one fewer than the lanes;
@@ -232,8 +233,11 @@ def start_command(cfg: SourceIn) -> list[str]:
 
 
 def station_command(cfg: StationIn, lanes_file: Path) -> list[str]:
-    cmd = [sys.executable, "-m", "testpoint.engine", "--exercise", cfg.exercise, "--source", cfg.source,
-           "--lanes-file", str(lanes_file), "--device", device(), "--app", app_address(cfg.app_url)]
+    combined = cfg.exercise == "auto"
+    cmd = [sys.executable, "-m", "testpoint.engine", "--exercise", "pushup" if combined else cfg.exercise,
+           "--source", cfg.source, "--lanes-file", str(lanes_file), "--device", device(), "--app", app_address(cfg.app_url)]
+    if combined:
+        cmd += ["--station", "exercise"]
     if cfg.kind == "video":
         cmd.append("--realtime")
         if cfg.loop:
@@ -286,7 +290,9 @@ def create_service(log_dir: Path | None = None, runner=subprocess.Popen) -> Fast
     @app.post("/station/start")
     def station_start(body: StationIn) -> dict:
         check_source(body)
-        rects = lane_rects(body.lanes, body.dividers)
+        # the combined station: one person, the whole picture, its lane "S" (api.service.EXERCISE_LANE)
+        rects = ([{"name": "S", "rect": [0.0, 0.0, 1.0, 1.0]}] if body.exercise == "auto"
+                 else lane_rects(body.lanes, body.dividers))
         logs.mkdir(parents=True, exist_ok=True)
         lanes_file = logs / "station_lanes.json"
         lanes_file.write_text(json.dumps({"lanes": rects}, indent=2), encoding="utf-8")

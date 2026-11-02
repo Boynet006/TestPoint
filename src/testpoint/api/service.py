@@ -1385,11 +1385,16 @@ def cancel_attempt(db: Session, day: Day, attempt_id: int) -> None:
 
 # ------------------------------------------------------------------ engine link
 
+EXERCISE_STATION, EXERCISE_LANE = "exercise", "S"
+"""The combined station run by its camera (api/station.py): both exercises on one mat, its
+attempts in lane "S" whatever the event."""
+
+
 def running_attempts(db: Session, day: Day, station: str) -> dict[str, Attempt]:
     """The running attempt per lane name at this station (see docs/ENGINE-LINK.md)."""
+    which = (Attempt.lane == EXERCISE_LANE) if station == EXERCISE_STATION else (Attempt.event == station)
     rows = db.scalars(select(Attempt).join(Entry).where(
-        Entry.day_id == day.id, Attempt.event == station, Attempt.status == "running",
-        Attempt.lane.is_not(None)))
+        Entry.day_id == day.id, which, Attempt.status == "running", Attempt.lane.is_not(None)))
     return {a.lane: a for a in rows}
 
 
@@ -1403,7 +1408,7 @@ def engine_report(db: Session, day: Day, station: str, lanes: dict[str, dict]) -
     are dropped. Every received event is acknowledged either way so the engine
     stops resending it. A rep index already stored is left as it is.
     """
-    if station not in EVENTS:
+    if station not in EVENTS and station != EXERCISE_STATION:
         raise ServiceError("unknown_station", f"unknown station {station!r}", 400)
     running = running_attempts(db, day, station)
     acked: dict[str, int] = {}

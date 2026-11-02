@@ -235,3 +235,12 @@ def test_the_app_tells_cameras_its_own_loopback_address(svc, tmp_path, monkeypat
     finally:
         server.should_exit = True
         th.join(timeout=5)
+
+
+def test_the_combined_station_runs_one_engine_for_both_exercises(svc):
+    c, _ = svc
+    r = c.post("/station/start", json={"kind": "url", "source": "rtsp://cam/101", "exercise": "auto",
+                                       "app_url": "http://127.0.0.1:8000"}).json()
+    assert r["running"] and r["config"]["rects"] == [{"name": "S", "rect": [0.0, 0.0, 1.0, 1.0]}]
+    cmd = FakeProc.last.cmd
+    assert cmd[cmd.index("--station") + 1] == "exercise" and cmd[cmd.index("--exercise") + 1] == "pushup"

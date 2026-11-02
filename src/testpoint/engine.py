@@ -57,6 +57,12 @@ class LaneState:
     (the counter's thresholds); None when not measurable. For the station screen's gauge."""
     events: list[dict] = field(default_factory=list)
     """Completed reps not yet acknowledged by the app, oldest first."""
+    exercise: str | None = None
+    """The exercise being watched (the combined station switches it per person)."""
+    ready: bool = False
+    """The person holds the exercise's start posture (rest position, no fault)."""
+    face: str | None = None
+    """The face embedding (base64) of the person on the mat, while nobody is being tested; sent once."""
 
 
 def rep_depth(metric: float | None, cfg: RepCounterConfig | None) -> float | None:
@@ -97,6 +103,7 @@ class Reporter:
         self.t = 0.0
         self.fps = 0.0
         self._wanted: dict[str, int | None] | None = None
+        self._exercise_new: str | None = None
         self._lock = threading.Lock()
 
     def observe(self, res: MultiLaneResult, fps: float) -> list[tuple[str, dict]]:
@@ -112,6 +119,8 @@ class Reporter:
                 lane.pending_faults = list(r.pending_faults)
                 lane.work_seconds = round(r.work_seconds, 2)
                 lane.depth = rep_depth(r.metrics.metric if r.person is not None else None, self.counter)
+                lane.ready = bool(r.person is not None and r.metrics.metric is not None and self.counter is not None
+                                  and self.counter.in_rest(r.metrics.metric) and not r.metrics.faults)
                 if r.event is not None:
                     ev = {"index": r.event.index, "valid": r.event.valid,
                           "faults": list(r.event.faults),
@@ -125,17 +134,38 @@ class Reporter:
 
     def snapshot(self) -> dict:
         with self._lock:
-            return {
+            out = {
                 "station": self.station, "t": round(self.t, 3), "fps": round(self.fps, 1),
                 "source": self.source,
                 "lanes": {
                     name: {"attempt_id": lane.attempt_id, "count": lane.count,
                            "rejected": lane.rejected, "phase": lane.phase, "person": lane.person,
                            "pending_faults": lane.pending_faults,
-                           "work_seconds": lane.work_seconds, "depth": lane.depth, "events": list(lane.events)}
+                           "work_seconds": lane.work_seconds, "depth": lane.depth, "events": list(lane.events),
+                           **({"exercise": lane.exercise, "ready": lane.ready} if lane.exercise else {}),
+                           **({"face": lane.face} if lane.face else {})}
                     for name, lane in self.lanes.items()
                 },
             }
+            for lane in self.lanes.values():
+                lane.face = None           # each look at the face is sent once
+            return out
+
+    def set_face(self, lane_name: str, emb_b64: str) -> None:
+        with self._lock:
+            self.lanes[lane_name].face = emb_b64
+
+    def take_exercise(self) -> str | None:
+        """The exercise the app asks to watch now, once when it changes (combined station)."""
+        with self._lock:
+            ex, self._exercise_new = self._exercise_new, None
+            return ex
+
+    def watching(self, exercise: str) -> None:
+        with self._lock:
+            for lane in self.lanes.values():
+                lane.exercise, lane.ready = exercise, False
+            self._tuning_applied = None    # the new exercise's own counting rules come with the next reply
 
     def on_reply(self, reply: dict) -> None:
         with self._lock:
@@ -146,6 +176,10 @@ class Reporter:
             wanted = reply.get("lanes") or {}
             self._wanted = {name: (wanted.get(name) or {}).get("attempt_id")
                             for name in self.lanes if name in wanted}
+            ex = next((w.get("exercise") for w in wanted.values() if isinstance(w, dict) and w.get("exercise")), None)
+            current = next(iter(self.lanes.values())).exercise if self.lanes else None
+            if ex and ex != current:
+                self._exercise_new = ex
             if isinstance(reply.get("tuning"), dict):
                 self._tuning_new = reply["tuning"]
 
@@ -257,17 +291,61 @@ def build_lanes(args: argparse.Namespace) -> list[Lane]:
     return equal_strips(args.lanes)
 
 
+class FaceLook:
+    """The combined station's face check-in: the face of the person on the mat, a few times a
+    second while nobody is being tested (the face models on the GPU)."""
+
+    def __init__(self, every_s: float = 0.3) -> None:
+        from .api.faces import get_engine
+        self.engine = get_engine()
+        self.every_s = every_s
+        self._last = 0.0
+
+    def look(self, frame, person) -> str | None:
+        import base64
+
+        import numpy as np
+
+        from .api.faces import FaceError
+        from .vision.gesture import head_box
+        now = time.monotonic()
+        if person is None or now - self._last < self.every_s:
+            return None
+        h, w = frame.shape[:2]
+        hb = head_box(person, w, h)
+        if hb is None:
+            return None
+        self._last = now
+        x0, y0, x1, y1 = hb
+        try:
+            f = self.engine.largest_face(frame[y0:y1, x0:x1])
+        except FaceError:
+            return None
+        return base64.b64encode(np.asarray(f.embedding, np.float32).tobytes()).decode()
+
+
 def run(session: MultiLaneSession, source, reporter: Reporter, sender: Sender,
         cfg: RepCounterConfig, log: Callable[[str], None] = print,
         should_stop: Callable[[], bool] = lambda: False,
         evidence: EvidenceWriter | None = None, preview: FramePublisher | None = None,
-        realtime: bool = False) -> int:
+        realtime: bool = False, analyzers: dict | None = None, faces: FaceLook | None = None) -> int:
     """The frame loop. Returns the number of frames processed. ``realtime``: a video file is
-    played at its own speed (demos: reps arrive as they happen, the lane timer stays honest)."""
+    played at its own speed (demos: reps arrive as they happen, the lane timer stays honest).
+    ``analyzers`` (the combined station): the exercises it may be asked to watch; ``faces``: the
+    face check-in of the person on the mat."""
     frames = 0
     fps = 0.0
     last = time.monotonic()
     for frame, t in iter_frames(source, realtime=realtime):
+        ex = reporter.take_exercise() if analyzers else None
+        if ex in (analyzers or {}) and ex != session.analyzer.name:     # the next person does another test
+            session.analyzer = analyzers[ex]
+            cfg = session.analyzer.counter_config()
+            for name in session.counters:
+                session.counters[name] = RepCounter(cfg)
+            reporter.counter = cfg
+            reporter.watching(ex)
+            log(f"watching {ex} now")
         tuning = reporter.take_tuning()
         if tuning is not None:       # changed in the app: applies from this frame on, no restart
             try:
@@ -289,6 +367,13 @@ def run(session: MultiLaneSession, source, reporter: Reporter, sender: Sender,
         fps = 0.9 * fps + 0.1 / max(now - last, 1e-6) if fps else 1.0 / max(now - last, 1e-6)
         last = now
         new = reporter.observe(res, fps)
+        if faces is not None:
+            for name, r in res.lanes.items():
+                if reporter.lanes[name].attempt_id is None and r.person is not None:
+                    emb = faces.look(frame, r.person)
+                    if emb:
+                        reporter.set_face(name, emb)
+                        sender.poke()
         for name, ev in new:
             verdict = "VALID" if ev["valid"] else f"REJECTED {ev['faults']}"
             log(f"[{t:7.2f}s] lane {name} rep {ev['index']}: {verdict} -> count {res.lanes[name].count}")
@@ -358,13 +443,23 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit(f"bad tuning: {e}") from None
     if args.tuning:
         print(f"tuned rules: {args.tuning}")
-    session = MultiLaneSession(backend, analyzer, lanes)
     station = args.station or args.exercise
+    analyzers = faces = None
+    if station == "exercise":       # the combined station: both exercises, face check-in
+        analyzers = {name: (analyzer if name == args.exercise else make_analyzer(name)) for name in ("pushup", "crunch")}
+        try:
+            faces = FaceLook()
+            print(f"face check-in on {faces.engine.device}")
+        except Exception as e:      # noqa: BLE001 - no face models: the examiner checks people in
+            print(f"face check-in off ({e})")
+    session = MultiLaneSession(backend, analyzer, lanes)
     display = getattr(source, "display_url", args.source)
     evidence = EvidenceWriter(args.evidence, lanes, fps=source.fps) if args.evidence else None
     reporter = Reporter(station, display, [lane.name for lane in lanes],
                         clip_for=evidence.clip if evidence else None, counter=analyzer.counter_config())
     reporter.tuning_in_use(json.loads(args.tuning) if args.tuning else {})
+    if analyzers:
+        reporter.watching(args.exercise)
     sender = Sender(reporter, HttpTransport(args.app), interval=args.interval)
     print(f"station {station}  lanes {[lane.name for lane in lanes]}  source {display}  app {args.app}"
           + (f"  evidence {evidence.root}" if evidence else ""))
@@ -377,8 +472,8 @@ def main(argv: list[str] | None = None) -> int:
             assigned = {id(r.person) for r in res.lanes.values() if r.person is not None}
             for person in res.people:
                 draw_person(img, person, (0, 200, 0) if id(person) in assigned else (140, 140, 140))
-            draw_lanes(img, lanes, res, meters_for(analyzer))   # the bars follow a retune at once
-            draw_hud(img, args.exercise, fps, "")
+            draw_lanes(img, lanes, res, meters_for(session.analyzer))   # the bars follow a retune at once
+            draw_hud(img, session.analyzer.name, fps, "")
 
         preview = FramePublisher(args.app, station, draw)
         preview.tap(source)
@@ -386,7 +481,7 @@ def main(argv: list[str] | None = None) -> int:
     sender.start()
     try:
         run(session, source, reporter, sender, analyzer.counter_config(), evidence=evidence, preview=preview,
-            realtime=args.realtime)
+            realtime=args.realtime, analyzers=analyzers, faces=faces)
     except SourceError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
