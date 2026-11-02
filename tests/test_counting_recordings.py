@@ -95,3 +95,47 @@ def test_a_small_shoulder_movement_is_not_a_rep():
             counter.update(170.0, t, (), height)
             t += 0.06
     assert (counter.count, counter.rejected) == (0, 0)
+
+
+def _crunches(counter, rise, back, n, t=0.0):
+    from itertools import chain
+
+    for _ in range(40):
+        counter.update(0.0, t)
+        t += 0.05
+    for level in chain.from_iterable([[rise] * 12 + [back] * 12 for _ in range(n)]):
+        counter.update(float(level), t)
+        t += 0.05
+    return t
+
+
+def test_calibration_follows_the_person_but_never_the_depth_that_counts():
+    from testpoint.vision.counter import RepCounter
+
+    counter = RepCounter(make_analyzer("crunch").counter_config())
+    assert counter.calibration()["state"] == "learning"
+    _crunches(counter, rise=40, back=2, n=5)
+    c = counter.calibration()
+    assert counter.count == 5 and c["state"] == "done" and c["reps"] == 3
+    assert c["work"] == 15                               # the same for everyone
+    assert 3 <= c["rest"] <= 13 and c["range"] == pytest.approx(40, abs=2)
+
+
+def test_shallow_first_reps_cannot_lower_the_depth_that_counts():
+    from testpoint.vision.counter import RepCounter
+
+    counter = RepCounter(make_analyzer("crunch").counter_config())
+    _crunches(counter, rise=14, back=1, n=6)             # every rep just under the limit
+    assert counter.count == 0 and counter.calibration()["work"] == 15
+
+
+def test_calibration_can_be_turned_off():
+    from dataclasses import replace
+
+    from testpoint.vision.counter import RepCounter
+
+    cfg = replace(make_analyzer("crunch").counter_config(), auto_share=0.0)
+    counter = RepCounter(cfg)
+    _crunches(counter, rise=40, back=2, n=4)
+    c = counter.calibration()
+    assert c["state"] == "off" and c["rest"] == c["fixed_rest"] == 12

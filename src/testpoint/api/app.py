@@ -323,6 +323,7 @@ class EngineLaneIn(BaseModel):
     pending_faults: list[str] = []
     work_seconds: float = 0.0
     depth: float | None = Field(default=None, ge=0, le=2)
+    calib: dict | None = None
     events: list[EngineEventIn] = []
     # the combined exercise station (engine --station exercise): what it watches, the start
     # posture, and the face of the person on the mat while nobody is being tested
@@ -1253,6 +1254,9 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
                     if a is not None and a.status == "running":
                         S.finish_attempt(db, day, S.rules_for(db, day, rules), a.id,
                                          count=a.auto_count or 0, rejected=a.auto_rejected or 0)
+                        seen = _last_report.get(S.EXERCISE_STATION)
+                        lane = seen[1].lanes.get(S.EXERCISE_LANE) if seen else None
+                        S.note_calibration(db, day, a, lane.calib if lane else None)
             except S.ServiceError as err:           # the examiner did something else meanwhile
                 db.rollback()
                 flow.reset(wall())
@@ -1290,7 +1294,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         seen = _last_report.get(S.EXERCISE_STATION)
         lane = seen[1].lanes.get(S.EXERCISE_LANE) if seen and clock() - seen[0] <= ENGINE_STALE_S else None
         v["live"] = ({"count": lane.count, "rejected": lane.rejected, "phase": lane.phase, "person": lane.person,
-                      "faults": lane.pending_faults, "depth": lane.depth} if lane else None)
+                      "faults": lane.pending_faults, "depth": lane.depth, "calib": lane.calib} if lane else None)
         v["engine"] = lane is not None
         v["idle_watch"] = idle_watch["exercise"]
         for k in ("go_at", "ends_at", "since"):

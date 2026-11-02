@@ -1476,6 +1476,13 @@ def note_manual_start(db: Session, day: Day, entry: Entry, event: str, step: str
     db.commit()
 
 
+def note_calibration(db: Session, day: Day, attempt: Attempt, calibration: dict | None) -> None:
+    """What the auto-calibration used for this test, so that the score can be checked later."""
+    if calibration:
+        _audit(db, day, attempt.event, "calibration", attempt.entry, attempt_id=attempt.id, **calibration)
+        db.commit()
+
+
 def redo_attempt(db: Session, day: Day, rules: DayRules, attempt_id: int) -> Entry:
     """A saved exercise result is taken back so the person can do the test again (it went wrong,
     e.g. they were not ready): the attempt and its reps are deleted, the audit log keeps a copy."""

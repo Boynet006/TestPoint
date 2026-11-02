@@ -67,6 +67,9 @@ class PushupRules:
     """Hip->shoulder line above horizontal beyond which the person is not in a push-up at all:
     sitting (64-80 degrees) or standing. Such frames are not measured, so an arm moving at a desk
     is not a rep and standing with straight arms is not the start position."""
+    auto_share: float = 0.35
+    """Auto-calibration: over the first 3 reps, "back at the top" becomes this share of how far the
+    person's shoulders really come down (0 = off). ``min_drop`` stays the same for everyone."""
     crouch_knee_deg: float = 90.0
     """Hip-knee-ankle angle below which the person is crouching or getting up, not in a push-up
     (even on the knees it measures 95 or more). Such frames are not measured either."""
@@ -95,6 +98,9 @@ class PushupAnalyzer:
             work_timeout_fault="rest_in_down",
             min_fault_seconds=self.rules.fault_min_s,
             drop_work=self.rules.min_drop,
+            auto_share=self.rules.auto_share,
+            auto_rest_min=0.03,
+            auto_rest_gap=0.02,
         )
 
     def analyze(self, person: Person) -> FrameMetrics:
@@ -177,6 +183,9 @@ class CrunchRules:
     """Rise below which the candidate is back on the floor. At speed candidates do not lie all
     the way back between crunches: on the station camera 4 merged 10 crunches into 5, 12 counts
     all 10 (docs/CALIBRATION.md)."""
+    auto_share: float = 0.35
+    """Auto-calibration: over the first 3 reps, "back on the floor" becomes this share of how far
+    the person's torso really rises (0 = off). ``up_torso_deg`` stays the same for everyone."""
     min_rep_s: float = 0.4
     """Shorter movements are keypoint noise (0.2-0.4 s); real crunches take 0.8-1.4 s."""
     floor_window_s: float = 6.0
@@ -214,6 +223,9 @@ class CrunchAnalyzer:
             rest_limit=self.rules.max_lying_deg,
             arm_seconds=self.rules.arm_s,
             min_rep_seconds=self.rules.min_rep_s,
+            auto_share=self.rules.auto_share,
+            auto_rest_min=3.0,
+            auto_rest_gap=2.0,
             min_fault_seconds=self.rules.fault_min_s,
         )
 
@@ -253,11 +265,12 @@ TUNABLE: dict[str, dict[str, tuple[float, float, float]]] = {
         "max_knee_lift": (-1.0, 0.5, 0.05), "max_knee_deg": (120, 180, 1), "min_knee_drop": (0.0, 1.0, 0.05),
         "rest_in_down_s": (1, 10, 0.5), "fault_min_s": (0.0, 1.0, 0.05),
         "min_drop": (0.05, 0.4, 0.01), "max_torso_deg": (30, 90, 1), "crouch_knee_deg": (30, 120, 1),
+        "auto_share": (0.0, 0.6, 0.05),
     },
     "crunch": {
         "up_torso_deg": (3, 60, 0.5), "down_torso_deg": (1, 50, 0.5), "knee_min_deg": (0, 90, 1),
         "knee_max_deg": (90, 180, 1), "max_lying_deg": (20, 70, 1), "min_rep_s": (0.1, 2.0, 0.1),
-        "fault_min_s": (0.0, 1.0, 0.05),
+        "fault_min_s": (0.0, 1.0, 0.05), "auto_share": (0.0, 0.6, 0.05),
     },
 }
 RULES_CLASS = {"pushup": PushupRules, "crunch": CrunchRules}

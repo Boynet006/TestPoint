@@ -55,6 +55,8 @@ class LaneState:
     depth: float | None = None
     """How far into the rep the person is: 0 at the rest position, 1 at the depth that counts
     (the counter's thresholds); None when not measurable. For the station screen's gauge."""
+    calib: dict | None = None
+    """The auto-calibration's numbers now, for the station screen."""
     events: list[dict] = field(default_factory=list)
     """Completed reps not yet acknowledged by the app, oldest first."""
     exercise: str | None = None
@@ -118,6 +120,7 @@ class Reporter:
                 lane.person = r.person is not None
                 lane.pending_faults = list(r.pending_faults)
                 lane.work_seconds = round(r.work_seconds, 2)
+                lane.calib = r.calibration
                 lane.depth = rep_depth(r.metrics.metric if r.person is not None else None, self.counter)
                 lane.ready = bool(r.person is not None and r.metrics.metric is not None and self.counter is not None
                                   and self.counter.in_rest(r.metrics.metric) and not r.metrics.faults)
@@ -142,6 +145,7 @@ class Reporter:
                            "rejected": lane.rejected, "phase": lane.phase, "person": lane.person,
                            "pending_faults": lane.pending_faults,
                            "work_seconds": lane.work_seconds, "depth": lane.depth, "events": list(lane.events),
+                           **({"calib": lane.calib} if lane.calib else {}),
                            **({"exercise": lane.exercise, "ready": lane.ready} if lane.exercise else {}),
                            **({"face": lane.face} if lane.face else {})}
                     for name, lane in self.lanes.items()

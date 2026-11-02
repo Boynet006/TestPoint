@@ -463,6 +463,12 @@
   .callbox .c-label { font-family: var(--cond); font-size: 18px; color: var(--muted); }
   #scOnePic .scview { display: block; margin-top: 10px; } #scOnePic .camlive img { width: 100%; max-width: 100%; max-height: none; display: block; }
   #scOneCam .scgrid { display: block; } #scOneCam #scViewHome { display: none; }
+  .calbar { position: relative; height: 26px; margin: 12px 0 8px; background: var(--bg2); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+  .calbar i { position: absolute; inset-block: 0; inset-inline-start: 0; background: var(--amber); transition: width .1s linear; }
+  .calbar b { position: absolute; inset-block: 0; width: 3px; }
+  .calbar b.work { background: var(--bad); } .calbar b.rest { background: var(--go); }
+  .calrows { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; font-size: 15px; } .calrows b { font-variant-numeric: tabular-nums; }
+  #xTuneSlot .ltgrid { grid-template-columns: minmax(100px, 1fr) minmax(140px, 1.5fr); gap: 6px 10px; }
   .callbox.ask { border-inline-start-color: var(--amber); } .callbox.ask .c-say { color: var(--amber); }
   .callbox.go { border-inline-start-color: var(--go); } .callbox.go .c-say, .callbox.go .c-num { color: var(--go); }
   .callbox.no { border-inline-start-color: var(--bad); } .callbox.no .c-say { color: var(--bad); font-size: 34px; }
@@ -903,6 +909,12 @@
         <div id="xMsg"></div>
       </div>
       <div>
+        <div class="card" style="margin-bottom:16px">
+          <div class="row" style="align-items:center"><h2 style="margin:0" data-t="cal_title"></h2><span class="spacer"></span><span class="pill" id="calState"></span></div>
+          <div id="xCalib"></div>
+          <h2 style="margin:16px 0 8px" data-t="cal_sliders"></h2>
+          <div id="xTuneSlot"></div>
+        </div>
         <div class="card">
           <div class="row" style="align-items:baseline"><h2 style="margin:0" data-t="st_waiting"></h2><span class="spacer"></span><b class="wavefill" id="xWaitCount"></b></div>
           <p class="hint" data-t="st_waiting_hint"></p>
@@ -1310,6 +1322,9 @@ const I18N = {
     r_results: "Results",
     e_all_done: "Push-ups and crunches are both done",
     st_reset: "Reset",
+    cal_title: "Auto-calibration, live", cal_sliders: "Adjust", cal_off: "Off", cal_learning: "Learning {n}/{m}", cal_done: "Calibrated", cal_nobody: "Nobody measured yet",
+    cal_now: "Now", cal_work: "Depth that counts (same for everyone)", cal_rest: "Back at the start (learned from this person)", cal_fixed: "Back at the start, before learning", cal_range: "How far this person moves",
+    tn_auto_share: "Auto-calibration: back at the start", tnh_auto_share: "Share of the person's own movement, learned over the first 3 reps. 0 turns it off.",
     st_manual: "Start manually", st_go_now: "Start now", st_start: "Start", st_reps: "Count", st_time_left: "Time left",
     st_waiting: "Waiting for this station", st_waiting_hint: "They finished the run. The camera recognises them on the mat, or press Start.",
     up_pick: "Upload video", up_busy: "Uploading the video: {pct}%", up_ok: "Uploaded: {name}",
@@ -1674,6 +1689,9 @@ const I18N = {
     r_results: "النتائج",
     e_all_done: "أُنجز الضغط والبطن كلاهما",
     st_reset: "إعادة",
+    cal_title: "المعايرة التلقائية مباشرة", cal_sliders: "الضبط", cal_off: "متوقفة", cal_learning: "تتعلم {n}/{m}", cal_done: "تمت المعايرة", cal_nobody: "لم يُقَس أحد بعد",
+    cal_now: "الآن", cal_work: "العمق المطلوب (نفسه للجميع)", cal_rest: "العودة للبداية (متعلَّمة من هذا الشخص)", cal_fixed: "العودة للبداية قبل التعلم", cal_range: "مدى حركة هذا الشخص",
+    tn_auto_share: "المعايرة التلقائية: العودة للبداية", tnh_auto_share: "نسبة من حركة الشخص نفسه، تُتعلَّم من أول 3 عدات. 0 يوقفها.",
     st_manual: "بدء يدوي", st_go_now: "ابدأ الآن", st_start: "بدء", st_reps: "العدد", st_time_left: "الوقت المتبقي",
     st_waiting: "بانتظار هذه المحطة", st_waiting_hint: "أنهوا الجري. تتعرف عليهم الكاميرا على البساط، أو اضغط بدء.",
     up_pick: "رفع فيديو", up_busy: "جارٍ رفع الفيديو: {pct}%", up_ok: "تم الرفع: {name}",
@@ -3900,6 +3918,24 @@ function renderLane(l) {
 }
 // ---- tune counting on the station screen, while watching the picture: each change is saved at once
 // and reaches the engine with its next report (no restart). Admin PIN when one is set.
+// The auto-calibration as it happens: where the person is now against the two levels (red: the
+// depth that counts, the same for everyone; green: back at the start, learned from the person).
+const LiveCal = {
+  render(v) {
+    const c = v.live && v.live.calib, box = $("xCalib"), pill = $("calState");
+    if (!c) { pill.className = "pill"; pill.textContent = ""; box.innerHTML = `<p class="hint">${esc(t("cal_nobody"))}</p>`; return; }
+    pill.className = "pill " + (c.state === "done" ? "ok" : c.state === "learning" ? "info" : "");
+    pill.textContent = c.state === "off" ? t("cal_off") : c.state === "done" ? t("cal_done") : t("cal_learning", { n: c.reps, m: c.need });
+    const body = c.unit === "body", show = x => (x == null ? "—" : `${(body ? x * 100 : x).toFixed(body ? 1 : 0)}${body ? "%" : "°"}`);
+    const top = Math.max(c.work * 1.8, (c.range || 0) * 1.15, c.now || 0, 1e-6), at = x => Math.max(0, Math.min(100, 100 * x / top));
+    box.innerHTML = `<div class="calbar"><i style="width:${at(c.now || 0)}%"></i><b class="rest" style="inset-inline-start:${at(c.rest)}%"></b><b class="work" style="inset-inline-start:${at(c.work)}%"></b></div>`
+      + `<div class="calrows"><span>${esc(t("cal_now"))}</span><b>${show(c.now)}</b>`
+      + `<span style="color:var(--bad)">${esc(t("cal_work"))}</span><b>${show(c.work)}</b>`
+      + `<span style="color:var(--go)">${esc(t("cal_rest"))}</span><b>${show(c.rest)}</b>`
+      + `<span>${esc(t("cal_fixed"))}</span><b>${show(c.fixed_rest)}</b>`
+      + `<span>${esc(t("cal_range"))}</span><b>${show(c.range)}</b></div>`;
+  },
+};
 // A video from this device, for the camera screens' video file source (sent to the station PC).
 const ClipUp = {
   owner: null,
@@ -3982,9 +4018,13 @@ const LiveTune = {
 function stationLayout(one) {
   const put = (id, host, first) => { const el = $(id); if (el.parentElement !== host) { if (first) host.prepend(el); else host.appendChild(el); } };
   $("stOne").classList.toggle("hidden", !one); $("xBar").classList.toggle("hidden", one); $("stBody").classList.toggle("hidden", one);
-  $("scTune").classList.toggle("hidden", !one);
-  if (one) { put("xCall", $("scOneCall")); put("scView", $("scOnePic")); put("scCard", $("scOneCam")); put("xCam", $("xOneCam")); }
-  else {
+  $("scTune").classList.add("hidden");   // the sliders are on the screen with one mat, in a drawer with several
+  if (one) {
+    put("xCall", $("scOneCall")); put("scView", $("scOnePic")); put("scCard", $("scOneCam")); put("xCam", $("xOneCam"));
+    put("ltEx", $("xTuneSlot")); put("ltBox", $("xTuneSlot")); put("ltMsg", $("xTuneSlot"));
+    if (!$("ltBox").children.length) LiveTune.render();
+  } else {
+    put("ltEx", $("tunePanel")); put("ltBox", $("tunePanel")); put("ltMsg", $("tunePanel"));
     if ($("xCall").parentElement !== $("v-station")) $("v-station").insertBefore($("xCall"), $("stBody"));
     put("scView", $("scViewHome"), true); put("scCard", $("stBody"), true); put("xCam", $("xBar"));
   }
@@ -4032,6 +4072,8 @@ const StationCall = {
   },
   render() {
     const v = this.v, box = $("xCall"); if (!v) return;
+    LiveCal.render(v);
+    if (v.event && LiveTune.ex !== v.event) { LiveTune.ex = v.event; LiveTune.render(); }   // the sliders of the test running
     const e = v.entry, who = e ? `${esc(e.bib ?? "")} · ${esc(cname(e))}` : "";
     const photo = e && e.faces ? `<img src="/api/entries/${e.id}/face.jpg" alt="">` : "<span></span>";
     const ex = v.event ? t(v.event).toUpperCase() : "";
@@ -4055,7 +4097,7 @@ const StationCall = {
     } else if (v.state === "refused") {
       cls = "no";
       body = `<div><div class="c-who">${who}</div><div class="c-say">${esc(t("e_" + v.reason))}</div></div>`;
-      if (e && v.reason === "all_done" && $("tunePanel").hidden) ResultsCard.show(e.id);   // not over the sliders
+      if (e && v.reason === "all_done" && !(StationCam.st && StationCam.st.config && StationCam.st.config.kind === "video")) ResultsCard.show(e.id);   // not for a face in a video being replayed
     } else {
       body = `<div><div class="c-say">${esc(t(v.engine ? "st_step_up" : "st_no_camera"))}</div>${v.reason ? `<div class="hint">${esc(t("st_" + v.reason))}</div>` : ""}</div>`;
     }
