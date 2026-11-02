@@ -1470,6 +1470,12 @@ def cancel_attempt(db: Session, day: Day, attempt_id: int) -> None:
     db.commit()
 
 
+def note_manual_start(db: Session, day: Day, entry: Entry, event: str, step: str) -> None:
+    """The audit trail of a station test the examiner started by hand."""
+    _audit(db, day, event, "manual_start", entry, step=step)
+    db.commit()
+
+
 def redo_attempt(db: Session, day: Day, rules: DayRules, attempt_id: int) -> Entry:
     """A saved exercise result is taken back so the person can do the test again (it went wrong,
     e.g. they were not ready): the attempt and its reps are deleted, the audit log keeps a copy."""

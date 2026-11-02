@@ -125,6 +125,17 @@ class StationFlow:
             self._to("position", now, entry_id=self.entry_id, event=self.event, reason="left_position")
         return acts
 
+    def manual(self, now: float, entry_id: int, event: str) -> None:
+        """The examiner names the person the camera did not recognise: same posture, same 3-2-1."""
+        self.recent.pop(entry_id, None)
+        self.last_look = self.last_seen = now
+        self._to("position", now, entry_id=entry_id, event=event)
+
+    def go_now(self, now: float) -> None:
+        """The examiner starts the countdown without waiting for the start posture to be seen."""
+        self.last_look = self.last_seen = now
+        self._to("countdown", now, entry_id=self.entry_id, event=self.event, go_at=now + self.countdown_s)
+
     def started(self, attempt_id: int) -> None:
         """The app started the attempt for the "start" action."""
         self.attempt_id = attempt_id

@@ -45,6 +45,12 @@ def video_roots() -> list[Path]:
     return [d for d in roots if d.is_dir()]
 
 
+def upload_root() -> Path:
+    """Where uploaded videos go: the first video folder, created when it does not exist yet."""
+    extra = os.environ.get("TESTPOINT_VIDEO_DIRS")
+    return Path(extra.split(os.pathsep)[0]) if extra else DEFAULT_VIDEO_ROOTS[0]
+
+
 def list_videos() -> list[dict]:
     """Videos in each root's run / pushup / crunch folder; the same clip in two roots once."""
     out, seen = [], set()

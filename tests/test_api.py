@@ -600,3 +600,21 @@ def test_redo_takes_a_saved_exercise_back(client, monkeypatch):
     assert client.post(f"/api/attempts/{a['id']}/redo").status_code == 409             # still running
     ok(client.post(f"/api/attempts/{a['id']}/finish", json={"count": 45}))
     assert ok(client.get(f"/api/entries/{e['id']}/results"))["complete"]
+
+
+def test_upload_a_video_for_the_camera_screens(client, monkeypatch, tmp_path):
+    monkeypatch.setenv("TESTPOINT_VIDEO_DIRS", str(tmp_path))
+    r = ok(client.post("/api/clips/crunch", params={"name": "..\\my clip?.MP4"}, content=b"abc"))
+    assert r["label"] == "crunch/my clip_.MP4" and (tmp_path / "crunch" / "my clip_.MP4").read_bytes() == b"abc"
+    # the same name again does not overwrite
+    assert ok(client.post("/api/clips/crunch", params={"name": "my clip?.MP4"}, content=b"d"))["label"] == "crunch/my clip_-2.MP4"
+    err(client.post("/api/clips/crunch", params={"name": "evil.exe"}, content=b"x"), 400, "bad_video")
+    err(client.post("/api/clips/crunch", params={"name": "empty.mp4"}, content=b""), 400, "bad_video")
+    err(client.post("/api/clips/secret", params={"name": "a.mp4"}, content=b"x"), 400, "unknown_event")
+    assert not list((tmp_path / "crunch").glob("*.part"))
+
+
+def test_station_manual_start_needs_a_camera(client):
+    ok(client.post("/api/entries/import", content=CSV.encode()))
+    err(client.post("/api/stationflow/start", json={"query": "11"}), 409, "camera_off")
+    err(client.post("/api/stationflow/go"), 409, "not_in_position")

@@ -457,6 +457,12 @@
   .callbox .c-who { font-family: var(--cond); font-size: 22px; color: var(--muted); }
   .callbox .c-say { font-family: var(--cond); font-size: 46px; font-weight: 800; line-height: 1.05; }
   .callbox .c-num { font-family: var(--cond); font-size: 120px; font-weight: 800; line-height: 1; color: var(--amber); }
+  .callbox .c-big { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: end; }
+  .callbox .c-time { font-family: var(--cond); font-size: 120px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+  .callbox .c-time.low { color: var(--bad); }
+  .callbox .c-label { font-family: var(--cond); font-size: 18px; color: var(--muted); }
+  #scOnePic .scview { display: block; margin-top: 10px; } #scOnePic .camlive img { width: 100%; max-width: 100%; max-height: none; display: block; }
+  #scOneCam .scgrid { display: block; } #scOneCam #scViewHome { display: none; }
   .callbox.ask { border-inline-start-color: var(--amber); } .callbox.ask .c-say { color: var(--amber); }
   .callbox.go { border-inline-start-color: var(--go); } .callbox.go .c-say, .callbox.go .c-num { color: var(--go); }
   .callbox.no { border-inline-start-color: var(--bad); } .callbox.no .c-say { color: var(--bad); font-size: 34px; }
@@ -624,6 +630,7 @@
   <div id="ddMsg"></div>
   <div class="regactions"><span class="spacer"></span><button class="btn ghost" type="button" onclick="DelDlg.close()" data-t="enrol_cancel"></button><button class="btn stop" type="button" id="ddGo" onclick="DelDlg.go()" data-t="dd_go"></button></div>
 </dialog>
+<input type="file" id="clipFile" accept="video/*,.mkv" class="hidden" onchange="ClipUp.chosen(this.files[0])">
 <aside class="drawer" id="tunePanel" aria-labelledby="ltTitle" hidden>
   <div class="dlg-head"><h2 id="ltTitle" data-t="lt_title"></h2><span class="spacer"></span><button class="btn ghost sm" type="button" onclick="LiveTune.toggle(false)" data-t="rg_close"></button></div>
   <p class="hint" data-t="lt_hint"></p>
@@ -844,6 +851,7 @@
             <span id="fcUrl" class="fcsrc hidden camsel"><select id="fcCamSel" onchange="camPick(this, 'fcUrlIn')"></select><input id="fcUrlIn" class="hidden" data-tp="ph_cam_url" autocomplete="off"></span>
             <button class="btn ghost sm" style="flex:0 0 auto" onclick="FinishCam.sources(true)" data-t="fc_refresh"></button>
           </div>
+          <div class="row hidden" id="fcUp" style="margin-top:8px"><button class="btn ghost sm" style="flex:0 0 auto" onclick="ClipUp.pick('finish')" data-t="up_pick"></button></div>
           <div class="settings" style="margin-top:8px">
             <label for="fcLineY" data-t="fc_line"></label>
             <input id="fcLineY" type="range" min="5" max="95" step="1" onchange="FinishCam.lineChanged()">
@@ -886,7 +894,24 @@
 
   <!-- EXERCISE STATION -->
   <div id="v-station" class="hidden">
-    <div class="bar">
+    <div id="stOne" class="grid2 hidden">
+      <div class="card">
+        <div class="row" style="align-items:center"><h2 style="margin:0" data-t="r_station"></h2><span class="spacer"></span><span id="xOneCam"></span></div>
+        <div id="scOnePic"></div>
+        <div id="scOneCall"></div>
+        <div class="search" style="margin-top:10px"><input id="xQuery" data-tp="ph_bib" autocomplete="off" onkeydown="if(event.key==='Enter')StationCall.manual()"><button class="btn amber" onclick="StationCall.manual()" data-t="st_manual"></button></div>
+        <div id="xMsg"></div>
+      </div>
+      <div>
+        <div class="card">
+          <div class="row" style="align-items:baseline"><h2 style="margin:0" data-t="st_waiting"></h2><span class="spacer"></span><b class="wavefill" id="xWaitCount"></b></div>
+          <p class="hint" data-t="st_waiting_hint"></p>
+          <div class="scroll" style="max-height:320px"><table><tbody id="xWaitTable"></tbody></table></div>
+        </div>
+        <div id="scOneCam" style="margin-top:16px"></div>
+      </div>
+    </div>
+    <div class="bar" id="xBar">
       <div class="seg"><button id="ev-pushup" onclick="setEvent('pushup')" data-t="pushup"></button><button id="ev-crunch" onclick="setEvent('crunch')" data-t="crunch"></button></div>
       <div class="kv"><span data-t="time_limit"></span> <b id="xLimit">2:00</b></div>
       <div class="kv"><span data-t="waiting_here"></span> <b id="xWaiting">0</b></div>
@@ -901,8 +926,8 @@
     <div class="stbody" id="stBody">
     <div class="card hidden" id="scCard">
       <div class="scgrid">
-        <div>
-          <div class="scview"><div class="camlive hidden" id="camLive-station"><img alt=""><canvas class="fx" id="fxStation"></canvas><div class="viewer-tag" data-t="cam_view"></div></div><div class="scdivs" id="scDivs"></div></div>
+        <div id="scViewHome">
+          <div class="scview" id="scView"><div class="camlive hidden" id="camLive-station"><img alt=""><canvas class="fx" id="fxStation"></canvas><div class="viewer-tag" data-t="cam_view"></div></div><div class="scdivs" id="scDivs"></div></div>
           <p class="hint" id="scDivHint" data-t="sc_div_hint"></p>
         </div>
         <div>
@@ -916,11 +941,13 @@
               <span id="scUrl" class="scsrc hidden camsel"><select id="scCamSel" onchange="camPick(this, 'scUrlIn')"></select><input id="scUrlIn" class="hidden" data-tp="ph_cam_url" autocomplete="off"></span>
               <button class="btn ghost sm" style="flex:0 0 auto" onclick="StationCam.sources(true)" data-t="fc_refresh"></button>
             </div>
+            <div class="row hidden" id="scUp" style="margin-top:8px"><select id="scUpGroup" style="flex:0 0 auto;width:auto"><option value="pushup" data-t="pushup"></option><option value="crunch" data-t="crunch"></option></select><button class="btn ghost sm" style="flex:0 0 auto" onclick="ClipUp.pick('station')" data-t="up_pick"></button></div>
             <p class="hint" id="scWhat"></p>
             <div class="row" style="margin-top:6px">
               <button class="btn go" style="flex:0 0 auto" id="scStart" onclick="StationCam.start()"></button>
               <button class="btn stop" style="flex:0 0 auto" id="scStop" onclick="StationCam.stop()" data-t="fc_stop"></button>
               <button class="btn ghost sm" style="flex:0 0 auto" id="scEqual" onclick="StationCam.resetDividers()" data-t="sc_equal"></button>
+              <button class="btn ghost sm" style="flex:0 0 auto" id="scTune" onclick="LiveTune.toggle()" data-t="lt_button"></button>
               <span class="hint" id="scNote"></span>
             </div>
             <div id="scMsg"></div>
@@ -1283,6 +1310,11 @@ const I18N = {
     r_results: "Results",
     e_all_done: "Push-ups and crunches are both done",
     st_reset: "Reset",
+    st_manual: "Start manually", st_go_now: "Start now", st_start: "Start", st_reps: "Count", st_time_left: "Time left",
+    st_waiting: "Waiting for this station", st_waiting_hint: "They finished the run. The camera recognises them on the mat, or press Start.",
+    up_pick: "Upload video", up_busy: "Uploading the video: {pct}%", up_ok: "Uploaded: {name}",
+    e_bad_video: "Choose a video file (mp4, mov, mkv, avi, webm)", e_video_too_large: "Videos are limited to 2 GB",
+    e_camera_off: "The station camera is not sending: start it first", e_station_busy: "A test is running at this station", e_not_in_position: "Nobody is waiting to start",
     st_redo: "Redo this test",
     e_attempt_not_finished: "Only a saved result can be done again",
     st_all_done: "All tests done",
@@ -1642,6 +1674,11 @@ const I18N = {
     r_results: "النتائج",
     e_all_done: "أُنجز الضغط والبطن كلاهما",
     st_reset: "إعادة",
+    st_manual: "بدء يدوي", st_go_now: "ابدأ الآن", st_start: "بدء", st_reps: "العدد", st_time_left: "الوقت المتبقي",
+    st_waiting: "بانتظار هذه المحطة", st_waiting_hint: "أنهوا الجري. تتعرف عليهم الكاميرا على البساط، أو اضغط بدء.",
+    up_pick: "رفع فيديو", up_busy: "جارٍ رفع الفيديو: {pct}%", up_ok: "تم الرفع: {name}",
+    e_bad_video: "اختر ملف فيديو (mp4, mov, mkv, avi, webm)", e_video_too_large: "الحد الأقصى للفيديو 2 غيغابايت",
+    e_camera_off: "كاميرا المحطة لا ترسل: شغّلها أولاً", e_station_busy: "يجري اختبار في هذه المحطة", e_not_in_position: "لا أحد بانتظار البدء",
     st_redo: "إعادة هذا الاختبار",
     e_attempt_not_finished: "يمكن إعادة النتيجة المحفوظة فقط",
     st_all_done: "اكتملت جميع الاختبارات",
@@ -2054,7 +2091,9 @@ function setRole(r) { if (settingsOpen) closeSettings(); role = r;
   /* one camera, moved to the station in use */ const slot = $("camSlot-" + r); if (slot && !slot.contains($("camBlock"))) { slot.appendChild($("camBlock")); clearBox(); const v = $("camVideo"); if (v.srcObject || v.getAttribute("src")) v.play().catch(() => {}); }   /* moving a video pauses it */
    save("role", r); $("role").value = r; BgFx.refresh(); if (r !== "station" && typeof LiveTune !== "undefined") LiveTune.toggle(false); for (const x of ["weigh", "start", "finish", "station", "results"]) $("v-" + x).classList.toggle("hidden", x !== r);
   if (booted) {
-    if (!CAM_ROLES.includes(r) && Cam.stream) { Cam.stop(); Cam.show(); }
+    const want = CAM_ROLES.includes(r) ? Cam.kindFor(r) : null;
+    if (want && want !== Cam.kind && ["webcam", "ipcam"].includes(want)) Cam.use(want);
+    else if (!CAM_ROLES.includes(r) && Cam.stream) { Cam.stop(); Cam.show(); }
     else if (CAM_ROLES.includes(r) && Cam.kind === "webcam" && !Cam.stream) Cam.use("webcam");
     else if (Cam.kind === "ipcam") { if (r === "start") Cam.use("ipcam"); else { StartCam.detach(); Cam.show(); } }
   }
@@ -2240,6 +2279,8 @@ async function freeWebcam() {
 }
 const Cam = {
   kind: load("camKind", ""), stream: null, fileName: "",
+  // Each screen keeps its own camera: the start line its IP camera, the desks their webcam.
+  kindFor(r) { return load("camKind-" + r, "") || (r === "start" ? "ipcam" : "webcam"); },
   el() { return this.kind === "photo" || this.kind === "ipcam" ? $("camImg") : $("camVideo"); },
   show() {
     const ip = this.kind === "ipcam" && role === "start";
@@ -2260,7 +2301,7 @@ const Cam = {
   stop() { if (this.stream) { this.stream.getTracks().forEach(tr => tr.stop()); this.stream = null; } BgFx.stop($("camVideo")); if (typeof StartCam !== "undefined") StartCam.detach(); },
   async use(kind) {
     if (this.opening) return;
-    this.stop(); this.kind = kind; save("camKind", kind); this.fileName = "";
+    this.stop(); this.kind = kind; save("camKind", kind); save("camKind-" + role, kind); this.fileName = "";
     if (kind === "ipcam") { await StartCam.attach(); return; }
     if (kind === "webcam") {
       this.opening = true; $("deskCamRow").classList.remove("hidden");
@@ -2324,7 +2365,9 @@ const StartCam = {
     try { st = await api("GET", "/api/startcam"); } catch {}
     this.buttons(st);
     if (!st || !st.available) { msg("sMsg", "bad", t("e_camera_service_offline")); Cam.show(); return; }
-    if (st.running) await this.watch(); else { msg("sMsg", "warn", t("ip_not_running")); Cam.show(); }
+    if (st.running) await this.watch();
+    else if (SavedCams.has("start") && !load("startCamStopped", "")) await this.start();     // its saved camera, by itself
+    else { msg("sMsg", "warn", t("ip_not_running")); Cam.show(); }
   },
   buttons(st) {
     const on = !!(st && st.running);
@@ -2354,6 +2397,7 @@ const StartCam = {
     const pick = camChoice("ipCamSel", "ipCamUrl");
     if (pick.kind === "url" && !/^(rtsp|rtsps|http|https):\/\/\S+$/.test(pick.source)) { msg("sMsg", "bad", t("ip_bad_url")); return; }
     if (pick.kind === "url") save("startCamUrl", pick.source);
+    save("startCamStopped", "");
     this.detach(); Cam.show();
     try {
       const st = await api("POST", "/api/startcam/start", { ...pick, app_url: location.origin });
@@ -2361,7 +2405,7 @@ const StartCam = {
       await this.watch();
     } catch (e) { msg("sMsg", "bad", err(e)); }
   },
-  async stop() {
+  async stop() { save("startCamStopped", "1");
     try { this.buttons(await api("POST", "/api/startcam/stop")); msg("sMsg", "ok", t("ip_stopped")); } catch (e) { msg("sMsg", "bad", err(e)); }
     this.detach(); Cam.show();
   },
@@ -3182,7 +3226,7 @@ const FinishCam = {
   pref: (() => { try { return JSON.parse(localStorage.getItem("tp_finishcam") || "{}"); } catch { return {}; } })(),
   save() { try { localStorage.setItem("tp_finishcam", JSON.stringify(this.pref)); } catch {} },
   kind(k) {
-    this.pref.kind = k; this.save();
+    this.pref.kind = k; this.save(); $("fcUp").classList.toggle("hidden", k !== "video");
     for (const x of ["webcam", "video", "url"]) { $("fck-" + x).classList.toggle("active", x === k); $("fc" + x[0].toUpperCase() + x.slice(1)).classList.toggle("hidden", x !== k); }
     $("fcLoop").classList.toggle("hidden", k !== "video"); $("fcLoopOn").checked = this.pref.loop !== false;
   },
@@ -3329,7 +3373,7 @@ const StationCam = {
   toggle() { this.open = !this.isOpen(); this.manual = this.open; $("scCard").classList.toggle("hidden", !this.open); this.render(); },
   isOpen() { return !$("scCard").classList.contains("hidden"); },
   kind(k) {
-    this.pref.kind = k; this.save();
+    this.pref.kind = k; this.save(); $("scUp").classList.toggle("hidden", k !== "video");
     for (const x of ["webcam", "video", "url"]) { $("sck-" + x).classList.toggle("active", x === k); $("sc" + x[0].toUpperCase() + x.slice(1)).classList.toggle("hidden", x !== k); }
     $("scLoop").classList.toggle("hidden", k !== "video"); $("scLoopOn").checked = this.pref.loop !== false;
   },
@@ -3415,7 +3459,8 @@ const StationCam = {
     if (lanes.length > 1 && this.isOpen() && !this.manual && live && lanes.some(l => l.state !== "empty")) {
       this.open = false; $("scCard").classList.add("hidden"); $("stBody").classList.remove("one");
     }
-    $("scDivs").classList.toggle("hidden", !live); $("scDivHint").classList.toggle("hidden", !live);
+    $("scDivs").classList.toggle("hidden", !live); $("scDivHint").classList.toggle("hidden", !live || lanes.length === 1);
+    if (oneMat()) $("scCard").classList.remove("hidden");   // one mat: the camera has its own card, always there
     if (live && !$("scDivs").children.length) this.drawDividers();
   },
   async start(auto) {
@@ -3855,6 +3900,32 @@ function renderLane(l) {
 }
 // ---- tune counting on the station screen, while watching the picture: each change is saved at once
 // and reaches the engine with its next report (no restart). Admin PIN when one is set.
+// A video from this device, for the camera screens' video file source (sent to the station PC).
+const ClipUp = {
+  owner: null,
+  pick(owner) { this.owner = owner; $("clipFile").value = ""; $("clipFile").click(); },
+  chosen(file) {
+    if (!file) return;
+    const station = this.owner === "station", box = station ? "scMsg" : "fcMsg", cam = station ? StationCam : FinishCam, sel = station ? "scVideo" : "fcVideo";
+    const group = station ? $("scUpGroup").value : "run";
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `/api/clips/${group}?name=${encodeURIComponent(file.name)}`);
+    const pin = adminPin(); if (pin) xhr.setRequestHeader("x-admin-pin", pin);
+    xhr.upload.onprogress = e => { if (e.lengthComputable) msg(box, "warn", t("up_busy", { pct: Math.round(100 * e.loaded / e.total) })); };
+    xhr.onerror = () => msg(box, "bad", err({ code: "network" }));
+    xhr.onload = async () => {
+      let r = {}; try { r = JSON.parse(xhr.responseText); } catch {}
+      if (xhr.status >= 400) { msg(box, "bad", err(r.detail || { code: "unknown" })); return; }
+      await cam.sources(true);
+      const o = [...$(sel).options].find(x => x.textContent.startsWith(r.label));
+      if (o) { $(sel).value = o.value; $(sel).dispatchEvent(new Event("change", { bubbles: true })); }
+      msg(box, "ok", t("up_ok", { name: r.label }));
+      cam.poll(true);
+    };
+    msg(box, "warn", t("up_busy", { pct: 0 }));
+    xhr.send(file);
+  },
+};
 const LiveTune = {
   timer: 0, ex: null,
   toggle(open) {
@@ -3907,10 +3978,30 @@ const LiveTune = {
     return this.put(ex, ordered).then(ok => { if (ok && !$("tunePanel").hidden) this.render(); });
   },
 };
+// One mat: the same two columns as the start and finish screens. Several mats: the lanes.
+function stationLayout(one) {
+  const put = (id, host, first) => { const el = $(id); if (el.parentElement !== host) { if (first) host.prepend(el); else host.appendChild(el); } };
+  $("stOne").classList.toggle("hidden", !one); $("xBar").classList.toggle("hidden", one); $("stBody").classList.toggle("hidden", one);
+  $("scTune").classList.toggle("hidden", !one);
+  if (one) { put("xCall", $("scOneCall")); put("scView", $("scOnePic")); put("scCard", $("scOneCam")); put("xCam", $("xOneCam")); }
+  else {
+    if ($("xCall").parentElement !== $("v-station")) $("v-station").insertBefore($("xCall"), $("stBody"));
+    put("scView", $("scViewHome"), true); put("scCard", $("stBody"), true); put("xCam", $("xBar"));
+  }
+}
+function renderStationWaiting() {
+  const nextOf = e => (e.events.pushup && e.events.pushup.status === "finished" ? "crunch" : "pushup");
+  const rows = S.entries.filter(e => RAN.includes(e.status) && !["pushup", "crunch"].every(x => e.events[x] && e.events[x].status === "finished"));
+  $("xWaitCount").textContent = rows.length;
+  const html = rows.map(e => `<tr><td><b>${esc(e.candidate.bib ?? "")}</b></td><td>${esc(cname(e.candidate))}</td><td class="hint">${esc(t(nextOf(e)))}</td><td style="text-align:end"><button class="btn go sm" onclick="StationCall.manual('#${e.id}')">${esc(t("st_start"))}</button></td></tr>`).join("") || `<tr><td class="hint">—</td></tr>`;
+  if ($("xWaitTable").dataset.sig !== html) { $("xWaitTable").innerHTML = html; $("xWaitTable").dataset.sig = html; }
+}
 function renderStation() {
   StationCam.poll(); StartAll.render();
   // one mat, run by its camera: the call panel instead of the lanes and the exercise switch
   const one = oneMat();
+  stationLayout(one);
+  if (one) renderStationWaiting();
   $("stLanes").classList.toggle("hidden", one);
   for (const id of ["ev-pushup", "ev-crunch"]) $(id).parentElement.classList.toggle("hidden", one);
   if (!$("tunePanel").hidden && !oneMat() && LiveTune.ex !== event) LiveTune.render();   // switched push-ups / crunches
@@ -3956,7 +4047,7 @@ const StationCall = {
     } else if (v.state === "testing") {
       const left = Math.max(0, (Date.parse(v.ends_at) - serverNow()) / 1000), live = v.live || {};
       cls = "go";
-      body = `<div><div class="c-who">${who} · ${esc(ex)} · ${mmss(left)}</div><div class="c-num">${live.count ?? 0}</div>${(live.faults || []).length ? `<div class="hint">${esc(live.faults.map(f => t("f_" + f)).join(" · "))}</div>` : ""}</div>`;
+      body = `<div><div class="c-who">${who} · ${esc(ex)}</div><div class="c-big"><div><div class="c-num">${live.count ?? 0}</div><div class="c-label">${esc(t("st_reps"))}</div></div><div><div class="c-time${left <= 10 ? " low" : ""}">${mmss(left)}</div><div class="c-label">${esc(t("st_time_left"))}</div></div></div>${(live.faults || []).length ? `<div class="hint">${esc(live.faults.map(f => t("f_" + f)).join(" · "))}</div>` : ""}</div>`;
     } else if (v.state === "done") {
       const r = v.result || {};
       cls = r.passed === false ? "no" : "go";
@@ -3969,7 +4060,8 @@ const StationCall = {
       body = `<div><div class="c-say">${esc(t(v.engine ? "st_step_up" : "st_no_camera"))}</div>${v.reason ? `<div class="hint">${esc(t("st_" + v.reason))}</div>` : ""}</div>`;
     }
     const redo = v.state === "done" && v.attempt_id ? `<button class="btn ghost sm" onclick="StationCall.redo(${v.attempt_id}, this)">${esc(t("st_redo"))}</button> ` : "";
-    const reset = v.state !== "idle" ? `<div style="grid-column:1/-1;text-align:end">${redo}<button class="btn ghost sm" onclick="StationCall.reset()">${esc(t("st_reset"))}</button></div>` : "";
+    const goNow = v.state === "position" ? `<button class="btn go sm" onclick="StationCall.go()">${esc(t("st_go_now"))}</button> ` : "";
+    const reset = v.state !== "idle" ? `<div style="grid-column:1/-1;text-align:end">${goNow}${redo}<button class="btn ghost sm" onclick="StationCall.reset()">${esc(t("st_reset"))}</button></div>` : "";
     const html = (cls === "" ? "<span></span>" : photo) + body + reset, sig = cls + html;
     box.classList.remove("hidden");
     if (sig !== this.sig) { box.className = "callbox " + cls; box.innerHTML = html; this.sig = sig; }
@@ -3981,6 +4073,18 @@ const StationCall = {
     this.last = v.state;
   },
   async reset() { try { await api("POST", "/api/stationflow/reset"); } catch (e) { msg("scMsg", "bad", err(e)); } this.poll(); },
+  // The camera did not recognise them: the examiner names them (a typed bib or ID, or a row's Start).
+  async manual(query) {
+    const q = query || $("xQuery").value.trim();
+    if (!q) { msg("xMsg", "bad", t("e_empty_query")); return; }
+    try { await api("POST", "/api/stationflow/start", { query: q }); $("xQuery").value = ""; msg("xMsg"); }
+    catch (e) { msg("xMsg", "bad", err(e)); }
+    this.poll();
+  },
+  async go() {
+    try { await api("POST", "/api/stationflow/go"); msg("xMsg"); } catch (e) { msg("xMsg", "bad", err(e)); }
+    this.poll();
+  },
   // A saved result taken back: the person does the test again (second press confirms).
   redo(id, btn) {
     confirmClick("redo" + id, btn, async () => {
@@ -5055,6 +5159,7 @@ async function savePin(remove) {
   setLaneCount(setting("lanes"));
   $("role").value = role; setMode(mode === "advanced" && setting("admin_pin_set") && !adminPin() ? "simple" : mode); setRole(role); setEvent(event);
   $("autoBtn").textContent = t("auto_off");
+  if (CAM_ROLES.includes(role) && ["webcam", "ipcam"].includes(Cam.kindFor(role))) Cam.kind = Cam.kindFor(role);
   if (Cam.kind === "webcam" && CAM_ROLES.includes(role)) Cam.use("webcam");
   else if (Cam.kind === "ipcam" && role === "start") Cam.use("ipcam"); else Cam.show();
   booted = true;

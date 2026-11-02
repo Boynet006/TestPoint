@@ -356,8 +356,13 @@ class CrossingIn(BaseModel):
 
 
 ENGINE_STALE_S = 2.0
+MAX_VIDEO = 2 * 1024 * 1024 * 1024
 FRAME_STALE_S = 5.0
 """A camera picture older than this is not shown (the engine stopped)."""
+class StationStartIn(BaseModel):
+    query: str
+
+
 class StartObsIn(BaseModel):
     """What the start-line camera sees at the mark (testpoint.startcam), a few times a second."""
     present: bool
@@ -455,6 +460,8 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     @app.middleware("http")
     async def _one_writer(request: Request, call_next):
         if request.method in ("GET", "HEAD", "OPTIONS"):
+            return await call_next(request)
+        if request.url.path.startswith("/api/clips/"):      # a large video, written to its own file: no lock
             return await call_next(request)
         if int(request.headers.get("content-length") or 0) > MAX_BODY:
             return JSONResponse({"detail": {"code": "too_large", "message": "upload larger than 15 MB"}}, 413)
@@ -1289,6 +1296,69 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         for k in ("go_at", "ends_at", "since"):
             v[k] = at_wall(v[k])
         return v
+
+    @app.post("/api/stationflow/start")
+    def stationflow_start(body: StationStartIn, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        """The camera did not recognise the person: the examiner names them (bib, ID or #entry)."""
+        flow = station_flow(db, day)
+        if flow.state in ("countdown", "testing"):
+            raise S.ServiceError("station_busy", "a test is running at this station", 409)
+        seen = _last_report.get(S.EXERCISE_STATION)
+        if seen is None or clock() - seen[0] > ENGINE_STALE_S:
+            raise S.ServiceError("camera_off", "the station camera is not sending", 409)
+        e = S.find_entry(db, day, body.query)
+        event = next_event(S.done_events(e), EVENTS)
+        if event is None:
+            raise S.ServiceError("all_done", f"{e.candidate.name}: both exercises are done", 409)
+        g = S.gate_for(e, day, event)
+        if not g.ok:
+            raise S.ServiceError(g.reason, f"{e.candidate.name}: {g.reason.replace('_', ' ')}", 409)
+        flow.manual(wall(), e.id, event)
+        S.note_manual_start(db, day, e, event, "named")
+        return {"state": flow.state, "event": event, "entry_id": e.id}
+
+    @app.post("/api/stationflow/go")
+    def stationflow_go(db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        """Start the 3-2-1 now, without waiting for the camera to see the start posture."""
+        flow = station_flow(db, day)
+        if flow.state != "position":
+            raise S.ServiceError("not_in_position", "nobody is waiting to start", 409)
+        e = S.get_entry(db, day, flow.entry_id)
+        event = flow.event
+        flow.go_now(wall())
+        S.note_manual_start(db, day, e, event, "go")
+        return {"state": flow.state}
+
+    @app.post("/api/clips/{group}", dependencies=[Depends(admin)])
+    async def clip_upload(group: str, name: str, request: Request) -> dict:
+        """A video from the examiner's device, for the camera screens' video file source."""
+        from ..camhost import VIDEO_EXT, VIDEO_GROUPS, upload_root
+        if group not in VIDEO_GROUPS:
+            raise S.ServiceError("unknown_event", f"unknown video group {group!r}", 400)
+        clean = re.sub(r"[^\w.\- ]+", "_", Path(name.replace("\\", "/")).name).strip(" .")
+        if Path(clean).suffix.lower() not in VIDEO_EXT or not Path(clean).stem:
+            raise S.ServiceError("bad_video", "choose a video file: " + ", ".join(sorted(VIDEO_EXT)), 400)
+        folder = upload_root() / group
+        folder.mkdir(parents=True, exist_ok=True)
+        target, n = folder / clean, 1
+        while target.exists():
+            n += 1
+            target = folder / f"{Path(clean).stem}-{n}{Path(clean).suffix}"
+        part = target.with_name(target.name + ".part")
+        size = 0
+        try:
+            with open(part, "wb") as out:
+                async for chunk in request.stream():
+                    size += len(chunk)
+                    if size > MAX_VIDEO:
+                        raise S.ServiceError("video_too_large", "videos are limited to 2 GB", 413)
+                    out.write(chunk)
+            if size == 0:
+                raise S.ServiceError("bad_video", "the file is empty", 400)
+            part.replace(target)
+        finally:
+            part.unlink(missing_ok=True)
+        return {"label": f"{group}/{target.name}", "mb": round(size / 1_000_000, 1)}
 
     @app.put("/api/stationflow/watch/{exercise}")
     def stationflow_watch(exercise: str) -> dict:
