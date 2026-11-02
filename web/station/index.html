@@ -4116,10 +4116,14 @@ const StationCall = {
     }
     const redo = v.state === "done" && v.attempt_id ? `<button class="btn ghost sm" onclick="StationCall.redo(${v.attempt_id}, this)">${esc(t("st_redo"))}</button> ` : "";
     const goNow = v.state === "position" ? `<button class="btn go sm" onclick="StationCall.go()">${esc(t("st_go_now"))}</button> ` : "";
-    const reset = v.state !== "idle" ? `<div style="grid-column:1/-1;text-align:end">${goNow}${redo}<button class="btn ghost sm" onclick="StationCall.reset()">${esc(t("st_reset"))}</button></div>` : "";
-    const html = (cls === "" ? "<span></span>" : photo) + body + reset, sig = cls + html;
+    const acts = v.state !== "idle" ? `${goNow}${redo}<button class="btn ghost sm" onclick="StationCall.reset()">${esc(t("st_reset"))}</button>` : "";
+    const html = (cls === "" ? "<span></span>" : photo) + body, sig = cls + html;
     box.classList.remove("hidden");
-    if (sig !== this.sig) { box.className = "callbox " + cls; box.innerHTML = html; this.sig = sig; }
+    // The buttons have their own place: the message above them changes several times a second while
+    // the person moves, and a button rebuilt under the pointer loses the click.
+    if (!box.querySelector(".cb-acts")) { box.innerHTML = `<div class="cb-main" style="display:contents"></div><div class="cb-acts" style="grid-column:1/-1;text-align:end"></div>`; this.sig = this.acts = ""; }
+    if (sig !== this.sig) { box.className = "callbox " + cls; box.querySelector(".cb-main").innerHTML = html; this.sig = sig; }
+    if (acts !== this.acts) { box.querySelector(".cb-acts").innerHTML = acts; this.acts = acts; }
     if (v.state !== this.last) {
       if (v.state === "position") Sound.chime();
       if (v.state === "testing") Signal.start();
