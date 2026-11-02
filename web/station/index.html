@@ -436,6 +436,15 @@
   .countdown .cd-label { font-family: var(--cond); letter-spacing: 2px; text-transform: uppercase; color: var(--muted); font-size: 18px; }
   .countdown .cd-num { font-family: var(--cond); font-size: 120px; font-weight: 800; line-height: 1.05; color: var(--amber); }
   .countdown.go .cd-num { color: var(--go); }
+  /* the results card: pass / fail and every test, large, closes by itself */
+  .rcard { max-width: 760px; width: 92vw; padding: 0; }
+  .rcard .rc-head { display: grid; grid-template-columns: auto 1fr; gap: 18px; align-items: center; padding: 22px 24px; border-bottom: 1px solid var(--line); }
+  .rcard .rc-head img { width: 110px; height: 138px; object-fit: cover; border-radius: 6px; background: var(--bg); }
+  .rcard .rc-name { font-family: var(--cond); font-size: 30px; font-weight: 700; }
+  .rcard .rc-verdict { font-family: var(--cond); font-size: 64px; font-weight: 800; line-height: 1; margin-top: 6px; }
+  .rcard .rc-verdict.pass { color: var(--go); } .rcard .rc-verdict.fail { color: var(--bad); } .rcard .rc-verdict.pending { color: var(--amber); }
+  .rcard table { width: 100%; font-size: 22px; } .rcard td { padding: 12px 24px; border-bottom: 1px solid var(--line); }
+  .rcard td.v { font-family: var(--cond); font-size: 30px; font-weight: 700; text-align: end; }
   /* start line run by its camera: what the runner at the mark is asked to do, readable from metres away */
   .callbox { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center; margin-top: 12px; padding: 16px 18px; background: var(--bg2); border: 1px solid var(--line); border-inline-start: 6px solid var(--muted); }
   .callbox img { width: 96px; height: 120px; object-fit: cover; border-radius: 4px; background: var(--bg); }
@@ -530,6 +539,7 @@
     <option value="start" data-t="r_start"></option>
     <option value="finish" data-t="r_finish"></option>
     <option value="station" data-t="r_station"></option>
+    <option value="results" data-t="r_results"></option>
   </select>
   <span class="conn" id="conn"></span>
   <span class="spacer"></span>
@@ -635,6 +645,7 @@
     <div class="row" style="margin-top:10px"><button class="btn amber" type="submit" id="eSave" data-t="edit_save"></button></div>
   </form>
 </dialog>
+<dialog id="resultsDlg" class="dlg rcard" onclick="ResultsCard.close()"><div id="rcBody"></div></dialog>
 <dialog id="pinDlg" class="dlg" style="max-width:360px">
   <h2 data-t="pin_title"></h2>
   <p class="hint" data-t="pin_hint"></p>
@@ -733,6 +744,20 @@
       <h2 data-t="needs_title"></h2>
       <div id="wNeedsBody"></div>
     </div>
+    </div>
+  </div>
+
+  <!-- RESULTS: anyone looks at the camera and sees their results (pass / fail, each test). -->
+  <div id="v-results" class="grid2 hidden">
+    <div class="card">
+      <h2 data-t="r_results"></h2>
+      <div id="camSlot-results"></div>
+      <div id="rMsg"></div>
+    </div>
+    <div class="card">
+      <h2 data-t="rc_title"></h2>
+      <p class="hint" data-t="rc_hint"></p>
+      <div class="search" style="margin-top:10px"><input id="rQuery" data-tp="ph_bib" autocomplete="off" onkeydown="if(event.key==='Enter')resultsByBib()"><button class="btn amber" onclick="resultsByBib()" data-t="rc_show"></button></div>
     </div>
   </div>
 
@@ -1192,6 +1217,15 @@
 /* ============================== i18n ============================== */
 const I18N = {
   en: {
+    rc_run: "3.2 km run",
+    rc_pending: "to do",
+    rc_pending_all: "NOT FINISHED YET",
+    rc_fail: "FAIL",
+    rc_pass: "PASS",
+    rc_show: "Show",
+    rc_hint: "Look at the camera to see your results, or type a bib.",
+    rc_title: "Your results",
+    r_results: "Results",
     e_all_done: "Push-ups and crunches are both done",
     st_reset: "Reset",
     st_all_done: "All tests done",
@@ -1514,6 +1548,15 @@ const I18N = {
     e_override_reason_required: "The count differs from the camera's: give a reason",
   },
   ar: {
+    rc_run: "جري 3.2 كم",
+    rc_pending: "متبقٍ",
+    rc_pending_all: "لم يكتمل بعد",
+    rc_fail: "راسب",
+    rc_pass: "ناجح",
+    rc_show: "عرض",
+    rc_hint: "انظر إلى الكاميرا لترى نتائجك، أو اكتب الرقم.",
+    rc_title: "نتائجك",
+    r_results: "النتائج",
     e_all_done: "أُنجز الضغط والبطن كلاهما",
     st_reset: "إعادة",
     st_all_done: "اكتملت جميع الاختبارات",
@@ -1917,18 +1960,18 @@ function render() {
   if (!S.state) return;
   $("hdrDate").textContent = S.state.date;
   if (mode === "advanced") renderAdvanced();
-  else ({ weigh: renderWeigh, start: renderStart, finish: renderFinish, station: renderStation })[role]();
+  else ({ weigh: renderWeigh, start: renderStart, finish: renderFinish, station: renderStation, results: () => {} })[role]();
 }
 function setRole(r) { if (settingsOpen) closeSettings(); role = r;
   /* one camera, moved to the station in use */ const slot = $("camSlot-" + r); if (slot && !slot.contains($("camBlock"))) { slot.appendChild($("camBlock")); clearBox(); const v = $("camVideo"); if (v.srcObject || v.getAttribute("src")) v.play().catch(() => {}); }   /* moving a video pauses it */
-   save("role", r); $("role").value = r; BgFx.refresh(); if (r !== "station" && typeof LiveTune !== "undefined") LiveTune.toggle(false); for (const x of ["weigh", "start", "finish", "station"]) $("v-" + x).classList.toggle("hidden", x !== r);
+   save("role", r); $("role").value = r; BgFx.refresh(); if (r !== "station" && typeof LiveTune !== "undefined") LiveTune.toggle(false); for (const x of ["weigh", "start", "finish", "station", "results"]) $("v-" + x).classList.toggle("hidden", x !== r);
   if (booted) {
     if (!CAM_ROLES.includes(r) && Cam.stream) { Cam.stop(); Cam.show(); }
     else if (CAM_ROLES.includes(r) && Cam.kind === "webcam" && !Cam.stream) Cam.use("webcam");
     else if (Cam.kind === "ipcam") { if (r === "start") Cam.use("ipcam"); else { StartCam.detach(); Cam.show(); } }
   }
   refresh(); }
-const CAM_ROLES = ["weigh", "start"];   // stations that use this device's camera
+const CAM_ROLES = ["weigh", "start", "results"];   // stations that use this device's camera
 let booted = false;
 function setMode(m) {
   if (m === "advanced" && setting("admin_pin_set") && !adminPin()) { PinDlg.open(); return; }
@@ -2397,9 +2440,11 @@ let autoId = false, autoTimer = null, idBusy = false;
 function toggleAuto() { autoId = !autoId; $("autoBtn").textContent = autoId ? t("auto_on") : t("auto_off"); $("autoBtn").classList.toggle("on", autoId);
   clearInterval(autoTimer); if (autoId) autoTimer = setInterval(() => { if (mode !== "simple" || settingsOpen) return;
     if (role === "start") { if (!startingNow() && !StartCall.active()) identifyNow(true); return; }
+    if (role === "results") { if (!ResultsCard.isOpen()) identifyNow(true); return; }
     if (!wEntry && wSource !== "typed" && !enrolBusy && $("wNew").classList.contains("hidden") && role === "weigh") identifyNow(true); }, 1500); }
 async function identifyNow(quiet) {
   if (role === "start") return lineIdentify(quiet);
+  if (role === "results") return resultsIdentify(quiet);
   if (idBusy) return; idBusy = true;
   const seqAtStart = wSeq;
   try {
@@ -2407,6 +2452,7 @@ async function identifyNow(quiet) {
     if (!quiet) msg("wMsg", "warn", t("identifying"));
     const r = await apiImage("/api/face/identify?station=weigh", f.blob);
     if (seqAtStart !== wSeq || (quiet && wEntry)) return;   // someone else was checked in meanwhile
+    if (r.entry && r.entry.status === "complete") { ResultsCard.show(r.entry.id); return; }   // all done: their results
     if (r.entry) {
       if (wEntry && wEntry.id === r.entry.id) return;          // already weighing this person
       newCheckin(); wSource = "face";
@@ -2855,6 +2901,7 @@ async function lineIdentify(quiet) {
   try {
     const f = await Cam.frame();
     const r = await apiImage("/api/face/identify?station=lineup", f.blob);
+    if (r.entry && r.entry.status === "complete") { ResultsCard.show(r.entry.id); return; }
     if (r.entry) {
       drawBox(r.box, f.w, f.h, `${cname(r.entry.candidate)} ${r.score.toFixed(2)}`, true);
       if (r.allowed) { await lineUp(r.entry.id, "face"); lineSeen = ""; }
@@ -2899,6 +2946,7 @@ const StartCall = {
     } else if (v.state === "refused") {
       cls = "no";
       body = `<div><div class="c-who">${who}</div><div class="c-say">${esc(t("e_" + v.reason))}</div></div>`;
+      if (e && e.status === "complete") ResultsCard.show(e.id);
     } else {
       body = `<div><div class="c-say">${esc(t(v.camera ? "call_step_up" : "call_no_camera"))}</div>${v.reason ? `<div class="hint">${esc(t("call_" + v.reason))}</div>` : ""}</div>`;
     }
@@ -3745,6 +3793,7 @@ const StationCall = {
     } else if (v.state === "refused") {
       cls = "no";
       body = `<div><div class="c-who">${who}</div><div class="c-say">${esc(t("e_" + v.reason))}</div></div>`;
+      if (e && v.reason === "all_done") ResultsCard.show(e.id);
     } else {
       body = `<div><div class="c-say">${esc(t(v.engine ? "st_step_up" : "st_no_camera"))}</div>${v.reason ? `<div class="hint">${esc(t("st_" + v.reason))}</div>` : ""}</div>`;
     }
@@ -3755,12 +3804,50 @@ const StationCall = {
     if (v.state !== this.last) {
       if (v.state === "position") Sound.chime();
       if (v.state === "testing") Signal.start();
-      if (v.state === "done") { Signal.end(); refresh(); }
+      if (v.state === "done") { Signal.end(); refresh(); if (e && e.done && e.done.length >= 2) setTimeout(() => ResultsCard.show(e.id), 4000); }
     }
     this.last = v.state;
   },
   async reset() { try { await api("POST", "/api/stationflow/reset"); } catch (e) { msg("scMsg", "bad", err(e)); } this.poll(); },
 };
+
+// ---- the results card: the person's day, large; on the Results screen and on any camera that
+// recognises someone who finished every test. Closes by itself (or on a tap).
+const ResultsCard = {
+  timer: null, shown: {},
+  isOpen: () => $("resultsDlg").open,
+  async show(entryId, ms = 12000) {
+    if (this.isOpen() || (this.shown[entryId] && Date.now() - this.shown[entryId] < 20000)) return;
+    let r; try { r = await api("GET", `/api/entries/${entryId}/results`); } catch { return; }
+    this.shown[entryId] = Date.now();
+    const e = r.entry, c = e.candidate, v = r.verdict || "pending";
+    const val = x => x.test === "run" ? (x.dnf ? "DNF" : x.value != null ? mmss(x.value) : "—") : (x.value ?? "—");
+    const mark = x => x.passed === true ? `<span style="color:var(--go)">✓ ${esc(gradeTxt(x.grade))}</span>` : x.passed === false ? `<span style="color:var(--bad)">✗ ${esc(gradeTxt(x.grade))}</span>` : `<span class="hint">${esc(t("rc_pending"))}</span>`;
+    $("rcBody").innerHTML = `<div class="rc-head">${e.faces ? `<img src="/api/entries/${e.id}/face.jpg" alt="">` : "<span></span>"}`
+      + `<div><div class="rc-name">${esc(c.bib ?? "")} · ${esc(cname(c))}</div><div class="hint">${r.level ? esc(t("std_needs", { level: r.level })) : ""}</div>`
+      + `<div class="rc-verdict ${v === "pass" ? "pass" : v === "fail" ? "fail" : "pending"}">${esc(t("rc_" + (["pass", "fail"].includes(v) ? v : "pending_all")))}</div></div></div>`
+      + `<table>${r.tests.map(x => `<tr><td>${esc(t(x.test === "run" ? "rc_run" : x.test))}</td><td class="v">${esc(String(val(x)))}</td><td style="text-align:end">${mark(x)}</td></tr>`).join("")}</table>`;
+    $("resultsDlg").showModal();
+    if (v === "pass") Sound.done?.(); 
+    clearTimeout(this.timer); this.timer = setTimeout(() => this.close(), ms);
+  },
+  close() { clearTimeout(this.timer); if (this.isOpen()) $("resultsDlg").close(); },
+};
+async function resultsIdentify(quiet) {
+  if (idBusy) return; idBusy = true;
+  try {
+    const f = await Cam.frame();
+    const r = await apiImage("/api/face/identify?station=results", f.blob);
+    if (r.entry) { drawBox(r.box, f.w, f.h, `${cname(r.entry.candidate)} ${r.score.toFixed(2)}`, true); ResultsCard.show(r.entry.id); msg("rMsg"); }
+    else { drawBox(r.box, f.w, f.h, `? ${r.score.toFixed(2)}`, false); if (!quiet) msg("rMsg", "warn", t("not_recognised")); }
+  } catch (e) { clearBox(); if (!quiet) msg("rMsg", "bad", err(e)); }
+  finally { idBusy = false; }
+}
+async function resultsByBib() {
+  const q = $("rQuery").value.trim(); if (!q) return;
+  try { const r = await api("POST", "/api/checkin", { station: "pushup", query: q }); ResultsCard.shown[r.entry.id] = 0; ResultsCard.show(r.entry.id); $("rQuery").value = ""; }
+  catch (e) { msg("rMsg", "bad", err(e)); }
+}
 
 // ---- the official table, as the screens need it
 const RAN = ["run_passed", "run_failed", "run_done", "dnf"];   // took the run: on to the exercises

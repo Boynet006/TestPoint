@@ -603,6 +603,22 @@ def verdict(entry: Entry) -> str | None:
     return "pass" if all(g is not None for g in grades) else "pending"
 
 
+def results_for(entry: Entry) -> dict:
+    """The day's results for the results card: each test with what was done, the grade reached
+    and whether it meets the person's required level, and the overall verdict."""
+    finished = {a.event: a for a in entry.attempts if a.status == "finished"}
+    level = entry.level
+    tests = [{"test": "run", "value": entry.run_time_s, "grade": entry.run_grade,
+              "passed": (entry.run_grade >= level) if entry.run_grade is not None and level else None,
+              "dnf": entry.status == J.DNF and entry.run_time_s is None}]
+    for ev in EVENTS:
+        a = finished.get(ev)
+        tests.append({"test": ev, "value": a.count if a else None, "grade": a.grade if a else None,
+                      "passed": a.passed if a else None, "dnf": False})
+    return {"entry_id": entry.id, "status": entry.status, "verdict": verdict(entry), "level": level,
+            "band": entry.band, "age": entry.age, "complete": entry.status == J.COMPLETE, "tests": tests}
+
+
 def done_events(entry: Entry) -> set[str]:
     return {a.event for a in entry.attempts if a.status == "finished"}
 

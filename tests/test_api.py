@@ -544,3 +544,27 @@ def test_counting_rules_can_be_tuned_within_limits(client):
     d = ok(client.get("/api/settings/defaults"))["tuning"]
     assert d["pushup"]["down_elbow_deg"]["default"] == 95 and d["crunch"]["up_torso_deg"]["min"] == 3
     assert ok(client.put("/api/settings", json={"count_tuning": {}}))["count_tuning"] == {}
+
+
+def test_results_card_lists_every_test_against_the_level(client, monkeypatch):
+    ok(client.post("/api/entries/import", content=CSV.encode()))
+    e = entry_by_bib(client, 11)
+    ok(client.post(f"/api/entries/{e['id']}/weigh-in", json={"weight_kg": 72, "height_cm": 176, "accept": True}))
+    r = ok(client.get(f"/api/entries/{e['id']}/results"))
+    assert r["verdict"] == "pending" and [t["test"] for t in r["tests"]] == ["run", "pushup", "crunch"]
+    assert all(t["value"] is None for t in r["tests"]) and not r["complete"]
+    ok(client.post(f"/api/entries/{e['id']}/line-up"))
+    t0 = models.utcnow()
+    monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0)
+    start_lined_up(client)
+    monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0 + timedelta(minutes=14))
+    ok(client.post("/api/run/finish", json={"bib": "11"}), 201)
+    for ev, n in (("pushup", 45), ("crunch", 10)):
+        a = ok(client.post("/api/attempts", json={"entry_id": e["id"], "event": ev, "lane": "1"}), 201)
+        ok(client.post(f"/api/attempts/{a['id']}/finish", json={"count": n}))
+    r = ok(client.get(f"/api/entries/{e['id']}/results"))
+    assert r["complete"] and r["verdict"] == "fail" and r["level"] == 60
+    run, push, crunch = r["tests"]
+    assert run["value"] == 840.0 and run["passed"] is True
+    assert (push["value"], push["passed"]) == (45, True) and (crunch["value"], crunch["passed"]) == (10, False)
+    assert r["entry"]["candidate"]["bib"] == "11"
