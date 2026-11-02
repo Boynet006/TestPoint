@@ -32,6 +32,8 @@ class FrameResult:
     """Faults already collected for the rep in progress (live feedback)."""
     work_seconds: float = 0.0
     """How long the candidate has been away from the rest position."""
+    calibration: dict | None = None
+    """What the auto-calibration knows of this person now (``RepCounter.calibration``)."""
 
 
 @dataclass
@@ -105,7 +107,7 @@ class MultiLaneSession:
             metrics = (
                 self.analyzer.analyze(person) if person is not None else FrameMetrics(metric=None)
             )
-            event = counter.update(metrics.metric, t, metrics.faults)
+            event = counter.update(metrics.metric, t, metrics.faults, metrics.height)
             results[lane.name] = FrameResult(
                 t=t,
                 person=person,
@@ -117,6 +119,7 @@ class MultiLaneSession:
                 lane=lane.name,
                 pending_faults=counter.pending_faults,
                 work_seconds=counter.work_seconds(t),
+                calibration=counter.calibration(),
             )
         return MultiLaneResult(t=t, lanes=results, people=people)
 

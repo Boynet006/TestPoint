@@ -11,6 +11,7 @@ import csv
 import dataclasses
 import io
 import json
+import re
 from datetime import datetime, timedelta
 
 from sqlalchemy import func, select
@@ -222,6 +223,7 @@ SETTINGS: dict[str, object] = {
     # run start
     "start_countdown_s": 3,      # the 3-2-1 before a runner's GO (their clock starts at GO)
     "cancel_window_s": 120,      # a start can be cancelled without the admin PIN this long; 0 = until the first finisher
+    "finish_face_threshold": 0.0, # face match needed at the finish (0.30-0.60); 0 = automatic (normal while few are out)
     # display
     "site_name": "",             # shown in the header; empty = "Fitness examination station"
     "default_language": "en",    # a device that never chose a language: "en" or "ar"
@@ -269,6 +271,62 @@ def set_background(db: Session, day: Day, data: bytes | None) -> None:
             row.value, row.updated_at = value, utcnow()
         _audit(db, day, "admin", "background_image", None, bytes=len(data), type=kind)
     db.commit()
+
+
+CAMERAS_KEY = "camera_urls"
+CAMERAS = ("start", "finish", "station")
+"""The IP cameras' addresses (rtsp://user:password@ip/...), saved once in Settings. Kept apart from
+the settings every device reads: a screen only ever gets them with the password hidden, and the
+server puts the real address in when it starts a camera."""
+CAMERA_URL = re.compile(r"^(rtsp|rtsps|http|https)://\S+$")
+
+
+def _redact(url: str) -> str:
+    return re.sub(r"(://[^/@:]+:)[^@/]*@", r"\1***@", url)
+
+
+def camera_urls(db: Session) -> dict[str, str]:
+    row = db.get(Setting, CAMERAS_KEY)
+    return {k: v for k, v in (json.loads(row.value) if row else {}).items() if k in CAMERAS and v}
+
+
+def cameras_out(db: Session) -> dict:
+    """What a screen may see: whether each camera has an address, and the address without its password."""
+    urls = camera_urls(db)
+    return {k: {"set": k in urls, "address": _redact(urls[k]) if k in urls else None} for k in CAMERAS}
+
+
+def set_camera_urls(db: Session, day: Day, changes: dict[str, str | None]) -> dict:
+    """Save camera addresses; an empty one removes it, one not given stays as it is."""
+    urls = camera_urls(db)
+    for k, v in changes.items():
+        if k not in CAMERAS:
+            raise ServiceError("unknown_camera", f"unknown camera {k!r}", 400)
+        if v is None:
+            continue
+        v = v.strip()
+        if not v:
+            urls.pop(k, None)
+        elif not CAMERA_URL.match(v) or len(v) > 500:
+            raise ServiceError("bad_camera_url", "a camera address starts with rtsp:// (or http://)", 400)
+        else:
+            urls[k] = v
+    row = db.get(Setting, CAMERAS_KEY)
+    if row is None:
+        db.add(Setting(key=CAMERAS_KEY, value=json.dumps(urls)))
+    else:
+        row.value, row.updated_at = json.dumps(urls), utcnow()
+    _audit(db, day, "admin", "camera_urls", None, cameras={k: _redact(v) for k, v in urls.items()})
+    db.commit()
+    return cameras_out(db)
+
+
+def saved_camera(db: Session, which: str) -> str:
+    """The real address of a saved camera, for the server to start it."""
+    url = camera_urls(db).get(which)
+    if not url:
+        raise ServiceError("no_saved_camera", f"no address saved for the {which} camera: add it in Settings > Cameras", 409)
+    return url
 
 
 def _pin_hash(pin: str, salt: str) -> str:
@@ -614,7 +672,7 @@ def results_for(entry: Entry) -> dict:
     for ev in EVENTS:
         a = finished.get(ev)
         tests.append({"test": ev, "value": a.count if a else None, "grade": a.grade if a else None,
-                      "passed": a.passed if a else None, "dnf": False})
+                      "passed": a.passed if a else None, "dnf": False, "attempt_id": a.id if a else None})
     return {"entry_id": entry.id, "status": entry.status, "verdict": verdict(entry), "level": level,
             "band": entry.band, "age": entry.age, "complete": entry.status == J.COMPLETE, "tests": tests}
 
@@ -1108,6 +1166,19 @@ def resolve_crossing(db: Session, day: Day, rules: DayRules, crossing_id: int,
     return crossing
 
 
+FINISH_FEW_OUT = 10
+"""With this many runners out or fewer, a face at the finish is matched at the normal setting (the
+same as the weigh-in desk): it only has to be told apart from these few, and the finish camera's
+angle and light make every face score lower than at the desk. With more out, the strict setting."""
+
+
+def finish_face_match(runners_out: int, setting: float = 0.0) -> tuple[float, float]:
+    """The face match needed at the finish: the Settings value when one is set, else automatic."""
+    if setting:
+        return float(setting), FACE_MATCH["normal"][1]
+    return FACE_MATCH["normal"] if runners_out <= FINISH_FEW_OUT else FACE_MATCH["strict"]
+
+
 def face_for_crossing(db: Session, day: Day, rules: DayRules, crossing: Crossing, data: bytes | list[bytes],
                       engine) -> dict | None:
     """A finish crossing the camera could not tie to a runner by bib: compare the runner's face
@@ -1129,7 +1200,7 @@ def face_for_crossing(db: Session, day: Day, rules: DayRules, crossing: Crossing
         _audit(db, day, "finish", "face_at_finish", None, crossing_id=crossing.id, outcome="nobody_out_with_a_face")
         db.commit()
         return None
-    threshold, margin = FACE_MATCH["strict"]
+    threshold, margin = finish_face_match(len(gallery), float(get_settings(db).get("finish_face_threshold") or 0))
     m = best = None
     found = 0
     for shot in shots:
@@ -1397,6 +1468,47 @@ def cancel_attempt(db: Session, day: Day, attempt_id: int) -> None:
     attempt.ended_at = utcnow()
     _audit(db, day, attempt.event, "cancel_attempt", attempt.entry, attempt_id=attempt.id)
     db.commit()
+
+
+def note_manual_start(db: Session, day: Day, entry: Entry, event: str, step: str) -> None:
+    """The audit trail of a station test the examiner started by hand."""
+    _audit(db, day, event, "manual_start", entry, step=step)
+    db.commit()
+
+
+def note_calibration(db: Session, day: Day, attempt: Attempt, calibration: dict | None) -> None:
+    """What the auto-calibration used for this test, so that the score can be checked later."""
+    if calibration:
+        _audit(db, day, attempt.event, "calibration", attempt.entry, attempt_id=attempt.id, **calibration)
+        db.commit()
+
+
+def redo_attempt(db: Session, day: Day, rules: DayRules, attempt_id: int) -> Entry:
+    """A saved exercise result is taken back so the person can do the test again (it went wrong,
+    e.g. they were not ready): the attempt and its reps are deleted, the audit log keeps a copy."""
+    attempt = db.get(Attempt, attempt_id)
+    if attempt is None or attempt.entry.day_id != day.id:
+        raise ServiceError("not_found", f"attempt {attempt_id} not found", 404)
+    if attempt.status != "finished":
+        raise ServiceError("attempt_not_finished", "only a saved result can be done again", 409)
+    entry = attempt.entry
+    _audit(db, day, attempt.event, "redo_attempt", entry, attempt_id=attempt.id, count=attempt.count,
+           rejected=attempt.rejected, grade=attempt.grade, passed=attempt.passed, auto_count=attempt.auto_count,
+           auto_rejected=attempt.auto_rejected, override_reason=attempt.override_reason, reps=len(attempt.reps))
+    for r in list(attempt.reps):
+        db.delete(r)
+    db.delete(attempt)
+    db.flush()
+    db.expire(entry, ["attempts"])
+    if entry.status == J.COMPLETE:      # both exercises were done: back to how the run went
+        if entry.run_time_s is None:
+            entry.status = J.DNF
+        else:
+            band = rules.find_band(entry.band)
+            pass_s = band.run_s[GRADES.index(entry.level)] if band and entry.level in GRADES else None
+            entry.status = J.after_finish(entry.run_time_s, pass_s, rules.run_cutoff_s)
+    db.commit()
+    return entry
 
 
 # ------------------------------------------------------------------ engine link

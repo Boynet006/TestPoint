@@ -55,6 +55,8 @@ class LaneState:
     depth: float | None = None
     """How far into the rep the person is: 0 at the rest position, 1 at the depth that counts
     (the counter's thresholds); None when not measurable. For the station screen's gauge."""
+    calib: dict | None = None
+    """The auto-calibration's numbers now, for the station screen."""
     events: list[dict] = field(default_factory=list)
     """Completed reps not yet acknowledged by the app, oldest first."""
     exercise: str | None = None
@@ -118,6 +120,7 @@ class Reporter:
                 lane.person = r.person is not None
                 lane.pending_faults = list(r.pending_faults)
                 lane.work_seconds = round(r.work_seconds, 2)
+                lane.calib = r.calibration
                 lane.depth = rep_depth(r.metrics.metric if r.person is not None else None, self.counter)
                 lane.ready = bool(r.person is not None and r.metrics.metric is not None and self.counter is not None
                                   and self.counter.in_rest(r.metrics.metric) and not r.metrics.faults)
@@ -142,6 +145,7 @@ class Reporter:
                            "rejected": lane.rejected, "phase": lane.phase, "person": lane.person,
                            "pending_faults": lane.pending_faults,
                            "work_seconds": lane.work_seconds, "depth": lane.depth, "events": list(lane.events),
+                           **({"calib": lane.calib} if lane.calib else {}),
                            **({"exercise": lane.exercise, "ready": lane.ready} if lane.exercise else {}),
                            **({"face": lane.face} if lane.face else {})}
                     for name, lane in self.lanes.items()
@@ -334,7 +338,7 @@ def run(session: MultiLaneSession, source, reporter: Reporter, sender: Sender,
     ``analyzers`` (the combined station): the exercises it may be asked to watch; ``faces``: the
     face check-in of the person on the mat."""
     frames = 0
-    fps = 0.0
+    fps = gap = 0.0
     last = time.monotonic()
     for frame, t in iter_frames(source, realtime=realtime):
         ex = reporter.take_exercise() if analyzers else None
@@ -364,7 +368,10 @@ def run(session: MultiLaneSession, source, reporter: Reporter, sender: Sender,
             evidence.push(frame, t)       # before the counter sees it: the clip ends on this frame
         res = session.process(frame, t)
         now = time.monotonic()
-        fps = 0.9 * fps + 0.1 / max(now - last, 1e-6) if fps else 1.0 / max(now - last, 1e-6)
+        # Average the time between frames, not the rate: with the detector running every few frames
+        # the gaps alternate short and long, and an average of 1/gap would read many times too high.
+        gap = 0.9 * gap + 0.1 * max(now - last, 1e-6) if gap else max(now - last, 1e-6)
+        fps = 1.0 / gap
         last = now
         new = reporter.observe(res, fps)
         if faces is not None:

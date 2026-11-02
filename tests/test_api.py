@@ -205,7 +205,7 @@ def test_bibs_are_assigned_automatically_when_asked(client):
 def test_station_settings_defaults_update_and_audit(client):
     assert ok(client.get("/api/settings")) == {
         "auto_identify": True, "camera_background": "off", "camera_bg_places": ["weigh", "start", "photo"], "backdrop_color": "#8a949e", "face_match": "normal", "face_required": False, "walk_ins": True,
-        "default_gender": "M", "default_unit": "combat", "bib_start": 1, "lanes": 3, "start_countdown_s": 3, "cancel_window_s": 120, "site_name": "", "default_language": "en", "trouble_run_cutoff_s": 0, "count_tuning": {}, "theme": "night",
+        "default_gender": "M", "default_unit": "combat", "bib_start": 1, "lanes": 3, "start_countdown_s": 3, "cancel_window_s": 120, "finish_face_threshold": 0.0, "site_name": "", "default_language": "en", "trouble_run_cutoff_s": 0, "count_tuning": {}, "theme": "night",
         "admin_pin_set": False, "background_image": None}
     s = ok(client.put("/api/settings", json={"auto_identify": False, "bib_start": 500}))
     assert s["auto_identify"] is False and s["bib_start"] == 500 and s["default_gender"] == "M"
@@ -568,3 +568,53 @@ def test_results_card_lists_every_test_against_the_level(client, monkeypatch):
     assert run["value"] == 840.0 and run["passed"] is True
     assert (push["value"], push["passed"]) == (45, True) and (crunch["value"], crunch["passed"]) == (10, False)
     assert r["entry"]["candidate"]["bib"] == "11"
+
+
+def test_redo_takes_a_saved_exercise_back(client, monkeypatch):
+    ok(client.post("/api/entries/import", content=CSV.encode()))
+    e = entry_by_bib(client, 11)
+    ok(client.post(f"/api/entries/{e['id']}/weigh-in", json={"weight_kg": 72, "height_cm": 176, "accept": True}))
+    ok(client.post(f"/api/entries/{e['id']}/line-up"))
+    t0 = models.utcnow()
+    monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0)
+    start_lined_up(client)
+    monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0 + timedelta(minutes=14))
+    ok(client.post("/api/run/finish", json={"bib": "11"}), 201)
+    ran = ok(client.get(f"/api/entries/{e['id']}/results"))["status"]
+    ids = {}
+    for ev, n in (("pushup", 0), ("crunch", 50)):
+        a = ok(client.post("/api/attempts", json={"entry_id": e["id"], "event": ev, "lane": "1"}), 201)
+        ok(client.post(f"/api/attempts/{a['id']}/finish", json={"count": n}))
+        ids[ev] = a["id"]
+    r = ok(client.get(f"/api/entries/{e['id']}/results"))
+    assert r["complete"] and [t.get("attempt_id") for t in r["tests"][1:]] == [ids["pushup"], ids["crunch"]]
+
+    ok(client.post(f"/api/attempts/{ids['pushup']}/redo"))
+    r = ok(client.get(f"/api/entries/{e['id']}/results"))
+    run, push, crunch = r["tests"]
+    assert not r["complete"] and r["status"] == ran            # the run outcome is back, its time kept
+    assert run["value"] == 840.0 and push["value"] is None and crunch["value"] == 50
+    assert client.post(f"/api/attempts/{ids['pushup']}/redo").status_code == 404      # already gone
+    # they can do it again
+    a = ok(client.post("/api/attempts", json={"entry_id": e["id"], "event": "pushup", "lane": "1"}), 201)
+    assert client.post(f"/api/attempts/{a['id']}/redo").status_code == 409             # still running
+    ok(client.post(f"/api/attempts/{a['id']}/finish", json={"count": 45}))
+    assert ok(client.get(f"/api/entries/{e['id']}/results"))["complete"]
+
+
+def test_upload_a_video_for_the_camera_screens(client, monkeypatch, tmp_path):
+    monkeypatch.setenv("TESTPOINT_VIDEO_DIRS", str(tmp_path))
+    r = ok(client.post("/api/clips/crunch", params={"name": "..\\my clip?.MP4"}, content=b"abc"))
+    assert r["label"] == "crunch/my clip_.MP4" and (tmp_path / "crunch" / "my clip_.MP4").read_bytes() == b"abc"
+    # the same name again does not overwrite
+    assert ok(client.post("/api/clips/crunch", params={"name": "my clip?.MP4"}, content=b"d"))["label"] == "crunch/my clip_-2.MP4"
+    err(client.post("/api/clips/crunch", params={"name": "evil.exe"}, content=b"x"), 400, "bad_video")
+    err(client.post("/api/clips/crunch", params={"name": "empty.mp4"}, content=b""), 400, "bad_video")
+    err(client.post("/api/clips/secret", params={"name": "a.mp4"}, content=b"x"), 400, "unknown_event")
+    assert not list((tmp_path / "crunch").glob("*.part"))
+
+
+def test_station_manual_start_needs_a_camera(client):
+    ok(client.post("/api/entries/import", content=CSV.encode()))
+    err(client.post("/api/stationflow/start", json={"query": "11"}), 409, "camera_off")
+    err(client.post("/api/stationflow/go"), 409, "not_in_position")

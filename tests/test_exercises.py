@@ -154,4 +154,4 @@ def test_tuned_analyzer_uses_the_new_rules():
     from testpoint.vision.exercises import make_analyzer
     a = make_analyzer("pushup", {"down_elbow_deg": 88})
     assert a.rules.down_elbow_deg == 88 and a.counter_config().enter_work == 88
-    assert make_analyzer("crunch").rules.up_torso_deg == 7
+    assert make_analyzer("crunch").rules.up_torso_deg == 15

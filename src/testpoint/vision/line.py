@@ -67,6 +67,12 @@ class FinishLine:
         left = positive if y1 >= y0 else not positive
         return left if self.direction == "left" else (not left if self.direction == "right" else False)
 
+    MIN_APPROACH = 0.05
+    """A crossing needs the person to have been at least this far before the line (share of the
+    picture), and MIN_TRAVEL is how far they must have moved: someone sitting or shifting near the
+    line (their box edge wobbling across it) is not a runner crossing."""
+    MIN_TRAVEL = 0.06
+
     def check(self, tracks: list[Track], w: int, h: int) -> list[CrossEvent]:
         """Crossings completed in this frame, one per track at most, each track once."""
         events = []
@@ -80,6 +86,12 @@ class FinishLine:
                 continue
             if not self._direction_ok(d0, d1):
                 continue
+            past = [self.signed_distance(*b.feet, w, h) for _t, b in tr.history[:-1]]
+            before = [d for d in past if (d > 0) == (d0 > 0)]
+            if not before or max(abs(d) for d in before) < self.MIN_APPROACH:
+                continue                 # never really before the line: hovering on it
+            if max(past + [d1]) - min(past + [d1]) < self.MIN_TRAVEL:
+                continue                 # hardly moved: sitting or standing near the line
             frac = abs(d0) / (abs(d0) + abs(d1))
             self._crossed.add(tr.id)
             events.append(CrossEvent(tr.id, t0 + frac * (t1 - t0), t0, t1, b1))

@@ -156,3 +156,29 @@ def test_clip_at_cuts_from_the_ring_without_a_recording(tmp_path):
     ev.close()
     assert n_frames(tmp_path / "run/000001200-t1.mp4") == 6      # t = 1.0 .. 1.5 inclusive
     assert size(tmp_path / "run/000001200-t1.mp4") == (96, 48)   # whole frame, no crop
+
+
+def test_recording_plays_at_real_speed_when_frames_come_slower(tmp_path):
+    ev = EvidenceWriter(tmp_path, [whole_frame("1")], fps=20, keep_s=5.0, pad_s=0, day="d")
+    folder = ev.start("1", 7)
+    frame = np.zeros((48, 64, 3), np.uint8)
+    for i in range(11):             # 10 frames a second for one second
+        ev.push(frame, i * 0.1)
+    ev.close()
+    cap = cv2.VideoCapture(str(folder / "full.mp4"))
+    assert cap.get(cv2.CAP_PROP_FRAME_COUNT) == 21      # 1 s at 20 fps, plus the first frame
+
+
+def test_a_number_used_again_keeps_the_earlier_clips(tmp_path):
+    ev = EvidenceWriter(tmp_path, [whole_frame("1")], fps=10, day="d")
+    frame = np.zeros((48, 64, 3), np.uint8)
+    folder = ev.start("1", 1)
+    ev.push(frame, 0.0)
+    ev.stop("1")
+    ev.close()
+    ev2 = EvidenceWriter(tmp_path, [whole_frame("1")], fps=10, day="d")
+    again = ev2.start("1", 1)
+    ev2.push(frame, 0.0)
+    ev2.close()
+    assert again == folder and (folder / "full.mp4").exists()
+    assert (folder.with_name("1-redone-1") / "full.mp4").exists()

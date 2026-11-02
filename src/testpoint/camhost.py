@@ -34,7 +34,7 @@ from pydantic import BaseModel, Field
 ROOT = Path(__file__).resolve().parents[2]
 VIDEO_EXT = {".mp4", ".mov", ".mkv", ".avi", ".webm"}
 VIDEO_GROUPS = ("run", "pushup", "crunch")
-DEFAULT_VIDEO_ROOTS = [ROOT / "data" / "clips", Path.home() / "Desktop" / "TestPoint test videos"]
+DEFAULT_VIDEO_ROOTS = [ROOT / "data" / "clips", ROOT / "test-videos", Path.home() / "Desktop" / "TestPoint test videos"]
 APP_URL = re.compile(r"^https?://(127\.0\.0\.1|localhost)(:\d{1,5})?$")
 CAMERA_URL = re.compile(r"^(rtsp|rtsps|http|https)://\S+$")
 
@@ -43,6 +43,12 @@ def video_roots() -> list[Path]:
     extra = os.environ.get("TESTPOINT_VIDEO_DIRS")
     roots = [Path(d) for d in extra.split(os.pathsep)] if extra else DEFAULT_VIDEO_ROOTS
     return [d for d in roots if d.is_dir()]
+
+
+def upload_root() -> Path:
+    """Where uploaded videos go: the first video folder, created when it does not exist yet."""
+    extra = os.environ.get("TESTPOINT_VIDEO_DIRS")
+    return Path(extra.split(os.pathsep)[0]) if extra else DEFAULT_VIDEO_ROOTS[0]
 
 
 def list_videos() -> list[dict]:
@@ -77,18 +83,34 @@ def clean(line: str, limit: int = 300) -> str:
     return text if len(text) <= limit else text[:limit] + " …"
 
 
-def list_cameras(max_index: int = 4) -> list[dict]:
-    """Webcams that open right now. A camera another program holds (Chrome, say) does not."""
-    import cv2
-
-    found = []
-    for i in range(max_index):
+_PROBE = r"""
+import json, sys, cv2
+found = []
+for i in range(int(sys.argv[1])):
+    try:
         cap = cv2.VideoCapture(i, cv2.CAP_DSHOW) if sys.platform == "win32" else cv2.VideoCapture(i)
-        ok = cap.isOpened() and cap.read()[0]
-        if ok:
-            found.append({"index": i, "label": f"Camera {i + 1}", "size": [int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))]})
+        if cap.isOpened() and cap.read()[0]:
+            found.append({"index": i, "label": f"Camera {i + 1}",
+                          "size": [int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))]})
         cap.release()
-    return found
+    except Exception:
+        pass
+print(json.dumps(found))
+"""
+
+
+def list_cameras(max_index: int = 4) -> list[dict]:
+    """Webcams that open right now. A camera another program holds (Chrome, say) does not.
+
+    Looked for in a separate short-lived process: a webcam driver can crash inside OpenCV (it
+    did on the station PC), and that must never take the camera service, and with it the
+    control of every running camera, down with it."""
+    try:
+        r = subprocess.run([sys.executable, "-c", _PROBE, str(max_index)], capture_output=True, text=True,
+                           timeout=30, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        return json.loads(r.stdout.strip().splitlines()[-1]) if r.returncode == 0 and r.stdout.strip() else []
+    except (subprocess.TimeoutExpired, OSError, ValueError, IndexError):
+        return []
 
 
 def gpu_available() -> bool:
@@ -158,11 +180,16 @@ class CamProcess:
         self.runner = runner
         self.proc = None
         self.config: dict | None = None
+        self.cmd: list[str] | None = None
         self.since: float | None = None
         self.lock = threading.Lock()
 
     def start(self, cmd: list[str], config: dict) -> dict:
+        """Start the process; the same command while it runs is left running (a page asking again
+        must not restart the camera: every restart costs seconds of model loading and picture)."""
         with self.lock:
+            if self.proc is not None and self.proc.poll() is None and cmd == self.cmd and config == self.config:
+                return self.status()
             self._stop()
             self.log_dir.mkdir(parents=True, exist_ok=True)
             flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
@@ -170,7 +197,7 @@ class CamProcess:
             env = {**os.environ, "PYTHONUNBUFFERED": "1"}
             self.proc = self.runner(cmd, cwd=str(ROOT), stdout=out, stderr=subprocess.STDOUT, creationflags=flags, env=env)
             out.close()
-            self.config = config
+            self.config, self.cmd = config, cmd
             self.since = time.time()
         return self.status()
 

@@ -131,6 +131,43 @@ def draw(img: np.ndarray, d: dict) -> None:
         cv2.rectangle(img, (x0, y0), (x1, y1), (255, 200, 0), 2)
 
 
+class StartClips:
+    """A short video of every start: from a few seconds before the 3-2-1 until just after GO, for
+    checking a start later. Files go to ``<evidence>/start/``. Pictures are kept small: the ring
+    holds several seconds of them in memory."""
+
+    AFTER_S = 3.0
+    BEFORE_S = 4.0
+
+    def __init__(self, evidence, width: int = 1280) -> None:
+        self.evidence, self.width = evidence, width
+        self.began: float | None = None
+        self.entry: int | None = None
+        self.until: float | None = None
+        self.saved = 0
+
+    def push(self, frame: np.ndarray, now: float) -> None:
+        h, w = frame.shape[:2]
+        if w > self.width:
+            frame = cv2.resize(frame, (self.width, int(h * self.width / w)), interpolation=cv2.INTER_AREA)
+        self.evidence.push(frame, now)
+        if self.until is not None and now >= self.until:
+            stamp = time.strftime("%Y%m%d-%H%M%S")
+            self.evidence.clip_at("start", f"{stamp}-entry{self.entry}", self.began - self.BEFORE_S, now)
+            self.saved += 1
+            self.began = self.until = None
+
+    def state(self, reply: dict, now: float) -> None:
+        """The app's answer: a countdown begins the clip, the start ends it soon after."""
+        state = reply.get("state")
+        if state == "countdown" and self.began is None:
+            self.began, self.entry = now, reply.get("entry_id")
+        elif state == "started" and self.began is not None and self.until is None:
+            self.until = now + self.AFTER_S
+        elif state == "idle" and self.until is None:
+            self.began = None           # the countdown was cancelled: nothing to keep
+
+
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(description="TestPoint start-line camera (recognise, raised hand, picture)")
     p.add_argument("--source", required=True, help="webcam index, video file or rtsp:// address")
@@ -143,6 +180,7 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--no-analyse", action="store_true", help="only relay the picture (no recognition)")
     p.add_argument("--realtime", action="store_true", help="play a video file at its own speed")
     p.add_argument("--loop", action="store_true", help="play a video file on repeat")
+    p.add_argument("--evidence", default="data/evidence", help="evidence folder ('' = no videos of the starts)")
     args = p.parse_args(argv)
 
     src = open_source(args.source, realtime=args.realtime, loop=args.loop)
@@ -161,6 +199,11 @@ def main(argv: list[str] | None = None) -> None:
             print(f"start cam: recognition on {device} (faces on {analyst.faces.device})", flush=True)
         except Exception as e:      # noqa: BLE001 - no models / no GPU: the picture still goes to the screen
             print(f"start cam: recognition off ({e})", flush=True)
+    clips = None
+    if poster is not None and args.evidence:
+        from .evidence import EvidenceWriter
+        from .vision.lanes import whole_frame
+        clips = StartClips(EvidenceWriter(args.evidence, [whole_frame("1")], fps=args.analyse_fps, keep_s=10.0, pad_s=0.0))
     print(f"start cam: source {redact_url(args.source)}  app {args.app}  station {args.station}", flush=True)
     frames, t0, last_look, state = 0, time.monotonic(), 0.0, {}
     try:
@@ -175,6 +218,9 @@ def main(argv: list[str] | None = None) -> None:
                 r = analyst.look(frame, now)
                 state = r["draw"]
                 poster.offer(r["obs"])
+                if clips is not None:
+                    clips.state(poster.last_reply, now)
+                    clips.push(frame, now)
             pub.offer(frame, state)
             frames += 1
             if frames == 1:
@@ -192,6 +238,8 @@ def main(argv: list[str] | None = None) -> None:
     finally:
         if poster:
             poster.stop()
+        if clips is not None:
+            clips.evidence.close()
         pub.stop()
         src.release()
 

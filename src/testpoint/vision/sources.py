@@ -8,8 +8,10 @@ before OpenCV loads its FFmpeg plugin, hence the ``setdefault`` above the import
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
+import socket
 import sys
 import threading
 import time
@@ -32,6 +34,53 @@ def is_rtsp(source: str) -> bool:
 def redact_url(url: str) -> str:
     """Hide the password in ``scheme://user:password@host`` for logs and messages."""
     return re.sub(r"(://[^/@:]+:)[^@/]*@", r"\1***@", url)
+
+
+def rtsp_login_check(url: str, timeout_s: float = 5.0) -> bool | None:
+    """Ask the camera once (RTSP DESCRIBE, digest or basic auth) whether it accepts the
+    user/password in ``url``. False: it answered 401, a wrong password, and retrying would
+    only get the camera to lock itself (Hikvision locks after a few failures). True: it
+    accepted. None: no answer or no password in the URL, so the caller just tries to open."""
+    m = re.match(r"rtsps?://([^:/@]+):([^@/]*)@([^/:]+)(?::(\d+))?", url, re.I)
+    if not m:
+        return None
+    user, pw, host, port = m.group(1), m.group(2), m.group(3), int(m.group(4) or 554)
+    clean = re.sub(r"://[^@/]*@", "://", url)
+
+    def ask(sock: socket.socket, cseq: int, auth: str = "") -> tuple[int, str]:
+        sock.sendall((f"DESCRIBE {clean} RTSP/1.0\r\nCSeq: {cseq}\r\nAccept: application/sdp\r\n"
+                      f"{auth}\r\n").encode())
+        data = b""
+        while b"\r\n\r\n" not in data:
+            chunk = sock.recv(4096)
+            if not chunk:
+                break
+            data += chunk
+        head = data.decode("latin-1")
+        code = re.match(r"RTSP/1\.0 (\d+)", head)
+        return (int(code.group(1)) if code else 0), head
+
+    try:
+        with socket.create_connection((host, port), timeout=timeout_s) as sock:
+            code, head = ask(sock, 1)
+            if code != 401:
+                return None if code == 0 else True
+            ch = re.search(r"WWW-Authenticate:\s*(Digest|Basic)\s*(.*)", head, re.I)
+            if not ch:
+                return None
+            if ch.group(1).lower() == "basic":
+                import base64
+                auth = "Authorization: Basic " + base64.b64encode(f"{user}:{pw}".encode()).decode() + "\r\n"
+            else:
+                f = dict(re.findall(r'(\w+)="([^"]*)"', ch.group(2)))
+                md5 = lambda t: hashlib.md5(t.encode()).hexdigest()  # noqa: E731
+                resp = md5(f"{md5(f'{user}:{f.get('realm', '')}:{pw}')}:{f.get('nonce', '')}:{md5(f'DESCRIBE:{clean}')}")
+                auth = (f'Authorization: Digest username="{user}", realm="{f.get("realm", "")}", '
+                        f'nonce="{f.get("nonce", "")}", uri="{clean}", response="{resp}"\r\n')
+            code, _ = ask(sock, 2, auth)
+            return False if code == 401 else (None if code == 0 else True)
+    except OSError:
+        return None
 
 
 class FileSource:
@@ -103,6 +152,7 @@ class RtspSource:
         self.max_backoff_s = max_backoff_s
         self._sleep = sleep
         self._capture_factory = capture_factory or self._open_capture
+        self._login_check = rtsp_login_check if capture_factory is None else (lambda url: None)
         self._log = log
         self.cap: cv2.VideoCapture | None = None
         self.reconnects = 0
@@ -126,6 +176,12 @@ class RtspSource:
 
     def connect(self) -> None:
         self.release()
+        if self._login_check(self.url) is False:
+            raise SourceError(
+                f"the camera at {self.display_url} rejected the user/password (401 Unauthorized). "
+                "Not retrying, so the camera does not lock itself: correct the password in "
+                "Settings -> Cameras, then start the camera again."
+            )
         attempt = 0
         backoff = 1.0
         while True:

@@ -134,6 +134,7 @@ class SettingsIn(BaseModel):
     lanes: int | None = Field(default=None, ge=1, le=4)
     start_countdown_s: int | None = Field(default=None, ge=0, le=30)
     cancel_window_s: int | None = Field(default=None, ge=0, le=3600)
+    finish_face_threshold: float | None = Field(default=None, ge=0, le=0.8)
     site_name: str | None = Field(default=None, max_length=80)
     default_language: Literal["en", "ar"] | None = None
     trouble_run_cutoff_s: int | None = Field(default=None, ge=0, le=3600)
@@ -170,9 +171,16 @@ class StartIn(BaseModel):
     """Seconds of countdown before the time starts; default: the start_countdown_s setting."""
 
 
+class CamerasIn(BaseModel):
+    """Camera addresses for Settings > Cameras: empty removes, missing keeps."""
+    start: str | None = Field(default=None, max_length=500)
+    finish: str | None = Field(default=None, max_length=500)
+    station: str | None = Field(default=None, max_length=500)
+
+
 class FinishCamIn(BaseModel):
-    kind: Literal["webcam", "video", "url"]
-    source: str = Field(min_length=1, max_length=500)
+    kind: Literal["webcam", "video", "url", "saved"]
+    source: str = Field(default="saved", min_length=1, max_length=500)
     line_y: float = Field(default=0.85, ge=0.05, le=0.95)
     direction: Literal["down", "up", "any"] = "down"
     app_url: str = Field(max_length=100)
@@ -182,15 +190,15 @@ class FinishCamIn(BaseModel):
 
 
 class StartCamIn(BaseModel):
-    kind: Literal["webcam", "video", "url"]
-    source: str = Field(min_length=1, max_length=500)
+    kind: Literal["webcam", "video", "url", "saved"]
+    source: str = Field(default="saved", min_length=1, max_length=500)
     app_url: str = Field(max_length=100)
     loop: bool = False
 
 
 class StationCamIn(BaseModel):
-    kind: Literal["webcam", "video", "url"]
-    source: str = Field(min_length=1, max_length=500)
+    kind: Literal["webcam", "video", "url", "saved"]
+    source: str = Field(default="saved", min_length=1, max_length=500)
     exercise: Literal["pushup", "crunch", "auto"]
     """"auto": the combined station (one person, face check-in, push-ups then crunches)."""
     lanes: int = Field(default=3, ge=1, le=4)
@@ -315,6 +323,7 @@ class EngineLaneIn(BaseModel):
     pending_faults: list[str] = []
     work_seconds: float = 0.0
     depth: float | None = Field(default=None, ge=0, le=2)
+    calib: dict | None = None
     events: list[EngineEventIn] = []
     # the combined exercise station (engine --station exercise): what it watches, the start
     # posture, and the face of the person on the mat while nobody is being tested
@@ -348,8 +357,13 @@ class CrossingIn(BaseModel):
 
 
 ENGINE_STALE_S = 2.0
+MAX_VIDEO = 2 * 1024 * 1024 * 1024
 FRAME_STALE_S = 5.0
 """A camera picture older than this is not shown (the engine stopped)."""
+class StationStartIn(BaseModel):
+    query: str
+
+
 class StartObsIn(BaseModel):
     """What the start-line camera sees at the mark (testpoint.startcam), a few times a second."""
     present: bool
@@ -447,6 +461,8 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     @app.middleware("http")
     async def _one_writer(request: Request, call_next):
         if request.method in ("GET", "HEAD", "OPTIONS"):
+            return await call_next(request)
+        if request.url.path.startswith("/api/clips/"):      # a large video, written to its own file: no lock
             return await call_next(request)
         if int(request.headers.get("content-length") or 0) > MAX_BODY:
             return JSONResponse({"detail": {"code": "too_large", "message": "upload larger than 15 MB"}}, 413)
@@ -889,7 +905,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         _last_report[body.station] = (clock(), body)
         if body.station == S.EXERCISE_STATION:
             flow = station_flow(db, day)
-            watch = flow.watching or flow.event or "pushup"
+            watch = flow.watching or flow.event or idle_watch["exercise"]
             for lane in reply["lanes"].values():
                 lane["exercise"] = watch
             return reply | {"tuning": S.get_settings(db)["count_tuning"].get(watch, {})}
@@ -953,6 +969,10 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         suggested; no usable bib: the face among the runners still out names them; neither: review.
         Either way with the evidence clip."""
         at = S.utcnow() - timedelta(seconds=body.latency_s)
+        if not S.running_entries(db, day, at):
+            # nobody out on the course: whoever the camera saw is not a runner (an official,
+            # someone walking past); nothing for the review queue
+            return {"ignored": True, "reason": "nobody_running"}
         r = S.rules_for(db, day, rules)
         c = S.record_finish(db, day, r, body.bib, now=at, source="camera",
                             confidence=body.confidence, clip_path=body.clip)
@@ -978,12 +998,23 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
                 else:
                     S.check_finish_face(db, day, c, data, eng)
                 db.refresh(c)
-        return crossing_out(c)
+        out = crossing_out(c)
+        if c.entry_id is not None:          # who it was, for the camera's picture
+            e = db.get(Entry, c.entry_id)
+            out["runner"] = {"bib": e.candidate.bib, "name": e.candidate.name}
+        return out
 
     # ---------------------------------------------------------- finish camera
     # The camera runs on the station PC (testpoint.camhost): this app has no camera access or
     # vision libraries in Docker. The finish page picks the source here; the service starts it.
     camhost = (camhost_url or os.environ.get("TESTPOINT_CAMHOST", "http://127.0.0.1:8099")).rstrip("/")
+
+    def _shown(st: dict) -> dict:
+        """A camera's status for the screens: its address with the password hidden."""
+        c = st.get("config")
+        if isinstance(c, dict) and isinstance(c.get("source"), str):
+            st = st | {"config": c | {"source": S._redact(c["source"])}}
+        return st
 
     def _camhost(method: str, path: str, body: dict | None = None, timeout: float = 4.0) -> dict:
         import urllib.error
@@ -1002,13 +1033,31 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     @app.get("/api/finishcam")
     def finishcam_status() -> dict:
         try:
-            return {"available": True, **_camhost("GET", "/finish", timeout=2.0)}
+            return {"available": True, **_shown(_camhost("GET", "/finish", timeout=2.0))}
         except S.ServiceError as e:
             return {"available": False, "running": False, "reason": e.code}
 
     @app.get("/api/finishcam/sources")
     def finishcam_sources(refresh: bool = False) -> dict:
         return _camhost("GET", f"/sources{'?refresh=true' if refresh else ''}", timeout=15.0)
+
+    def _source(db: Session, which: str, body: dict) -> dict:
+        """kind "saved": the camera address saved in Settings (the page never sees its password)."""
+        if body.get("kind") == "saved":
+            src = str(body.get("source") or "")
+            name = src.split(":", 1)[1] if src.startswith("saved:") else which     # "saved:finish": that camera
+            if name not in S.CAMERAS:
+                raise S.ServiceError("unknown_camera", f"unknown camera {name!r}", 400)
+            return body | {"kind": "url", "source": S.saved_camera(db, name)}
+        return body
+
+    @app.get("/api/settings/cameras")
+    def cameras(db: Session = Depends(get_db)) -> dict:
+        return S.cameras_out(db)
+
+    @app.put("/api/settings/cameras", dependencies=[Depends(admin)])
+    def cameras_update(body: CamerasIn, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        return S.set_camera_urls(db, day, body.model_dump())
 
     def _loopback(request: Request) -> str:
         """This app as the camera processes on the station PC reach it: the scheme and port the
@@ -1018,8 +1067,8 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         return f"{request.url.scheme}://127.0.0.1:{port}"
 
     @app.post("/api/finishcam/start")
-    def finishcam_start(body: FinishCamIn, request: Request) -> dict:
-        return _camhost("POST", "/finish/start", body.model_dump() | {"app_url": _loopback(request)}, timeout=10.0)
+    def finishcam_start(body: FinishCamIn, request: Request, db: Session = Depends(get_db)) -> dict:
+        return _shown(_camhost("POST", "/finish/start", _source(db, "finish", body.model_dump()) | {"app_url": _loopback(request)}, timeout=10.0))
 
     @app.post("/api/finishcam/stop")
     def finishcam_stop() -> dict:
@@ -1029,15 +1078,15 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     @app.get("/api/stationcam")
     def stationcam_status() -> dict:
         try:
-            return {"available": True, **_camhost("GET", "/station", timeout=2.0)}
+            return {"available": True, **_shown(_camhost("GET", "/station", timeout=2.0))}
         except S.ServiceError as e:
             return {"available": False, "running": False, "reason": e.code}
 
     @app.post("/api/stationcam/start")
     def stationcam_start(body: StationCamIn, request: Request, db: Session = Depends(get_db)) -> dict:
         tuning = S.get_settings(db)["count_tuning"].get(body.exercise, {})
-        return _camhost("POST", "/station/start", body.model_dump() | {"tuning": tuning, "app_url": _loopback(request)},
-                        timeout=10.0)
+        return _shown(_camhost("POST", "/station/start", _source(db, "station", body.model_dump()) | {"tuning": tuning, "app_url": _loopback(request)},
+                               timeout=10.0))
 
     @app.post("/api/stationcam/stop")
     def stationcam_stop() -> dict:
@@ -1047,13 +1096,13 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     @app.get("/api/startcam")
     def startcam_status() -> dict:
         try:
-            return {"available": True, **_camhost("GET", "/startcam", timeout=2.0)}
+            return {"available": True, **_shown(_camhost("GET", "/startcam", timeout=2.0))}
         except S.ServiceError as e:
             return {"available": False, "running": False, "reason": e.code}
 
     @app.post("/api/startcam/start")
-    def startcam_start(body: StartCamIn, request: Request) -> dict:
-        return _camhost("POST", "/startcam/start", body.model_dump() | {"app_url": _loopback(request)}, timeout=10.0)
+    def startcam_start(body: StartCamIn, request: Request, db: Session = Depends(get_db)) -> dict:
+        return _shown(_camhost("POST", "/startcam/start", _source(db, "start", body.model_dump()) | {"app_url": _loopback(request)}, timeout=10.0))
 
     @app.get("/testpoint-ca.crt")
     def https_ca() -> Response:
@@ -1164,6 +1213,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     # One station, one camera, one person at a time: recognised by face, their next test chosen
     # (push-ups, then crunches), 3-2-1 once in position, counted for the time, saved (station.py).
     flows: dict[str, StationFlow] = {}
+    idle_watch = {"exercise": "pushup"}     # what the one-mat engine watches with nobody being tested (tuning)
 
     def station_flow(db: Session, day: Day) -> StationFlow:
         f = flows.get(day.date)
@@ -1204,6 +1254,9 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
                     if a is not None and a.status == "running":
                         S.finish_attempt(db, day, S.rules_for(db, day, rules), a.id,
                                          count=a.auto_count or 0, rejected=a.auto_rejected or 0)
+                        seen = _last_report.get(S.EXERCISE_STATION)
+                        lane = seen[1].lanes.get(S.EXERCISE_LANE) if seen else None
+                        S.note_calibration(db, day, a, lane.calib if lane else None)
             except S.ServiceError as err:           # the examiner did something else meanwhile
                 db.rollback()
                 flow.reset(wall())
@@ -1241,16 +1294,98 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         seen = _last_report.get(S.EXERCISE_STATION)
         lane = seen[1].lanes.get(S.EXERCISE_LANE) if seen and clock() - seen[0] <= ENGINE_STALE_S else None
         v["live"] = ({"count": lane.count, "rejected": lane.rejected, "phase": lane.phase, "person": lane.person,
-                      "faults": lane.pending_faults, "depth": lane.depth} if lane else None)
+                      "faults": lane.pending_faults, "depth": lane.depth, "calib": lane.calib} if lane else None)
         v["engine"] = lane is not None
+        v["idle_watch"] = idle_watch["exercise"]
         for k in ("go_at", "ends_at", "since"):
             v[k] = at_wall(v[k])
         return v
+
+    @app.post("/api/stationflow/start")
+    def stationflow_start(body: StationStartIn, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        """The camera did not recognise the person: the examiner names them (bib, ID or #entry)."""
+        flow = station_flow(db, day)
+        if flow.state in ("countdown", "testing"):
+            raise S.ServiceError("station_busy", "a test is running at this station", 409)
+        seen = _last_report.get(S.EXERCISE_STATION)
+        if seen is None or clock() - seen[0] > ENGINE_STALE_S:
+            raise S.ServiceError("camera_off", "the station camera is not sending", 409)
+        e = S.find_entry(db, day, body.query)
+        event = next_event(S.done_events(e), EVENTS)
+        if event is None:
+            raise S.ServiceError("all_done", f"{e.candidate.name}: both exercises are done", 409, entry_id=e.id)
+        g = S.gate_for(e, day, event)
+        if not g.ok:
+            raise S.ServiceError(g.reason, f"{e.candidate.name}: {g.reason.replace('_', ' ')}", 409)
+        flow.manual(wall(), e.id, event)
+        S.note_manual_start(db, day, e, event, "named")
+        return {"state": flow.state, "event": event, "entry_id": e.id}
+
+    @app.post("/api/stationflow/go")
+    def stationflow_go(db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        """Start the 3-2-1 now, without waiting for the camera to see the start posture."""
+        flow = station_flow(db, day)
+        if flow.state != "position":
+            raise S.ServiceError("not_in_position", "nobody is waiting to start", 409)
+        e = S.get_entry(db, day, flow.entry_id)
+        event = flow.event
+        flow.go_now(wall())
+        S.note_manual_start(db, day, e, event, "go")
+        return {"state": flow.state}
+
+    @app.post("/api/clips/{group}", dependencies=[Depends(admin)])
+    async def clip_upload(group: str, name: str, request: Request) -> dict:
+        """A video from the examiner's device, for the camera screens' video file source."""
+        from ..camhost import VIDEO_EXT, VIDEO_GROUPS, upload_root
+        if group not in VIDEO_GROUPS:
+            raise S.ServiceError("unknown_event", f"unknown video group {group!r}", 400)
+        clean = re.sub(r"[^\w.\- ]+", "_", Path(name.replace("\\", "/")).name).strip(" .")
+        if Path(clean).suffix.lower() not in VIDEO_EXT or not Path(clean).stem:
+            raise S.ServiceError("bad_video", "choose a video file: " + ", ".join(sorted(VIDEO_EXT)), 400)
+        folder = upload_root() / group
+        folder.mkdir(parents=True, exist_ok=True)
+        target, n = folder / clean, 1
+        while target.exists():
+            n += 1
+            target = folder / f"{Path(clean).stem}-{n}{Path(clean).suffix}"
+        part = target.with_name(target.name + ".part")
+        size = 0
+        try:
+            with open(part, "wb") as out:
+                async for chunk in request.stream():
+                    size += len(chunk)
+                    if size > MAX_VIDEO:
+                        raise S.ServiceError("video_too_large", "videos are limited to 2 GB", 413)
+                    out.write(chunk)
+            if size == 0:
+                raise S.ServiceError("bad_video", "the file is empty", 400)
+            part.replace(target)
+        finally:
+            part.unlink(missing_ok=True)
+        return {"label": f"{group}/{target.name}", "mb": round(size / 1_000_000, 1)}
+
+    @app.put("/api/stationflow/watch/{exercise}")
+    def stationflow_watch(exercise: str) -> dict:
+        """Tuning at the one-mat station: the exercise to watch while nobody is being tested."""
+        if exercise not in EVENTS:
+            raise S.ServiceError("unknown_event", f"unknown event {exercise!r}", 400)
+        idle_watch["exercise"] = exercise
+        return idle_watch
 
     @app.post("/api/stationflow/reset")
     def stationflow_reset(db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
         station_flow(db, day).reset(wall())
         return {"state": "idle"}
+
+    @app.post("/api/attempts/{attempt_id}/redo", dependencies=[Depends(admin)])
+    def attempt_redo(attempt_id: int, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        """Take a saved exercise result back: the person does that test again (admin PIN when set)."""
+        e = S.redo_attempt(db, day, S.rules_for(db, day, rules), attempt_id)
+        flow = station_flow(db, day)
+        flow.recent.pop(e.id, None)     # the camera may recognise them again at once
+        if flow.entry_id == e.id:
+            flow.reset(wall())
+        return entry_out(e, day)
 
     @app.get("/api/lanes")
     def lanes(station: str, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:

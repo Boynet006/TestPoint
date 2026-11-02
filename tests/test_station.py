@@ -142,3 +142,12 @@ def test_the_station_camera_runs_pushups_then_crunches(monkeypatch):
         r = report(600.3, face=emb)
         assert r["lanes"]["S"]["exercise"] == "crunch"
         assert c.get("/api/stationflow").json()["event"] == "crunch"
+
+
+def test_the_examiner_can_name_the_person_and_start_without_the_posture():
+    f = StationFlow(countdown_s=3.0, time_s=120.0)
+    f.manual(100.0, 7, "crunch")
+    assert (f.state, f.entry_id, f.event) == ("position", 7, "crunch")
+    f.go_now(101.0)
+    assert f.state == "countdown" and f.go_at == 104.0 and f.entry_id == 7
+    assert f.tick(104.0) == [("start", 7, "crunch")] and f.state == "testing"

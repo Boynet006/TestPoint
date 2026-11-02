@@ -21,6 +21,8 @@ class FrameMetrics:
     """Movement metric for the counter; None when the person is not measurable."""
     faults: list[str] = field(default_factory=list)
     debug: dict[str, float] = field(default_factory=dict)
+    height: float | None = None
+    """Body height for the counter's second depth check (``RepCounterConfig.drop_work``)."""
 
 
 class ExerciseAnalyzer(Protocol):
@@ -51,10 +53,26 @@ class PushupRules:
     min_knee_drop: float = 0.15
     """With the feet raised to hip height or above, how far below both hip and ankle the
     knee must be (as a fraction of the thigh length) to count as on the ground."""
-    max_knee_deg: float = 165.0
-    """Hip-knee-ankle angle; the knee-lift test only applies when the knee is bent below this."""
+    max_knee_deg: float = 140.0
+    """Hip-knee-ankle angle; the knee-lift test only applies when the knee is bent below this.
+    On the knees it measures 95-135; a low camera shows straight legs on the toes as 145-153 with
+    the hips level with the ankles, which the knee test alone would take for the knees."""
     fault_min_s: float = 0.2
     """A form fault must last this long to reject the rep (pose jitter lasts a frame or two)."""
+    min_drop: float = 0.12
+    """How far the shoulders must come down at the bottom, as a share of the body's length. The
+    elbow angle cannot be read from every camera (from a low camera it stayed above 123 degrees
+    on real push-ups, whose shoulders came down 0.15): this counts them too."""
+    max_torso_deg: float = 60.0
+    """Hip->shoulder line above horizontal beyond which the person is not in a push-up at all:
+    sitting (64-80 degrees) or standing. Such frames are not measured, so an arm moving at a desk
+    is not a rep and standing with straight arms is not the start position."""
+    auto_share: float = 0.35
+    """Auto-calibration: over the first 3 reps, "back at the top" becomes this share of how far the
+    person's shoulders really come down (0 = off). ``min_drop`` stays the same for everyone."""
+    crouch_knee_deg: float = 90.0
+    """Hip-knee-ankle angle below which the person is crouching or getting up, not in a push-up
+    (even on the knees it measures 95 or more). Such frames are not measured either."""
     rest_in_down_s: float = 3.0
     """Longest time allowed away from the top position before the rep is rejected for
     resting ("rest_in_down")."""
@@ -79,17 +97,27 @@ class PushupAnalyzer:
             max_work_seconds=self.rules.rest_in_down_s,
             work_timeout_fault="rest_in_down",
             min_fault_seconds=self.rules.fault_min_s,
+            drop_work=self.rules.min_drop,
+            auto_share=self.rules.auto_share,
+            auto_rest_min=0.03,
+            auto_rest_gap=0.02,
         )
 
     def analyze(self, person: Person) -> FrameMetrics:
         side = person.best_side("shoulder", "elbow", "wrist", min_conf=self.rules.min_conf)
         if side is None:
             return FrameMetrics(metric=None)
+        trunk = person.best_side("shoulder", "hip", min_conf=self.rules.min_conf)
+        if trunk is not None:
+            torso = elevation_deg(person.point(trunk["hip"]), person.point(trunk["shoulder"]))
+            if torso > self.rules.max_torso_deg:
+                return FrameMetrics(metric=None, debug={"torso_deg": torso})
         elbow = angle_deg(
             person.point(side["shoulder"]), person.point(side["elbow"]), person.point(side["wrist"])
         )
         faults: list[str] = []
         debug = {"elbow_deg": elbow}
+        height = None
 
         body_side = person.best_side("shoulder", "hip", "ankle", min_conf=self.rules.min_conf)
         if body_side is not None:
@@ -101,12 +129,18 @@ class PushupAnalyzer:
             debug["body_line_deg"] = body_line
             if body_line < self.rules.min_body_line_deg:
                 faults.append("body_not_straight")
+            sh, hp, an = (person.point(body_side[k]) for k in ("shoulder", "hip", "ankle"))
+            length = distance(sh, hp) + distance(hp, an)
+            if length > 1e-6:
+                height = float(person.point(side["wrist"])[1] - person.point(side["shoulder"])[1]) / length
 
         leg_side = person.best_side("hip", "knee", "ankle", min_conf=self.rules.min_conf)
         if leg_side is not None:
             hip, knee, ankle = (person.point(leg_side[k]) for k in ("hip", "knee", "ankle"))
             knee_deg = angle_deg(hip, knee, ankle)
             debug["knee_deg"] = knee_deg
+            if knee_deg < self.rules.crouch_knee_deg:
+                return FrameMetrics(metric=None, debug=debug)
             lift = knee_lift(hip, knee, ankle)
             if lift is not None:
                 debug["knee_lift"] = lift
@@ -120,7 +154,7 @@ class PushupAnalyzer:
             if knee_down and knee_deg < self.rules.max_knee_deg:
                 faults.append("knee_on_ground")
 
-        return FrameMetrics(metric=elbow, faults=faults, debug=debug)
+        return FrameMetrics(metric=elbow, faults=faults, debug=debug, height=height)
 
 
 def knee_lift(hip, knee, ankle, min_rise: float = 0.05) -> float | None:
@@ -143,11 +177,15 @@ class CrunchRules:
     the shoulder blades off the floor raises the torso 10-15 degrees; a full sit-up 60+.
     For a full sit-up test set ``up_torso_deg`` to about 60."""
 
-    up_torso_deg: float = 7.0
+    up_torso_deg: float = 15.0
     """Rise above the lying level that counts as crunched up."""
-    down_torso_deg: float = 4.0
-    """Rise below which the candidate is back on the floor. Some candidates do not lie all
-    the way back between crunches; 3 merged two crunches into one on the clips."""
+    down_torso_deg: float = 12.0
+    """Rise below which the candidate is back on the floor. At speed candidates do not lie all
+    the way back between crunches: on the station camera 4 merged 10 crunches into 5, 12 counts
+    all 10 (docs/CALIBRATION.md)."""
+    auto_share: float = 0.35
+    """Auto-calibration: over the first 3 reps, "back on the floor" becomes this share of how far
+    the person's torso really rises (0 = off). ``up_torso_deg`` stays the same for everyone."""
     min_rep_s: float = 0.4
     """Shorter movements are keypoint noise (0.2-0.4 s); real crunches take 0.8-1.4 s."""
     floor_window_s: float = 6.0
@@ -185,6 +223,9 @@ class CrunchAnalyzer:
             rest_limit=self.rules.max_lying_deg,
             arm_seconds=self.rules.arm_s,
             min_rep_seconds=self.rules.min_rep_s,
+            auto_share=self.rules.auto_share,
+            auto_rest_min=3.0,
+            auto_rest_gap=2.0,
             min_fault_seconds=self.rules.fault_min_s,
         )
 
@@ -223,11 +264,13 @@ TUNABLE: dict[str, dict[str, tuple[float, float, float]]] = {
         "down_elbow_deg": (60, 130, 1), "up_elbow_deg": (120, 175, 1), "min_body_line_deg": (120, 175, 1),
         "max_knee_lift": (-1.0, 0.5, 0.05), "max_knee_deg": (120, 180, 1), "min_knee_drop": (0.0, 1.0, 0.05),
         "rest_in_down_s": (1, 10, 0.5), "fault_min_s": (0.0, 1.0, 0.05),
+        "min_drop": (0.05, 0.4, 0.01), "max_torso_deg": (30, 90, 1), "crouch_knee_deg": (30, 120, 1),
+        "auto_share": (0.0, 0.6, 0.05),
     },
     "crunch": {
         "up_torso_deg": (3, 60, 0.5), "down_torso_deg": (1, 50, 0.5), "knee_min_deg": (0, 90, 1),
         "knee_max_deg": (90, 180, 1), "max_lying_deg": (20, 70, 1), "min_rep_s": (0.1, 2.0, 0.1),
-        "fault_min_s": (0.0, 1.0, 0.05),
+        "fault_min_s": (0.0, 1.0, 0.05), "auto_share": (0.0, 0.6, 0.05),
     },
 }
 RULES_CLASS = {"pushup": PushupRules, "crunch": CrunchRules}

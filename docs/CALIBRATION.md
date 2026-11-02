@@ -1,4 +1,4 @@
-# Counter calibration: push-ups and crunches (2026-10-19)
+﻿# Counter calibration: push-ups and crunches (2026-10-19)
 
 The rep counter and its fault rules were checked against public videos standing
 in for the station camera, before real footage exists. Clips are in
@@ -106,3 +106,21 @@ The default now counts a crunch: shoulder blades off the floor, +7° of torso
 rise. A full sit-up is a different standard: set `up_torso_deg` to about 60 (the
 army sit-up clip rises 60–77°). Whichever it is, the time limit and the pass mark
 come from the signed-off rules, not from these clips.
+
+## Station camera, 2026-11-02
+
+Real recordings from the station's IP camera, low and to the side, with the true counts known:
+10 push-ups and 10 crunches, each with getting into position, walking away and sitting at a desk
+around them. Their poses are in `tests/recordings` (keypoints only, no pictures) and
+`tests/test_counting_recordings.py` replays them through the real session and counter.
+
+| Finding | Before | Now |
+|---|---|---|
+| Elbow never read below 123 degrees on real push-ups | 0 of 10 | Shoulders coming down 12 % of the body's length also marks the bottom: 10 of 10 |
+| Straight legs on the toes read 145-153 degrees with the hips level with the ankles | knee on the ground, rep rejected | The knee test applies below 140 degrees (knees measure 95-135) |
+| Arm moving while seated at a desk; standing with straight arms | counted; started the test | Torso above 60 degrees or knee below 90 degrees is not measured |
+| Not lying fully back between fast crunches | 10 merged into 5 | Rise 15 degrees, back down 12 degrees: 10 of 10 |
+
+Not yet checked on real footage: that clearly shallow push-ups and half crunches are rejected.
+A crunch rising less than 15 degrees no longer counts; for a test that accepts shoulder blades
+just off the floor (10-15 degrees) lower `up_torso_deg` and `down_torso_deg` in the tune panel.

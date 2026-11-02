@@ -81,6 +81,22 @@ class RepCounterConfig:
     Getting into position (lying down, a plank) is never a rep. 0 = ``min_rest_frames`` only.
     With a relative metric: how many seconds of rest-position data the rest level needs
     (a candidate who crunches without pausing never holds still for a second)."""
+    drop_work: float | None = None
+    """A second way to see the bottom of a rep: the body's ``height`` has fallen this far from
+    its top level (push-ups: the elbow angle cannot be read from every camera). None = off."""
+    drop_rest: float = 0.05
+    """With ``drop_work``: the height is back within this of its top level, the rep is done."""
+    drop_window_s: float = 6.0
+    """With ``drop_work``: seconds over which the top level is taken."""
+    auto_share: float = 0.0
+    """Auto-calibration: over the person's first ``auto_reps`` reps, "back at the rest position"
+    becomes this share of how far they really move (0 = off). Only that follows the person; the
+    depth that counts stays the same for everyone."""
+    auto_reps: int = 3
+    auto_rest_min: float = 0.0
+    """The learned rest level is never below this ..."""
+    auto_rest_gap: float = 0.0
+    """... nor closer than this to the depth that counts."""
     rest_limit: float | None = None
     """Absolute bound the raw metric must be on the rest side of to count as the rest
     position (crunches: lying, not sitting). Frames beyond it never arm the counter, never
@@ -133,6 +149,12 @@ class RepCounter:
     """When each fault reported on the current frame was first seen without a break."""
     _rest_since: float | None = None
     _history: deque = field(default_factory=deque)
+    _heights: deque = field(default_factory=deque)
+    depth: float | None = None
+    """How far from the rest level the person is now (shoulders' drop, or the torso's rise)."""
+    _peak: float = 0.0
+    _ranges: list = field(default_factory=list)
+    _learned: float | None = None
     """``(t, metric)`` over the last ``floor_window_s`` seconds, for the rest level."""
     floor: float | None = None
     """The current rest level when the metric is relative (shown on the overlay)."""
@@ -165,6 +187,44 @@ class RepCounter:
         self._work_streak = self._rest_streak = self._missing = 0
         self._faults.clear()
         self._fault_since.clear()
+        self.depth, self._peak, self._learned = None, 0.0, None
+        self._ranges = []
+
+    def _work_level(self) -> float | None:
+        """The depth that counts, in the units of ``depth``."""
+        if self.cfg.drop_work is not None:
+            return self.cfg.drop_work
+        return self.cfg.enter_work if self.cfg.floor_window_s is not None and not self.cfg.work_is_below else None
+
+    def _rest_level(self) -> float | None:
+        """Back at the rest position, in the units of ``depth``: learned from the person once known."""
+        work = self._work_level()
+        if work is None:
+            return None
+        fixed = self.cfg.drop_rest if self.cfg.drop_work is not None else self.cfg.enter_rest
+        if self._learned is None or self.cfg.auto_share <= 0:
+            return fixed
+        return max(self.cfg.auto_rest_min, min(self._learned, work - self.cfg.auto_rest_gap))
+
+    def _learn(self) -> None:
+        if self.cfg.auto_share > 0 and self._peak > 0 and len(self._ranges) < self.cfg.auto_reps:
+            self._ranges.append(self._peak)
+            self._learned = self.cfg.auto_share * float(np.median(self._ranges))
+        self._peak = 0.0
+
+    def calibration(self) -> dict | None:
+        """What the screen shows of the auto-calibration; None when the exercise has no depth."""
+        work = self._work_level()
+        if work is None:
+            return None
+        n = len(self._ranges)
+        state = "off" if self.cfg.auto_share <= 0 else ("done" if n >= self.cfg.auto_reps else "learning")
+        return {"state": state, "reps": n, "need": self.cfg.auto_reps, "work": round(work, 3),
+                "rest": round(self._rest_level(), 3),
+                "fixed_rest": round(self.cfg.drop_rest if self.cfg.drop_work is not None else self.cfg.enter_rest, 3),
+                "now": None if self.depth is None else round(self.depth, 3),
+                "range": round(float(np.median(self._ranges)), 3) if n else None,
+                "unit": "body" if self.cfg.drop_work is not None else "deg"}
 
     def _persistent(self, faults: Iterable[str], t: float) -> set[str]:
         """The frame's faults that have lasted ``min_fault_seconds`` (all of them when 0)."""
@@ -191,14 +251,27 @@ class RepCounter:
             self.floor = float(np.percentile([m for _t, m in h], q))
         return metric - (self.floor if self.floor is not None else metric)
 
-    def update(self, metric: float | None, t: float, faults: Iterable[str] = ()) -> RepEvent | None:
-        """Feed one frame. Returns a RepEvent when a rep completes (valid or rejected)."""
+    def _drop(self, height: float | None, t: float) -> float | None:
+        """How far the height is below its top level over the last ``drop_window_s`` seconds."""
+        if self.cfg.drop_work is None or height is None:
+            return None
+        h = self._heights
+        h.append((t, height))
+        while h and h[0][0] < t - self.cfg.drop_window_s:
+            h.popleft()
+        return float(np.percentile([v for _t, v in h], 90)) - height
+
+    def update(self, metric: float | None, t: float, faults: Iterable[str] = (),
+               height: float | None = None) -> RepEvent | None:
+        """Feed one frame. Returns a RepEvent when a rep completes (valid or rejected).
+        ``height``: the body's height for ``drop_work``, when the exercise uses it."""
         if metric is None:
             self._missing += 1
             self._fault_since.clear()
             if self._missing > self.cfg.max_missing_frames:
                 self.reset()
                 self._history.clear()
+                self._heights.clear()
             return None
         self._missing = 0
         faults = self._persistent(faults, t)
@@ -207,7 +280,15 @@ class RepCounter:
             metric = self._relative(metric, t)
 
         in_work = self.cfg.in_work(metric)
-        in_rest = self.cfg.in_rest(metric) and restable
+        relative_rise = self.cfg.floor_window_s is not None and not self.cfg.work_is_below
+        in_rest = (metric < self._rest_level() if relative_rise else self.cfg.in_rest(metric)) and restable
+        drop = self._drop(height, t)
+        if drop is not None:
+            in_work = in_work or drop >= self.cfg.drop_work
+            in_rest = (in_rest or drop <= self._rest_level()) and not in_work
+        self.depth = drop if drop is not None else (metric if relative_rise else None)
+        if self.depth is not None and self.phase is not Phase.WAITING:
+            self._peak = max(self._peak, self.depth)
 
         if self.phase is Phase.WAITING:
             self._rest_streak = self._rest_streak + 1 if in_rest else 0
@@ -234,6 +315,7 @@ class RepCounter:
             if in_rest:
                 self._faults.clear()
                 self._rep_start = t
+                self._peak = 0.0
             else:
                 self._faults.update(faults)
             if in_work:
@@ -263,7 +345,9 @@ class RepCounter:
         self._rest_streak = 0
         if t - self._rep_start < self.cfg.min_rep_seconds:
             self._faults = set()
+            self._peak = 0.0
             return None
+        self._learn()
         valid = not self._faults
         if valid:
             self.count += 1

@@ -103,6 +103,8 @@ class Recording:
     attempt_id: int
     folder: Path
     writer: cv2.VideoWriter | FfmpegWriter | None = None
+    t0: float | None = None
+    written: int = 0
 
 
 class EvidenceWriter:
@@ -135,6 +137,11 @@ class EvidenceWriter:
         """Begin ``full.mp4`` for an attempt on this lane (ends the previous one, if any)."""
         self.stop(lane)
         folder = self.root / self.day / str(attempt_id)
+        if folder.is_dir() and any(folder.iterdir()):      # the number came free (a result was redone): keep those clips
+            n = 1
+            while (old := folder.with_name(f"{attempt_id}-redone-{n}")).exists():
+                n += 1
+            folder.rename(old)
         folder.mkdir(parents=True, exist_ok=True)
         self._active[lane] = Recording(attempt_id, folder)
         return folder
@@ -150,7 +157,13 @@ class EvidenceWriter:
         while self._ring and self._ring[0][0] < t - self.keep_s:
             self._ring.popleft()
         for lane, rec in self._active.items():
-            self._jobs.put(("frame", rec, self._crop(frame, lane)))
+            # The camera's frames reach us slower than its nominal rate: repeat them so that the
+            # recording plays at real speed (and skip when they come faster).
+            rec.t0 = t if rec.t0 is None else rec.t0
+            due = round((t - rec.t0) * self.fps) + 1
+            for _ in range(due - rec.written):
+                self._jobs.put(("frame", rec, self._crop(frame, lane)))
+            rec.written = max(rec.written, due)
 
     def clip(self, lane: str, event: dict) -> str | None:
         """Cut the clip for a finished rep. Returns its path relative to ``root``
@@ -159,7 +172,7 @@ class EvidenceWriter:
         if rec is None:
             return None
         lo, hi = event["t_start"] - self.pad_s, event["t_end"] + self.pad_s
-        frames = [self._crop(f, lane) for t, f in self._ring if lo <= t <= hi]
+        frames = self._paced([(t, self._crop(f, lane)) for t, f in self._ring if lo <= t <= hi])
         path = rec.folder / f"rep-{int(event['index']):03d}.mp4"
         self._jobs.put(("clip", path, frames))
         return path.relative_to(self.root).as_posix()
@@ -170,7 +183,7 @@ class EvidenceWriter:
         crossing, for instance. ``lane`` crops to that lane; None keeps the whole frame.
         Returns the path relative to ``root``, or None when the window holds no frame."""
         lo, hi = t0 - self.pad_s, t1 + self.pad_s
-        frames = [self._crop(f, lane) if lane else f for t, f in self._ring if lo <= t <= hi]
+        frames = self._paced([(t, self._crop(f, lane) if lane else f) for t, f in self._ring if lo <= t <= hi])
         if not frames:
             return None
         path = self.root / folder / f"{name}.mp4"
@@ -183,6 +196,14 @@ class EvidenceWriter:
             self.stop(lane)
         self._jobs.put(("quit",))
         self._worker.join(timeout_s)
+
+    def _paced(self, timed: list[tuple[float, np.ndarray]]) -> list[np.ndarray]:
+        """The frames at ``fps``, so that a clip plays at real speed whatever rate they came at."""
+        out: list[np.ndarray] = []
+        for t, f in timed:
+            due = round((t - timed[0][0]) * self.fps) + 1
+            out.extend([f] * (due - len(out)))
+        return out
 
     def _crop(self, frame: np.ndarray, lane: str) -> np.ndarray:
         h, w = frame.shape[:2]
