@@ -2174,18 +2174,35 @@ async function cameraPermission() {   // "granted", "prompt" (the browser will a
 async function openCamera(want) {
   // While the browser asks the person to allow the camera there is no time limit: they have to answer.
   const asking = (await cameraPermission()) !== "granted";
-  const one = id => {
-    const ask = navigator.mediaDevices.getUserMedia({ audio: false, video: { width: { ideal: 1280 }, height: { ideal: 720 }, ...(id ? { deviceId: { exact: id } } : {}) } });
+  let pending = Promise.resolve();
+  const one = (id, size = { width: { ideal: 1280 }, height: { ideal: 720 } }) => {
+    const ask = navigator.mediaDevices.getUserMedia({ audio: false, video: { ...size, ...(id ? { deviceId: { exact: id } } : {}) } });
+    pending = ask;
     let late = false;
     ask.then(st => { if (late) st.getTracks().forEach(tr => tr.stop()); }).catch(() => {});
     // a camera that never answers must not leave a black box
     return asking ? ask : Promise.race([ask, new Promise((_, no) => setTimeout(() => { late = true; no({ name: "Timeout" }); }, 8000))]);
   };
+  // Some webcams only start at 640x480 in the browser (HD just times out): one that did is remembered,
+  // so it opens at once next time instead of after the wait.
+  const VGA = { width: { ideal: 640 }, height: { ideal: 480 } };
+  const all = await navigator.mediaDevices.enumerateDevices().catch(() => []);
+  const inputs = all.filter(d => d.kind === "videoinput");
+  const target = inputs.find(d => d.deviceId === want) || inputs[0];
+  const known = !!target && !!target.label && target.label === load("camLowRes", "");
   let first = null;
-  try { const st = await one(want); return { stream: st, label: st.getVideoTracks()[0]?.label || "", fellBack: false }; }
+  try { const st = await one(want, known ? VGA : undefined); return { stream: st, label: st.getVideoTracks()[0]?.label || "", fellBack: false }; }
   catch (e) { first = e; if (e && (e.name === "NotAllowedError" || e.name === "SecurityError")) throw e; }
-  const cams = (await navigator.mediaDevices.enumerateDevices().catch(() => []))
-    .filter(d => d.kind === "videoinput" && d.deviceId && d.deviceId !== want && !/virtual|obs|snap|manycam/i.test(d.label));
+  if (!known) {
+    // the browser may still be busy with the HD try: a second request before it gives up can fail too
+    await Promise.race([pending.catch(() => {}), new Promise(r => setTimeout(r, 3000))]);
+    try {
+      const st = await one(want, VGA), label = st.getVideoTracks()[0]?.label || "";
+      if (label) save("camLowRes", label);
+      return { stream: st, label, fellBack: false };
+    } catch { /* not the resolution: try the other cameras */ }
+  }
+  const cams = inputs.filter(d => d.deviceId && d.deviceId !== want && !/virtual|obs|snap|manycam/i.test(d.label));
   for (const d of cams) {
     try { const st = await one(d.deviceId); return { stream: st, label: d.label || st.getVideoTracks()[0]?.label || "", fellBack: true }; } catch { /* next one */ }
   }
