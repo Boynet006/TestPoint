@@ -1,4 +1,4 @@
-# Continue on another machine
+﻿# Continue on another machine
 
 Everything needed is on GitHub in the `feat/camera-settings` branch, except what is private to
 the station PC: the database (`data/dev.db`: people, faces, results, the cameras' passwords), the
@@ -52,4 +52,4 @@ Open http://127.0.0.1:8000. For tablets and other PCs use `--host 0.0.0.0 --http
   set with the sliders (Tune) until the official rules are known.
 - Speed: the person detector runs every 5th frame: about 26 fps with three cameras.
 - Not checked yet: that shallow push-ups and half crunches are rejected; 5-8 more people.
-- Management deck: `docs/presentation/TestPoint-management-2026-11-02.pptx`.
+- Management deck: `docs/presentation/TestPoint-management-2026-11-02.pptx` (7 slides); its screenshots and `build-deck.js` are next to it.
