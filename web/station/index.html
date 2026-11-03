@@ -1617,10 +1617,7 @@ const I18N = {
     n_face_bib_disagree: "the bib read and the face disagree: the face looks like bib {bib}",
     call_timeout: "No hand raised: step onto the mark again",
     call_stepped_away: "The runner stepped away: step onto the mark again",
-    side_right: "RIGHT",
-    side_left: "LEFT",
-    call_other_hand: "Your other hand: the {side} one",
-    call_raise: "Raise your {side} hand",
+    call_raise: "Raise a hand to start",
     call_no_camera: "The start camera is not sending: check it below",
     call_step_up: "Step onto the mark and look at the camera",
     e_low_quality: "The photo is not good enough to recognise them by later (blurred, dark or too small): take another",
@@ -2014,10 +2011,7 @@ const I18N = {
     n_face_bib_disagree: "الرقم المقروء والوجه لا يتطابقان: الوجه يشبه الرقم {bib}",
     call_timeout: "لم تُرفع اليد: قف على العلامة مجدداً",
     call_stepped_away: "ابتعد العدّاء: قف على العلامة مجدداً",
-    side_right: "اليمنى",
-    side_left: "اليسرى",
-    call_other_hand: "اليد الأخرى: {side}",
-    call_raise: "ارفع يدك {side}",
+    call_raise: "ارفع يدك للبدء",
     call_no_camera: "كاميرا البداية لا ترسل: تحقق منها أدناه",
     call_step_up: "قف على العلامة وانظر إلى الكاميرا",
     e_low_quality: "?????? ??? ????? ?????? ???? ?????? (??? ????? ?? ????? ?? ?????): ????? ???? ????",
@@ -3583,7 +3577,7 @@ const StartCall = {
     let cls = "", body = "";
     if (v.state === "raise_hand") {
       cls = "ask";
-      body = `<div><div class="c-who">${who}</div><div class="c-say">✋ ${esc(t(v.wrong_hand ? "call_other_hand" : "call_raise", { side: t("side_" + v.side) }))}</div></div>`;
+      body = `<div><div class="c-who">${who}</div><div class="c-say">✋ ${esc(t("call_raise"))}</div></div>`;
     } else if (v.state === "countdown" || v.state === "started") {
       const left = (Date.parse(v.go_at) - serverNow()) / 1000, n = Math.ceil(left);
       cls = n <= 0 ? "go" : "ask";

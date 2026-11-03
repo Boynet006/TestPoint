@@ -5,7 +5,7 @@ Reads the start camera (an IP camera on the station PC), and a few times a secon
   * reads which hand they hold up (wrist above the shoulder),
   * looks at their face (the face models on the GPU) and sends its embedding,
 and reports that to the app (``/api/engine/start/obs``), which recognises them and runs the
-start (api/startline.py): "raise your LEFT hand", 3-2-1-GO. The picture goes to the start page
+start (api/startline.py): "raise a hand", 3-2-1-GO. The picture goes to the start page
 too (``/api/engine/frame/start``), with the person at the mark outlined.
 
     python -m testpoint.startcam --source rtsp://user:pass@<ip>:554/Streaming/Channels/101 --app http://127.0.0.1:8000
@@ -125,7 +125,7 @@ def draw(img: np.ndarray, d: dict) -> None:
         col = (80, 220, 80) if d.get("hand") else (0, 200, 255)
         cv2.rectangle(img, (x0, y0), (x1, y1), col, 3)
         if d.get("hand"):
-            cv2.putText(img, f"{d['hand'].upper()} HAND", (x0, max(30, y0 - 10)), cv2.FONT_HERSHEY_SIMPLEX, 1.1, col, 3)
+            cv2.putText(img, "HAND UP", (x0, max(30, y0 - 10)), cv2.FONT_HERSHEY_SIMPLEX, 1.1, col, 3)
     if d.get("face"):
         x0, y0, x1, y1 = (int(v) for v in d["face"])
         cv2.rectangle(img, (x0, y0), (x1, y1), (255, 200, 0), 2)

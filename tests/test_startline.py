@@ -7,34 +7,20 @@ from testpoint.vision.gesture import at_the_mark, hand_raised
 from testpoint.vision.keypoints import Person
 
 
-class _Fixed:
-    """Asks for the same hand every time (the real start line picks one at random)."""
-
-    def __init__(self, side):
-        self.side = side
-
-    def choice(self, _):
-        return self.side
-
-
-def line(side="left"):
-    s = StartLine(countdown_s=3.0)
-    s.rng = _Fixed(side)
-    return s
+def line():
+    return StartLine(countdown_s=3.0)
 
 
 ME = (7, True, None)
 
 
 def test_recognised_then_hand_then_countdown_then_go():
-    s = line("left")
+    s = line()
     assert s.observe(0.0, Look(True, ME)) == []                      # one look is not enough
     assert s.observe(0.25, Look(True, ME)) == [("line_up", 7)]       # 2 of 3: recognised, lined up
-    assert s.state == "raise_hand" and s.side == "left"
-    # the wrong hand is pointed out, and does not start anything
-    assert s.observe(0.5, Look(True, None, "right")) == [] and s.view(0.5)["wrong_hand"]
-    # the asked hand held 0.5 s: start, GO 3 s later
-    assert s.observe(1.0, Look(True, None, "left")) == []
+    assert s.state == "raise_hand"
+    # either hand (or both) held 0.5 s: start, GO 3 s later
+    assert s.observe(1.0, Look(True, None, "right")) == []
     assert s.observe(1.5, Look(True, None, "left")) == [("start", 7)]
     v = s.view(1.6)
     assert v["state"] == "countdown" and v["go_at"] == 4.5 and v["entry_id"] == 7
@@ -86,7 +72,7 @@ def test_stepping_away_or_no_hand_goes_back_to_waiting():
 
 
 def test_stepping_away_during_the_countdown_cancels_the_start():
-    s = line("right")
+    s = line()
     s.observe(0.0, Look(True, ME))
     s.observe(0.2, Look(True, ME))
     s.observe(0.4, Look(True, None, "right"))
@@ -119,7 +105,7 @@ def test_hand_raised_is_the_persons_own_side():
     assert hand_raised(person(BODY)) is None                                  # arms down
     assert hand_raised(person({**BODY, 9: (70, 60)})) == "left"               # left wrist above the shoulder
     assert hand_raised(person({**BODY, 10: (130, 40)})) == "right"
-    assert hand_raised(person({**BODY, 9: (70, 60), 10: (130, 40)})) is None  # both up: neither
+    assert hand_raised(person({**BODY, 9: (70, 60), 10: (130, 40)})) == "both"
     assert hand_raised(person({**BODY, 9: (70, 95)})) is None                 # barely above: not raised
 
 
@@ -165,12 +151,10 @@ def test_the_start_camera_lines_up_and_starts_the_runner(monkeypatch):
 
         assert look(0.0, emb=emb(A))["state"] == "idle"
         v = look(0.25, emb=emb(A))
-        assert v["state"] == "raise_hand" and v["entry"]["bib"] == "11" and v["side"] in ("left", "right")
+        assert v["state"] == "raise_hand" and v["entry"]["bib"] == "11"
         assert c.get(f"/api/entries/{ids['11']}").json()["status"] == "lined_up"
-        other = "right" if v["side"] == "left" else "left"
-        assert look(0.5, hand=other)["wrong_hand"] is True
-        look(0.75, hand=v["side"])
-        v = look(1.3, hand=v["side"])
+        look(0.75, hand="both")
+        v = look(1.3, hand="right")
         assert v["state"] == "countdown" and v["go_at"].startswith((t0 + timedelta(seconds=4.3)).isoformat()[:19])
         e = c.get(f"/api/entries/{ids['11']}").json()
         assert e["status"] == "running" and e["run_started_at"] == v["go_at"]
