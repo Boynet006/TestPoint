@@ -1495,6 +1495,72 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
                 "over_limit": p.over_limit, "last_cleanup": _last_cleanup or None,
                 "days": sorted(days.values(), key=lambda d: d["day"], reverse=True)}
 
+    # ---- recordings: go back to any day and watch what the cameras saw, person by person
+    START_CLIP = re.compile(r"^(\d{8})-(\d{6})-entry(\d+)\.mp4$")
+
+    @app.get("/api/recordings/days")
+    def recordings_days(db: Session = Depends(get_db)) -> list[dict]:
+        """The days with recordings (newest first), with their size and how many people took part."""
+        days = R.by_day(R.scan(evidence))
+        people = dict(db.execute(select(Day.date, func.count(Entry.id)).join(Entry, Entry.day_id == Day.id).group_by(Day.date)).all())
+        return [{"day": d, "bytes": v["bytes"], "items": v["items"], "people": people.get(d, 0)}
+                for d, v in sorted(days.items(), reverse=True)]
+
+    @app.get("/api/recordings")
+    def recordings(day: str, db: Session = Depends(get_db)) -> dict:
+        """One day's recordings: each person's start, finish, full attempt videos and rep clips
+        (a recording deleted by the retention rules comes as ``null``), then the recordings that
+        belong to no one on the list (a crossing never assigned, a test run of a camera)."""
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", day):
+            raise S.ServiceError("bad_day", "day must be YYYY-MM-DD", 400)
+        have = lambda rel: rel if rel and (evidence / rel).is_file() else None   # noqa: E731
+        items = [i for i in R.scan(evidence) if i.day == day]
+        used: set[str] = set()
+        d = db.scalar(select(Day).where(Day.date == day))
+        people = []
+        if d is not None:
+            entries = db.scalars(select(Entry).where(Entry.day_id == d.id)).all()
+            starts: dict[int, list[dict]] = {}
+            for i in items:
+                m = START_CLIP.match(i.path.name) if i.kind == "start" else None
+                if m:
+                    starts.setdefault(int(m.group(3)), []).append(
+                        {"clip": i.key, "at": f"{m.group(1)[:4]}-{m.group(1)[4:6]}-{m.group(1)[6:]}T{m.group(2)[:2]}:{m.group(2)[2:4]}:{m.group(2)[4:]}"})
+            crossings: dict[int, list[Crossing]] = {}
+            for c in db.scalars(select(Crossing).where(Crossing.day_id == d.id).order_by(Crossing.at)):
+                if c.entry_id is not None:
+                    crossings.setdefault(c.entry_id, []).append(c)
+            folders = {i.key.split("/", 1)[1]: i.key for i in items if i.kind == "station"}
+            for e in entries:
+                atts = []
+                for a in sorted(e.attempts, key=lambda a: a.started_at):
+                    folder = folders.get(str(a.id))
+                    full = have(f"{folder}/full.mp4") if folder else None
+                    reps = [{"index": r.index, "valid": r.valid, "faults": json.loads(r.faults or "[]"),
+                             "clip": have(r.clip_path), "t_start": r.t_start, "t_end": r.t_end} for r in a.reps]
+                    redone = [{"clip": have(f"{k}/full.mp4"), "folder": k} for n, k in folders.items() if n.startswith(f"{a.id}-redone-")]
+                    used.update(x for x in [folder] + [k["folder"] for k in redone] if x)
+                    atts.append({"id": a.id, "event": a.event, "status": a.status, "lane": a.lane, "count": a.count,
+                                 "auto_count": a.auto_count, "passed": a.passed, "grade": a.grade,
+                                 "override_reason": a.override_reason, "started_at": iso(a.started_at),
+                                 "full": full, "reps": reps, "redone": redone})
+                fin = [{"clip": have(c.clip_path), "time_s": c.time_s, "at": iso(c.at), "bib_read": c.bib_read,
+                        "source": c.source} for c in crossings.get(e.id, [])]
+                used.update(c.clip_path for c in crossings.get(e.id, []) if c.clip_path)
+                st = starts.get(e.id, [])
+                used.update(x["clip"] for x in st)
+                n = sum(1 for a in atts if a["full"]) + sum(1 for a in atts for r in a["reps"] if r["clip"]) \
+                    + sum(1 for f in fin if f["clip"]) + len(st)
+                people.append({"entry_id": e.id, "bib": e.candidate.bib, "name": e.candidate.name,
+                               "name_ar": e.candidate.name_ar, "status": e.status, "recordings": n,
+                               "start": st, "finish": fin, "attempts": atts})
+        people.sort(key=lambda x: (x["recordings"] == 0, int(x["bib"]) if (x["bib"] or "").isdigit() else 10 ** 9, x["name"]))
+        other = [{"clip": i.key if i.path.is_file() else None, "folder": i.key, "kind": i.kind, "bytes": i.size,
+                  "at": datetime.fromtimestamp(i.mtime, timezone.utc).isoformat(timespec="seconds"),
+                  "files": None if i.path.is_file() else sorted(f.name for f in i.path.iterdir() if f.is_file())}
+                 for i in items if i.key not in used and not any(i.key.startswith(u + "/") for u in used)]
+        return {"day": day, "people": people, "other": other}
+
     @app.post("/api/storage/evidence/cleanup", dependencies=[Depends(admin)])
     def evidence_cleanup_now(db: Session = Depends(get_db)) -> dict:
         """Apply the retention rules now (they also run by themselves every hour)."""

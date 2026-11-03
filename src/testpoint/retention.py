@@ -31,6 +31,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 DAY = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+STAMP = re.compile(r"^(\d{4})(\d{2})(\d{2})-\d{6}")
 SETTLE_S = 3600.0
 """Recordings younger than this are left alone: a camera may still be writing them."""
 
@@ -96,7 +97,9 @@ def scan(root: Path) -> list[Item]:
         else:
             for path, size, mtime in sorted(_files(top.path)):
                 key = Path(path).relative_to(root).as_posix()
-                items.append(Item(key, Path(path), date.fromtimestamp(mtime).isoformat(), size, mtime, top.name))
+                m = STAMP.match(Path(path).name)     # "20261020-081500-..." (start line): the name says the day
+                day = f"{m[1]}-{m[2]}-{m[3]}" if m else date.fromtimestamp(mtime).isoformat()
+                items.append(Item(key, Path(path), day, size, mtime, top.name))
     return items
 
 
