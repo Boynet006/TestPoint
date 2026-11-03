@@ -174,3 +174,15 @@ def test_publisher_keeps_one_connection_to_the_app():
         assert len(seen) == 3 and len(set(seen)) == 1     # the same client port: one connection
     finally:
         srv.shutdown()
+
+
+def test_the_last_picture_is_sent_again_while_none_comes():
+    import numpy as np
+
+    from testpoint.preview import FramePublisher
+    sent = []
+    pub = FramePublisher("http://127.0.0.1:1", "pushup", lambda img, state: None, post=sent.append)
+    assert not pub.publish_once(again=True)            # nothing seen yet: nothing to repeat
+    pub.offer(np.zeros((4, 4, 3), np.uint8), "state")
+    assert pub.publish_once() and not pub.publish_once()
+    assert pub.publish_once(again=True) and len(sent) == 2

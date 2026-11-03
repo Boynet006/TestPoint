@@ -84,7 +84,7 @@ def event(index, valid=True, faults=(), t_start=0.0, t_end=1.0, clip=None):
 def test_report_attaches_reps_to_the_running_attempt(client, passed):
     # Nobody is being tested yet: the reply says so, nothing is stored.
     r = report(client, {"1": {"count": 3}, "2": {}})
-    assert r == {"lanes": {"1": {"attempt_id": None}, "2": {"attempt_id": None}}, "acked": {}, "tuning": {}}
+    assert r == {"lanes": {"1": {"attempt_id": None}, "2": {"attempt_id": None}}, "acked": {}, "tuning": {}, "player": {"seq": 0}}
 
     att = ok(client.post("/api/attempts", json={"entry_id": passed[11], "event": "pushup", "lane": "1"}), 201)
     r = report(client, {"1": {"count": 0}, "2": {}})
@@ -144,7 +144,7 @@ def test_lanes_are_per_station(client, passed):
 
 def test_live_lanes_picture_and_staleness(client, passed, clock):
     assert ok(client.get("/api/lanes", params={"station": "pushup"})) == {
-        "station": "pushup", "engine": {"online": False, "age_s": None, "fps": None, "source": None}, "lanes": {}}
+        "station": "pushup", "engine": {"online": False, "age_s": None, "fps": None, "source": None, "player": None}, "lanes": {}}
 
     att = ok(client.post("/api/attempts", json={"entry_id": passed[11], "event": "pushup", "lane": "2"}), 201)
     report(client, {"1": {"count": 1, "phase": "rest", "person": True},
@@ -152,7 +152,7 @@ def test_live_lanes_picture_and_staleness(client, passed, clock):
                           "pending_faults": ["hips_sag"], "work_seconds": 1.3, "depth": 0.6}})
     clock.t += 0.3
     live = ok(client.get("/api/lanes", params={"station": "pushup"}))
-    assert live["engine"] == {"online": True, "age_s": 0.3, "fps": 30.0, "source": "0"}
+    assert live["engine"] == {"online": True, "age_s": 0.3, "fps": 30.0, "source": "0", "player": None}
     assert live["lanes"]["2"] == {"count": 4, "rejected": 1, "phase": "work", "person": True,
                                   "pending_faults": ["hips_sag"], "work_seconds": 1.3, "depth": 0.6,
                                   "attempt_id": att["id"], "current": True}
