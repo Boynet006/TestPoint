@@ -259,6 +259,17 @@ def start_command(cfg: SourceIn) -> list[str]:
     return cmd
 
 
+def weigh_command(cfg: SourceIn) -> list[str]:
+    """The weigh-in desk's IP camera: only its picture, for face check-in in the page (no start flow)."""
+    cmd = [sys.executable, "-m", "testpoint.startcam", "--source", cfg.source, "--app", app_address(cfg.app_url),
+           "--station", "weigh", "--no-analyse", "--evidence", ""]
+    if cfg.kind == "video":
+        cmd.append("--realtime")
+        if cfg.loop:
+            cmd.append("--loop")
+    return cmd
+
+
 def station_command(cfg: StationIn, lanes_file: Path) -> list[str]:
     combined = cfg.exercise == "auto"
     cmd = [sys.executable, "-m", "testpoint.engine", "--exercise", "pushup" if combined else cfg.exercise,
@@ -280,6 +291,7 @@ def create_service(log_dir: Path | None = None, runner=subprocess.Popen) -> Fast
     finish = CamProcess("finishcam", logs, runner=runner)
     station = CamProcess("station", logs, runner=runner)
     startcam = CamProcess("startcam", logs, runner=runner)
+    weighcam = CamProcess("weighcam", logs, runner=runner)
     cache: dict = {"at": 0.0, "cameras": []}
 
     @app.get("/health")
@@ -343,9 +355,24 @@ def create_service(log_dir: Path | None = None, runner=subprocess.Popen) -> Fast
     def startcam_stop() -> dict:
         return startcam.stop()
 
+    # the weigh-in desk's IP camera: its picture relayed for face check-in
+    @app.get("/weighcam")
+    def weighcam_status() -> dict:
+        return weighcam.status()
+
+    @app.post("/weighcam/start")
+    def weighcam_start(body: SourceIn) -> dict:
+        check_source(body)
+        return weighcam.start(weigh_command(body), body.model_dump())
+
+    @app.post("/weighcam/stop")
+    def weighcam_stop() -> dict:
+        return weighcam.stop()
+
     app.state.cam = finish
     app.state.station = station
     app.state.startcam = startcam
+    app.state.weighcam = weighcam
     return app
 
 
