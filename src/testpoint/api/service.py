@@ -229,6 +229,11 @@ SETTINGS: dict[str, object] = {
     "default_language": "en",    # a device that never chose a language: "en" or "ar"
     "trouble_run_cutoff_s": 0,
     "count_tuning": {},          # counting rules changed from the calibrated ones: {exercise: {rule: value}}   # troubleshooting: a short run cut-off in seconds instead of the rule's (0 = off)
+    # evidence: the cameras' recordings (src/testpoint/retention.py), oldest first
+    "evidence_keep_days": 30,    # recordings of older days are deleted; 0 = no age limit
+    "evidence_max_gb": 0,        # the evidence folder's ceiling in GB; 0 = no ceiling
+    "evidence_min_free_gb": 5,   # keep at least this much disk free; 0 = no floor
+    "evidence_held_days": [],    # days kept whatever the rules say (an appeal, an investigation)
     "theme": "night",            # colours of every screen: night, desert, desert_night, desert_sand, daylight, track, falcon, neural, mirage or desert_stars (a device may pick its own)
 }
 # Face match thresholds: similarity needed, and the lead over the second-best person.
@@ -391,6 +396,8 @@ def update_settings(db: Session, day: Day, changes: dict) -> dict:
             changes["count_tuning"] = check_tuning(changes["count_tuning"])
         except (ValueError, TypeError) as e:
             raise ServiceError("bad_tuning", str(e), 400) from None
+    if changes.get("evidence_held_days") is not None:
+        changes["evidence_held_days"] = sorted(set(changes["evidence_held_days"]))
     changed = {k: v for k, v in changes.items() if v is not None and v != before[k]}
     for k, v in changed.items():
         row = db.get(Setting, k)
