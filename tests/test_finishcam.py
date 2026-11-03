@@ -312,7 +312,7 @@ def test_a_test_video_plays_at_its_speed_while_the_analysis_takes_the_newest_fra
     for k in range(1, 5):
         a.offer(None, k * 0.04, jumped=(k == 2))   # meanwhile the video moves on, a seek at frame 2
     gate.set(); a.first.wait(2)
-    for _ in range(100):
+    for _ in range(500):                     # generous: a busy machine (cameras running) is slow to switch threads
         if len(seen) == 2:
             break
         threading.Event().wait(0.01)

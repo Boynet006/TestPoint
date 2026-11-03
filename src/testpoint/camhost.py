@@ -195,7 +195,9 @@ class CamProcess:
             self._stop()
             self.freed_by = None
             self.log_dir.mkdir(parents=True, exist_ok=True)
-            flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+            # above normal: on a PC with other programs (sync tools, chat, updaters) the cameras keep
+            # their pace; the analysis is mostly CPU work between GPU calls (measured)
+            flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) | getattr(subprocess, "ABOVE_NORMAL_PRIORITY_CLASS", 0)
             out = open(self.log, "w", encoding="utf-8", errors="replace")
             env = {**os.environ, "PYTHONUNBUFFERED": "1"}
             self.proc = self.runner(cmd, cwd=str(ROOT), stdout=out, stderr=subprocess.STDOUT, creationflags=flags, env=env)

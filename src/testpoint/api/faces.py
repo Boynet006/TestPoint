@@ -190,8 +190,12 @@ class FaceEngine:
         # The OpenCV detector keeps per-call state (input size): one caller at a time.
         self._lock = threading.Lock()
 
+    SMALL_PX = 400 * 400
+    """A crop this small (a head or body crop from a camera) is found faster on the CPU: 1.5 ms
+    against 7.5 on the GPU for 200x200 (measured), where starting the GPU costs more than the work."""
+
     def detect(self, img: np.ndarray) -> np.ndarray:
-        if self._gpu_det is not None:
+        if self._gpu_det is not None and img.shape[0] * img.shape[1] > self.SMALL_PX:
             return self._gpu_det.detect(img)
         h, w = img.shape[:2]
         self._detector.setInputSize((w, h))
