@@ -655,3 +655,45 @@ def test_evidence_retention_settings_storage_and_cleanup(monkeypatch, tmp_path):
         assert done["deleted"] == 1 and not (tmp_path / "2026-09-01").exists() and (tmp_path / "2026-09-02").exists()
         with app.state.sessionmaker() as db:
             assert db.query(models.AuditLog).filter_by(action="evidence_cleanup").count() == 1
+
+
+def test_recordings_of_a_day_person_by_person(monkeypatch, tmp_path):
+    monkeypatch.setenv("TESTPOINT_RETENTION_EVERY_S", "0")
+    real = models.create_engine
+    monkeypatch.setattr(models, "create_engine", lambda url, **kw: real(url, poolclass=StaticPool, **kw))
+    app = create_app(db_url="sqlite:///:memory:", tz="Asia/Dubai", web_dir="does-not-exist",
+                     today=lambda: "2026-10-20", evidence_dir=tmp_path)
+    with TestClient(app) as c:
+        ok(c.post("/api/entries/import", content=CSV.encode()))
+        e = entry_by_bib(c, 11)
+        ok(c.post(f"/api/entries/{e['id']}/weigh-in", json={"weight_kg": 70, "height_cm": 175, "accept": True}))
+        ok(c.post(f"/api/entries/{e['id']}/line-up"))
+        ok(start_lined_up(c))
+        ok(c.post("/api/run/finish", json={"bib": "11"}), 201)
+        att = ok(c.post("/api/attempts", json={"entry_id": e["id"], "event": "pushup", "lane": "1"}), 201)
+        folder = tmp_path / "2026-10-20" / str(att["id"])
+        folder.mkdir(parents=True)
+        (folder / "full.mp4").write_bytes(b"v")
+        (folder / "rep-001.mp4").write_bytes(b"v")
+        ok(c.post("/api/engine/report", json={"station": "pushup", "lanes": {"1": {"attempt_id": att["id"], "count": 2, "events": [
+            {"index": 1, "valid": True, "t_start": 0, "t_end": 1, "clip": f"2026-10-20/{att['id']}/rep-001.mp4"},
+            {"index": 2, "valid": False, "faults": ["knee"], "t_start": 1, "t_end": 2, "clip": f"2026-10-20/{att['id']}/rep-002.mp4"}]}}}))
+        (tmp_path / "start").mkdir()
+        (tmp_path / "start" / f"20261020-081500-entry{e['id']}.mp4").write_bytes(b"v")
+        (tmp_path / "run").mkdir()
+        (tmp_path / "run" / "000001-t1.mp4").write_bytes(b"v")      # a crossing nobody was given
+        import os
+        from datetime import datetime as dt
+        t = dt(2026, 10, 20, 9).timestamp()
+        os.utime(tmp_path / "run" / "000001-t1.mp4", (t, t))
+        err(c.get("/api/recordings?day=20-10-2026"), 400, "bad_day")
+        r = ok(c.get("/api/recordings?day=2026-10-20"))
+        me = next(p for p in r["people"] if p["entry_id"] == e["id"])
+        a = me["attempts"][0]
+        assert a["full"] == f"2026-10-20/{att['id']}/full.mp4"
+        assert [x["clip"] for x in a["reps"]] == [f"2026-10-20/{att['id']}/rep-001.mp4", None]   # rep 2's clip is gone
+        assert me["start"][0]["at"] == "2026-10-20T08:15:00" and me["recordings"] == 3
+        assert r["people"][0]["entry_id"] == e["id"]           # people with recordings first
+        assert [o["folder"] for o in r["other"]] == ["run/000001-t1.mp4"]
+        days = ok(c.get("/api/recordings/days"))
+        assert days[0]["day"] == "2026-10-20" and days[0]["people"] == 5

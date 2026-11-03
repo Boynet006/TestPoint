@@ -425,6 +425,26 @@
   .grades td { font-size: 22px; font-weight: 700; }
   .grades .need { background: color-mix(in srgb, var(--go) 14%, transparent); color: var(--go); }
   .grades th small { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }
+  .rcgrid { display: grid; grid-template-columns: minmax(220px, 300px) 1fr; gap: 16px; margin-top: 10px; }
+  @media (max-width: 900px) { .rcgrid { grid-template-columns: 1fr; } }
+  .rclist { max-height: 70vh; overflow: auto; border: 1px solid var(--line); background: var(--bg2); }
+  .rclist button { display: grid; grid-template-columns: 52px 1fr auto; gap: 8px; align-items: center; width: 100%; padding: 9px 12px; background: none; border: 0;
+    border-bottom: 1px solid var(--line); color: var(--text); text-align: start; cursor: pointer; font: inherit; }
+  .rclist button:hover { background: rgba(255,255,255,.04); } .rclist button.active { background: var(--amber); color: var(--amber-ink); }
+  .rclist .bib { font-family: var(--cond); font-weight: 700; font-size: 18px; } .rclist .n { font-size: 13px; color: var(--muted); } .rclist button.active .n { color: inherit; }
+  .rclist button.none { opacity: .55; } .rclist .grp { padding: 8px 12px; font-family: var(--cond); color: var(--muted); letter-spacing: 1px; text-transform: uppercase; font-size: 13px; }
+  .rcplayer { position: relative; background: #000; aspect-ratio: 16 / 9; display: grid; place-items: center; }
+  .rcplayer video { width: 100%; height: 100%; display: block; background: #000; }
+  .rcplayer video:not([src]) { visibility: hidden; }
+  .rcempty { position: absolute; color: #bbb; font-size: 15px; padding: 16px; text-align: center; pointer-events: none; } .rcempty.hidden { display: none; }
+  .rcbar { margin: 8px 0 4px; gap: 6px; flex-wrap: wrap; align-items: center; } .rcbar .btn.sm { flex: 0 0 auto; } .rcbar .seg button { padding: 5px 10px; }
+  .rccap { font-family: var(--cond); font-size: 18px; }
+  .rcsec { margin-top: 14px; } .rcsec h3 { margin: 0 0 6px; font-size: 16px; } .rcsec .hint { margin: 0 0 6px; }
+  .rcchips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .rcchip { padding: 6px 11px; border: 1px solid var(--line); background: var(--bg2); color: var(--text); cursor: pointer; font: 600 14px var(--cond); letter-spacing: .5px; }
+  .rcchip:hover { border-color: var(--amber); } .rcchip.on { background: var(--amber); color: var(--amber-ink); border-color: var(--amber); }
+  .rcchip.ok { border-inline-start: 3px solid var(--green, #3ba866); } .rcchip.bad { border-inline-start: 3px solid var(--red, #d2353f); }
+  .rcchip.gone { opacity: .45; cursor: default; text-decoration: line-through; } .rcchip.full { font-size: 15px; }
   .evsum { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; margin: 10px 0 16px; }
   .evsum > div { background: var(--bg2); border: 1px solid var(--line); padding: 10px 12px; }
   .evsum b { display: block; font-family: var(--cond); font-size: 24px; color: var(--text); font-variant-numeric: tabular-nums; }
@@ -1093,6 +1113,7 @@
     <button class="active" onclick="tab('list', this)" data-t="t_list"></button>
     <button onclick="tab('register', this)" data-t="t_register"></button>
     <button onclick="tab('review', this)" data-t="t_review"></button>
+    <button onclick="tab('recordings', this)" id="tabRec" data-t="t_recordings"></button>
   </div>
   <div id="t-list" class="card">
     <h2 data-t="t_list"></h2>
@@ -1130,6 +1151,32 @@
     <p class="hint" data-t="review_hint"></p>
     <div id="rvPlayer" class="hidden" style="margin-bottom:12px"><video id="rvVideo" controls playsinline></video><div class="hint" id="rvCaption"></div></div>
     <div class="scroll" style="max-height:none"><table><thead><tr><th data-t="time"></th><th data-t="name"></th><th data-t="bib"></th><th data-t="exercise"></th><th data-t="lane"></th><th data-t="saved"></th><th data-t="camera"></th><th data-t="override"></th><th></th></tr></thead><tbody id="rvTable"></tbody></table></div>
+  </div>
+  <div id="t-recordings" class="card hidden">
+    <div class="row" style="align-items:center;flex-wrap:wrap;gap:8px">
+      <h2 style="margin:0" data-t="t_recordings"></h2><span class="spacer"></span>
+      <select id="rcDay" style="width:auto;flex:0 0 auto" onchange="Recs.day(this.value)" data-tl="rc_day"></select>
+      <input id="rcFind" style="max-width:220px" data-tp="rc_find" autocomplete="off" oninput="Recs.renderList()">
+      <button class="btn ghost sm" style="flex:0 0 auto" type="button" onclick="Recs.load(true)" data-t="fc_refresh"></button>
+    </div>
+    <p class="hint" data-t="rc_hint"></p>
+    <div class="rcgrid">
+      <div class="rclist" id="rcPeople" role="listbox" data-tl="rc_people"></div>
+      <div class="rcmain">
+        <div class="rcplayer">
+          <video id="rcVideo" controls playsinline preload="metadata"></video>
+          <div class="rcempty" id="rcEmpty" data-t="rc_pick"></div>
+        </div>
+        <div class="row rcbar">
+          <b id="rcCap" class="rccap"></b><span class="spacer"></span>
+          <button class="btn ghost sm" type="button" onclick="Recs.frame(-1)" data-tl="vb_frame_back">◂❙</button>
+          <button class="btn ghost sm" type="button" onclick="Recs.frame(1)" data-tl="vb_frame_fwd">❙▸</button>
+          <div class="seg" id="rcSpeed"><button type="button" data-v="0.25">¼×</button><button type="button" data-v="0.5">½×</button><button type="button" data-v="1" class="active">1×</button><button type="button" data-v="2">2×</button></div>
+          <a class="btn ghost sm hidden" id="rcDl" download data-t="rc_download"></a>
+        </div>
+        <div id="rcDetail"></div>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -1795,6 +1842,12 @@ const I18N = {
     n_no_bib_read: "no bib read", n_bib_not_on_list: "bib {bib} is not on today's list", n_bib_not_running: "bib {bib} is {status}, not running",
     n_unassigned_by_examiner: "taken off bib {bib} by the examiner", n_assigned_by_examiner: "assigned to bib {bib} by the examiner",
     ph_reason: "Reason", save_first: "Save this lane's result first", imported_counts: "Added {a}, updated {u}, unchanged {s}.",
+    t_recordings: "Recordings", rc_hint: "Go back to any day and watch what the cameras saw: pick a person, then their start, finish, full attempt videos or a single rep. Crossed out: deleted under the retention rules (Settings > Recordings). , and . step one frame.",
+    rc_day: "Day", rc_find: "Bib or name", rc_people: "People", rc_today: "today", rc_pick: "Pick a recording below to watch it.", rc_download: "Download",
+    rc_no_match: "No one matches.", rc_nobody: "No one on this day's list.", rc_other: "Not linked to anyone", rc_other_hint: "Recordings that belong to no one on this day's list: a crossing never assigned, a camera test or another database.",
+    rc_kind_run: "Finish", rc_kind_start: "Start", rc_kind_station: "Station", rc_pick_person: "Pick a person on the left.", rc_empty_day: "No recordings on this day.",
+    rc_start: "Start", rc_finish: "Finish", rc_full: "Full video", rc_redone: "Earlier try", rc_camera: "camera", rc_none: "none", rc_gone: "Deleted under the retention rules",
+    rc_status_running: "Still running", rc_status_cancelled: "Cancelled", rc_status_finished: "Finished", rc_watch: "Watch this day's recordings", rc_cant_play: "This browser cannot play this file: use Download.",
     t_review: "Review", review_hint: "Today's saved results next to what the camera counted. Open the reps to replay any clip.",
     exercise: "Exercise", saved: "Saved", camera: "Camera", override: "Override", overridden: "overridden", no_camera: "no camera",
     show_reps: "Reps ({n})", hide_reps: "Hide reps", play: "Play", no_clip: "no clip", no_reps: "The camera recorded no reps for this attempt.",
@@ -2174,6 +2227,12 @@ const I18N = {
     n_no_bib_read: "لم يُقرأ الرقم", n_bib_not_on_list: "الرقم {bib} غير موجود في قائمة اليوم", n_bib_not_running: "الرقم {bib} حالته {status} وليس يجري",
     n_unassigned_by_examiner: "أُزيل من الرقم {bib} بواسطة الممتحن", n_assigned_by_examiner: "عُيّن للرقم {bib} بواسطة الممتحن",
     ph_reason: "السبب", save_first: "احفظ نتيجة هذا المسار أولاً", imported_counts: "أضيف {a}، حُدّث {u}، دون تغيير {s}.",
+    t_recordings: "التسجيلات", rc_hint: "ارجع إلى أي يوم وشاهد ما رأته الكاميرات: اختر شخصاً، ثم انطلاقه أو وصوله أو فيديو المحاولة كاملاً أو تكراراً واحداً. المشطوب: حُذف حسب قواعد الاحتفاظ (الإعدادات > التسجيلات). , و . لإطار واحد.",
+    rc_day: "اليوم", rc_find: "الرقم أو الاسم", rc_people: "الأشخاص", rc_today: "اليوم", rc_pick: "اختر تسجيلاً أدناه لمشاهدته.", rc_download: "تنزيل",
+    rc_no_match: "لا أحد مطابق.", rc_nobody: "لا أحد في قائمة هذا اليوم.", rc_other: "غير مرتبطة بأحد", rc_other_hint: "تسجيلات لا تخص أحداً في قائمة هذا اليوم: وصول لم يُسند، أو تجربة كاميرا، أو قاعدة بيانات أخرى.",
+    rc_kind_run: "الوصول", rc_kind_start: "الانطلاق", rc_kind_station: "المحطة", rc_pick_person: "اختر شخصاً من القائمة.", rc_empty_day: "لا توجد تسجيلات في هذا اليوم.",
+    rc_start: "الانطلاق", rc_finish: "الوصول", rc_full: "الفيديو كاملاً", rc_redone: "محاولة سابقة", rc_camera: "الكاميرا", rc_none: "لا يوجد", rc_gone: "حُذف حسب قواعد الاحتفاظ",
+    rc_status_running: "ما زالت جارية", rc_status_cancelled: "أُلغيت", rc_status_finished: "انتهت", rc_watch: "شاهد تسجيلات هذا اليوم", rc_cant_play: "لا يستطيع المتصفح تشغيل هذا الملف: استخدم التنزيل.",
     t_review: "المراجعة", review_hint: "نتائج اليوم المحفوظة إلى جانب عدّ الكاميرا. افتح العدّات لإعادة تشغيل أي مقطع.",
     exercise: "التمرين", saved: "المحفوظ", camera: "الكاميرا", override: "تعديل", overridden: "معدّل", no_camera: "بدون كاميرا",
     show_reps: "العدّات ({n})", hide_reps: "إخفاء العدّات", play: "تشغيل", no_clip: "لا مقطع", no_reps: "لم تسجل الكاميرا أي عدّة لهذه المحاولة.",
@@ -2283,7 +2342,7 @@ function setMode(m) {
   if (settingsOpen) { settingsOpen = false; $("settingsPage").classList.add("hidden"); $("setBtn").classList.remove("active"); }
   mode = m; save("mode", m); $("simple").classList.toggle("hidden", m !== "simple"); $("advanced").classList.toggle("hidden", m !== "advanced");
   for (const x of ["simple", "advanced"]) $("mode-" + x).classList.toggle("active", x === m); refresh(); }
-function tab(name, btn) { for (const x of ["list", "register", "review"]) $("t-" + x).classList.toggle("hidden", x !== name); if (name === "register") Register.load(); document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("active", b === btn)); }
+function tab(name, btn) { for (const x of ["list", "register", "review", "recordings"]) $("t-" + x).classList.toggle("hidden", x !== name); if (name === "register") Register.load(); if (name === "recordings") Recs.load(); else Recs.pause(); document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("active", b === btn)); }
 
 /* ============================== weigh-in ============================== */
 let wEntry = null, wLast = null, wSeq = 0;
@@ -5230,6 +5289,98 @@ function applySiteName() {
   $("tagline").textContent = site || t("tagline");
   document.title = site ? `TestPoint · ${site}` : "TestPoint Station";
 }
+// ---- Advanced > Recordings: go back to any day and watch what the cameras saw, person by person
+// (GET /api/recordings). A recording the retention rules deleted shows crossed out.
+const Recs = {
+  days: null, data: null, cur: null, sel: null, playing: null,
+  async load(force) {
+    try {
+      if (!this.days || force) this.days = await api("GET", "/api/recordings/days");
+    } catch (e) { $("rcDetail").innerHTML = `<p class="msg bad">${esc(err(e))}</p>`; return; }
+    const sel = $("rcDay"), today = S.state && S.state.date;
+    const list = this.days.map(d => d.day);
+    if (today && !list.includes(today)) list.unshift(today);
+    sel.innerHTML = list.map(d => { const x = this.days.find(y => y.day === d); return `<option value="${d}">${d}${d === today ? " · " + t("rc_today") : ""}${x ? ` · ${Evidence.bytes(x.bytes)}` : ""}</option>`; }).join("");
+    const want = this.cur && list.includes(this.cur) ? this.cur : list[0];
+    if (want) { sel.value = want; await this.day(want, force); }
+  },
+  async day(d, force) {
+    if (this.cur !== d || force || !this.data) {
+      this.cur = d;
+      try { this.data = await api("GET", `/api/recordings?day=${encodeURIComponent(d)}`); }
+      catch (e) { $("rcDetail").innerHTML = `<p class="msg bad">${esc(err(e))}</p>`; return; }
+      if (!this.data.people.some(p => p.entry_id === this.sel)) this.sel = (this.data.people.find(p => p.recordings) || {}).entry_id ?? (this.data.other.length ? "other" : null);
+    }
+    this.renderList(); this.renderDetail();
+  },
+  renderList() {
+    const d = this.data; if (!d) return;
+    const q = $("rcFind").value.trim().toLowerCase();
+    const hit = p => !q || String(p.bib || "").toLowerCase() === q || (p.name || "").toLowerCase().includes(q) || (p.name_ar || "").includes(q);
+    const ppl = d.people.filter(hit);
+    $("rcPeople").innerHTML = (ppl.length ? ppl.map(p => `<button type="button" role="option" class="${p.entry_id === this.sel ? "active" : ""}${p.recordings ? "" : " none"}" onclick="Recs.pick(${p.entry_id})">
+        <span class="bib">${esc(p.bib ?? "—")}</span><span>${esc(cname(p))}</span><span class="n">${p.recordings || "–"}</span></button>`).join("")
+      : `<div class="grp">${t(d.people.length ? "rc_no_match" : "rc_nobody")}</div>`)
+      + (d.other.length && !q ? `<button type="button" class="${this.sel === "other" ? "active" : ""}" onclick="Recs.pick('other')"><span class="bib">?</span><span>${t("rc_other")}</span><span class="n">${d.other.length}</span></button>` : "");
+  },
+  pick(id) { this.sel = id; this.renderList(); this.renderDetail(); },
+  chip(clip, label, cls = "") {
+    if (!clip) return `<span class="rcchip gone ${cls}" title="${esc(t("rc_gone"))}">${esc(label)}</span>`;
+    return `<button type="button" class="rcchip ${cls}${this.playing === clip ? " on" : ""}" data-clip="${esc(clip)}" data-label="${esc(label)}" onclick="Recs.play(this.dataset.clip, this.dataset.label)">${esc(label)}</button>`;
+  },
+  renderDetail() {
+    const d = this.data, box = $("rcDetail"); if (!d) return;
+    if (this.sel === "other") {
+      box.innerHTML = `<div class="rcsec"><h3>${t("rc_other")}</h3><p class="hint">${t("rc_other_hint")}</p><div class="rcchips">` +
+        d.other.map(o => o.clip ? this.chip(o.clip, `${t("rc_kind_" + o.kind) || o.kind} · ${new Date(o.at).toLocaleTimeString()}`)
+          : (o.files || []).filter(f => f.endsWith(".mp4")).map(f => this.chip(`${o.folder}/${f}`, `${o.folder.split("/")[1]} · ${f.replace(".mp4", "")}`)).join("")).join("") + `</div></div>`;
+      return;
+    }
+    const p = d.people.find(x => x.entry_id === this.sel);
+    if (!p) { box.innerHTML = `<p class="hint">${t(d.people.length || d.other.length ? "rc_pick_person" : "rc_empty_day")}</p>`; return; }
+    const mmss = x => `${Math.floor(x / 60)}:${String(Math.floor(x % 60)).padStart(2, "0")}`;
+    const sec = (title, inner, hint) => `<div class="rcsec"><h3>${title}</h3>${hint ? `<p class="hint">${hint}</p>` : ""}<div class="rcchips">${inner || `<span class="hint">${t("rc_none")}</span>`}</div></div>`;
+    let html = `<div class="row" style="align-items:baseline"><h3 style="margin:14px 0 0">${esc(p.bib ?? "—")} · ${esc(cname(p))}</h3></div>`;
+    html += sec(t("rc_start"), p.start.map((x, i) => this.chip(x.clip, `${t("rc_start")} ${x.at.slice(11, 19)}`)).join(""));
+    html += sec(t("rc_finish"), p.finish.map(f => this.chip(f.clip, `${t("rc_finish")} ${mmss(f.time_s)}`)).join(""));
+    for (const a of p.attempts) {
+      const saved = a.count != null ? `${t("saved")}: ${a.count}` : t("rc_status_" + a.status) || a.status;
+      const cam = a.auto_count != null && a.auto_count !== a.count ? ` · ${t("rc_camera")}: ${a.auto_count}` : "";
+      const why = a.override_reason ? ` · ${esc(a.override_reason)}` : "";
+      const chips = this.chip(a.full, t("rc_full"), "full") + a.reps.map(r => this.chip(r.clip, `${t("rep")} ${r.index}${r.valid ? "" : " ✕"}`, r.valid ? "ok" : "bad")).join("")
+        + a.redone.map((x, i) => this.chip(x.clip, `${t("rc_redone")} ${i + 1}`)).join("");
+      html += sec(`${t(a.event)} · ${a.started_at ? new Date(a.started_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""}`, chips, `${saved}${cam}${why}`);
+    }
+    box.innerHTML = html;
+  },
+  play(clip, label) {
+    const v = $("rcVideo");
+    v.src = "/api/evidence/" + clip.split("/").map(encodeURIComponent).join("/");
+    v.playbackRate = +(($("rcSpeed").querySelector(".active") || {}).dataset || {}).v || 1;
+    v.play().catch(() => {});
+    this.playing = clip; $("rcCap").textContent = label; $("rcEmpty").classList.add("hidden");
+    $("rcDl").href = v.src; $("rcDl").classList.remove("hidden");
+    this.renderDetail();
+  },
+  pause() { const v = $("rcVideo"); if (v && !v.paused) v.pause(); },
+  frame(n) { const v = $("rcVideo"); if (!v.src) return; v.pause(); v.currentTime = Math.max(0, v.currentTime + n / 30); },
+  open(day) {   // from Settings > Recordings
+    this.cur = day; setMode("advanced");
+    if (mode === "advanced") tab("recordings", $("tabRec"));
+  },
+  init() {
+    $("rcSpeed").querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+      $("rcSpeed").querySelectorAll("button").forEach(x => x.classList.toggle("active", x === b)); $("rcVideo").playbackRate = +b.dataset.v;
+    }));
+    $("rcVideo").addEventListener("error", () => { if ($("rcVideo").getAttribute("src")) $("rcCap").textContent = t("rc_cant_play"); });
+    document.addEventListener("keydown", e => {
+      if ($("t-recordings").classList.contains("hidden") || mode !== "advanced" || settingsOpen) return;
+      const tg = e.target; if (tg && (tg.tagName === "INPUT" || tg.tagName === "SELECT" || tg.tagName === "TEXTAREA")) return;
+      if (e.key === ",") { this.frame(-1); e.preventDefault(); } else if (e.key === ".") { this.frame(1); e.preventDefault(); }
+    });
+  },
+};
+
 // ---- Settings > Recordings: the cameras' evidence, how long it is kept and how much space it may use
 // (src/testpoint/retention.py). The rules run every hour on the server; "Clean up now" runs them at once.
 const Evidence = {
@@ -5260,7 +5411,7 @@ const Evidence = {
       <div class="${nx.items ? "warn" : ""}"><b>${nx.items ? this.bytes(nx.bytes) : "0"}</b><small>${nx.items ? t("ev_next", { n: nx.items }) : t("ev_next_none")}</small></div>`;
     const held = this.held();
     $("evDays").innerHTML = st.days.length ? `<thead><tr><th>${t("ev_day")}</th><th class="n">${t("ev_size")}</th><th class="n">${t("ev_items")}</th><th>${t("ev_keep_day")}</th><th></th></tr></thead><tbody>` +
-      st.days.map(d => `<tr><td>${esc(d.day)}</td><td class="n">${this.bytes(d.bytes)}</td><td class="n">${d.items}</td>
+      st.days.map(d => `<tr><td><a href="#" onclick="event.preventDefault(); Recs.open('${d.day}')" title="${esc(t("rc_watch"))}">${esc(d.day)}</a></td><td class="n">${this.bytes(d.bytes)}</td><td class="n">${d.items}</td>
         <td><input type="checkbox" ${held.has(d.day) ? "checked" : ""} ${d.today ? "disabled" : ""} onchange="Evidence.hold('${d.day}', this.checked)" aria-label="${esc(t("ev_keep_day"))} ${esc(d.day)}"></td>
         <td class="${d.next_cleanup_bytes && !held.has(d.day) ? "gone" : "tag"}">${d.today ? t("ev_today") : held.has(d.day) ? t("ev_held") : d.next_cleanup_bytes ? t("ev_goes", { b: this.bytes(d.next_cleanup_bytes) }) : ""}</td></tr>`).join("") + "</tbody>"
       : `<tbody><tr><td class="tag">${t("ev_none")}</td></tr></tbody>`;
@@ -5600,7 +5751,7 @@ async function savePin(remove) {
   BgFx.attach($("enrolVideo"), $("enrolFx"), "photo"); BgFx.attach($("regVideo"), $("regFx"), "photo");
   BgFx.attach($("camLive-finish").querySelector("img"), $("fxFinish"), "finish");
   BgFx.attach($("camLive-station").querySelector("img"), $("fxStation"), "station");
-  FinishCam.init(); StationCam.init();
+  FinishCam.init(); StationCam.init(); Recs.init();
   for (const v of BgFx.views.values()) BgFx.sync(v);
   $("enrolDlg").addEventListener("close", () => { if (EnrolDlg.stream) EnrolDlg.close(); });   // Esc: release the camera too
 })();
