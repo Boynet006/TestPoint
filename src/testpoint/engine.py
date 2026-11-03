@@ -32,6 +32,8 @@ from .evidence import EvidenceWriter
 from .preview import FramePublisher
 from .vision.counter import Phase, RepCounter, RepCounterConfig
 from .vision.exercises import ANALYZERS, make_analyzer
+from .vision.gesture import pointer
+from .vision.keypoints import Person
 from .vision.lanes import Lane, equal_strips, load_lanes
 from .vision.pose import make_backend
 from .vision.session import MultiLaneResult, MultiLaneSession
@@ -65,6 +67,8 @@ class LaneState:
     """The person holds the exercise's start posture (rest position, no fault)."""
     face: str | None = None
     """The face embedding (base64) of the person on the mat, while nobody is being tested; sent once."""
+    hand: tuple[float, float] | None = None
+    """Where their raised hand points (vision.gesture.pointer), for choosing on the screen."""
 
 
 def rep_depth(metric: float | None, cfg: RepCounterConfig | None) -> float | None:
@@ -129,6 +133,7 @@ class Reporter:
                 # in the start position: the counter's own judgement (it reads the body as calibrated;
                 # the raw thresholds alone do not match until it has learned from a few reps)
                 lane.ready = bool(r.person is not None and r.phase == Phase.REST and not r.metrics.faults)
+                lane.hand = pointer(r.person) if isinstance(r.person, Person) and lane.exercise else None
                 if r.event is not None:
                     ev = {"index": r.event.index, "valid": r.event.valid,
                           "faults": list(r.event.faults),
@@ -152,7 +157,8 @@ class Reporter:
                            "work_seconds": lane.work_seconds, "depth": lane.depth, "events": list(lane.events),
                            **({"calib": lane.calib} if lane.calib else {}),
                            **({"exercise": lane.exercise, "ready": lane.ready} if lane.exercise else {}),
-                           **({"face": lane.face} if lane.face else {})}
+                           **({"face": lane.face} if lane.face else {}),
+                           **({"hand": list(lane.hand)} if lane.hand else {})}
                     for name, lane in self.lanes.items()
                 },
             }
