@@ -167,8 +167,11 @@ class StationFlow:
             if now - self.last_seen > AWAY_S:
                 self._to("idle", now, reason="stepped_away")
                 return acts
-            self.hand = look.hand
-            on = choice_at(look.hand)
+            h = look.hand
+            if h is not None and self.hand is not None:   # a little smoothing: the pose shakes a few pixels
+                h = (round(0.5 * self.hand[0] + 0.5 * h[0], 3), round(0.5 * self.hand[1] + 0.5 * h[1], 3))
+            self.hand = h
+            on = choice_at(h)
             if on is None or on != self.hover:
                 self.hover, self.hover_since = on, (now if on else None)
             elif now - self.hover_since >= CHOOSE_DWELL_S:

@@ -182,6 +182,8 @@ class CamProcess:
         self.config: dict | None = None
         self.cmd: list[str] | None = None
         self.since: float | None = None
+        self.freed_by: str | None = None
+        """The camera program that took this one's webcam (it was stopped for it), until started again."""
         self.lock = threading.Lock()
 
     def start(self, cmd: list[str], config: dict) -> dict:
@@ -191,6 +193,7 @@ class CamProcess:
             if self.proc is not None and self.proc.poll() is None and cmd == self.cmd and config == self.config:
                 return self.status()
             self._stop()
+            self.freed_by = None
             self.log_dir.mkdir(parents=True, exist_ok=True)
             flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
             out = open(self.log, "w", encoding="utf-8", errors="replace")
@@ -224,7 +227,8 @@ class CamProcess:
             lines = [clean(ln) for ln in self.log.read_text(encoding="utf-8", errors="replace").splitlines()]
             tail = [ln for ln in lines if ln and ":onnxruntime:" not in ln and not ln.startswith("onnxruntime::")][-6:]   # GPU-library chatter
         return {"running": running, "config": self.config, "since": self.since,
-                "exit_code": None if p is None or running else p.poll(), "log": tail}
+                "exit_code": None if p is None or running else p.poll(), "log": tail,
+                **({"freed_by": self.freed_by} if self.freed_by and not running else {})}
 
 
 def device() -> str:
@@ -293,6 +297,26 @@ def create_service(log_dir: Path | None = None, runner=subprocess.Popen) -> Fast
     startcam = CamProcess("startcam", logs, runner=runner)
     weighcam = CamProcess("weighcam", logs, runner=runner)
     cache: dict = {"at": 0.0, "cameras": []}
+    procs = {"finish": finish, "station": station, "start": startcam, "weigh": weighcam}
+
+    def take_webcam(body, me: CamProcess) -> list[str]:
+        """One webcam serves one program: another camera program on the same webcam would get
+        only black pictures. The screen starting it now wins; the others using it are stopped
+        (their screens say so)."""
+        if body.kind != "webcam":
+            return []
+        freed, mine = [], next(n for n, p in procs.items() if p is me)
+        for name, p in procs.items():
+            c = p.config or {}
+            if p is not me and p.status()["running"] and c.get("kind") == "webcam" and str(c.get("source")) == str(body.source):
+                p.stop()
+                p.freed_by = mine
+                freed.append(name)
+        return freed
+
+    def started(me: CamProcess, cmd: list[str], config: dict, body) -> dict:
+        freed = take_webcam(body, me)
+        return me.start(cmd, config) | ({"freed": freed} if freed else {})
 
     @app.get("/health")
     def health() -> dict:
@@ -316,7 +340,7 @@ def create_service(log_dir: Path | None = None, runner=subprocess.Popen) -> Fast
     @app.post("/finish/start")
     def finish_start(body: StartIn) -> dict:
         check_source(body)
-        return finish.start(finish_command(body), body.model_dump())
+        return started(finish, finish_command(body), body.model_dump(), body)
 
     @app.post("/finish/stop")
     def finish_stop() -> dict:
@@ -335,7 +359,7 @@ def create_service(log_dir: Path | None = None, runner=subprocess.Popen) -> Fast
         logs.mkdir(parents=True, exist_ok=True)
         lanes_file = logs / "station_lanes.json"
         lanes_file.write_text(json.dumps({"lanes": rects}, indent=2), encoding="utf-8")
-        return station.start(station_command(body, lanes_file), {**body.model_dump(), "rects": rects})
+        return started(station, station_command(body, lanes_file), {**body.model_dump(), "rects": rects}, body)
 
     @app.post("/station/stop")
     def station_stop() -> dict:
@@ -349,7 +373,7 @@ def create_service(log_dir: Path | None = None, runner=subprocess.Popen) -> Fast
     @app.post("/startcam/start")
     def startcam_start(body: SourceIn) -> dict:
         check_source(body)
-        return startcam.start(start_command(body), body.model_dump())
+        return started(startcam, start_command(body), body.model_dump(), body)
 
     @app.post("/startcam/stop")
     def startcam_stop() -> dict:
@@ -363,7 +387,7 @@ def create_service(log_dir: Path | None = None, runner=subprocess.Popen) -> Fast
     @app.post("/weighcam/start")
     def weighcam_start(body: SourceIn) -> dict:
         check_source(body)
-        return weighcam.start(weigh_command(body), body.model_dump())
+        return started(weighcam, weigh_command(body), body.model_dump(), body)
 
     @app.post("/weighcam/stop")
     def weighcam_stop() -> dict:

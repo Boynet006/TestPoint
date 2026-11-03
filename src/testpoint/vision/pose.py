@@ -61,6 +61,11 @@ class RTMLibBackend:
                     out.append(prov)
         return out
 
+    def forget(self) -> None:
+        """The picture jumped (a test video moved or started again): find the people afresh on the
+        next frame instead of following where they were before the jump."""
+        self._boxes = None
+
     def detect(self, frame_bgr: np.ndarray) -> list[Person]:
         self._since_detect += 1
         if self._boxes is None or not len(self._boxes) or self._since_detect >= self.detect_every:

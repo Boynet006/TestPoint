@@ -232,3 +232,18 @@ def test_the_finish_screens_player_reaches_the_cameras_test_video(tmp_path):
     pub.attach_player(P())
     pub._player_cmd(json.dumps(cmd)); pub._player_cmd(json.dumps(cmd))
     assert seen == ["pause"] and pub.keepalive_s == 0.25
+
+
+def test_the_station_video_cannot_go_back_while_a_test_is_counted(tmp_path):
+    app = create_app(db_url=f"sqlite:///{tmp_path / 'a.db'}", web_dir="does-not-exist")
+    c = TestClient(app)
+    report = lambda attempt: c.post("/api/engine/report", json={"station": "exercise", "player": {"t": 5.0, "paused": False},
+                                                                "lanes": {"S": {"person": True, "attempt_id": attempt}}})
+    report(None)
+    assert c.post("/api/player/station", json={"action": "seek", "t": 1.0}).status_code == 200   # nobody counted: free
+    report(7)
+    r = c.post("/api/player/station", json={"action": "seek", "t": 1.0})
+    assert r.status_code == 409 and r.json()["detail"]["code"] == "no_back_in_test"   # its reps would count again
+    assert c.post("/api/player/station", json={"action": "step", "n": -1}).status_code == 409
+    assert c.post("/api/player/station", json={"action": "seek", "t": 8.0}).status_code == 200    # forward is fine
+    assert c.post("/api/player/station", json={"action": "pause"}).status_code == 200

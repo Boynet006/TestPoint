@@ -260,8 +260,11 @@ def test_a_raised_hand_points_as_in_a_mirror():
         return Person(xy=xy, conf=conf)
     body = {5: (120, 100), 6: (80, 100), 11: (115, 200), 12: (85, 200)}   # facing the camera: their left is image right
     arms_down = person({**body, 9: (125, 230), 10: (75, 230)})
-    assert pointer(arms_down) is None
-    x, y = pointer(person({**body, 9: (125, 230), 10: (20, 60)}))           # right hand up and out to their right
+    assert pointer(arms_down, (200, 300)) is None
+    x, y = pointer(person({**body, 9: (125, 230), 10: (20, 60)}), (200, 300))           # right hand up and out to their right
     assert x > 0.6 and y < 0.5
-    x, _ = pointer(person({**body, 9: (180, 60), 10: (75, 230)}))           # left hand out to their left
+    x, _ = pointer(person({**body, 9: (180, 60), 10: (75, 230)}), (200, 300))           # left hand out to their left
     assert x < 0.4
+    near = {5: (120, 100), 6: (80, 100)}                                     # hips out of the picture: the shoulders give the scale
+    x, y = pointer(person({**near, 10: (30, 70)}), (200, 300))
+    assert x > 0.6 and y < 0.6

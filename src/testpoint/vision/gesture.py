@@ -40,27 +40,23 @@ def hand_raised(p: Person) -> str | None:
     return up[0] if len(up) == 1 else "both" if up else None
 
 
-POINT_REACH = 1.4
-"""The cursor's reach either side of the shoulders, in torso lengths: an easy sweep of the arm
-covers the screen, without stretching."""
-
-
-def pointer(p: Person) -> tuple[float, float] | None:
-    """Where a raised hand points on the screen the person faces: (x, y), each 0..1, as in a
-    mirror (their right hand moved to their right moves it right). Measured from the person's own
-    shoulders, so it works wherever they stand. The higher hand points; None while both hands
-    are down (below the middle of the chest)."""
+def pointer(p: Person, size: tuple[int, int]) -> tuple[float, float] | None:
+    """Where a raised hand is on the screen that shows the camera's picture as a mirror: (x, y),
+    each 0..1 of the picture (``size``: its width and height). The cursor sits on the hand the
+    person sees there, so left and right are never the wrong way round. The higher hand points;
+    None while both hands are down (below the middle of the chest)."""
     t = torso(p)
+    if t is None and _ok(p, L_SHOULDER, R_SHOULDER):   # close to the camera, hips out of the picture:
+        t = 1.3 * float(np.linalg.norm(p.xy[L_SHOULDER] - p.xy[R_SHOULDER])) or None   # the shoulders give the scale
     if t is None:
         return None
-    cx, cy = (p.xy[L_SHOULDER] + p.xy[R_SHOULDER]) / 2
+    cy = float(p.xy[L_SHOULDER][1] + p.xy[R_SHOULDER][1]) / 2
     up = [p.xy[w] for w in (L_WRIST, R_WRIST) if float(p.conf[w]) >= MIN_CONF and p.xy[w][1] < cy + 0.5 * t]
     if not up:
         return None
     wx, wy = min(up, key=lambda xy: xy[1])
-    x = 0.5 - (wx - cx) / (2 * POINT_REACH * t)       # image x grows to the person's left
-    y = (wy - (cy - 1.2 * t)) / (1.7 * t)             # above the head: 0, the middle of the chest: 1
-    return round(min(1.0, max(0.0, float(x))), 3), round(min(1.0, max(0.0, float(y))), 3)
+    w, h = size
+    return round(min(1.0, max(0.0, 1.0 - float(wx) / w)), 3), round(min(1.0, max(0.0, float(wy) / h)), 3)
 
 
 def box(p: Person, min_conf: float = 0.3) -> tuple[float, float, float, float] | None:

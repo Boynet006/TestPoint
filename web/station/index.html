@@ -547,14 +547,23 @@
   .rcard td.v { font-family: var(--cond); font-size: 30px; font-weight: 700; text-align: end; }
   /* start line run by its camera: what the runner at the mark is asked to do, readable from metres away */
   .callbox { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center; margin-top: 12px; padding: 16px 18px; background: var(--bg2); border: 1px solid var(--line); border-inline-start: 6px solid var(--muted); }
-  .choose { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 16%; margin: 14px 0 8px; }   /* the gap: the cursor between them picks nothing */
-  .choose .ch { position: relative; min-height: 150px; overflow: hidden; background: var(--bg); color: var(--text); border: 3px solid var(--line); cursor: pointer;
-    font-family: var(--cond); font-size: 40px; font-weight: 800; letter-spacing: 1px; transition: border-color .15s, transform .15s; }
-  .choose .ch.on { border-color: var(--amber); transform: scale(1.03); }
-  .choose .ch::after { content: ""; position: absolute; left: 0; bottom: 0; height: 10px; width: calc(var(--p, 0) * 100%); background: var(--amber); transition: width .12s linear; }
-  .choose .ch-cursor { position: absolute; z-index: 2; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; pointer-events: none;
-    border: 4px solid var(--amber); background: color-mix(in srgb, var(--amber) 35%, transparent); box-shadow: 0 0 18px var(--amber); transition: left .12s linear, top .12s linear; }
-  .choose .ch-cursor.hidden { display: none; }
+  .chooseov { position: fixed; inset: 0; z-index: 60; background: #000; --ar: 1.7778; }
+  .chooseov.hidden { display: none; }
+  .cov-stage { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(100vw, calc(100vh * var(--ar))); aspect-ratio: var(--ar); overflow: hidden; }
+  .cov-pic { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; transform: scaleX(-1); opacity: .55; }   /* a mirror */
+  .cov-ch { position: absolute; top: 0; bottom: 0; width: 42%; display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden;
+    background: color-mix(in srgb, var(--bg) 35%, transparent); border: 4px solid color-mix(in srgb, var(--text) 30%, transparent); color: #fff; transition: background .15s, border-color .15s; }
+  .cov-ch.l { left: 0; } .cov-ch.r { right: 0; }   /* the middle 16%: the cursor there picks nothing */
+  .cov-ch b { font-family: var(--cond); font-weight: 800; font-size: clamp(40px, 7vw, 120px); letter-spacing: 2px; text-shadow: 0 2px 16px #000; }
+  .cov-ch.on { border-color: var(--amber); background: color-mix(in srgb, var(--amber) 22%, transparent); }
+  .cov-ch::after { content: ""; position: absolute; left: 0; bottom: 0; height: 18px; width: calc(var(--p, 0) * 100%); background: var(--amber); transition: width .1s linear; }
+  .cov-cursor { position: absolute; z-index: 2; width: 72px; height: 72px; margin: -36px 0 0 -36px; border-radius: 50%; pointer-events: none;
+    border: 6px solid var(--amber); background: color-mix(in srgb, var(--amber) 40%, transparent); box-shadow: 0 0 28px var(--amber); }
+  .cov-cursor.hidden { display: none; }
+  .cov-top { position: absolute; top: 0; left: 0; right: 0; padding: 18px 24px; text-align: center; pointer-events: none; background: linear-gradient(#000c, transparent); }
+  .cov-who { font-family: var(--cond); font-size: 26px; color: #ddd; } .cov-say { font-family: var(--cond); font-size: clamp(36px, 5vw, 72px); font-weight: 800; color: var(--amber); }
+  .cov-how { color: #eee; font-size: 18px; }
+  .cov-reset { position: absolute; right: 16px; bottom: 16px; z-index: 3; }
   .callbox img { width: 96px; height: 120px; object-fit: cover; border-radius: 4px; background: var(--bg); }
   .callbox .c-who { font-family: var(--cond); font-size: 22px; color: var(--muted); }
   .callbox .c-say { font-family: var(--cond); font-size: 46px; font-weight: 800; line-height: 1.05; }
@@ -1735,6 +1744,9 @@ const I18N = {
     set_match: "Face match", match_normal: "Normal", match_strict: "Strict",
     set_match_hint: "Strict: fewer automatic matches, even less chance of a wrong one. Use when look-alikes (e.g. relatives) are tested together.",
     set_face_req: "Require face check-in", set_face_req_hint: "People with a face on file cannot be checked in at weigh-in by typing their bib or ID.",
+    cam_taken: "The webcam is now used by the {by} camera. Start the camera here to take it back.", cam_freed: "(The webcam was taken from the {by} camera.)",
+    cam_by_finish: "finish line", cam_by_station: "exercise station", cam_by_start: "start line", cam_by_weigh: "weigh-in",
+    vb_no_back: "Not back during a test: its reps would count again", e_no_back_in_test: "A test is being counted: the video cannot go back (its reps would count again).",
     e_not_choosing: "Nobody is choosing a test now.", st_choose: "Choose your first test", st_choose_how: "Raise a hand: the circle follows it. Hold it on one test.", st_choose_left: "{n} s, then {ex}.",
     set_choose_first: "People choose their first test", set_choose_first_hint: "One mat: with both tests still to do, the person picks push-ups or crunches first with a raised hand (a circle follows it; held on one test 1.5 s). Off: push-ups first.",
     ph_date: "dd-mm-yyyy", pick_date: "Pick a date", fc_setup: "Finish line set-up", fc_setup_hint: "Colour key, line position, runners' direction.",
@@ -2134,6 +2146,9 @@ const I18N = {
     set_match: "مطابقة الوجه", match_normal: "عادية", match_strict: "صارمة",
     set_match_hint: "صارمة: مطابقات تلقائية أقل، واحتمال خطأ أقل. استخدمها عند اختبار أشخاص متشابهين (مثل الأقارب) معاً.",
     set_face_req: "إلزام التحقق بالوجه", set_face_req_hint: "من له وجه مسجل لا يمكن تسجيله عند الوزن بكتابة رقمه أو هويته.",
+    cam_taken: "كاميرا الويب تستخدمها الآن كاميرا {by}. شغّل الكاميرا هنا لاستعادتها.", cam_freed: "(أُخذت كاميرا الويب من كاميرا {by}.)",
+    cam_by_finish: "خط النهاية", cam_by_station: "محطة التمارين", cam_by_start: "خط البداية", cam_by_weigh: "الوزن",
+    vb_no_back: "لا رجوع أثناء الاختبار: ستُحسب العدّات مرة أخرى", e_no_back_in_test: "يُعدّ اختبار الآن: لا يمكن إرجاع الفيديو (ستُحسب العدّات مرة أخرى).",
     e_not_choosing: "لا أحد يختار اختباراً الآن.", st_choose: "اختر اختبارك الأول", st_choose_how: "ارفع يدك: الدائرة تتبعها. أبقِها على اختبار واحد.", st_choose_left: "{n} ث، ثم {ex}.",
     set_choose_first: "يختار الشخص اختباره الأول", set_choose_first_hint: "بساط واحد: إذا بقي الاختباران، يختار الشخص الضغط أو البطن أولاً برفع يده (دائرة تتبعها؛ يبقيها على اختبار 1.5 ث). إيقاف: الضغط أولاً.",
     ph_date: "يوم-شهر-سنة", pick_date: "اختر تاريخاً", fc_setup: "إعداد خط النهاية", fc_setup_hint: "دليل الألوان، موضع الخط، اتجاه العدّائين.",
@@ -2640,6 +2655,8 @@ async function freeWebcam() {
   }
   await new Promise(r => setTimeout(r, 800));
 }
+// a camera started here took the webcam from another screen's camera: said in the message
+const camFreed = st => (st && st.freed && st.freed.length ? " " + t("cam_freed", { by: st.freed.map(x => t("cam_by_" + x)).join(", ") }) : "");
 const Cam = {
   kind: load("camKind", ""), stream: null, fileName: "",
   // Each screen keeps its own camera: the start line its IP camera, the desks their webcam.
@@ -2795,7 +2812,13 @@ const StartCam = {
       const r = await fetch(`/api/engine/frame/${c.station}.jpg`, { cache: "no-store" }).catch(() => null);
       if (r && r.ok) {
         const img = $("camImg");
-        img.onerror = () => { if (!Cam.relayed()) return; this.live = false; Cam.show(); this.retry = setTimeout(() => { if (Cam.relayed() && role === mine) (Cam.kind === "webcam" ? Cam.use("webcam") : this.attach()); }, 3000); };
+        img.onerror = () => { if (!Cam.relayed()) return; this.live = false; Cam.show(); this.retry = setTimeout(async () => {
+          if (!(Cam.relayed() && role === mine)) return;
+          // another screen took the webcam: say so, and do not take it back by itself (they would take turns)
+          const st = await api("GET", c.api).catch(() => null);
+          if (st && st.freed_by) { msg(c.box, "warn", t("cam_taken", { by: t("cam_by_" + st.freed_by) })); return; }
+          Cam.kind === "webcam" ? Cam.use("webcam") : this.attach();
+        }, 3000); };
         img.src = `/api/engine/stream/${c.station}?t=${Date.now()}`;
         this.live = true; msg(c.box); Cam.show(); return;
       }
@@ -3763,7 +3786,7 @@ const FinishCam = {
     this.busy = true; this.render();
     try {
       this.st = { available: true, ...(await api("POST", "/api/finishcam/start", { kind: k, source, line_y: $("fcLineY").value / 100, direction: $("fcDir").value, app_url: location.origin, loop: k === "video" && this.pref.loop !== false })) };
-      msg("fcMsg", "ok", t("fc_started"));
+      msg("fcMsg", "ok", t("fc_started") + camFreed(this.st));
     } catch (e) { msg("fcMsg", "bad", err(e)); }
     finally { this.busy = false; this.render(); }
   },
@@ -3958,7 +3981,7 @@ const StationCam = {
     try {
       this.st = { available: true, ...(await api("POST", "/api/stationcam/start", { ...use, exercise: this.exercise(), lanes: lanes.length, dividers: this.dividers(), app_url: location.origin, loop: use.kind === "video" && this.pref.loop !== false })) };
       this.startingSaid = true;
-      msg("scMsg", "ok", t(auto ? "sc_followed" : "sc_started", { ex: t(event), n: lanes.length }));
+      msg("scMsg", "ok", t(auto ? "sc_followed" : "sc_started", { ex: t(event), n: lanes.length }) + camFreed(this.st));
       $("scDivs").innerHTML = "";
     } catch (e) { msg("scMsg", "bad", err(e)); }
     finally { this.busy = false; this.render(); }
@@ -4091,16 +4114,18 @@ function makePlayer(o) {
     flash(play ? "play" : "pause");
     o.send({ action: play ? "play" : "pause" });
   }
+  const noBack = () => { if (o.noBack && o.noBack()) { toast(t("vb_no_back")); poke(); return true; } return false; };
   function seekTo(x, quiet) {
     if (!st) return;
     const to = Math.max(0, st.duration ? Math.min(x, st.duration) : x);
+    if (to < now() - 0.5 && noBack()) return;   // a test is counted: its reps would count again
     local({ t: to, ended: false });
     if (!quiet) toast(fmt(to));
     o.send({ action: "seek", t: to });
   }
   function seekBy(sec) { seekTo(now() + sec, true); flash(sec < 0 ? "rw" : "ff"); toast(`${sec > 0 ? "+" : "−"}${Math.abs(sec)} s`); }
   function step(n) {
-    if (!st) return;
+    if (!st || (n < 0 && noBack())) return;
     local({ t: Math.max(0, now() + n / (st.fps || 30)), paused: true, ended: false });
     toast(t(n < 0 ? "vb_frame_back" : "vb_frame_fwd").replace(/\s*\(.*\)$/, ""));
     o.send({ action: "step", n });
@@ -4130,6 +4155,7 @@ const toCamera = (station, msgId) => async cmd => {
 };
 const VidCtl = makePlayer({   // the exercise station
   box: "vidBar", wrap: "scView", send: toCamera("station", "scMsg"),
+  noBack: () => lanes.some(l => l.state === "running") || (StationCall.v && StationCall.v.state === "testing"),
   shown: () => { const c = StationCam.st && StationCam.st.config; return role === "station" && !!(StationCam.st && StationCam.st.running && c && c.kind === "video") && !$("camLive-station").classList.contains("hidden"); },
 });
 const FinPlayer = makePlayer({   // the finish line
@@ -4808,7 +4834,11 @@ const StationCall = {
   active: () => role === "station" && mode === "simple" && oneMat(),
   async poll() {
     const box = $("xCall");
-    if (!this.active()) { box.classList.add("hidden"); this.sig = ""; return; }
+    if (!this.active()) {   // another screen, Advanced or Settings: nothing of the station stays on top
+      box.classList.add("hidden"); this.sig = ""; Choose.show(null);
+      if (this.fast) { clearInterval(this.fast); this.fast = null; }
+      return;
+    }
     if (this.busy) return; this.busy = true;
     try { this.v = await api("GET", "/api/stationflow"); } catch { this.v = null; } finally { this.busy = false; }
     this.render();
@@ -4825,9 +4855,7 @@ const StationCall = {
       // two big targets, the cursor that follows the raised hand, and a bar that fills while it is held
       // on one; laid out left to right whatever the language (it matches the hand, not the text)
       cls = "ask";
-      body = `<div><div class="c-who">${who}</div><div class="c-say">${esc(t("st_choose"))}</div>`
-        + `<div class="choose" dir="ltr">${(v.choices || []).map(x => `<button type="button" class="ch" data-ex="${x}" onclick="StationCall.choose('${x}')"><b>${esc(t(x).toUpperCase())}</b></button>`).join("")}<div class="ch-cursor hidden"></div></div>`
-        + `<div class="hint">${esc(t("st_choose_how"))} <span class="ch-left"></span></div></div>`;
+      body = `<div><div class="c-who">${who}</div><div class="c-say">${esc(t("st_choose"))}</div><div class="hint">${esc(t("st_choose_how"))}</div></div>`;
     } else if (v.state === "position") {
       cls = "ask";
       body = `<div><div class="c-who">${who}</div><div class="c-say">${esc(ex)}: ${esc(t(v.ready ? "st_hold" : "st_position"))}</div>${v.reason ? `<div class="hint">${esc(t("st_" + v.reason))}</div>` : ""}</div>`;
@@ -4865,9 +4893,9 @@ const StationCall = {
     if (!box.querySelector(".cb-acts")) { box.innerHTML = `<div class="cb-main" style="display:contents"></div><div class="cb-acts" style="grid-column:1/-1;text-align:end"></div>`; this.sig = this.acts = ""; }
     if (sig !== this.sig) { box.className = "callbox " + cls; box.querySelector(".cb-main").innerHTML = html; this.sig = sig; }
     if (acts !== this.acts) { box.querySelector(".cb-acts").innerHTML = acts; this.acts = acts; }
-    if (v.state === "choose") this.chooseLive(v);
-    // while someone chooses, the cursor is asked for more often, so it follows the hand smoothly
-    if (v.state === "choose" && !this.fast) this.fast = setInterval(() => this.poll(), 120);
+    Choose.show(v.state === "choose" ? v : null);
+    // while someone chooses, the cursor is asked for more often, so it follows the hand
+    if (v.state === "choose" && !this.fast) this.fast = setInterval(() => this.poll(), 80);
     if (v.state !== "choose" && this.fast) { clearInterval(this.fast); this.fast = null; }
     if (v.state !== this.last) {
       if (v.state === "position" || v.state === "choose") Sound.chime();
@@ -4875,17 +4903,6 @@ const StationCall = {
       if (v.state === "done") { Signal.end(); refresh(); if (e && e.done && e.done.length >= 2) setTimeout(() => ResultsCard.show(e.id), 4000); }
     }
     this.last = v.state;
-  },
-  chooseLive(v) {   // only what moves: rebuilding the targets would lose a tap on them
-    const box = $("xCall"), cur = box.querySelector(".ch-cursor"); if (!cur) return;
-    cur.classList.toggle("hidden", !v.hand);
-    if (v.hand) { cur.style.left = v.hand[0] * 100 + "%"; cur.style.top = v.hand[1] * 100 + "%"; }
-    box.querySelectorAll(".choose .ch").forEach(b => {
-      const on = b.dataset.ex === v.hover;
-      b.classList.toggle("on", on); b.style.setProperty("--p", on ? v.dwell || 0 : 0);
-    });
-    const left = v.choose_ends_at ? Math.max(0, Math.ceil((Date.parse(v.choose_ends_at) - serverNow()) / 1000)) : null;
-    box.querySelector(".ch-left").textContent = left != null ? t("st_choose_left", { n: left, ex: t((v.choices || [])[0] || "pushup") }) : "";
   },
   async choose(ex) {
     try { await api("POST", `/api/stationflow/choose/${ex}`); msg("xMsg"); } catch (e) { msg("xMsg", "bad", err(e)); }
@@ -4922,6 +4939,62 @@ const StationCall = {
       try { await api("POST", `/api/attempts/${id}/redo`); refresh(); } catch (e) { msg("scMsg", "bad", err(e)); }
       this.poll();
     });
+  },
+};
+
+// ---- choosing the first test, on the whole screen: the station camera's picture as a mirror, the two
+// tests as its left and right halves, and a cursor on the raised hand (it glides between reports).
+// Held on one half, a bar fills; full, it is chosen (api/station.py decides). A tap chooses too.
+const Choose = {
+  v: null, at: [0.5, 0.5], to: null, raf: 0, built: false,
+  build() {
+    if (this.built) return; this.built = true;
+    const o = document.createElement("div");
+    o.id = "chooseOv"; o.className = "chooseov hidden"; o.dir = "ltr";   // left and right are the hand's, not the language's
+    o.innerHTML = `<div class="cov-stage"><img class="cov-pic" alt="">${["pushup", "crunch"].map((x, k) => `<button type="button" class="cov-ch ${k ? "r" : "l"}" data-ex="${x}" onclick="StationCall.choose('${x}')"><b></b></button>`).join("")}<div class="cov-cursor hidden"></div></div>`
+      + `<div class="cov-top"><div class="cov-who"></div><div class="cov-say"></div><div class="cov-how"></div></div>`
+      + `<button type="button" class="btn ghost sm cov-reset" onclick="StationCall.reset()"></button>`;
+    document.body.append(o);
+    o.querySelector(".cov-pic").addEventListener("load", e => {
+      const im = e.target; if (im.naturalWidth) o.style.setProperty("--ar", im.naturalWidth / im.naturalHeight);
+    });
+  },
+  show(v) {
+    this.build();
+    const o = $("chooseOv"), on = !!v && role === "station" && mode === "simple" && !settingsOpen;
+    if (!on) {
+      if (!o.classList.contains("hidden")) { o.classList.add("hidden"); o.querySelector(".cov-pic").removeAttribute("src"); cancelAnimationFrame(this.raf); this.raf = 0; }
+      this.v = null; return;
+    }
+    if (o.classList.contains("hidden")) {   // opening: the live picture, as a mirror
+      o.classList.remove("hidden");
+      o.querySelector(".cov-pic").src = `/api/engine/stream/exercise?t=${Date.now()}`;
+      this.at = v.hand ? [...v.hand] : [0.5, 0.5];
+    }
+    this.v = v; this.to = v.hand;
+    const e = v.entry;
+    o.querySelector(".cov-who").textContent = e ? `${e.bib ?? ""} · ${cname(e)}` : "";
+    o.querySelector(".cov-say").textContent = t("st_choose");
+    const left = v.choose_ends_at ? Math.max(0, Math.ceil((Date.parse(v.choose_ends_at) - serverNow()) / 1000)) : null;
+    o.querySelector(".cov-how").textContent = t("st_choose_how") + (left != null ? " " + t("st_choose_left", { n: left, ex: t((v.choices || [])[0] || "pushup") }) : "");
+    o.querySelector(".cov-reset").textContent = t("st_reset");
+    o.querySelectorAll(".cov-ch").forEach(b => {
+      b.querySelector("b").textContent = t(b.dataset.ex).toUpperCase();
+      const hover = b.dataset.ex === v.hover;
+      b.classList.toggle("on", hover); b.style.setProperty("--p", hover ? v.dwell || 0 : 0);
+    });
+    if (!this.raf) this.raf = requestAnimationFrame(() => this.glide());
+  },
+  glide() {   // the cursor moves a part of the way each frame: smooth, and at the hand within a tenth of a second
+    this.raf = 0;
+    const o = $("chooseOv"); if (!this.v || o.classList.contains("hidden")) return;
+    const c = o.querySelector(".cov-cursor");
+    c.classList.toggle("hidden", !this.to);
+    if (this.to) {
+      this.at = [this.at[0] + (this.to[0] - this.at[0]) * 0.35, this.at[1] + (this.to[1] - this.at[1]) * 0.35];
+      c.style.left = this.at[0] * 100 + "%"; c.style.top = this.at[1] * 100 + "%";
+    }
+    this.raf = requestAnimationFrame(() => this.glide());
   },
 };
 
