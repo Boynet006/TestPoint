@@ -235,6 +235,7 @@ SETTINGS: dict[str, object] = {
     "evidence_max_gb": 0,        # the evidence folder's ceiling in GB; 0 = no ceiling
     "evidence_min_free_gb": 5,   # keep at least this much disk free; 0 = no floor
     "evidence_held_days": [],    # days kept whatever the rules say (an appeal, an investigation)
+    "camera_sources": ["webcam", "video", "photo", "ipcam"],   # the camera choices shown on every screen (testing sources can be hidden)
     "theme": "night",            # colours of every screen: night, desert, desert_night, desert_sand, daylight, track, falcon, neural, mirage or desert_stars (a device may pick its own)
 }
 # Face match thresholds: similarity needed, and the lead over the second-best person.
@@ -280,7 +281,7 @@ def set_background(db: Session, day: Day, data: bytes | None) -> None:
 
 
 CAMERAS_KEY = "camera_urls"
-CAMERAS = ("start", "finish", "station")
+CAMERAS = ("weigh", "start", "finish", "station")
 """The IP cameras' addresses (rtsp://user:password@ip/...), saved once in Settings. Kept apart from
 the settings every device reads: a screen only ever gets them with the password hidden, and the
 server puts the real address in when it starts a camera."""

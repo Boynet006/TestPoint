@@ -91,7 +91,7 @@ function Stop-CamHost {
     # Any camera process of TestPoint still running (started by hand, or left behind): the camera
     # service, the finish camera and the station engine all go, so the webcams are free again.
     $left = @(Get-CimInstance Win32_Process -Filter "Name='python.exe'" -ErrorAction SilentlyContinue |
-        Where-Object { $_.CommandLine -match 'testpoint\.(camhost|finishcam|engine)' })
+        Where-Object { $_.CommandLine -match 'testpoint\.(camhost|finishcam|startcam|engine)' })
     foreach ($p in $left) { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue; $stopped = $true }
     if ($stopped) { Say 'Camera service and cameras stopped.' 'Green' }
 }

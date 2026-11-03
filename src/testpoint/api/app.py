@@ -126,6 +126,7 @@ class SettingsIn(BaseModel):
     auto_identify: bool | None = None
     camera_background: Literal["off", "blur", "backdrop", "image"] | None = None
     camera_bg_places: list[Literal["weigh", "start", "photo", "finish", "station"]] | None = Field(default=None, max_length=5)
+    camera_sources: list[Literal["webcam", "video", "photo", "ipcam"]] | None = Field(default=None, min_length=1, max_length=4)
     backdrop_color: str | None = Field(default=None, pattern=r"^#[0-9a-fA-F]{6}$")
     face_match: Literal["normal", "strict"] | None = None
     face_required: bool | None = None
@@ -180,6 +181,7 @@ class StartIn(BaseModel):
 
 class CamerasIn(BaseModel):
     """Camera addresses for Settings > Cameras: empty removes, missing keeps."""
+    weigh: str | None = Field(default=None, max_length=500)
     start: str | None = Field(default=None, max_length=500)
     finish: str | None = Field(default=None, max_length=500)
     station: str | None = Field(default=None, max_length=500)
@@ -1157,6 +1159,22 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     @app.post("/api/startcam/stop")
     def startcam_stop() -> dict:
         return _camhost("POST", "/startcam/stop", {}, timeout=10.0)
+
+    # the weigh-in desk's IP camera: its picture relayed for face check-in (startcam, picture only)
+    @app.get("/api/weighcam")
+    def weighcam_status() -> dict:
+        try:
+            return {"available": True, **_shown(_camhost("GET", "/weighcam", timeout=2.0))}
+        except S.ServiceError as e:
+            return {"available": False, "running": False, "reason": e.code}
+
+    @app.post("/api/weighcam/start")
+    def weighcam_start(body: StartCamIn, request: Request, db: Session = Depends(get_db)) -> dict:
+        return _shown(_camhost("POST", "/weighcam/start", _source(db, "weigh", body.model_dump()) | {"app_url": _loopback(request)}, timeout=10.0))
+
+    @app.post("/api/weighcam/stop")
+    def weighcam_stop() -> dict:
+        return _camhost("POST", "/weighcam/stop", {}, timeout=10.0)
 
     # --------------------------------------------------------------- start line
     # The start camera recognises the runner at the mark, asks for a raised hand, and starts

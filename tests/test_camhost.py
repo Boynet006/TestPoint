@@ -295,3 +295,11 @@ def test_camera_addresses_saved_in_settings_never_show_the_password(svc, tmp_pat
     finally:
         server.should_exit = True
         th.join(timeout=5)
+
+
+
+def test_weigh_in_ip_camera_only_relays_its_picture():
+    from testpoint.camhost import SourceIn, weigh_command
+    cmd = weigh_command(SourceIn(kind="url", source="rtsp://u:p@10.0.0.5/s", app_url="http://127.0.0.1:8080"))
+    assert cmd[1:3] == ["-m", "testpoint.startcam"]
+    assert cmd[cmd.index("--station") + 1] == "weigh" and "--no-analyse" in cmd and cmd[cmd.index("--evidence") + 1] == ""
