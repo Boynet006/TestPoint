@@ -289,6 +289,11 @@ def station_command(cfg: StationIn, lanes_file: Path) -> list[str]:
     return cmd
 
 
+class OpenIn(BaseModel):
+    rel: str = Field(max_length=300)
+    """A folder under data/ that the app wrote (data/faces/<person>)."""
+
+
 def create_service(log_dir: Path | None = None, runner=subprocess.Popen) -> FastAPI:
     app = FastAPI(title="TestPoint camera service")
     logs = log_dir or ROOT / "data" / "logs"
@@ -321,6 +326,19 @@ def create_service(log_dir: Path | None = None, runner=subprocess.Popen) -> Fast
     @app.get("/health")
     def health() -> dict:
         return {"ok": True}
+
+    @app.post("/open")
+    def open_folder(body: OpenIn) -> dict:
+        """Open a folder the app wrote under data/ (a person's face photos) in Explorer on this PC."""
+        base = (ROOT / "data" / "faces").resolve()
+        target = (ROOT / "data" / body.rel).resolve()
+        if base not in target.parents or not target.is_dir():
+            raise HTTPException(404, "no such folder")
+        if hasattr(os, "startfile"):
+            os.startfile(str(target))          # noqa: S606 - a folder under data/faces, checked above
+        else:
+            subprocess.Popen(["xdg-open", str(target)])
+        return {"opened": str(target)}
 
     @app.get("/sources")
     def sources(refresh: bool = False) -> dict:

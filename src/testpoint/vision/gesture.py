@@ -27,10 +27,19 @@ def torso(p: Person) -> float | None:
     return float(np.linalg.norm(sh - hip)) or None
 
 
+def scale(p: Person) -> float | None:
+    """The person's own size in pixels: the torso, or, close to the camera with the hips out of
+    the picture, the shoulders (a torso is about 1.3 shoulder widths)."""
+    t = torso(p)
+    if t is None and _ok(p, L_SHOULDER, R_SHOULDER):
+        t = 1.3 * float(np.linalg.norm(p.xy[L_SHOULDER] - p.xy[R_SHOULDER])) or None
+    return t
+
+
 def hand_raised(p: Person) -> str | None:
     """"left" or "right" (the person's own hand) when one hand is clearly up, "both" when both are,
     None otherwise."""
-    t = torso(p)
+    t = scale(p)
     if t is None:
         return None
     up = []
@@ -43,15 +52,17 @@ def hand_raised(p: Person) -> str | None:
 def pointer(p: Person, size: tuple[int, int]) -> tuple[float, float] | None:
     """Where a raised hand is on the screen that shows the camera's picture as a mirror: (x, y),
     each 0..1 of the picture (``size``: its width and height). The cursor sits on the hand the
-    person sees there, so left and right are never the wrong way round. The higher hand points;
-    None while both hands are down (below the middle of the chest)."""
-    t = torso(p)
-    if t is None and _ok(p, L_SHOULDER, R_SHOULDER):   # close to the camera, hips out of the picture:
-        t = 1.3 * float(np.linalg.norm(p.xy[L_SHOULDER] - p.xy[R_SHOULDER])) or None   # the shoulders give the scale
-    if t is None:
+    person sees there, so left and right are never the wrong way round. A hand points when it is
+    held out to the side at about shoulder height or above; a hand at the face or the chest (scratching
+    the chin, adjusting headphones) does not. The higher of two points; None otherwise."""
+    t = scale(p)
+    if t is None or not _ok(p, L_SHOULDER, R_SHOULDER):
         return None
+    cx = float(p.xy[L_SHOULDER][0] + p.xy[R_SHOULDER][0]) / 2
     cy = float(p.xy[L_SHOULDER][1] + p.xy[R_SHOULDER][1]) / 2
-    up = [p.xy[w] for w in (L_WRIST, R_WRIST) if float(p.conf[w]) >= MIN_CONF and p.xy[w][1] < cy + 0.5 * t]
+    sw = abs(float(p.xy[L_SHOULDER][0] - p.xy[R_SHOULDER][0])) or t / 1.3
+    up = [p.xy[w] for w in (L_WRIST, R_WRIST) if float(p.conf[w]) >= MIN_CONF
+          and p.xy[w][1] < cy + 0.2 * t and abs(float(p.xy[w][0]) - cx) > 0.6 * sw]
     if not up:
         return None
     wx, wy = min(up, key=lambda xy: xy[1])

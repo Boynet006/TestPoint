@@ -1,4 +1,4 @@
-﻿# Management deck
+# Management deck
 
 `TestPoint-management-2026-11-02.pptx`: 7 slides in Arabic, screenshots from the trial on 2 November 2026.
 
@@ -15,7 +15,7 @@ The deck's colours are written by a helper (`apply_theme.js`) that is not in thi
 
 ## Walk-through deck
 
-`TestPoint-walkthrough-2026-11-03.pptx`: 22 slides in Arabic, one person through the whole test day (weigh-in, start, finish, push-ups, crunches, results, the Advanced screens, settings), each screenshot the whole app window uncropped (`walkthrough-2026-11-03/`). Made on a test copy of the app with its own database, so no real results were touched. It ends with the bugs that the walk-through found and fixed.
+`TestPoint-walkthrough-2026-11-03.pptx`: 26 slides in Arabic, one person through the whole test day (weigh-in, start by a raised hand, finish, choosing the first test, push-ups, crunches, results, the Advanced screens with the face photos, settings), each screenshot the whole app window uncropped (`walkthrough-2026-11-03/`). Made on a test copy of the app with its own database, so no real results were touched. It ends with the bugs that the walk-through found and fixed.
 
 ```bash
 node build-walkthrough.js walkthrough-2026-11-03 <pptx skill folder> TestPoint-walkthrough-2026-11-03.pptx

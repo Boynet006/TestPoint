@@ -102,6 +102,7 @@ def test_the_station_camera_runs_pushups_then_crunches(monkeypatch):
     monkeypatch.setattr(app_mod.S, "utcnow", lambda: clock["t"])
     emb = base64.b64encode(np.asarray(A, np.float32).tobytes()).decode()
     with TestClient(app) as c:
+        c.put("/api/settings", json={"start_countdown_s": 3})   # with a 3-2-1 (the default is none)
         c.post("/api/entries/import", content=b"external_id,name,bib,gender,dob\nC-1,Alpha,11,M,2000-01-01\n")
         e = c.get("/api/entries").json()[0]["id"]
         c.post(f"/api/entries/{e}/face", content=b"face:A")
@@ -265,6 +266,7 @@ def test_a_raised_hand_points_as_in_a_mirror():
     assert x > 0.6 and y < 0.5
     x, _ = pointer(person({**body, 9: (180, 60), 10: (75, 230)}), (200, 300))           # left hand out to their left
     assert x < 0.4
+    assert pointer(person({**body, 9: (125, 230), 10: (95, 70)}), (200, 300)) is None   # a hand at the chin: not pointing
     near = {5: (120, 100), 6: (80, 100)}                                     # hips out of the picture: the shoulders give the scale
     x, y = pointer(person({**near, 10: (30, 70)}), (200, 300))
     assert x > 0.6 and y < 0.6
@@ -323,3 +325,14 @@ def test_getting_into_a_start_position_while_choosing_chooses_that_test():
     assert f.state == "position" and f.event == "pushup"
     f.observe(1.1 + READY_HOLD_S, StationLook(True, ready=True))      # still in position: the 3-2-1 at once
     assert f.state == "countdown"
+
+
+def test_without_a_countdown_the_count_starts_as_soon_as_they_are_ready():
+    from testpoint.api.station import READY_HOLD_S
+    f = StationFlow(countdown_s=0.0)
+    f.observe(0.0, StationLook(True, (7, "pushup", None))); f.observe(0.25, StationLook(True, (7, "pushup", None)))
+    assert f.state == "position"
+    f.observe(1.0, StationLook(True, ready=True))
+    acts = f.observe(1.0 + READY_HOLD_S, StationLook(True, ready=True))
+    acts += f.observe(1.1 + READY_HOLD_S, StationLook(True, ready=True))
+    assert ("start", 7, "pushup") in acts and f.state == "testing" and f.go_at == 1.0 + READY_HOLD_S   # GO = ready

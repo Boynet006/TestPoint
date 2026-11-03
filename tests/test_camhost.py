@@ -313,3 +313,9 @@ def test_one_webcam_serves_one_camera_program(svc):
     assert c.get("/startcam").json()["running"] is False and c.get("/startcam").json()["freed_by"] == "station"
     r = c.post("/finish/start", json={"kind": "webcam", "source": "1", "line_y": 0.8, "direction": "down", "app_url": "http://127.0.0.1:8080"}).json()
     assert "freed" not in r and c.get("/station").json()["running"]   # another webcam: both run
+
+
+def test_the_service_opens_only_face_photo_folders(svc):
+    c, _ = svc
+    for rel in ("../../Windows", "logs", "faces/../logs", "faces/nobody-here"):
+        assert c.post("/open", json={"rel": rel}).status_code == 404
