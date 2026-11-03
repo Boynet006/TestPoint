@@ -4829,6 +4829,8 @@ function renderStation() {
 // "PUSH-UPS: get into position" -> 3-2-1 -> counting with the time left -> the score. With both tests
 // still to do they choose which first, with a raised hand (a setting); else push-ups first, then crunches.
 const oneMat = () => lanes.length === 1;
+// why the station went back to waiting: its own words, or the error that stopped it (in t either way)
+const stWhy = r => (I18N.en["st_" + r] ? t("st_" + r) : err({ code: r }));
 const StationCall = {
   sig: "", busy: false, v: null,
   active: () => role === "station" && mode === "simple" && oneMat(),
@@ -4858,7 +4860,7 @@ const StationCall = {
       body = `<div><div class="c-who">${who}</div><div class="c-say">${esc(t("st_choose"))}</div><div class="hint">${esc(t("st_choose_how"))}</div></div>`;
     } else if (v.state === "position") {
       cls = "ask";
-      body = `<div><div class="c-who">${who}</div><div class="c-say">${esc(ex)}: ${esc(t(v.ready ? "st_hold" : "st_position"))}</div>${v.reason ? `<div class="hint">${esc(t("st_" + v.reason))}</div>` : ""}</div>`;
+      body = `<div><div class="c-who">${who}</div><div class="c-say">${esc(ex)}: ${esc(t(v.ready ? "st_hold" : "st_position"))}</div>${v.reason ? `<div class="hint">${esc(stWhy(v.reason))}</div>` : ""}</div>`;
     } else if (v.state === "countdown") {
       const n = Math.ceil((Date.parse(v.go_at) - serverNow()) / 1000);
       cls = "ask";
@@ -4879,7 +4881,7 @@ const StationCall = {
       body = `<div><div class="c-who">${who}</div><div class="c-say">${esc(t("e_" + v.reason))}</div></div>`;
       if (e && v.reason === "all_done" && !(StationCam.st && StationCam.st.config && StationCam.st.config.kind === "video")) ResultsCard.show(e.id);   // not for a face in a video being replayed
     } else {
-      body = `<div><div class="c-say">${esc(t(v.engine ? "st_step_up" : "st_no_camera"))}</div>${v.reason ? `<div class="hint">${esc(t("st_" + v.reason))}</div>` : ""}</div>`;
+      body = `<div><div class="c-say">${esc(t(v.engine ? "st_step_up" : "st_no_camera"))}</div>${v.reason ? `<div class="hint">${esc(stWhy(v.reason))}</div>` : ""}</div>`;
     }
     const redo = v.state === "done" && v.attempt_id ? `<button class="btn ghost sm" onclick="StationCall.redo(${v.attempt_id}, this)">${esc(t("st_redo"))}</button> ` : "";
     const goNow = v.state === "position" ? `<button class="btn go sm" onclick="StationCall.go()">${esc(t("st_go_now"))}</button> ` : "";

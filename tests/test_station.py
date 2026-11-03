@@ -268,3 +268,45 @@ def test_a_raised_hand_points_as_in_a_mirror():
     near = {5: (120, 100), 6: (80, 100)}                                     # hips out of the picture: the shoulders give the scale
     x, y = pointer(person({**near, 10: (30, 70)}), (200, 300))
     assert x > 0.6 and y < 0.6
+
+
+def test_a_test_left_running_when_the_app_restarts_goes_on_or_ends(monkeypatch):
+    """The app restarted during a camera-run test: it carries on, or (its time up, the count may miss
+    reps) is cancelled to be done again. Left running, nobody could finish it and the person could
+    never be tested again."""
+    from datetime import timedelta
+
+    from fastapi.testclient import TestClient
+    from runhelp import start_lined_up
+    from sqlalchemy.pool import StaticPool
+    from test_faces import FakeEngine
+
+    from testpoint.api import app as app_mod
+    from testpoint.api import models
+    from testpoint.api.app import create_app
+
+    real = models.create_engine
+    monkeypatch.setattr(models, "create_engine", lambda url, **kw: real(url, poolclass=StaticPool, **kw))
+    for later, want in ((30, "testing"), (400, "cancelled")):
+        app = create_app(db_url="sqlite:///:memory:", web_dir="none", today=lambda: "2026-10-20", face_engine=lambda: FakeEngine())
+        t0 = models.utcnow()
+        clock = {"t": t0}
+        monkeypatch.setattr(app_mod.S, "utcnow", lambda: clock["t"])
+        with TestClient(app) as c:
+            c.post("/api/entries/import", content=b"external_id,name,bib,gender,dob\nC-1,Alpha,11,M,2000-01-01\n")
+            e = c.get("/api/entries").json()[0]["id"]
+            c.post(f"/api/entries/{e}/weigh-in", json={"weight_kg": 70, "height_cm": 175, "accept": True})
+            c.post(f"/api/entries/{e}/line-up")
+            start_lined_up(c)
+            clock["t"] = t0 + timedelta(minutes=14)
+            c.post("/api/run/finish", json={"bib": "11"})
+            clock["t"] = t0 + timedelta(minutes=20)
+            a = c.post("/api/attempts", json={"entry_id": e, "event": "pushup", "lane": "S"}).json()   # the camera's test, then the app restarts
+            clock["t"] = t0 + timedelta(seconds=later)   # the attempt was stamped with the real clock (about t0)
+            v = c.get("/api/stationflow").json()
+            finished = {x["id"] for x in c.get("/api/attempts").json()}
+            if want == "testing":
+                assert v["state"] == "testing" and v["attempt_id"] == a["id"] and a["id"] not in finished
+            else:
+                assert v["state"] == "idle" and a["id"] not in finished
+                assert c.post("/api/attempts", json={"entry_id": e, "event": "pushup", "lane": "S"}).status_code == 201   # free to test again
