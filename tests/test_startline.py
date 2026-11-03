@@ -107,6 +107,8 @@ def test_hand_raised_is_the_persons_own_side():
     assert hand_raised(person({**BODY, 10: (130, 40)})) == "right"
     assert hand_raised(person({**BODY, 9: (70, 60), 10: (130, 40)})) == "both"
     assert hand_raised(person({**BODY, 9: (70, 95)})) is None                 # barely above: not raised
+    near = {5: (80, 100), 6: (120, 100), 9: (75, 180), 10: (125, 180)}       # at a desk: no hips in the picture
+    assert hand_raised(person({**near, 10: (130, 40)})) == "right"
 
 
 def test_the_person_at_the_mark_is_the_one_nearest():
@@ -137,6 +139,7 @@ def test_the_start_camera_lines_up_and_starts_the_runner(monkeypatch):
     monkeypatch.setattr(app_mod.S, "utcnow", lambda: clock["t"])
     emb = lambda v: base64.b64encode(np.asarray(v, np.float32).tobytes()).decode()
     with TestClient(app) as c:
+        c.put("/api/settings", json={"start_countdown_s": 3})   # with a 3-2-1 (the default is none)
         c.post("/api/entries/import", content=b"external_id,name,bib,gender,dob\nC-1,Alpha,11,M,2000-01-01\nC-2,Bravo,12,M,2000-01-01\n")
         ids = {e["candidate"]["bib"]: e["id"] for e in c.get("/api/entries").json()}
         c.post(f"/api/entries/{ids['11']}/face", content=b"face:A")

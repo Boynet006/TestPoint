@@ -325,6 +325,7 @@
     body.fit #v-weigh > .card, body.fit #v-start > .card, body.fit #v-results > .card:first-child { display: flex; flex-direction: column; }
     body.fit #camSlot-weigh:has(#camBlock), body.fit #camSlot-start:has(#camBlock), body.fit #camSlot-results:has(#camBlock), body.fit #camBlock { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
     body.fit #camBlock .viewer { aspect-ratio: auto; flex: 1 1 0; min-height: 200px; }
+    body.fit .callbox { min-height: 158px; box-sizing: border-box; }   /* one height for every call: the picture above does not jump */
     body.fit .camlive img { max-height: calc(100dvh - var(--app-top, 80px) - 260px); }
     body.fit #v-station:not(.hidden) { display: flex; flex-direction: column; }
     body.fit #stBody:not(.hidden) { flex: 1 1 0; min-height: 0; overflow: auto; }
@@ -733,6 +734,15 @@
   .viewer-tag { position: absolute; top: 8px; inset-inline-start: 10px; font-family: var(--cond); font-size: 13px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
   .btn.on { border-color: var(--go); color: var(--go); }
   .thumb { width: 40px; height: 40px; object-fit: cover; border: 1px solid var(--line); vertical-align: middle; }
+  .thumb[role="button"] { cursor: zoom-in; } .thumb[role="button"]:hover { border-color: var(--amber); }
+  .fv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin: 12px 0; }
+  a.btn { text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+  .fv-grid figure { margin: 0; border: 1px solid var(--line); background: var(--bg2); }
+  .fv-grid img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; }
+  .fv-grid figcaption { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px; padding: 6px 8px; font-size: 12px; color: var(--muted); }
+  .fv-grid figcaption > span:first-child { width: 100%; } .fv-grid figcaption > span:last-child { display: flex; gap: 6px; }
+  /* the add-person row: the date box (text + calendar) needs its column like the other boxes */
+  .form .datefield { min-width: 150px; }
   .override { display: flex; flex-direction: column; gap: 4px; } .override input { width: 100%; }
   table.reps { font-size: 13px; margin: 4px 0 10px; } table.reps th { color: var(--muted); font-weight: 400; }
   #rvVideo { max-width: 100%; max-height: 360px; background: #000; display: block; }
@@ -872,6 +882,13 @@
     <div id="editMsg"></div>
     <div class="row" style="margin-top:10px"><button class="btn amber" type="submit" id="eSave" data-t="edit_save"></button></div>
   </form>
+</dialog>
+<dialog id="faceViewDlg" class="dlg" style="max-width:820px;width:92vw">
+  <div class="row" style="align-items:center"><h2 style="margin:0" id="fvTitle"></h2><span class="spacer"></span><button class="btn ghost sm" style="flex:0 0 auto" onclick="$('faceViewDlg').close()" data-t="rg_close"></button></div>
+  <p class="hint" id="fvWhere"></p>
+  <div class="fv-grid" id="fvGrid"></div>
+  <div class="row"><button class="btn amber" style="flex:0 0 auto" onclick="FaceView.folder()" data-t="fv_explorer"></button><a class="btn ghost" style="flex:0 0 auto" id="fvZip" data-t="fv_zip"></a><span class="spacer"></span><button class="btn stop" style="flex:0 0 auto" id="fvDelAll" onclick="confirmClick('fvdelall', this, () => FaceView.removeAll(), 'fv_delete_all_sure')" data-t="fv_delete_all"></button></div>
+  <div id="fvMsg" style="margin-top:8px"></div>
 </dialog>
 <dialog id="resultsDlg" class="dlg rcard" onclick="if (!event.target.closest('button')) ResultsCard.close()"><div id="rcBody"></div></dialog>
 <dialog id="pinDlg" class="dlg" style="max-width:360px">
@@ -1672,7 +1689,7 @@ const I18N = {
     e_wave_full: "This wave is full: start it, then line up for the next", e_still_running: "Still out on the course", e_already_ran: "Already ran today",
     e_countdown_running: "The countdown is running", e_bad_countdown: "Countdown out of range",
     sec_run: "Run start", sec_finish: "Run finish", set_wave: "Runners per wave", set_wave_hint: "What the finish line can time and check at once (camera and examiners).",
-    set_countdown: "Start countdown", set_countdown_hint: "\"Get ready\", 3-2-1 and the horn from the start-line tablet; the time starts at the horn.",
+    set_countdown: "Countdown before GO", set_countdown_hint: "At the start line and the exercise station. 0 s: GO as soon as the person is ready (a raised hand, the start position held); the time and the count start at GO. 3 s or more: a 3-2-1 first.",
     elapsed: "Elapsed", started_at: "Started at", missing_list: "Accepted but not at the line", present: "Present",
     finished: "Finished", needs_review: "Need review", run_not_started: "Waiting for the start.", record_finish: "Finish",
     no_bib: "Crossing, bib not seen", close_run: "Close run", confirm_close: "Press again: remaining runners become DNF",
@@ -1747,6 +1764,9 @@ const I18N = {
     cam_taken: "The webcam is now used by the {by} camera. Start the camera here to take it back.", cam_freed: "(The webcam was taken from the {by} camera.)",
     cam_by_finish: "finish line", cam_by_station: "exercise station", cam_by_start: "start line", cam_by_weigh: "weigh-in",
     vb_no_back: "Not back during a test: its reps would count again", e_no_back_in_test: "A test is being counted: the video cannot go back (its reps would count again).",
+    fv_open: "See the face photos", fv_title: "{name}: {n} face photos", fv_photo: "Face photo {n}", fv_download: "Download", fv_delete: "Delete", fv_delete_all: "Delete all", fv_delete_all_sure: "Delete every photo? Press again",
+    fv_zip: "Download all (zip)", fv_explorer: "Open in Explorer", fv_where: "Kept in the database. Open in Explorer writes them to {folder} on the station PC; they are removed with the faces.",
+    fv_opened: "Opened {folder} on the station PC.", fv_written: "Written to {folder} on the station PC (the camera service is not running, so it could not open the folder).",
     e_not_choosing: "Nobody is choosing a test now.",
     e_bad_camera_url: "A camera address starts with rtsp:// or http://", e_bad_day: "That day is not a date", e_bad_player: "The video could not be moved there",
     e_before_start: "That crossing is before the runner's GO", e_bib_not_on_list: "That bib is not on today's list", e_no_camera: "No live picture from this camera",
@@ -1964,7 +1984,7 @@ const I18N = {
     fs_enter: "Full screen (Esc leaves)", fs_exit: "Leave full screen", menu: "Menu", hm_lang: "Language", hm_view: "View", adv_leave: "Advanced view: back to simple", fs_item: "Full screen", fit_item: "Fit to the window",
     fit_btn: "Fit every screen to the window (no page scrolling)", set_fit: "Fit to the window", fit_on: "On: no scrolling", fit_off: "Off: the page scrolls",
     set_fit_hint: "Every screen fills this window: the page does not scroll, long lists scroll inside their own column, and camera pictures take the free space. Off: pages scroll as usual. Also in the menu (☰).",
-    t_recordings: "Recordings", rec_hint: "Go back to any day and watch what the cameras saw: pick a person, then their start, finish, full attempt videos or a single rep. Crossed out: deleted under the retention rules (Settings > Recordings). , and . step one frame.",
+    t_recordings: "Recordings", rec_hint: "Go back to any day and watch what the cameras saw: pick a person, then their start, finish, full attempt videos or a single rep. Crossed out: deleted under the retention rules (Settings > Recordings). The , and . keys step one frame.",
     rc_day: "Day", rc_find: "Bib or name", rc_people: "People", rc_today: "today", rc_pick: "Pick a recording below to watch it.", rc_download: "Download",
     rc_no_match: "No one matches.", rc_nobody: "No one on this day's list.", rc_other: "Not linked to anyone", rc_other_hint: "Recordings that belong to no one on this day's list: a crossing never assigned, a camera test or another database.",
     rc_kind_run: "Finish", rc_kind_start: "Start", rc_kind_station: "Station", rc_pick_person: "Pick a person on the left.", rc_empty_day: "No recordings on this day.",
@@ -2078,7 +2098,7 @@ const I18N = {
     e_wave_full: "الموجة ممتلئة: أطلقها ثم سجّل للموجة التالية", e_still_running: "ما زال في المسار", e_already_ran: "جرى اليوم",
     e_countdown_running: "العد التنازلي جارٍ", e_bad_countdown: "العد التنازلي خارج النطاق",
     sec_run: "انطلاق الجري", sec_finish: "نهاية الجري", set_wave: "عدد العدّائين في الموجة", set_wave_hint: "ما يستطيع خط النهاية توقيته والتحقق منه في وقت واحد (الكاميرا والممتحنون).",
-    set_countdown: "العد التنازلي للانطلاق", set_countdown_hint: "\"استعد\"، 3-2-1 والبوق من جهاز خط البداية؛ يبدأ الوقت عند البوق.",
+    set_countdown: "العد التنازلي قبل الانطلاق", set_countdown_hint: "عند خط البداية ومحطة التمارين. 0 ث: انطلاق فور استعداد الشخص (رفع اليد، أو ثبات وضعية البداية)؛ يبدأ الوقت والعدّ عند الانطلاق. 3 ث أو أكثر: عدّ 3-2-1 أولاً.",
     elapsed: "الزمن", started_at: "بدأ في", missing_list: "مقبولون لم يصلوا إلى الخط", present: "حاضر",
     finished: "أنهوا", needs_review: "للمراجعة", run_not_started: "بانتظار الانطلاق.", record_finish: "وصول",
     no_bib: "عبور دون رقم", close_run: "إغلاق الجري", confirm_close: "اضغط مرة أخرى: الباقون لم يكملوا",
@@ -2153,6 +2173,9 @@ const I18N = {
     cam_taken: "كاميرا الويب تستخدمها الآن كاميرا {by}. شغّل الكاميرا هنا لاستعادتها.", cam_freed: "(أُخذت كاميرا الويب من كاميرا {by}.)",
     cam_by_finish: "خط النهاية", cam_by_station: "محطة التمارين", cam_by_start: "خط البداية", cam_by_weigh: "الوزن",
     vb_no_back: "لا رجوع أثناء الاختبار: ستُحسب العدّات مرة أخرى", e_no_back_in_test: "يُعدّ اختبار الآن: لا يمكن إرجاع الفيديو (ستُحسب العدّات مرة أخرى).",
+    fv_open: "عرض صور الوجه", fv_title: "{name}: {n} صور للوجه", fv_photo: "صورة الوجه {n}", fv_download: "تنزيل", fv_delete: "حذف", fv_delete_all: "حذف الكل", fv_delete_all_sure: "حذف كل الصور؟ اضغط مرة أخرى",
+    fv_zip: "تنزيل الكل (zip)", fv_explorer: "فتح في المستكشف", fv_where: "محفوظة في قاعدة البيانات. «فتح في المستكشف» يكتبها في {folder} على حاسوب المحطة؛ وتُحذف مع صور الوجه.",
+    fv_opened: "فُتح {folder} على حاسوب المحطة.", fv_written: "كُتبت في {folder} على حاسوب المحطة (خدمة الكاميرا لا تعمل، فلم يُفتح المجلد).",
     e_not_choosing: "لا أحد يختار اختباراً الآن.",
     e_bad_camera_url: "عنوان الكاميرا يبدأ بـ rtsp:// أو http://", e_bad_day: "هذا اليوم ليس تاريخاً", e_bad_player: "تعذّر نقل الفيديو إلى هناك",
     e_before_start: "هذا العبور قبل انطلاق العدّاء", e_bib_not_on_list: "رقم الصدر هذا ليس في قائمة اليوم", e_no_camera: "لا صورة مباشرة من هذه الكاميرا",
@@ -2370,7 +2393,7 @@ const I18N = {
     fs_enter: "ملء الشاشة (Esc للخروج)", fs_exit: "الخروج من ملء الشاشة", menu: "القائمة", hm_lang: "اللغة", hm_view: "العرض", adv_leave: "العرض المتقدم: العودة إلى البسيط", fs_item: "ملء الشاشة", fit_item: "ملاءمة النافذة",
     fit_btn: "ملاءمة كل الشاشات للنافذة (بلا تمرير للصفحة)", set_fit: "ملاءمة النافذة", fit_on: "تشغيل: بلا تمرير", fit_off: "إيقاف: تتمرر الصفحة",
     set_fit_hint: "تملأ كل الشاشات هذه النافذة: لا تتمرر الصفحة، وتتمرر القوائم الطويلة داخل عمودها، وتأخذ صور الكاميرا المساحة المتاحة. إيقاف: تتمرر الصفحات كالمعتاد. وأيضاً في القائمة (☰).",
-    t_recordings: "التسجيلات", rec_hint: "ارجع إلى أي يوم وشاهد ما رأته الكاميرات: اختر شخصاً، ثم انطلاقه أو وصوله أو فيديو المحاولة كاملاً أو تكراراً واحداً. المشطوب: حُذف حسب قواعد الاحتفاظ (الإعدادات > التسجيلات). , و . لإطار واحد.",
+    t_recordings: "التسجيلات", rec_hint: "ارجع إلى أي يوم وشاهد ما رأته الكاميرات: اختر شخصاً، ثم انطلاقه أو وصوله أو فيديو المحاولة كاملاً أو تكراراً واحداً. المشطوب: حُذف حسب قواعد الاحتفاظ (الإعدادات > التسجيلات). المفتاحان , و . يتقدمان إطاراً واحداً.",
     rc_day: "اليوم", rc_find: "الرقم أو الاسم", rc_people: "الأشخاص", rc_today: "اليوم", rc_pick: "اختر تسجيلاً أدناه لمشاهدته.", rc_download: "تنزيل",
     rc_no_match: "لا أحد مطابق.", rc_nobody: "لا أحد في قائمة هذا اليوم.", rc_other: "غير مرتبطة بأحد", rc_other_hint: "تسجيلات لا تخص أحداً في قائمة هذا اليوم: وصول لم يُسند، أو تجربة كاميرا، أو قاعدة بيانات أخرى.",
     rc_kind_run: "الوصول", rc_kind_start: "الانطلاق", rc_kind_station: "المحطة", rc_pick_person: "اختر شخصاً من القائمة.", rc_empty_day: "لا توجد تسجيلات في هذا اليوم.",
@@ -2396,7 +2419,12 @@ function applyI18n() {
   for (const l of ["en", "ar"]) { const b = document.getElementById("lang-" + l); b.classList.toggle("active", l === lang); b.setAttribute("aria-checked", String(l === lang)); }
 }
 function setLang(l, remember = true) { lang = l; if (remember) save("lang", l); applyI18n();
-  for (const c of [typeof FinishCam !== "undefined" && FinishCam, typeof StationCam !== "undefined" && StationCam]) if (c && c.endedSaid) { c.endedSaid = false; c.render(); }   // its note again, in the new language if (typeof applySiteName === "function" && S) applySiteName(); lastReviewSig = ""; lanes.forEach(renderLane); render();
+  for (const c of [typeof FinishCam !== "undefined" && FinishCam, typeof StationCam !== "undefined" && StationCam]) {
+    if (!c) continue;
+    c.endedSaid = false; c.render();   // its buttons and note again, in the new language
+  }
+  if (typeof applySiteName === "function" && S) applySiteName();
+  lastReviewSig = ""; lanes.forEach(renderLane); render();
   if (typeof Cam !== "undefined") { Cam.show(); $("autoBtn").textContent = autoId ? t("auto_on") : t("auto_off"); } }
 
 /* ============================== helpers ============================== */
@@ -3025,7 +3053,7 @@ async function apiImage(path, blob) {
   return data;
 }
 // Face box drawn over the picture, mapped from image pixels to the displayed (object-fit: contain) area.
-const mirrored = () => Cam.kind === "webcam";
+const mirrored = () => $("viewer").classList.contains("mirror");   // only this device's own webcam is shown as a mirror (not one through the camera service)
 function drawBox(box, w, h, label, ok) {
   const cv = $("camBox"), vw = cv.clientWidth, vh = cv.clientHeight; cv.width = vw; cv.height = vh;
   const s = Math.min(vw / w, vh / h), ox = (vw - w * s) / 2, oy = (vh - h * s) / 2, g = cv.getContext("2d");
@@ -3052,10 +3080,10 @@ async function identifyNow(quiet) {
     const f = await Cam.frame();
     if (!quiet) msg("wMsg", "warn", t("identifying"));
     const r = await apiImage("/api/face/identify?station=weigh", f.blob);
-    if (seqAtStart !== wSeq || (quiet && wEntry)) return;   // someone else was checked in meanwhile
+    if (seqAtStart !== wSeq || (quiet && wEntry)) { if (!quiet) msg("wMsg"); return; }   // someone else was checked in meanwhile
     if (r.entry && r.entry.status === "complete") { ResultsCard.show(r.entry.id); return; }   // all done: their results
     if (r.entry) {
-      if (wEntry && wEntry.id === r.entry.id) return;          // already weighing this person
+      if (wEntry && wEntry.id === r.entry.id) { if (!quiet) msg("wMsg"); return; }   // already weighing this person: no "Looking…" left behind
       newCheckin(); wSource = "face";
       drawBox(r.box, f.w, f.h, `${cname(r.entry.candidate)} ${r.score.toFixed(2)}`, true);
       $("wWho").innerHTML = whoHtml(r.entry);
@@ -3410,7 +3438,7 @@ const bibNum = e => { const n = parseInt(e.candidate.bib, 10); return Number.isF
 const runnersOut = () => ((S.state && S.state.runners) || []).filter(r => Date.parse(r.started_at) <= serverNow());
 const startingNow = () => { const s = S.state && S.state.starting; return s && Date.parse(s.go_at) > serverNow() - 1500 ? s : null; };
 // A crossing's time: the run time once it belongs to a runner, else the clock time it was taken.
-const ctime = c => (c.needs_review || c.entry_id == null) ? new Date(Date.parse(c.at)).toLocaleTimeString(lang === "ar" ? "ar-EG" : "en-GB") : fmt(c.time_s);
+const ctime = c => (c.needs_review || c.entry_id == null) ? new Date(Date.parse(c.at)).toLocaleTimeString("en-GB") : fmt(c.time_s);
 async function lineUp(entryId, by = "typed") {
   msg("sMsg");
   try {
@@ -3502,7 +3530,7 @@ async function lineIdentify(quiet) {
   if (idBusy) return; idBusy = true;
   try {
     const f = await Cam.frame();
-    const r = await apiImage("/api/face/identify?station=lineup", f.blob);
+    const r = await apiImage(`/api/face/identify?station=lineup${Cam.relayed() ? "&learn=0" : ""}`, f.blob);   // the service's picture has drawings: not learnt from
     if (r.entry && r.entry.status === "complete") { ResultsCard.show(r.entry.id); return; }
     if (r.entry) {
       drawBox(r.box, f.w, f.h, `${cname(r.entry.candidate)} ${r.score.toFixed(2)}`, true);
@@ -3753,6 +3781,7 @@ const FinishCam = {
     const st = this.st || { available: false };
     if (!st.running) $("camLive-finish").classList.add("hidden");   // no camera: no old picture
     const live = !$("camLive-finish").classList.contains("hidden");
+    if (live && $("fcMsg").textContent.startsWith(t("fc_started"))) msg("fcMsg");   // the picture is here: "starting" no longer
     $("fcOffline").classList.toggle("hidden", !!st.available);
     $("fcForm").classList.toggle("dim", !st.available); $("fcSrc").classList.toggle("dim", !st.available);
     document.querySelectorAll("#fcForm button, #fcForm select, #fcForm input, #fcSrc button, #fcSrc select, #fcSrc input").forEach(el => { el.disabled = !st.available || this.busy; });
@@ -4308,7 +4337,7 @@ async function discardCrossing(cid) {
 }
 function tickClocks() {
   const el = runElapsed();
-  $("clock").textContent = new Date(serverNow()).toLocaleTimeString(lang === "ar" ? "ar-EG" : "en-GB");
+  $("clock").textContent = new Date(serverNow()).toLocaleTimeString("en-GB");
   if (role === "start" && S.state) tickStart();
   if (role === "start") StartCall.poll(); else if (StartCall.sig) StartCall.poll();
   if (role === "station") StationCall.poll(); else if (StationCall.sig) StationCall.poll();
@@ -5008,6 +5037,40 @@ const Choose = {
   },
 };
 
+// ---- a person's face photos: every one they enrolled, each to download, all as a zip, or opened as
+// a folder in Explorer on the station PC (data\faces\<person>). They live in the database; the
+// folder is written only when asked, and removed with the faces.
+const FaceView = {
+  c: null,
+  async open(cid) {
+    let r; try { r = await api("GET", `/api/candidates/${cid}/faces`); } catch (e) { msg(mode === "advanced" ? "aMsg" : "wMsg", "bad", err(e)); return; }
+    this.c = r.candidate;
+    $("fvTitle").textContent = t("fv_title", { name: cname(r.candidate), n: r.faces.length });
+    $("fvWhere").textContent = t("fv_where", { folder: r.folder.replace(/\//g, "\\") });
+    $("fvGrid").innerHTML = r.faces.map((f, k) => `<figure><img src="${f.url}" alt="${esc(t("fv_photo", { n: k + 1 }))}" loading="lazy">`
+      + `<figcaption><span>${k + 1}${f.taken_at ? " · " + esc(fmtDate(f.taken_at)) : ""}</span><span><a class="btn ghost sm" href="${f.url}" download="face-${r.candidate.external_id || r.candidate.id}-${k + 1}.jpg">${esc(t("fv_download"))}</a> <button class="btn ghost sm bad" onclick="confirmClick('fvdel${f.id}', this, () => FaceView.remove(${f.id}))">${esc(t("fv_delete"))}</button></span></figcaption></figure>`).join("");
+    $("fvZip").href = `/api/candidates/${cid}/faces.zip`; $("fvZip").setAttribute("download", "");
+    msg("fvMsg"); $("faceViewDlg").showModal();
+  },
+  async removeAll() {   // every face photo of this person (they enrol again from the camera or a file)
+    try { await api("DELETE", `/api/candidates/${this.c.id}/face`); $("faceViewDlg").close(); refresh(); if (typeof Register !== "undefined" && Register.load) Register.load(); }
+    catch (e) { if (e.code === "admin_pin_required") PinDlg.open(() => this.removeAll()); else msg("fvMsg", "bad", err(e)); }
+  },
+  async remove(id) {   // a poor photo out (blurred, a line drawn on it); the others stay
+    try { await api("DELETE", `/api/faces/${id}`); this.open(this.c.id); refresh(); }
+    catch (e) { if (e.code === "admin_pin_required") PinDlg.open(() => this.remove(id)); else msg("fvMsg", "bad", err(e)); }
+  },
+  async folder() {
+    try {
+      const r = await api("POST", `/api/candidates/${this.c.id}/faces/folder`);
+      const where = r.folder.replace(/\//g, "\\");
+      msg("fvMsg", r.opened ? "ok" : "warn", r.opened ? t("fv_opened", { folder: where }) : t("fv_written", { folder: where }));
+    } catch (e) {
+      if (e.code === "admin_pin_required") PinDlg.open(() => this.folder()); else msg("fvMsg", "bad", err(e));
+    }
+  },
+};
+
 // ---- the results card: the person's day, large; on the Results screen and on any camera that
 // recognises someone who finished every test. Closes by itself (or on a tap).
 const ResultsCard = {
@@ -5043,7 +5106,7 @@ async function resultsIdentify(quiet) {
   if (idBusy) return; idBusy = true;
   try {
     const f = await Cam.frame();
-    const r = await apiImage("/api/face/identify?station=results", f.blob);
+    const r = await apiImage(`/api/face/identify?station=results${Cam.relayed() ? "&learn=0" : ""}`, f.blob);
     if (r.entry) { drawBox(r.box, f.w, f.h, `${cname(r.entry.candidate)} ${r.score.toFixed(2)}`, true); ResultsCard.show(r.entry.id); msg("rMsg"); }
     else { drawBox(r.box, f.w, f.h, `? ${r.score.toFixed(2)}`, false); if (!quiet) msg("rMsg", "warn", t("not_recognised")); }
   } catch (e) { clearBox(); if (!quiet) msg("rMsg", "bad", err(e)); }
@@ -5147,10 +5210,12 @@ function showNeeds(entry) {
   }).catch(() => {});
 }
 // every date on screen reads dd-mm-yyyy (the app keeps yyyy-mm-dd underneath)
-const fmtDate = d => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d || ""); return m ? `${m[3]}-${m[2]}-${m[1]}` : (d || ""); };
+const fmtDateRaw = d => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d || ""); return m ? `${m[3]}-${m[2]}-${m[1]}` : (d || ""); };
+// shown in Arabic (right to left), a date is marked left to right, or its numbers swap round on screen
+const fmtDate = d => (lang === "ar" ? "‎" + fmtDateRaw(d) + "‎" : fmtDateRaw(d));
 // a time of day as every screen shows it: 24-hour, in the app's language (not the PC's)
-const clockTime = (at, secs) => new Date(at).toLocaleTimeString(lang === "ar" ? "ar-EG" : "en-GB", secs ? undefined : { hour: "2-digit", minute: "2-digit" });
-const isoDate = d => { const m = /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/.exec((d || "").trim()); return m ? `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}` : (d || "").trim(); };
+const clockTime = (at, secs) => new Date(at).toLocaleTimeString("en-GB", secs ? undefined : { hour: "2-digit", minute: "2-digit" });
+const isoDate = d => { const m = /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/.exec((d || "").replace(/[‎‏]/g, "").trim()); return m ? `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}` : (d || "").trim(); };
 // ---- date boxes: dd-mm-yyyy on every screen, whatever the PC's language. Each stays a real date
 // input underneath (its value is yyyy-mm-dd, as before, so nothing that reads or sets it changes);
 // a text box beside it shows and takes dd-mm-yyyy, and the calendar button opens the browser's picker.
@@ -5171,9 +5236,9 @@ function dateFields() {
     d.replaceWith(box); box.append(txt, cal, d); d.classList.add("datenative"); d.tabIndex = -1;
     Object.defineProperty(d, "value", {   // set from code (a person's record): the text box follows
       configurable: true, get() { return proto.get.call(this); },
-      set(v) { proto.set.call(this, v); txt.value = fmtDate(proto.get.call(this)); txt.classList.remove("bad"); },
+      set(v) { proto.set.call(this, v); txt.value = fmtDateRaw(proto.get.call(this)); txt.classList.remove("bad"); },
     });
-    txt.value = fmtDate(d.value);
+    txt.value = fmtDateRaw(d.value);
     txt.addEventListener("input", () => {
       let v = txt.value.replace(/\D/g, "").slice(0, 8);   // digits only; the dashes come by themselves
       if (v.length > 4) v = `${v.slice(0, 2)}-${v.slice(2, 4)}-${v.slice(4)}`; else if (v.length > 2) v = `${v.slice(0, 2)}-${v.slice(2)}`;
@@ -5186,7 +5251,7 @@ function dateFields() {
       d.dispatchEvent(new Event("change", { bubbles: true }));
     });
     cal.addEventListener("click", () => { try { d.showPicker(); } catch { d.focus(); } });
-    for (const ev of ["input", "change"]) d.addEventListener(ev, e => { if (e.isTrusted) { txt.value = fmtDate(proto.get.call(d)); txt.classList.remove("bad"); } });
+    for (const ev of ["input", "change"]) d.addEventListener(ev, e => { if (e.isTrusted) { txt.value = fmtDateRaw(proto.get.call(d)); txt.classList.remove("bad"); } });
   });
 }
 dateFields();
@@ -5226,7 +5291,7 @@ function renderAdvanced() {
   // and remove (confirmed: it deletes personal data).
   const faceCell = e => {
     const n = e.faces || 0, full = n >= 3;
-    const status = n ? `<img class="thumb" src="/api/entries/${e.id}/face.jpg?n=${n}" alt=""><span class="n ${full ? "" : "part"}" title="${t("face_count_hint")}">${n}${n >= 3 ? " ✓" : ""}</span>`
+    const status = n ? `<img class="thumb" src="/api/entries/${e.id}/face.jpg?n=${n}" alt="" role="button" tabindex="0" title="${esc(t("fv_open"))}" onclick="FaceView.open(${e.candidate.id})"><span class="n ${full ? "" : "part"}" title="${t("face_count_hint")}">${n}${n >= 3 ? " ✓" : ""}</span>`
                      : `<span class="pill warn">${t("no_face")}</span>`;
     const cam = `<button class="btn sm ${full ? "ghost" : "amber"}" onclick="EnrolDlg.open(${e.id})" title="${t("face_camera_hint")}">${t("face_camera")}</button>`;
     const up = `<label class="btn ghost sm" title="${t("face_upload_hint")}">${t("face_upload")}<input type="file" accept="image/*" class="hidden" onchange="enrollFile(${e.id}, this)"></label>`;
@@ -5267,7 +5332,7 @@ const Register = {
     const unitTxt = u => u ? t("unit_" + u) : "—";
     const faceCell = c => {
       const n = c.faces || 0;
-      const status = n ? `<img class="thumb" src="/api/candidates/${c.id}/face.jpg?n=${n}" alt=""><span class="n ${n >= 3 ? "" : "part"}" title="${t("face_count_hint")}">${n}${n >= 3 ? " ✓" : ""}</span>`
+      const status = n ? `<img class="thumb" src="/api/candidates/${c.id}/face.jpg?n=${n}" alt="" role="button" tabindex="0" title="${esc(t("fv_open"))}" onclick="FaceView.open(${c.id})"><span class="n ${n >= 3 ? "" : "part"}" title="${t("face_count_hint")}">${n}${n >= 3 ? " ✓" : ""}</span>`
                        : `<span class="pill warn">${t("no_face")}</span>`;
       return `<td><div class="facecell">${status}<button class="btn sm ${n >= 3 ? "ghost" : "amber"}" onclick="Register.face(${c.id})" title="${t("face_camera_hint")}">${t("face_camera")}</button>`
         + `<label class="btn ghost sm" title="${t("face_upload_hint")}">${t("face_upload")}<input type="file" accept="image/*" class="hidden" onchange="Register.faceFile(${c.id}, this)"></label></div></td>`;
@@ -5597,7 +5662,7 @@ function playClip(btn) {
   $("rvCaption").textContent = btn.dataset.label; v.play().catch(() => {}); $("rvPlayer").scrollIntoView({ block: "nearest" });
 }
 function renderReview() {
-  const hhmm = s => s ? new Date(s).toLocaleTimeString(lang === "ar" ? "ar-EG" : "en-GB", { hour: "2-digit", minute: "2-digit" }) : "—";
+  const hhmm = s => s ? new Date(s).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "—";
   const rows = (S.attempts || []).map(a => {
     const over = a.auto_count != null && a.count !== a.auto_count, open = rvOpen.has(a.id);
     const cam = a.auto_count == null ? `<span class="hint">${t("no_camera")}</span>` : `${a.auto_count} / ${a.auto_rejected ?? 0}`;

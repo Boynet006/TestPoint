@@ -242,7 +242,7 @@ SETTINGS: dict[str, object] = {
     "lanes": 3,                  # lanes per exercise station (must match the engine's --lanes)
     "station_stop_after_s": 20,  # one-mat station: no rep for this long ends the test (the person stopped); 0 = off
     # run start
-    "start_countdown_s": 3,      # the 3-2-1 before a runner's GO (their clock starts at GO)
+    "start_countdown_s": 0,      # a 3-2-1 before GO (start line and station); 0: GO as soon as they are ready, the clock and the count start there
     "cancel_window_s": 120,      # a start can be cancelled without the admin PIN this long; 0 = until the first finisher
     "finish_face_threshold": 0.0, # face match needed at the finish (0.30-0.60); 0 = automatic (normal while few are out)
     # display
@@ -419,8 +419,9 @@ def update_settings(db: Session, day: Day, changes: dict) -> dict:
             changes["count_tuning"] = check_tuning(changes["count_tuning"])
         except (ValueError, TypeError) as e:
             raise ServiceError("bad_tuning", str(e), 400) from None
-    if changes.get("camera_sources") is not None:
-        changes["camera_sources"] = camera_sources(changes["camera_sources"])
+    if changes.get("camera_sources") is not None:   # a screen left out keeps what it had
+        v = changes["camera_sources"]
+        changes["camera_sources"] = camera_sources({**before["camera_sources"], **v} if isinstance(v, dict) else v)
     if changes.get("evidence_held_days") is not None:
         changes["evidence_held_days"] = sorted(set(changes["evidence_held_days"]))
     changed = {k: v for k, v in changes.items() if v is not None and v != before[k]}
@@ -836,6 +837,19 @@ def adapt_template(db: Session, day: Day, entry: Entry, face, score: float, runn
     return True
 
 
+def remove_face_photo(db: Session, day: Day, template_id: int) -> int:
+    """One face photo taken out (a poor one); returns whose it was."""
+    t = db.get(FaceTemplate, template_id)
+    if t is None:
+        raise ServiceError("no_face_enrolled", "no such face photo", 404)
+    cid = t.candidate_id
+    c = db.get(Candidate, cid)
+    db.delete(t)
+    _audit(db, day, "admin", "remove_face_photo", None, external_id=c.external_id if c else None, photo=template_id)
+    db.commit()
+    return cid
+
+
 def remove_faces(db: Session, day: Day, entry: Entry | None, candidate: Candidate | None = None) -> None:
     cid = entry.candidate_id if entry is not None else candidate.id
     for t in db.scalars(select(FaceTemplate).where(FaceTemplate.candidate_id == cid)):
@@ -864,8 +878,9 @@ ADAPT_STATIONS = {"lineup", "pushup", "crunch", "results"}
 not the finish: a mistake there would be learnt)."""
 
 
-def identify(db: Session, day: Day, data: bytes, engine, station: str | None = None) -> dict:
-    """Who is in this frame, among today's candidates with an enrolled face?"""
+def identify(db: Session, day: Day, data: bytes, engine, station: str | None = None, learn: bool = True) -> dict:
+    """Who is in this frame, among today's candidates with an enrolled face? ``learn``: a very sure
+    match may add a template (not from a picture with drawings on it: the camera service's)."""
     face = _face(engine, data, require_single=False)
     rows = db.execute(select(Entry.id, FaceTemplate.embedding).join(
         FaceTemplate, FaceTemplate.candidate_id == Entry.candidate_id).where(Entry.day_id == day.id)).all()
@@ -883,7 +898,7 @@ def identify(db: Session, day: Day, data: bytes, engine, station: str | None = N
         if station in J.STATIONS:
             g = gate_for(entry, day, station)
             out["allowed"], out["reason"] = g.ok, (g.reason or None)
-        if station in ADAPT_STATIONS:
+        if learn and station in ADAPT_STATIONS:
             out["adapted"] = adapt_template(db, day, entry, face, m.score, m.runner_up)
     else:
         out["reason"] = "nobody_enrolled" if not gallery else "face_not_recognised"

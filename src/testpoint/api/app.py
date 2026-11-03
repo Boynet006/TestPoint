@@ -694,6 +694,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     def register_delete(candidate_id: int, delete_results: bool = False, db: Session = Depends(get_db),
                         day: Day = Depends(get_day)) -> None:
         S.delete_candidate(db, day, S.get_candidate(db, candidate_id), delete_results=delete_results)
+        clear_face_folder(candidate_id)
 
     @app.post("/api/candidates/{candidate_id}/face")
     async def register_face(candidate_id: int, request: Request, db: Session = Depends(get_db),
@@ -711,6 +712,83 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     @app.delete("/api/candidates/{candidate_id}/face", status_code=204, dependencies=[Depends(admin)])
     def register_face_remove(candidate_id: int, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> None:
         S.remove_faces(db, day, None, candidate=S.get_candidate(db, candidate_id))
+        clear_face_folder(candidate_id)
+
+    # ---- a person's face photos: seen, downloaded, or opened as a folder on the station PC. They live
+    # in the database (personal data, deleted with the person and by the retention rules); a folder is
+    # written only when asked, and removed with the faces.
+    faces_dir = evidence.parent / "faces"
+
+    def face_folder_name(c) -> str:
+        return f"{c.id}-" + (re.sub(r"[^\w.-]+", "_", c.external_id or "").strip("._") or "person")
+
+    def clear_face_folder(candidate_id: int) -> None:
+        import shutil
+        if faces_dir.is_dir():
+            for d in faces_dir.glob(f"{candidate_id}-*"):
+                shutil.rmtree(d, ignore_errors=True)
+
+    def face_rows(db: Session, candidate_id: int) -> list:
+        return list(db.scalars(select(FaceTemplate).where(FaceTemplate.candidate_id == candidate_id).order_by(FaceTemplate.id)))
+
+    @app.get("/api/candidates/{candidate_id}/faces")
+    def candidate_faces(candidate_id: int, db: Session = Depends(get_db)) -> dict:
+        c = S.get_candidate(db, candidate_id)
+        return {"candidate": {"id": c.id, "name": c.name, "external_id": c.external_id},
+                "folder": f"data/faces/{face_folder_name(c)}",
+                "faces": [{"id": t.id, "url": f"/api/faces/{t.id}.jpg", "yaw": t.yaw, "quality": t.quality,
+                           "taken_at": iso(t.created_at) if getattr(t, "created_at", None) else None} for t in face_rows(db, c.id)]}
+
+    @app.get("/api/faces/{template_id}.jpg")
+    def face_template_jpg(template_id: int, db: Session = Depends(get_db)) -> Response:
+        t = db.get(FaceTemplate, template_id)
+        if t is None:
+            raise S.ServiceError("no_face_enrolled", "no such face photo", 404)
+        return Response(t.photo_jpeg, media_type="image/jpeg")
+
+    @app.delete("/api/faces/{template_id}", status_code=204, dependencies=[Depends(admin)])
+    def face_template_delete(template_id: int, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> None:
+        clear_face_folder(S.remove_face_photo(db, day, template_id))
+
+    @app.get("/api/candidates/{candidate_id}/faces.zip", dependencies=[Depends(admin)])
+    def candidate_faces_zip(candidate_id: int, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> Response:
+        import io
+        import zipfile
+        c = S.get_candidate(db, candidate_id)
+        rows = face_rows(db, c.id)
+        if not rows:
+            raise S.ServiceError("no_face_enrolled", "no face enrolled", 404)
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as z:
+            for k, t in enumerate(rows, 1):
+                z.writestr(f"face-{k}.jpg", t.photo_jpeg)
+        S._audit(db, day, "admin", "faces_downloaded", None, external_id=c.external_id, photos=len(rows))
+        db.commit()
+        name = face_folder_name(c)
+        return Response(buf.getvalue(), media_type="application/zip", headers={"Content-Disposition": f'attachment; filename="faces-{name}.zip"'})
+
+    @app.post("/api/candidates/{candidate_id}/faces/folder", dependencies=[Depends(admin)])
+    def candidate_faces_folder(candidate_id: int, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        """Write the person's face photos to data/faces/<id>-<ID> and open that folder in Explorer on
+        the station PC (through the camera service, which runs there)."""
+        c = S.get_candidate(db, candidate_id)
+        rows = face_rows(db, c.id)
+        if not rows:
+            raise S.ServiceError("no_face_enrolled", "no face enrolled", 404)
+        clear_face_folder(c.id)
+        folder = faces_dir / face_folder_name(c)
+        folder.mkdir(parents=True, exist_ok=True)
+        for k, t in enumerate(rows, 1):
+            (folder / f"face-{k}.jpg").write_bytes(t.photo_jpeg)
+        S._audit(db, day, "admin", "faces_to_folder", None, external_id=c.external_id, photos=len(rows))
+        db.commit()
+        rel = f"faces/{folder.name}"
+        try:
+            _camhost("POST", "/open", {"rel": rel}, timeout=4.0)
+            opened = True
+        except S.ServiceError:
+            opened = False          # the camera service is not running: the folder is there all the same
+        return {"folder": f"data/{rel}", "opened": opened, "photos": len(rows)}
 
     @app.get("/api/candidates/{candidate_id}/face.jpg")
     def register_face_jpg(candidate_id: int, db: Session = Depends(get_db)) -> Response:
@@ -750,7 +828,9 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
 
     @app.delete("/api/entries/{entry_id}/face", status_code=204, dependencies=[Depends(admin)])
     def face_remove(entry_id: int, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> None:
-        S.remove_faces(db, day, S.get_entry(db, day, entry_id))
+        e = S.get_entry(db, day, entry_id)
+        S.remove_faces(db, day, e)
+        clear_face_folder(e.candidate_id)
 
     @app.get("/api/entries/{entry_id}/face.jpg")
     def face_jpg(entry_id: int, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> Response:
@@ -771,11 +851,11 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
             raise S.ServiceError(getattr(e, "code", "bad_image"), str(e), 422) from None
 
     @app.post("/api/face/identify")
-    async def face_identify(request: Request, station: str | None = None,
+    async def face_identify(request: Request, station: str | None = None, learn: bool = True,
                             db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
         if station is not None and station not in J.STATIONS and station != "results":
             raise S.ServiceError("unknown_station", f"unknown station {station!r}", 400)
-        r = S.identify(db, day, await request.body(), engine(), station)
+        r = S.identify(db, day, await request.body(), engine(), station, learn=learn)
         if r["entry"] is not None:
             r["entry"] = entry_out(r["entry"], day, S.face_count(db, r["entry"].candidate_id))
         return r
@@ -1274,6 +1354,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         if sl is None:
             lines.clear()
             sl = lines[day.date] = StartLine(countdown_s=float(S.get_settings(db)["start_countdown_s"]))
+        sl.countdown_s = float(S.get_settings(db)["start_countdown_s"])   # a change applies to the next start
         # the examiner may have acted meanwhile (removed from the line, started or cancelled by hand)
         if sl.entry_id is not None and sl.state in ("raise_hand", "countdown"):
             e = db.get(Entry, sl.entry_id)
@@ -1382,7 +1463,9 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
             f = flows[day.date] = StationFlow(countdown_s=float(S.get_settings(db)["start_countdown_s"]),
                                               time_s=float(S.rules_for(db, day, rules).exercise_time_s))
             adopt_running(db, day, f)
-        f.idle_s = float(S.get_settings(db)["station_stop_after_s"])    # a change applies to the next check
+        st = S.get_settings(db)
+        f.idle_s = float(st["station_stop_after_s"])    # a change applies to the next check
+        f.countdown_s = float(st["start_countdown_s"])
         if f.attempt_id is not None and f.state == "testing":
             a = db.get(Attempt, f.attempt_id)
             if a is None or a.status != "running":       # saved or cancelled by the examiner

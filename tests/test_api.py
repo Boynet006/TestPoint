@@ -205,7 +205,7 @@ def test_bibs_are_assigned_automatically_when_asked(client):
 def test_station_settings_defaults_update_and_audit(client):
     assert ok(client.get("/api/settings")) == {
         "auto_identify": True, "camera_background": "off", "camera_bg_places": ["weigh", "start", "photo"], "backdrop_color": "#8a949e", "face_match": "normal", "face_required": False, "finish_setup_shown": True, "station_choose_first": True, "walk_ins": True,
-        "default_gender": "M", "default_unit": "combat", "bib_start": 1, "lanes": 3, "station_stop_after_s": 20, "start_countdown_s": 3, "cancel_window_s": 120, "finish_face_threshold": 0.0, "site_name": "", "default_language": "en", "trouble_run_cutoff_s": 0, "count_tuning": {}, "evidence_keep_days": 30, "evidence_max_gb": 0, "evidence_min_free_gb": 5, "evidence_held_days": [], "camera_sources": {"weigh": ["webcam", "video", "photo", "ipcam"], "start": ["webcam", "video", "photo", "ipcam"], "results": ["webcam", "video", "photo"], "finish": ["webcam", "video", "ipcam"], "station": ["webcam", "video", "ipcam"]}, "theme": "night",
+        "default_gender": "M", "default_unit": "combat", "bib_start": 1, "lanes": 3, "station_stop_after_s": 20, "start_countdown_s": 0, "cancel_window_s": 120, "finish_face_threshold": 0.0, "site_name": "", "default_language": "en", "trouble_run_cutoff_s": 0, "count_tuning": {}, "evidence_keep_days": 30, "evidence_max_gb": 0, "evidence_min_free_gb": 5, "evidence_held_days": [], "camera_sources": {"weigh": ["webcam", "video", "photo", "ipcam"], "start": ["webcam", "video", "photo", "ipcam"], "results": ["webcam", "video", "photo"], "finish": ["webcam", "video", "ipcam"], "station": ["webcam", "video", "ipcam"]}, "theme": "night",
         "admin_pin_set": False, "background_image": None}
     s = ok(client.put("/api/settings", json={"auto_identify": False, "bib_start": 500}))
     assert s["auto_identify"] is False and s["bib_start"] == 500 and s["default_gender"] == "M"
@@ -383,6 +383,7 @@ def test_camera_background_colour_and_picture(client):
 
 
 def test_every_runner_is_timed_from_their_own_go(client, monkeypatch):
+    ok(client.put("/api/settings", json={"start_countdown_s": 3}))   # with a 3-2-1 (the default is none)
     rows = "external_id,name,bib,gender,dob\n" + "".join(f"W-{b},Runner {b},{b},M,2000-01-01\n" for b in range(31, 36))
     ok(client.post("/api/entries/import", content=rows.encode()))
     ids = {b: entry_by_bib(client, b)["id"] for b in range(31, 36)}
@@ -506,7 +507,7 @@ def test_camera_background_places(client):
 def test_defaults_for_reset(client):
     ok(client.put("/api/settings", json={"start_countdown_s": 5, "theme": "falcon"}))
     d = ok(client.get("/api/settings/defaults"))
-    assert d["settings"]["start_countdown_s"] == 3 and d["settings"]["theme"] == "night"
+    assert d["settings"]["start_countdown_s"] == 0 and d["settings"]["theme"] == "night"
     assert d["rules"]["men"] and d["rules"]["unit_level"]["combat"] == 60
 
 
@@ -714,8 +715,32 @@ def test_each_screen_has_its_own_camera_choices(client):
     got = ok(client.put("/api/settings", json={"camera_sources": {"weigh": ["webcam"], "start": ["ipcam"], "finish": ["ipcam", "photo"]}}))["camera_sources"]
     assert got["weigh"] == ["webcam"] and got["start"] == ["ipcam"]
     assert got["finish"] == ["ipcam"]                       # the finish cannot show a still photo
-    assert got["station"] == ["webcam", "video", "ipcam"]   # a screen left out keeps all its sources
+    assert got["station"] == ["webcam", "video", "ipcam"]   # a screen left out keeps what it had (all, here)
+    again = ok(client.put("/api/settings", json={"camera_sources": {"results": ["webcam"]}}))["camera_sources"]
+    assert again["weigh"] == ["webcam"] and again["start"] == ["ipcam"] and again["results"] == ["webcam"]   # only results changed
     assert got["results"] == ["webcam", "video", "photo"]
     # the old one-for-all list still works: every screen gets it (a screen that cannot use any keeps its first)
     got = ok(client.put("/api/settings", json={"camera_sources": ["ipcam"]}))["camera_sources"]
     assert got["weigh"] == ["ipcam"] and got["finish"] == ["ipcam"] and got["results"] == ["webcam"]
+
+
+def test_a_persons_face_photos_can_be_listed_downloaded_and_put_in_a_folder(tmp_path):
+    from test_faces import FakeEngine
+    app = create_app(db_url=f"sqlite:///{tmp_path / 'a.db'}", web_dir="none", face_engine=lambda: FakeEngine(),
+                     evidence_dir=tmp_path / "evidence", camhost_url="http://127.0.0.1:9")   # no camera service here
+    with TestClient(app) as c:
+        c.post("/api/entries/import", content=b"external_id,name,bib,gender,dob\nC-1,Alpha,11,M,2000-01-01\n")
+        e = c.get("/api/entries").json()[0]
+        c.post(f"/api/entries/{e['id']}/face", content=b"face:A")
+        cid = e["candidate"]["id"]
+        r = ok(c.get(f"/api/candidates/{cid}/faces"))
+        assert len(r["faces"]) == 1 and r["folder"] == f"data/faces/{cid}-C-1"
+        assert c.get(r["faces"][0]["url"]).headers["content-type"] == "image/jpeg"
+        z = c.get(f"/api/candidates/{cid}/faces.zip")
+        assert z.status_code == 200 and z.content[:2] == b"PK"
+        f = ok(c.post(f"/api/candidates/{cid}/faces/folder"))
+        assert f["photos"] == 1 and f["opened"] is False                     # written; nothing to open it with here
+        folder = tmp_path / "faces" / f"{cid}-C-1"
+        assert (folder / "face-1.jpg").exists()
+        c.delete(f"/api/candidates/{cid}/face")                              # the faces go: the folder goes with them
+        assert not folder.exists()
