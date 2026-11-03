@@ -269,12 +269,65 @@
   .seg { display: flex; border: 1px solid var(--line); background: var(--bg2); }
   .seg button { background: transparent; color: var(--muted); border: 0; padding: 7px 14px; cursor: pointer; font-family: var(--cond); font-size: 16px; text-transform: uppercase; letter-spacing: 1px; }
   .seg button.icon { padding: 7px 10px; display: grid; place-items: center; }
+  /* the header menu (☰): full screen, fit to the window, settings */
+  .hmenu { position: relative; }
+  .hmenu-btn { display: grid; place-items: center; width: 40px; height: 38px; background: var(--bg2); color: var(--text); border: 1px solid var(--line); cursor: pointer; }
+  .hmenu-btn:hover, .hmenu-btn[aria-expanded="true"] { border-color: var(--amber); color: var(--amber); }
+  .hmenu:has(#setBtn.active) .hmenu-btn, .hmenu:has(#fsBtn.active) .hmenu-btn { background: var(--amber); color: var(--amber-ink); border-color: var(--amber); }
+  .hmenu-pop { position: absolute; top: calc(100% + 14px + var(--bar-h)); inset-inline-end: 0; z-index: 60; min-width: 240px; padding: 6px 0; background: var(--panel); border: 1px solid var(--line);
+    box-shadow: 0 16px 40px -8px rgba(0,0,0,.6); }
+  .hmenu-pop[hidden] { display: none; }
+  .hmenu-pop button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 14px; background: none; border: 0; color: var(--text); cursor: pointer;
+    font-family: var(--cond); font-size: 16px; letter-spacing: .5px; text-transform: uppercase; text-align: start; }
+  .hmenu-pop button.hidden { display: none; }
+  .hmenu-pop button:disabled { cursor: default; opacity: .5; } .hmenu-pop button:disabled:hover { background: none; }
+  .hmenu-pop button small { display: block; font-family: var(--sans, inherit); font-size: 12px; text-transform: none; letter-spacing: 0; color: var(--muted); }
+  .hmenu-pop button:hover, .hmenu-pop button:focus-visible { background: rgba(255,255,255,.06); outline: none; }
+  .hmenu-pop button span { flex: 1; }
+  .hmenu-pop button svg { flex: 0 0 auto; color: var(--muted); }
+  .hmenu-pop button.active svg { color: var(--amber); }
+  .hmenu-pop kbd { font: 12px var(--cond); color: var(--muted); border: 1px solid var(--line); padding: 1px 6px; }
+  .hm-row { display: flex; align-items: center; gap: 12px; padding: 8px 14px; }
+  .hm-label { flex: 1; font-family: var(--cond); font-size: 13px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+  .hmenu-pop .hm-row .seg button { width: auto; padding: 6px 12px; font-size: 15px; }
+  .hmenu-pop .hm-row .seg button:hover { background: rgba(255,255,255,.06); }
+  .hmenu-pop .hm-row .seg button.active { background: var(--amber); color: var(--amber-ink); }
+  .advchip { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px 6px 12px; background: var(--amber); color: var(--amber-ink); border: 0; cursor: pointer;
+    font-family: var(--cond); font-size: 15px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+  .advchip b { font-size: 18px; line-height: 1; } .advchip.hidden { display: none; }
+  .hmenu-pop hr { border: 0; border-top: 1px solid var(--line); margin: 6px 0; }
+  .hmenu-pop .sw { position: relative; width: 34px; height: 18px; border-radius: 9px; background: var(--line); flex: 0 0 auto; transition: background .15s; }
+  .hmenu-pop .sw::after { content: ""; position: absolute; top: 2px; inset-inline-start: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--text); transition: inset-inline-start .15s; }
+  .hmenu-pop button.active .sw { background: var(--amber); } .hmenu-pop button.active .sw::after { inset-inline-start: 18px; background: var(--amber-ink); }
   .seg button.active { background: var(--amber); color: var(--amber-ink); font-weight: 700; }
   .conn { font-family: var(--cond); font-size: 14px; letter-spacing: 1px; text-transform: uppercase; }
   .conn.ok { color: var(--go); } .conn.bad { color: var(--stop); }
   main { padding: 14px 20px 14px; max-width: 1500px; margin: 0 auto; }
   .hidden { display: none !important; }
   .grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+  /* Fit to the window (☰ menu, kept on the device), the same on every screen: the header stays, the
+     screen fills the rest of the window, the page never scrolls; a long list or form scrolls inside
+     its own column, and camera pictures take the height left. Small windows scroll as usual. */
+  @media (min-width: 901px) and (min-height: 520px) {
+    body.fit { height: 100dvh; overflow: hidden; }
+    body.fit main { max-width: none; height: calc(100dvh - var(--app-top, 80px)); padding-block: 10px; display: flex; flex-direction: column; overflow: hidden; }
+    body.fit main > section:not(.hidden) { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+    body.fit #simple > div:not(.hidden) { flex: 1 1 0; min-height: 0; }
+    body.fit .grid2 { height: 100%; align-items: stretch; }
+    body.fit .grid2 > * { min-height: 0; overflow: auto; }
+    body.fit #v-weigh > .card, body.fit #v-start > .card { display: flex; flex-direction: column; }
+    body.fit #camSlot-weigh:has(#camBlock), body.fit #camSlot-start:has(#camBlock), body.fit #camBlock { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+    body.fit #camBlock .viewer { aspect-ratio: auto; flex: 1 1 0; min-height: 200px; }
+    body.fit .camlive img { max-height: calc(100dvh - var(--app-top, 80px) - 260px); }
+    body.fit #v-station:not(.hidden) { display: flex; flex-direction: column; }
+    body.fit #stBody:not(.hidden) { flex: 1 1 0; min-height: 0; overflow: auto; }
+    body.fit #advanced > .tabs { flex: none; }
+    body.fit #advanced > .card:not(.hidden) { flex: 1 1 0; min-height: 0; overflow: auto; }
+    body.fit #settingsPage > .settop { flex: none; }
+    body.fit #t-settings { flex: 1 1 0; min-height: 0; align-items: stretch; }
+    body.fit #t-settings .setnav { position: static; overflow: auto; min-height: 0; }
+    body.fit #t-settings .setpanels { overflow: auto; min-height: 0; padding-inline-end: 4px; }
+  }
   .lanes { display: grid; grid-template-columns: repeat(var(--lanes, 3), minmax(0, 1fr)); gap: 16px; }
   @media (max-width: 1050px) { .grid2, .lanes { grid-template-columns: 1fr; } }
   .card { background: var(--panel); border: 1px solid var(--line); padding: 16px; }
@@ -666,9 +719,21 @@
   <span class="spacer"></span>
   <span class="kv"><span data-t="today"></span> <b id="hdrDate">—</b></span>
   <span class="clock" id="clock"></span>
-  <div class="seg"><button id="lang-en" onclick="setLang('en')">EN</button><button id="lang-ar" onclick="setLang('ar')">ع</button></div>
-  <div class="seg"><button id="mode-simple" onclick="setMode('simple')" data-t="simple"></button><button id="mode-advanced" onclick="setMode('advanced')" data-t="advanced"></button></div>
-  <div class="seg"><button id="fitBtn" class="icon hidden" onclick="fitHere(load('stFit', '1') === '0' ? 'on' : 'off')" data-tl="fit_btn" aria-pressed="false"><svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M8 9h8v6H8z"/><path d="M12 4v2M12 18v2M3 12h2M19 12h2"/></svg></button><button id="fsBtn" class="icon" onclick="Fullscreen.toggle()" data-tl="fs_enter"><svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button><button id="setBtn" class="icon" onclick="openSettings()" data-tl="t_settings"><svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div>
+  <button class="advchip hidden" id="advChip" type="button" onclick="setMode('simple')" data-tl="adv_leave"><span data-t="advanced"></span><b aria-hidden="true">×</b></button>
+  <div class="hmenu" id="hMenuWrap">
+    <button id="menuBtn" class="hmenu-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="hMenu" onclick="HMenu.toggle()" data-tl="menu"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <div class="hmenu-pop" id="hMenu" role="menu" hidden>
+      <div class="hm-row"><span class="hm-label" data-t="hm_lang"></span>
+        <div class="seg" role="group" data-tl="hm_lang"><button id="lang-en" type="button" role="menuitemradio" onclick="setLang('en'); HMenu.close(true)" lang="en">EN</button><button id="lang-ar" type="button" role="menuitemradio" onclick="setLang('ar'); HMenu.close(true)" lang="ar">عربي</button></div></div>
+      <div class="hm-row"><span class="hm-label" data-t="hm_view"></span>
+        <div class="seg" role="group" data-tl="hm_view"><button id="mode-simple" type="button" role="menuitemradio" onclick="HMenu.close(); setMode('simple')" data-t="simple"></button><button id="mode-advanced" type="button" role="menuitemradio" onclick="HMenu.close(); setMode('advanced')" data-t="advanced"></button></div></div>
+      <hr>
+      <button id="fsBtn" type="button" role="menuitemcheckbox" aria-checked="false" onclick="HMenu.close(); Fullscreen.toggle()" data-tl="fs_enter"><svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span data-t="fs_item"></span><kbd>Esc</kbd></button>
+      <button id="fitBtn" type="button" role="menuitemcheckbox" aria-checked="false" onclick="fitHere(load('stFit', '1') === '0' ? 'on' : 'off')" data-tl="fit_btn"><svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M8 9h8v6H8z"/><path d="M12 4v2M12 18v2M3 12h2M19 12h2"/></svg><span data-t="fit_item"></span><i class="sw" aria-hidden="true"></i></button>
+      <hr>
+      <button id="setBtn" type="button" role="menuitem" onclick="HMenu.close(); openSettings()" data-tl="t_settings"><svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span data-t="t_settings"></span></button>
+    </div>
+  </div>
 </header>
 <div class="troublebar hidden" id="troubleTop" role="status"></div>
 
@@ -1853,9 +1918,9 @@ const I18N = {
     n_no_bib_read: "no bib read", n_bib_not_on_list: "bib {bib} is not on today's list", n_bib_not_running: "bib {bib} is {status}, not running",
     n_unassigned_by_examiner: "taken off bib {bib} by the examiner", n_assigned_by_examiner: "assigned to bib {bib} by the examiner",
     ph_reason: "Reason", save_first: "Save this lane's result first", imported_counts: "Added {a}, updated {u}, unchanged {s}.",
-    fs_enter: "Full screen (Esc leaves)", fs_exit: "Leave full screen",
-    fit_btn: "Fit the station to the window (no scrolling)", set_fit: "Fit to the window", fit_on: "On: no scrolling", fit_off: "Off: the page scrolls",
-    set_fit_hint: "The exercise station with one mat fills this window: the camera picture takes the free space and the page does not scroll. Off: the page scrolls, as on a small screen. Also the button beside full screen on the station.",
+    fs_enter: "Full screen (Esc leaves)", fs_exit: "Leave full screen", menu: "Menu", hm_lang: "Language", hm_view: "View", adv_leave: "Advanced view: back to simple", fs_item: "Full screen", fit_item: "Fit to the window",
+    fit_btn: "Fit every screen to the window (no page scrolling)", set_fit: "Fit to the window", fit_on: "On: no scrolling", fit_off: "Off: the page scrolls",
+    set_fit_hint: "Every screen fills this window: the page does not scroll, long lists scroll inside their own column, and camera pictures take the free space. Off: pages scroll as usual. Also in the menu (☰).",
     t_recordings: "Recordings", rc_hint: "Go back to any day and watch what the cameras saw: pick a person, then their start, finish, full attempt videos or a single rep. Crossed out: deleted under the retention rules (Settings > Recordings). , and . step one frame.",
     rc_day: "Day", rc_find: "Bib or name", rc_people: "People", rc_today: "today", rc_pick: "Pick a recording below to watch it.", rc_download: "Download",
     rc_no_match: "No one matches.", rc_nobody: "No one on this day's list.", rc_other: "Not linked to anyone", rc_other_hint: "Recordings that belong to no one on this day's list: a crossing never assigned, a camera test or another database.",
@@ -2246,9 +2311,9 @@ const I18N = {
     n_no_bib_read: "لم يُقرأ الرقم", n_bib_not_on_list: "الرقم {bib} غير موجود في قائمة اليوم", n_bib_not_running: "الرقم {bib} حالته {status} وليس يجري",
     n_unassigned_by_examiner: "أُزيل من الرقم {bib} بواسطة الممتحن", n_assigned_by_examiner: "عُيّن للرقم {bib} بواسطة الممتحن",
     ph_reason: "السبب", save_first: "احفظ نتيجة هذا المسار أولاً", imported_counts: "أضيف {a}، حُدّث {u}، دون تغيير {s}.",
-    fs_enter: "ملء الشاشة (Esc للخروج)", fs_exit: "الخروج من ملء الشاشة",
-    fit_btn: "ملاءمة المحطة للنافذة (بلا تمرير)", set_fit: "ملاءمة النافذة", fit_on: "تشغيل: بلا تمرير", fit_off: "إيقاف: تتمرر الصفحة",
-    set_fit_hint: "تملأ محطة التمارين ذات البساط الواحد هذه النافذة: تأخذ صورة الكاميرا المساحة المتاحة ولا تتمرر الصفحة. إيقاف: تتمرر الصفحة كما في الشاشات الصغيرة.",
+    fs_enter: "ملء الشاشة (Esc للخروج)", fs_exit: "الخروج من ملء الشاشة", menu: "القائمة", hm_lang: "اللغة", hm_view: "العرض", adv_leave: "العرض المتقدم: العودة إلى البسيط", fs_item: "ملء الشاشة", fit_item: "ملاءمة النافذة",
+    fit_btn: "ملاءمة كل الشاشات للنافذة (بلا تمرير للصفحة)", set_fit: "ملاءمة النافذة", fit_on: "تشغيل: بلا تمرير", fit_off: "إيقاف: تتمرر الصفحة",
+    set_fit_hint: "تملأ كل الشاشات هذه النافذة: لا تتمرر الصفحة، وتتمرر القوائم الطويلة داخل عمودها، وتأخذ صور الكاميرا المساحة المتاحة. إيقاف: تتمرر الصفحات كالمعتاد. وأيضاً في القائمة (☰).",
     t_recordings: "التسجيلات", rc_hint: "ارجع إلى أي يوم وشاهد ما رأته الكاميرات: اختر شخصاً، ثم انطلاقه أو وصوله أو فيديو المحاولة كاملاً أو تكراراً واحداً. المشطوب: حُذف حسب قواعد الاحتفاظ (الإعدادات > التسجيلات). , و . لإطار واحد.",
     rc_day: "اليوم", rc_find: "الرقم أو الاسم", rc_people: "الأشخاص", rc_today: "اليوم", rc_pick: "اختر تسجيلاً أدناه لمشاهدته.", rc_download: "تنزيل",
     rc_no_match: "لا أحد مطابق.", rc_nobody: "لا أحد في قائمة هذا اليوم.", rc_other: "غير مرتبطة بأحد", rc_other_hint: "تسجيلات لا تخص أحداً في قائمة هذا اليوم: وصول لم يُسند، أو تجربة كاميرا، أو قاعدة بيانات أخرى.",
@@ -2272,7 +2337,7 @@ function applyI18n() {
   document.querySelectorAll("[data-t]").forEach(el => el.textContent = t(el.dataset.t));
   document.querySelectorAll("[data-tp]").forEach(el => el.placeholder = t(el.dataset.tp));
   document.querySelectorAll("[data-tl]").forEach(el => { el.title = t(el.dataset.tl); el.setAttribute("aria-label", t(el.dataset.tl)); });
-  for (const l of ["en", "ar"]) document.getElementById("lang-" + l).classList.toggle("active", l === lang);
+  for (const l of ["en", "ar"]) { const b = document.getElementById("lang-" + l); b.classList.toggle("active", l === lang); b.setAttribute("aria-checked", String(l === lang)); }
 }
 function setLang(l, remember = true) { lang = l; if (remember) save("lang", l); applyI18n(); if (typeof applySiteName === "function" && S) applySiteName(); lastReviewSig = ""; lanes.forEach(renderLane); render();
   if (typeof Cam !== "undefined") { Cam.show(); $("autoBtn").textContent = autoId ? t("auto_on") : t("auto_off"); } }
@@ -2348,7 +2413,7 @@ function render() {
 }
 function setRole(r) { if (settingsOpen) closeSettings(); role = r;
   /* one camera, moved to the station in use */ const slot = $("camSlot-" + r); if (slot && !slot.contains($("camBlock"))) { slot.appendChild($("camBlock")); clearBox(); const v = $("camVideo"); if (v.srcObject || v.getAttribute("src")) v.play().catch(() => {}); }   /* moving a video pauses it */
-   save("role", r); $("role").value = r; document.body.classList.remove("st-one", "st-fit"); $("fitBtn").classList.add("hidden"); BgFx.refresh(); if (r !== "station" && typeof LiveTune !== "undefined") LiveTune.toggle(false); for (const x of ["weigh", "start", "finish", "station", "results"]) $("v-" + x).classList.toggle("hidden", x !== r);
+   save("role", r); $("role").value = r; document.body.classList.remove("st-one", "st-fit");  BgFx.refresh(); if (r !== "station" && typeof LiveTune !== "undefined") LiveTune.toggle(false); for (const x of ["weigh", "start", "finish", "station", "results"]) $("v-" + x).classList.toggle("hidden", x !== r);
   if (booted) {
     const want = CAM_ROLES.includes(r) ? Cam.kindFor(r) : null;
     if (want && want !== Cam.kind && ["webcam", "ipcam"].includes(want)) Cam.use(want);
@@ -2364,7 +2429,8 @@ function setMode(m) {
   if (settingsOpen) { settingsOpen = false; $("settingsPage").classList.add("hidden"); $("setBtn").classList.remove("active"); }
   mode = m; save("mode", m); $("simple").classList.toggle("hidden", m !== "simple"); $("advanced").classList.toggle("hidden", m !== "advanced");
   if (role === "station") stationLayout(oneMat());   // back from Settings or Advanced: the station's own layout again
-  for (const x of ["simple", "advanced"]) $("mode-" + x).classList.toggle("active", x === m); refresh(); }
+  for (const x of ["simple", "advanced"]) { $("mode-" + x).classList.toggle("active", x === m); $("mode-" + x).setAttribute("aria-checked", String(x === m)); }
+  $("advChip").classList.toggle("hidden", m !== "advanced"); refresh(); }
 function tab(name, btn) { for (const x of ["list", "register", "review", "recordings"]) $("t-" + x).classList.toggle("hidden", x !== name); if (name === "register") Register.load(); if (name === "recordings") Recs.load(); else Recs.pause(); document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("active", b === btn)); }
 
 /* ============================== weigh-in ============================== */
@@ -4411,6 +4477,34 @@ const LiveTune = {
   },
 };
 // The station screen fills the window (no scrolling) or sits like the other screens; kept on this device.
+// ---- the header menu (☰): opens under its button; Esc, a click outside or a choice closes it;
+// arrow keys move between the items (the WAI-ARIA menu button pattern).
+const HMenu = {
+  items: () => [...$("hMenu").querySelectorAll("button:not(.hidden):not(:disabled)")],   // incl. the language and view buttons
+  open() {
+    $("hMenu").hidden = false; $("menuBtn").setAttribute("aria-expanded", "true");
+    const first = this.items()[0]; if (first) first.focus();
+  },
+  close(focus) {
+    if ($("hMenu").hidden) return;
+    $("hMenu").hidden = true; $("menuBtn").setAttribute("aria-expanded", "false");
+    if (focus) $("menuBtn").focus();
+  },
+  toggle() { if ($("hMenu").hidden) this.open(); else this.close(); },
+  init() {
+    document.addEventListener("pointerdown", e => { if (!e.target.closest("#hMenuWrap")) this.close(); });
+    $("hMenu").addEventListener("keydown", e => {
+      const it = this.items(), i = it.indexOf(document.activeElement);
+      if (e.key === "Escape") { e.preventDefault(); this.close(true); }
+      else if (e.key === "ArrowDown" || (e.key === "ArrowRight" && lang !== "ar") || (e.key === "ArrowLeft" && lang === "ar")) { e.preventDefault(); it[(i + 1) % it.length].focus(); }
+      else if (e.key === "ArrowUp" || (e.key === "ArrowLeft" && lang !== "ar") || (e.key === "ArrowRight" && lang === "ar")) { e.preventDefault(); it[(i - 1 + it.length) % it.length].focus(); }
+      else if (e.key === "Home") { e.preventDefault(); it[0].focus(); }
+      else if (e.key === "End") { e.preventDefault(); it[it.length - 1].focus(); }
+      else if (e.key === "Tab") this.close();
+    });
+  },
+};
+
 // ---- full screen for the whole app, from the header, on every screen (the browser's Fullscreen API;
 // Esc or the button leaves it). A kiosk screen does not need the browser's own bars.
 const Fullscreen = {
@@ -4423,7 +4517,7 @@ const Fullscreen = {
   },
   sync() {
     const b = $("fsBtn"), on = this.on(), k = on ? "fs_exit" : "fs_enter";
-    b.classList.toggle("active", on); b.dataset.tl = k; b.title = t(k); b.setAttribute("aria-label", t(k));
+    b.classList.toggle("active", on); b.dataset.tl = k; b.title = t(k); b.setAttribute("aria-checked", String(on));
     b.querySelector("svg").innerHTML = on ? '<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>' : '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>';
   },
   init() {
@@ -4434,7 +4528,15 @@ const Fullscreen = {
   },
 };
 // Settings > This screen: the one-mat station fills the window (no page scroll) or scrolls.
-function fitHere(v) { save("stFit", v === "off" ? "0" : "1"); stationLayout(oneMat()); }
+function fitHere(v) { save("stFit", v === "off" ? "0" : "1"); applyFit(); stationLayout(oneMat()); }
+// Fit to the window, for the whole app (every screen); the header's height sets the room left.
+function applyFit() {
+  const fit = load("stFit", "1") === "1", fb = $("fitBtn");
+  document.body.classList.toggle("fit", fit);
+  fb.classList.toggle("active", fit); fb.setAttribute("aria-checked", String(fit));
+  if ($("setFit")) $("setFit").value = fit ? "on" : "off";
+}
+function measureTop() { document.documentElement.style.setProperty("--app-top", `${Math.round(document.querySelector("header").getBoundingClientRect().height)}px`); }
 // One mat: the same two columns as the start and finish screens. Several mats: the lanes.
 function stationLayout(one) {
   const put = (id, host, first) => { const el = $(id); if (el.parentElement !== host) { if (first) host.prepend(el); else host.appendChild(el); } };
@@ -4442,9 +4544,7 @@ function stationLayout(one) {
   const here = one && role === "station" && mode === "simple" && !settingsOpen;   // never the Settings page
   document.body.classList.toggle("st-one", here);
   document.body.classList.toggle("st-fit", here && load("stFit", "1") === "1");
-  const fb = $("fitBtn"), fit = load("stFit", "1") === "1";      // the header toggle: only where it applies
-  fb.classList.toggle("hidden", !here); fb.classList.toggle("active", fit); fb.setAttribute("aria-pressed", String(fit));
-  if ($("setFit")) $("setFit").value = fit ? "on" : "off";
+  applyFit();
   if (one) document.documentElement.style.setProperty("--st-top", `${Math.round($("v-station").getBoundingClientRect().top)}px`);
   $("scTune").classList.add("hidden");   // one mat: the Tune button is in the station's own header
   if (one) { put("xCall", $("scOneCall")); put("scView", $("scOnePic")); put("scCard", $("scOneCam")); put("xCam", $("xOneCam")); }
@@ -5736,9 +5836,10 @@ function openSettings() {
   settingsOpen = true; showSettings(); SetNav.addResets(); applyI18n(); SetNav.show(load("setPanel", "rules")); SavedCams.load(true);
   SetNav.defaults().then(() => tuningRows());   // the counting rules' ranges come from the server
   for (const x of ["simple", "advanced"]) $(x).classList.add("hidden");
-  document.body.classList.remove("st-one", "st-fit"); $("fitBtn").classList.add("hidden");   // the station's fitted layout must not lock this page
+  document.body.classList.remove("st-one", "st-fit");    // the station's fitted layout must not lock this page
   $("settingsPage").classList.remove("hidden"); $("setBtn").classList.add("active"); window.scrollTo(0, 0);
   for (const x of ["simple", "advanced"]) $("mode-" + x).classList.remove("active");
+  $("advChip").classList.add("hidden");
 }
 async function resetDay(stopRunning) {
   const keep = document.querySelector('input[name="resetKeep"]:checked').value === "1";
@@ -5807,7 +5908,8 @@ async function savePin(remove) {
   BgFx.attach($("enrolVideo"), $("enrolFx"), "photo"); BgFx.attach($("regVideo"), $("regFx"), "photo");
   BgFx.attach($("camLive-finish").querySelector("img"), $("fxFinish"), "finish");
   BgFx.attach($("camLive-station").querySelector("img"), $("fxStation"), "station");
-  FinishCam.init(); StationCam.init(); Recs.init(); Fullscreen.init();
+  FinishCam.init(); StationCam.init(); Recs.init(); Fullscreen.init(); HMenu.init(); applyFit(); measureTop();
+  new ResizeObserver(measureTop).observe(document.querySelector("header"));
   for (const v of BgFx.views.values()) BgFx.sync(v);
   $("enrolDlg").addEventListener("close", () => { if (EnrolDlg.stream) EnrolDlg.close(); });   // Esc: release the camera too
 })();
