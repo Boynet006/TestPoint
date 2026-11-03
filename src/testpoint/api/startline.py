@@ -1,7 +1,7 @@
 """The start line, run by its camera: one runner at a time.
 
-    idle ── face recognised (2 of the last 3 looks) ──► raise_hand ("raise your LEFT hand")
-      ▲                                                    │ the asked hand held up 0.5 s
+    idle ── face recognised (2 of the last 3 looks) ──► raise_hand ("raise a hand")
+      ▲                                                    │ a hand (either, or both) held up 0.5 s
       │                                                    ▼
       ├── cooldown ◄── started (GO shown) ◄── countdown (3-2-1, their clock runs from GO)
       └── refused (already ran, not weighed in, ...) for a few seconds
@@ -15,13 +15,12 @@ database and no clock of its own: tests drive it with plain values.
 
 from __future__ import annotations
 
-import random
 from collections import deque
 from dataclasses import dataclass, field
 
 RECOGNISE_VOTES = 2          # the same person in this many of the last VOTE_WINDOW looks
 VOTE_WINDOW = 3
-HOLD_S = 0.5                 # the asked hand held up this long
+HOLD_S = 0.5                 # a hand held up this long
 RAISE_TIMEOUT_S = 15.0       # no hand: back to waiting (they stay at the line)
 AWAY_S = 2.0                 # nobody at the mark this long: back to waiting
 AWAY_COUNTDOWN_S = 1.5       # stepped away during the 3-2-1: the start is cancelled
@@ -37,7 +36,7 @@ class Look:
     present: bool
     match: tuple[int, bool, str | None] | None = None
     """(entry id, may start, reason when not) for a face recognised in this look, else None."""
-    hand: str | None = None   # "left" / "right" raised, or None
+    hand: str | None = None   # "left" / "right" / "both" raised, or None
 
 
 @dataclass
@@ -45,9 +44,7 @@ class StartLine:
     countdown_s: float = 3.0
     state: str = "idle"
     entry_id: int | None = None
-    side: str | None = None
     reason: str | None = None
-    wrong_hand: bool = False
     since: float = 0.0
     held_since: float | None = None
     go_at: float | None = None
@@ -56,13 +53,12 @@ class StartLine:
     last_look: float = 0.0
     votes: deque = field(default_factory=lambda: deque(maxlen=VOTE_WINDOW))
     recent: dict = field(default_factory=dict)    # entry id -> ignored until
-    rng: random.Random = field(default_factory=random.Random)
 
     def _to(self, state: str, now: float, **kw) -> None:
         self.state, self.since = state, now
-        self.held_since, self.wrong_hand, self.reason = None, False, None
+        self.held_since, self.reason = None, None
         if state == "idle":
-            self.entry_id = self.side = self.go_at = None
+            self.entry_id = self.go_at = None
             self.votes.clear()
         for k, v in kw.items():
             setattr(self, k, v)
@@ -103,7 +99,7 @@ class StartLine:
                 if not ok:
                     self._to("refused", now, entry_id=entry_id, reason=reason, until=now + REFUSED_S)
                 else:
-                    self._to("raise_hand", now, entry_id=entry_id, side=self.rng.choice(("left", "right")))
+                    self._to("raise_hand", now, entry_id=entry_id)
                     acts.append(("line_up", entry_id))
             return acts
 
@@ -111,16 +107,14 @@ class StartLine:
             if now - self.last_seen > AWAY_S:
                 self._to("idle", now, reason="stepped_away")
                 return acts
-            if look.hand == self.side:
-                self.wrong_hand = False
+            if look.hand:   # either hand, or both: the runner is ready
                 self.held_since = self.held_since if self.held_since is not None else now
                 if now - self.held_since >= HOLD_S:
                     entry_id = self.entry_id
-                    self._to("countdown", now, entry_id=entry_id, side=self.side, go_at=now + self.countdown_s)
+                    self._to("countdown", now, entry_id=entry_id, go_at=now + self.countdown_s)
                     acts.append(("start", entry_id))
             else:
                 self.held_since = None
-                self.wrong_hand = look.hand is not None
             return acts
 
         if self.state == "countdown" and now - self.last_seen > AWAY_COUNTDOWN_S:
@@ -132,6 +126,6 @@ class StartLine:
     def view(self, now: float) -> dict:
         """What the start screen shows."""
         self.tick(now)
-        return {"state": self.state, "entry_id": self.entry_id, "side": self.side, "wrong_hand": self.wrong_hand,
+        return {"state": self.state, "entry_id": self.entry_id, 
                 "reason": self.reason, "since": self.since, "go_at": self.go_at,
                 "camera": now - self.last_look <= STALE_S, "present": now - self.last_seen <= 1.0}

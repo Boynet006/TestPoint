@@ -387,7 +387,7 @@ class StationStartIn(BaseModel):
 class StartObsIn(BaseModel):
     """What the start-line camera sees at the mark (testpoint.startcam), a few times a second."""
     present: bool
-    hand: Literal["left", "right"] | None = None
+    hand: Literal["left", "right", "both"] | None = None
     emb: str | None = Field(default=None, max_length=2000)
     """The face embedding (128 float32, base64) when a face was looked at in this frame."""
     quality: float | None = None

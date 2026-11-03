@@ -28,8 +28,8 @@ def torso(p: Person) -> float | None:
 
 
 def hand_raised(p: Person) -> str | None:
-    """"left" or "right" (the person's own hand) when one hand is clearly up, None otherwise
-    (both up counts as neither: a stretch, not an answer)."""
+    """"left" or "right" (the person's own hand) when one hand is clearly up, "both" when both are,
+    None otherwise."""
     t = torso(p)
     if t is None:
         return None
@@ -37,7 +37,7 @@ def hand_raised(p: Person) -> str | None:
     for side, w, s in (("left", L_WRIST, L_SHOULDER), ("right", R_WRIST, R_SHOULDER)):
         if _ok(p, w, s) and p.xy[s][1] - p.xy[w][1] > RAISE * t:     # image y grows downwards
             up.append(side)
-    return up[0] if len(up) == 1 else None
+    return up[0] if len(up) == 1 else "both" if up else None
 
 
 def box(p: Person, min_conf: float = 0.3) -> tuple[float, float, float, float] | None:
