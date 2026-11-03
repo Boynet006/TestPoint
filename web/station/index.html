@@ -492,7 +492,7 @@
   .callbox .c-time { font-family: var(--cond); font-size: 120px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
   .callbox .c-time.low { color: var(--bad); }
   .callbox .c-label { font-family: var(--cond); font-size: 18px; color: var(--muted); }
-  /* One mat: two columns like the start and finish screens. "Full screen" (st-fit, a toggle kept on the
+  /* One mat: two columns like the start and finish screens. "Fit to the window" (st-fit, Settings > This screen, kept on the
      device): the whole window, the picture as large as the room left, no scrolling. */
   #stOne { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr); gap: 12px; align-items: start; }
   #stOne.hidden { display: none; }
@@ -1009,7 +1009,7 @@
   <div id="v-station" class="hidden">
     <div id="stOne" class="hidden">
       <div class="card stmain">
-        <div class="row" style="align-items:center"><h2 style="margin:0" data-t="r_station"></h2><span class="spacer"></span><button class="btn ghost sm" style="flex:0 0 auto" id="xOneFit" onclick="stationFit()" data-t="st_fit"></button><button class="btn ghost sm" style="flex:0 0 auto" id="xOneTune" onclick="LiveTune.toggle()" data-t="lt_button"></button><span id="xOneCam"></span></div>
+        <div class="row" style="align-items:center"><h2 style="margin:0" data-t="r_station"></h2><span class="spacer"></span><button class="btn ghost sm" style="flex:0 0 auto" id="xOneTune" onclick="LiveTune.toggle()" data-t="lt_button"></button><span id="xOneCam"></span></div>
         <div id="scOnePic"></div>
         <div id="scOneCall"></div>
         <div class="search" style="margin-top:10px"><input id="xQuery" data-tp="ph_bib" autocomplete="off" onkeydown="if(event.key==='Enter')StationCall.manual()"><button class="btn amber" onclick="StationCall.manual()" data-t="st_manual"></button><button class="btn ghost" style="flex:0 0 auto" onclick="StationCall.results()" data-t="r_results"></button></div>
@@ -1407,6 +1407,9 @@
         <label for="setMotion" data-t="set_motion"></label>
         <select id="setMotion" onchange="motionHere(this.value)"><option value="on" data-t="on"></option><option value="off" data-t="off"></option></select>
         <span class="hint" data-t="set_motion_hint"></span>
+        <label for="setFit" data-t="set_fit"></label>
+        <select id="setFit" onchange="fitHere(this.value)"><option value="on" data-t="fit_on"></option><option value="off" data-t="fit_off"></option></select>
+        <span class="hint" data-t="set_fit_hint"></span>
         <label for="setDots" data-t="set_dots"></label>
         <div class="pair"><input id="setDots" type="range" min="10" max="200" step="5" oninput="dotsHere(this.value)"><span id="setDotsN" class="kv" style="min-width:34px"></span><button class="btn ghost sm" type="button" onclick="dotsHere('')" data-t="dots_auto"></button></div>
         <span class="hint" data-t="set_dots_hint"></span>
@@ -1516,7 +1519,7 @@ const I18N = {
     cal_title: "Auto-calibration, live", cal_sliders: "Adjust", cal_off: "Off", cal_learning: "Learning {n}/{m}", cal_done: "Calibrated", cal_nobody: "Nobody measured yet",
     cal_now: "Now", cal_work: "Depth that counts (same for everyone)", cal_rest: "Back at the start (learned from this person)", cal_fixed: "Back at the start, before learning", cal_range: "How far this person moves",
     tn_auto_share: "Auto-calibration: back at the start", tnh_auto_share: "Share of the person's own movement, learned over the first 3 reps. 0 turns it off.",
-    st_fit: "Fit to screen", st_manual: "Start manually", st_go_now: "Start now", st_start: "Start", st_reps: "Count", st_time_left: "Time left",
+    st_manual: "Start manually", st_go_now: "Start now", st_start: "Start", st_reps: "Count", st_time_left: "Time left",
     st_waiting: "Waiting for this station", st_waiting_hint: "They finished the run. The camera recognises them on the mat, or press Start.",
     up_pick: "Upload video", up_busy: "Uploading the video: {pct}%", up_ok: "Uploaded: {name}",
     e_bad_video: "Choose a video file (mp4, mov, mkv, avi, webm)", e_video_too_large: "Videos are limited to 2 GB",
@@ -1851,6 +1854,8 @@ const I18N = {
     n_unassigned_by_examiner: "taken off bib {bib} by the examiner", n_assigned_by_examiner: "assigned to bib {bib} by the examiner",
     ph_reason: "Reason", save_first: "Save this lane's result first", imported_counts: "Added {a}, updated {u}, unchanged {s}.",
     fs_enter: "Full screen (Esc leaves)", fs_exit: "Leave full screen",
+    set_fit: "Fit to the window", fit_on: "On: no scrolling", fit_off: "Off: the page scrolls",
+    set_fit_hint: "The exercise station with one mat fills this window: the camera picture takes the free space and the page does not scroll. Off: the page scrolls, as on a small screen.",
     t_recordings: "Recordings", rc_hint: "Go back to any day and watch what the cameras saw: pick a person, then their start, finish, full attempt videos or a single rep. Crossed out: deleted under the retention rules (Settings > Recordings). , and . step one frame.",
     rc_day: "Day", rc_find: "Bib or name", rc_people: "People", rc_today: "today", rc_pick: "Pick a recording below to watch it.", rc_download: "Download",
     rc_no_match: "No one matches.", rc_nobody: "No one on this day's list.", rc_other: "Not linked to anyone", rc_other_hint: "Recordings that belong to no one on this day's list: a crossing never assigned, a camera test or another database.",
@@ -1907,7 +1912,7 @@ const I18N = {
     cal_title: "المعايرة التلقائية مباشرة", cal_sliders: "الضبط", cal_off: "متوقفة", cal_learning: "تتعلم {n}/{m}", cal_done: "تمت المعايرة", cal_nobody: "لم يُقَس أحد بعد",
     cal_now: "الآن", cal_work: "العمق المطلوب (نفسه للجميع)", cal_rest: "العودة للبداية (متعلَّمة من هذا الشخص)", cal_fixed: "العودة للبداية قبل التعلم", cal_range: "مدى حركة هذا الشخص",
     tn_auto_share: "المعايرة التلقائية: العودة للبداية", tnh_auto_share: "نسبة من حركة الشخص نفسه، تُتعلَّم من أول 3 عدات. 0 يوقفها.",
-    st_fit: "ملاءمة الشاشة", st_manual: "بدء يدوي", st_go_now: "ابدأ الآن", st_start: "بدء", st_reps: "العدد", st_time_left: "الوقت المتبقي",
+    st_manual: "بدء يدوي", st_go_now: "ابدأ الآن", st_start: "بدء", st_reps: "العدد", st_time_left: "الوقت المتبقي",
     st_waiting: "بانتظار هذه المحطة", st_waiting_hint: "أنهوا الجري. تتعرف عليهم الكاميرا على البساط، أو اضغط بدء.",
     up_pick: "رفع فيديو", up_busy: "جارٍ رفع الفيديو: {pct}%", up_ok: "تم الرفع: {name}",
     e_bad_video: "اختر ملف فيديو (mp4, mov, mkv, avi, webm)", e_video_too_large: "الحد الأقصى للفيديو 2 غيغابايت",
@@ -2242,6 +2247,8 @@ const I18N = {
     n_unassigned_by_examiner: "أُزيل من الرقم {bib} بواسطة الممتحن", n_assigned_by_examiner: "عُيّن للرقم {bib} بواسطة الممتحن",
     ph_reason: "السبب", save_first: "احفظ نتيجة هذا المسار أولاً", imported_counts: "أضيف {a}، حُدّث {u}، دون تغيير {s}.",
     fs_enter: "ملء الشاشة (Esc للخروج)", fs_exit: "الخروج من ملء الشاشة",
+    set_fit: "ملاءمة النافذة", fit_on: "تشغيل: بلا تمرير", fit_off: "إيقاف: تتمرر الصفحة",
+    set_fit_hint: "تملأ محطة التمارين ذات البساط الواحد هذه النافذة: تأخذ صورة الكاميرا المساحة المتاحة ولا تتمرر الصفحة. إيقاف: تتمرر الصفحة كما في الشاشات الصغيرة.",
     t_recordings: "التسجيلات", rc_hint: "ارجع إلى أي يوم وشاهد ما رأته الكاميرات: اختر شخصاً، ثم انطلاقه أو وصوله أو فيديو المحاولة كاملاً أو تكراراً واحداً. المشطوب: حُذف حسب قواعد الاحتفاظ (الإعدادات > التسجيلات). , و . لإطار واحد.",
     rc_day: "اليوم", rc_find: "الرقم أو الاسم", rc_people: "الأشخاص", rc_today: "اليوم", rc_pick: "اختر تسجيلاً أدناه لمشاهدته.", rc_download: "تنزيل",
     rc_no_match: "لا أحد مطابق.", rc_nobody: "لا أحد في قائمة هذا اليوم.", rc_other: "غير مرتبطة بأحد", rc_other_hint: "تسجيلات لا تخص أحداً في قائمة هذا اليوم: وصول لم يُسند، أو تجربة كاميرا، أو قاعدة بيانات أخرى.",
@@ -2356,6 +2363,7 @@ function setMode(m) {
   if (m === "advanced" && setting("admin_pin_set") && !adminPin()) { PinDlg.open(); return; }
   if (settingsOpen) { settingsOpen = false; $("settingsPage").classList.add("hidden"); $("setBtn").classList.remove("active"); }
   mode = m; save("mode", m); $("simple").classList.toggle("hidden", m !== "simple"); $("advanced").classList.toggle("hidden", m !== "advanced");
+  if (role === "station") stationLayout(oneMat());   // back from Settings or Advanced: the station's own layout again
   for (const x of ["simple", "advanced"]) $("mode-" + x).classList.toggle("active", x === m); refresh(); }
 function tab(name, btn) { for (const x of ["list", "register", "review", "recordings"]) $("t-" + x).classList.toggle("hidden", x !== name); if (name === "register") Register.load(); if (name === "recordings") Recs.load(); else Recs.pause(); document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("active", b === btn)); }
 
@@ -4425,15 +4433,15 @@ const Fullscreen = {
     this.sync();
   },
 };
-function stationFit() { save("stFit", load("stFit", "1") === "1" ? "0" : "1"); stationLayout(oneMat()); }
+// Settings > This screen: the one-mat station fills the window (no page scroll) or scrolls.
+function fitHere(v) { save("stFit", v === "off" ? "0" : "1"); stationLayout(oneMat()); }
 // One mat: the same two columns as the start and finish screens. Several mats: the lanes.
 function stationLayout(one) {
   const put = (id, host, first) => { const el = $(id); if (el.parentElement !== host) { if (first) host.prepend(el); else host.appendChild(el); } };
   $("stOne").classList.toggle("hidden", !one); $("xBar").classList.toggle("hidden", one); $("stBody").classList.toggle("hidden", one);
-  const here = one && role === "station" && mode === "simple";
+  const here = one && role === "station" && mode === "simple" && !settingsOpen;   // never the Settings page
   document.body.classList.toggle("st-one", here);
   document.body.classList.toggle("st-fit", here && load("stFit", "1") === "1");
-  $("xOneFit").classList.toggle("active", load("stFit", "1") === "1");
   if (one) document.documentElement.style.setProperty("--st-top", `${Math.round($("v-station").getBoundingClientRect().top)}px`);
   $("scTune").classList.add("hidden");   // one mat: the Tune button is in the station's own header
   if (one) { put("xCall", $("scOneCall")); put("scView", $("scOnePic")); put("scCard", $("scOneCam")); put("xCam", $("xOneCam")); }
@@ -5226,6 +5234,7 @@ function themeCards() {
     + Object.keys(THEMES).map(k => `<option value="${k}">${t("th_" + k)}</option>`).join("");
   $("setThemeHere").value = THEMES[here] ? here : "";
   $("setMotion").value = load("motion", "on") === "off" ? "off" : "on";
+  $("setFit").value = load("stFit", "1") === "0" ? "off" : "on";
   dotsHere(load("fx_dots", "")); renderTrouble();
   soundRows();
 }
@@ -5700,7 +5709,7 @@ const SetNav = {
     bgColorPicked(); bgRows(); bgPlacesShow(); themeCards(); tuningRows(); applyTheme($("setTheme").value); this.check();
   },
   resetScreen(key) {
-    if (key === "screen") { themeHere(""); motionHere("on"); dotsHere(""); }
+    if (key === "screen") { themeHere(""); motionHere("on"); dotsHere(""); fitHere("on"); $("setFit").value = "on"; }
     if (key === "sounds") { for (const ev of Object.keys(SOUND_DEFAULT)) save("snd_" + ev, SOUND_DEFAULT[ev]); soundVolume(80); }
     if (key === "trouble") { troubleTime(""); if (S.defaults) this.fill(document.querySelector('.setpanel[data-p="trouble"]'), S.defaults.settings); }
     themeCards(); soundRows();
@@ -5724,6 +5733,7 @@ function openSettings() {
   settingsOpen = true; showSettings(); SetNav.addResets(); applyI18n(); SetNav.show(load("setPanel", "rules")); SavedCams.load(true);
   SetNav.defaults().then(() => tuningRows());   // the counting rules' ranges come from the server
   for (const x of ["simple", "advanced"]) $(x).classList.add("hidden");
+  document.body.classList.remove("st-one", "st-fit");   // the station's fitted layout must not lock this page
   $("settingsPage").classList.remove("hidden"); $("setBtn").classList.add("active"); window.scrollTo(0, 0);
   for (const x of ["simple", "advanced"]) $("mode-" + x).classList.remove("active");
 }
