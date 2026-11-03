@@ -668,7 +668,7 @@
   <span class="clock" id="clock"></span>
   <div class="seg"><button id="lang-en" onclick="setLang('en')">EN</button><button id="lang-ar" onclick="setLang('ar')">ع</button></div>
   <div class="seg"><button id="mode-simple" onclick="setMode('simple')" data-t="simple"></button><button id="mode-advanced" onclick="setMode('advanced')" data-t="advanced"></button></div>
-  <div class="seg"><button id="setBtn" class="icon" onclick="openSettings()" data-tl="t_settings"><svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div>
+  <div class="seg"><button id="fsBtn" class="icon" onclick="Fullscreen.toggle()" data-tl="fs_enter"><svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button><button id="setBtn" class="icon" onclick="openSettings()" data-tl="t_settings"><svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div>
 </header>
 <div class="troublebar hidden" id="troubleTop" role="status"></div>
 
@@ -1516,7 +1516,7 @@ const I18N = {
     cal_title: "Auto-calibration, live", cal_sliders: "Adjust", cal_off: "Off", cal_learning: "Learning {n}/{m}", cal_done: "Calibrated", cal_nobody: "Nobody measured yet",
     cal_now: "Now", cal_work: "Depth that counts (same for everyone)", cal_rest: "Back at the start (learned from this person)", cal_fixed: "Back at the start, before learning", cal_range: "How far this person moves",
     tn_auto_share: "Auto-calibration: back at the start", tnh_auto_share: "Share of the person's own movement, learned over the first 3 reps. 0 turns it off.",
-    st_fit: "Full screen", st_manual: "Start manually", st_go_now: "Start now", st_start: "Start", st_reps: "Count", st_time_left: "Time left",
+    st_fit: "Fit to screen", st_manual: "Start manually", st_go_now: "Start now", st_start: "Start", st_reps: "Count", st_time_left: "Time left",
     st_waiting: "Waiting for this station", st_waiting_hint: "They finished the run. The camera recognises them on the mat, or press Start.",
     up_pick: "Upload video", up_busy: "Uploading the video: {pct}%", up_ok: "Uploaded: {name}",
     e_bad_video: "Choose a video file (mp4, mov, mkv, avi, webm)", e_video_too_large: "Videos are limited to 2 GB",
@@ -1850,6 +1850,7 @@ const I18N = {
     n_no_bib_read: "no bib read", n_bib_not_on_list: "bib {bib} is not on today's list", n_bib_not_running: "bib {bib} is {status}, not running",
     n_unassigned_by_examiner: "taken off bib {bib} by the examiner", n_assigned_by_examiner: "assigned to bib {bib} by the examiner",
     ph_reason: "Reason", save_first: "Save this lane's result first", imported_counts: "Added {a}, updated {u}, unchanged {s}.",
+    fs_enter: "Full screen (Esc leaves)", fs_exit: "Leave full screen",
     t_recordings: "Recordings", rc_hint: "Go back to any day and watch what the cameras saw: pick a person, then their start, finish, full attempt videos or a single rep. Crossed out: deleted under the retention rules (Settings > Recordings). , and . step one frame.",
     rc_day: "Day", rc_find: "Bib or name", rc_people: "People", rc_today: "today", rc_pick: "Pick a recording below to watch it.", rc_download: "Download",
     rc_no_match: "No one matches.", rc_nobody: "No one on this day's list.", rc_other: "Not linked to anyone", rc_other_hint: "Recordings that belong to no one on this day's list: a crossing never assigned, a camera test or another database.",
@@ -1906,7 +1907,7 @@ const I18N = {
     cal_title: "المعايرة التلقائية مباشرة", cal_sliders: "الضبط", cal_off: "متوقفة", cal_learning: "تتعلم {n}/{m}", cal_done: "تمت المعايرة", cal_nobody: "لم يُقَس أحد بعد",
     cal_now: "الآن", cal_work: "العمق المطلوب (نفسه للجميع)", cal_rest: "العودة للبداية (متعلَّمة من هذا الشخص)", cal_fixed: "العودة للبداية قبل التعلم", cal_range: "مدى حركة هذا الشخص",
     tn_auto_share: "المعايرة التلقائية: العودة للبداية", tnh_auto_share: "نسبة من حركة الشخص نفسه، تُتعلَّم من أول 3 عدات. 0 يوقفها.",
-    st_fit: "ملء الشاشة", st_manual: "بدء يدوي", st_go_now: "ابدأ الآن", st_start: "بدء", st_reps: "العدد", st_time_left: "الوقت المتبقي",
+    st_fit: "ملاءمة الشاشة", st_manual: "بدء يدوي", st_go_now: "ابدأ الآن", st_start: "بدء", st_reps: "العدد", st_time_left: "الوقت المتبقي",
     st_waiting: "بانتظار هذه المحطة", st_waiting_hint: "أنهوا الجري. تتعرف عليهم الكاميرا على البساط، أو اضغط بدء.",
     up_pick: "رفع فيديو", up_busy: "جارٍ رفع الفيديو: {pct}%", up_ok: "تم الرفع: {name}",
     e_bad_video: "اختر ملف فيديو (mp4, mov, mkv, avi, webm)", e_video_too_large: "الحد الأقصى للفيديو 2 غيغابايت",
@@ -2240,6 +2241,7 @@ const I18N = {
     n_no_bib_read: "لم يُقرأ الرقم", n_bib_not_on_list: "الرقم {bib} غير موجود في قائمة اليوم", n_bib_not_running: "الرقم {bib} حالته {status} وليس يجري",
     n_unassigned_by_examiner: "أُزيل من الرقم {bib} بواسطة الممتحن", n_assigned_by_examiner: "عُيّن للرقم {bib} بواسطة الممتحن",
     ph_reason: "السبب", save_first: "احفظ نتيجة هذا المسار أولاً", imported_counts: "أضيف {a}، حُدّث {u}، دون تغيير {s}.",
+    fs_enter: "ملء الشاشة (Esc للخروج)", fs_exit: "الخروج من ملء الشاشة",
     t_recordings: "التسجيلات", rc_hint: "ارجع إلى أي يوم وشاهد ما رأته الكاميرات: اختر شخصاً، ثم انطلاقه أو وصوله أو فيديو المحاولة كاملاً أو تكراراً واحداً. المشطوب: حُذف حسب قواعد الاحتفاظ (الإعدادات > التسجيلات). , و . لإطار واحد.",
     rc_day: "اليوم", rc_find: "الرقم أو الاسم", rc_people: "الأشخاص", rc_today: "اليوم", rc_pick: "اختر تسجيلاً أدناه لمشاهدته.", rc_download: "تنزيل",
     rc_no_match: "لا أحد مطابق.", rc_nobody: "لا أحد في قائمة هذا اليوم.", rc_other: "غير مرتبطة بأحد", rc_other_hint: "تسجيلات لا تخص أحداً في قائمة هذا اليوم: وصول لم يُسند، أو تجربة كاميرا، أو قاعدة بيانات أخرى.",
@@ -4401,6 +4403,28 @@ const LiveTune = {
   },
 };
 // The station screen fills the window (no scrolling) or sits like the other screens; kept on this device.
+// ---- full screen for the whole app, from the header, on every screen (the browser's Fullscreen API;
+// Esc or the button leaves it). A kiosk screen does not need the browser's own bars.
+const Fullscreen = {
+  on: () => !!(document.fullscreenElement || document.webkitFullscreenElement),
+  async toggle() {
+    try {
+      if (this.on()) await (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+      else await (document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen).call(document.documentElement, { navigationUI: "hide" });
+    } catch (e) { /* refused by the browser (an embedded page): nothing to do */ }
+  },
+  sync() {
+    const b = $("fsBtn"), on = this.on(), k = on ? "fs_exit" : "fs_enter";
+    b.classList.toggle("active", on); b.dataset.tl = k; b.title = t(k); b.setAttribute("aria-label", t(k));
+    b.querySelector("svg").innerHTML = on ? '<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>' : '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>';
+  },
+  init() {
+    const can = document.fullscreenEnabled || document.webkitFullscreenEnabled;
+    $("fsBtn").classList.toggle("hidden", !can);
+    for (const ev of ["fullscreenchange", "webkitfullscreenchange"]) document.addEventListener(ev, () => this.sync());
+    this.sync();
+  },
+};
 function stationFit() { save("stFit", load("stFit", "1") === "1" ? "0" : "1"); stationLayout(oneMat()); }
 // One mat: the same two columns as the start and finish screens. Several mats: the lanes.
 function stationLayout(one) {
@@ -5770,7 +5794,7 @@ async function savePin(remove) {
   BgFx.attach($("enrolVideo"), $("enrolFx"), "photo"); BgFx.attach($("regVideo"), $("regFx"), "photo");
   BgFx.attach($("camLive-finish").querySelector("img"), $("fxFinish"), "finish");
   BgFx.attach($("camLive-station").querySelector("img"), $("fxStation"), "station");
-  FinishCam.init(); StationCam.init(); Recs.init();
+  FinishCam.init(); StationCam.init(); Recs.init(); Fullscreen.init();
   for (const v of BgFx.views.values()) BgFx.sync(v);
   $("enrolDlg").addEventListener("close", () => { if (EnrolDlg.stream) EnrolDlg.close(); });   // Esc: release the camera too
 })();
