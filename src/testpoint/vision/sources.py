@@ -19,8 +19,12 @@ from collections.abc import Callable
 
 os.environ.setdefault("OPENCV_FFMPEG_CAPTURE_OPTIONS", "rtsp_transport;tcp")
 
-import cv2
-import numpy as np
+# Windows' Media Foundation opens a webcam in about a second without its hardware transforms
+# (with them, often several); set before OpenCV loads it.
+os.environ.setdefault("OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS", "0")
+
+import cv2  # noqa: E402
+import numpy as np  # noqa: E402
 
 
 class SourceError(RuntimeError):
@@ -90,12 +94,15 @@ class FileSource:
         self.source = source
         self.is_live = source.isdigit()
         if self.is_live and sys.platform == "win32":
-            # DirectShow opens at once and adds less delay than Windows' default (Media Foundation),
-            # and MJPG lets USB webcams send 720p at full frame rate. 720p is asked for whatever the
-            # driver says about MJPG (many report YUY2 and still give 720p): left at its default, a
-            # webcam opens at 640x480, a 4:3 crop of its picture. A camera without 720p keeps the
-            # nearest size it has.
-            self.cap = cv2.VideoCapture(int(source), cv2.CAP_DSHOW)
+            # Media Foundation gives a USB webcam's full rate (30 fps at 720p, measured; DirectShow
+            # gave 16-20 on the same camera) and opens it faster; DirectShow if it cannot open it.
+            # MJPG lets the webcam send 720p at full rate. 720p is asked for whatever the driver says
+            # (left at its default, a webcam opens at 640x480, a 4:3 crop of its picture); a camera
+            # without 720p keeps the nearest size it has.
+            for api in (cv2.CAP_MSMF, cv2.CAP_DSHOW):
+                self.cap = cv2.VideoCapture(int(source), api)
+                if self.cap.isOpened():
+                    break
             self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
