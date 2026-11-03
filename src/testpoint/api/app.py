@@ -127,7 +127,7 @@ class SettingsIn(BaseModel):
     auto_identify: bool | None = None
     camera_background: Literal["off", "blur", "backdrop", "image"] | None = None
     camera_bg_places: list[Literal["weigh", "start", "photo", "finish", "station"]] | None = Field(default=None, max_length=5)
-    camera_sources: list[Literal["webcam", "video", "photo", "ipcam"]] | None = Field(default=None, min_length=1, max_length=4)
+    camera_sources: dict[Literal["weigh", "start", "results", "finish", "station"], list[Literal["webcam", "video", "photo", "ipcam"]]] | list[Literal["webcam", "video", "photo", "ipcam"]] | None = None   # per screen (a list: every screen)
     backdrop_color: str | None = Field(default=None, pattern=r"^#[0-9a-fA-F]{6}$")
     face_match: Literal["normal", "strict"] | None = None
     face_required: bool | None = None
