@@ -315,8 +315,8 @@
     body.fit #simple > div:not(.hidden) { flex: 1 1 0; min-height: 0; }
     body.fit .grid2 { height: 100%; align-items: stretch; }
     body.fit .grid2 > * { min-height: 0; overflow: auto; }
-    body.fit #v-weigh > .card, body.fit #v-start > .card { display: flex; flex-direction: column; }
-    body.fit #camSlot-weigh:has(#camBlock), body.fit #camSlot-start:has(#camBlock), body.fit #camBlock { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+    body.fit #v-weigh > .card, body.fit #v-start > .card, body.fit #v-results > .card:first-child { display: flex; flex-direction: column; }
+    body.fit #camSlot-weigh:has(#camBlock), body.fit #camSlot-start:has(#camBlock), body.fit #camSlot-results:has(#camBlock), body.fit #camBlock { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
     body.fit #camBlock .viewer { aspect-ratio: auto; flex: 1 1 0; min-height: 200px; }
     body.fit .camlive img { max-height: calc(100dvh - var(--app-top, 80px) - 260px); }
     body.fit #v-station:not(.hidden) { display: flex; flex-direction: column; }
@@ -486,7 +486,8 @@
   .rclist button:hover { background: rgba(255,255,255,.04); } .rclist button.active { background: var(--amber); color: var(--amber-ink); }
   .rclist .bib { font-family: var(--cond); font-weight: 700; font-size: 18px; } .rclist .n { font-size: 13px; color: var(--muted); } .rclist button.active .n { color: inherit; }
   .rclist button.none { opacity: .55; } .rclist .grp { padding: 8px 12px; font-family: var(--cond); color: var(--muted); letter-spacing: 1px; text-transform: uppercase; font-size: 13px; }
-  .rcplayer { position: relative; background: #000; aspect-ratio: 16 / 9; display: grid; place-items: center; }
+  .rcplayer { position: relative; background: #000; aspect-ratio: 16 / 9; display: grid; place-items: center;
+    width: min(100%, calc((100dvh - var(--app-top, 80px) - 470px) * 16 / 9)); min-width: min(100%, 360px); margin-inline: auto; }   /* the chips below stay in view */
   .rcplayer video { width: 100%; height: 100%; display: block; background: #000; }
   .rcplayer video:not([src]) { visibility: hidden; }
   .rcempty { position: absolute; color: #bbb; font-size: 15px; padding: 16px; text-align: center; pointer-events: none; } .rcempty.hidden { display: none; }
@@ -1198,7 +1199,7 @@
   </div>
   <div id="t-register" class="card hidden">
     <h2 data-t="t_register"></h2>
-    <p class="hint" data-t="register_hint"></p>
+    <p class="hint" data-t="cands_hint"></p>
     <div class="row regbar">
       <input id="rgQ" type="search" data-tp="ph_search_people" oninput="Register.search()" autocomplete="off" style="flex:1 1 220px">
       <select id="rgShow" onchange="Register.load()" style="flex:0 0 auto"><option value="all" data-t="rg_all"></option><option value="not_today" data-t="rg_not_today"></option><option value="today" data-t="rg_today"></option><option value="no_face" data-t="rg_no_face"></option></select>
@@ -1224,7 +1225,7 @@
       <input id="rcFind" style="max-width:220px" data-tp="rc_find" autocomplete="off" oninput="Recs.renderList()">
       <button class="btn ghost sm" style="flex:0 0 auto" type="button" onclick="Recs.load(true)" data-t="fc_refresh"></button>
     </div>
-    <p class="hint" data-t="rc_hint"></p>
+    <p class="hint" data-t="rec_hint"></p>
     <div class="rcgrid">
       <div class="rclist" id="rcPeople" role="listbox" data-tl="rc_people"></div>
       <div class="rcmain">
@@ -1594,7 +1595,7 @@ const I18N = {
     st_end: "End test", st_end_sure: "End it? Press again", st_end_hint: "The person cannot go on: the test ends now and the count so far is their result.",
     st_cancel: "Cancel", st_cancel_sure: "Cancel? Press again", st_cancel_hint: "Not scored: the test is thrown away and they do it again.",
     st_ended_examiner: "Ended by the examiner before the time.", st_ended_left_mat: "Ended: they left the mat.", st_ended_no_reps: "Ended: no more reps.",
-    st_ends_in: "No rep: the test ends in {n} s", set_stop_after: "End the test after no rep for", set_stop_after_hint: "One-mat station: when the person stops (no rep counted this long), the test ends with the count so far. Leaving the mat for 5 s also ends it. A paused test video does not count.",
+    st_ends_in: "No rep: the test ends in {n} s", set_stop_after: "End the test after no rep for", set_stop_after_hint: "One-mat station: when the person stops (after their first rep, no rep this long while out of the start position; resting in it is allowed), the test ends with the count so far. Leaving the mat for 5 s also ends it. A paused test video does not count.",
     stop_off: "Never (only the time)", stop_10: "10 s", stop_15: "15 s", stop_20: "20 s", stop_30: "30 s", stop_60: "1 minute",
     cal_title: "Auto-calibration, live", cal_sliders: "Adjust", cal_off: "Off", cal_learning: "Learning {n}/{m}", cal_done: "Calibrated", cal_nobody: "Nobody measured yet",
     cal_now: "Now", cal_work: "Depth that counts (same for everyone)", cal_rest: "Back at the start (learned from this person)", cal_fixed: "Back at the start, before learning", cal_range: "How far this person moves",
@@ -1683,7 +1684,7 @@ const I18N = {
     review_queue: "Review queue", clip: "clip", assign: "Assign", finishers: "Finishers", time: "Time", status: "Status", bib: "Bib", name: "Name", run: "Run",
     pushup: "Push-ups", crunch: "Crunches", time_limit: "Time limit", pass_mark: "Pass", waiting_here: "Ran, not done here",
     sc_camera: "Camera", sc_title: "Station camera", sc_offline: "The camera service is not running on the station PC. Start TestPoint.cmd starts it (or run: python -m testpoint.camhost). Until then, count by hand.",
-    sc_what: "Counts {ex} in {n} lanes (the exercise and lanes on this page).", sc_what_1: "Counts {ex} for one person (the whole picture).", sc_running: "Running", sc_equal: "Equal lanes",
+    sc_what: "Counts {ex} in {n} lanes (the exercise and lanes on this page).", sc_what_1: "Counts {ex} for one person (the whole picture).", sc_what_mat: "One mat: counts push-ups, then crunches, for the person checked in (the whole picture).", sc_running: "Running", sc_equal: "Equal lanes",
     sc_div_hint: "Drag the dashed lines so each lane holds one person; then Restart with these settings.", sc_cpu: "CPU only: counting will be slow",
     sc_followed: "Camera switched to {ex}, {n} lanes.", sc_started: "Station camera starting: the picture appears in a few seconds.", sc_stopped: "Station camera stopped.",
     idle_none_here: "Nobody is waiting for {ex}.", idle_need_other: "{n} still need {ex}.", idle_switch: "Switch to {ex}",
@@ -1711,7 +1712,7 @@ const I18N = {
     vb_seek: "Position in the video", vb_speed: "Playback speed", vb_normal: "Normal", vb_keys_title: "Keyboard shortcuts",
     vb_keys: "Space / K   play, pause\nJ / L   10 s back, on\n← / →   5 s back, on\n, / .   one frame (paused)\nHome / End   start, end\n0 – 9   10 % steps\n< / >   slower, faster\nClick the picture   play, pause", vb_ended: "End of the video. Rewind or play it again; the camera keeps running.",
     vb_slow: "The analysis is slower than the video, so it plays slower: no frame is skipped and no rep is missed.", vid_ended: "The video played to its end. Tick Repeat to keep it playing, then press Start camera.", vis_depth: "How deep the rep in progress is: the line is deep enough to count", vis_depth_s: "depth", vis_to_go: "{n} to 60%", hand_title: "Time by hand", hand_hint: "Backup when the camera is off or misses someone: tap, then type the bib.", fc_log: "Camera messages", lane_bib: "Lane {n}: bib",
-    cam_view: "Live camera", cam_off: "Camera offline · manual count", cam_live: "Camera live · {fps} fps", corrections: "Examiner corrections",
+    cam_view: "Live camera", cam_off: "Camera offline · manual count", cam_live: "Camera live · {fps} fps", cam_paused: "Camera live · video paused", corrections: "Examiner corrections",
     ph_waiting: "Get into position", ph_rest: "Up", ph_work: "Down", no_person: "Nobody in the lane",
     f_body_not_straight: "Body not straight", f_knee_on_ground: "Knee on the ground", f_rest_in_down: "Resting down", f_knees_not_bent: "Knees not bent",
     lane: "Lane", st_empty: "Free", st_verified: "Checked in", st_refused: "Refused", st_running: "Testing", st_done: "Result",
@@ -1784,7 +1785,7 @@ const I18N = {
     rules_hint: "Placeholder values until the official regulation arrives (docs/RULES.md).",
     s_expected: "expected", s_accepted: "accepted", s_rejected: "rejected at weigh-in", s_lined_up: "at the line", s_absent: "absent",
     s_running: "running", s_run_passed: "run passed", s_run_failed: "run failed", s_dnf: "DNF", s_complete: "complete",
-    e_not_on_todays_list: "Not on today's list", e_already_weighed: "Already weighed in today", e_not_weighed: "Not weighed in yet",
+    e_not_on_todays_list: "Not on today's list", e_already_weighed: "Already weighed in today", weighed_next: "{name} is weighed in today ✓ · next: the run", e_not_weighed: "Not weighed in yet",
     e_has_not_run: "Has not run yet", e_still_running: "Still running", e_rejected_at_weigh_in: "Rejected at weigh-in",
     e_missed_the_run: "Missed the run", e_run_not_passed: "Run not passed", e_run_not_finished: "Run not finished (DNF)",
     e_event_already_done: "Already done this exercise today", e_already_lined_up: "Already at the line",
@@ -1835,7 +1836,7 @@ const I18N = {
     start_cancelled: "Start cancelled. Runners are back at the line.", wrong_bib: "Wrong bib",
     unassigned: "Crossing moved back to the review queue; assign the right runner.", discard: "Discard", discarded: "Crossing discarded.",
     undo_weigh: "Undo weigh-in", weigh_undone: "weigh-in undone; weigh again", remove: "Remove", entry_removed: "Removed from today's list (still in Candidates).",
-    t_register: "Candidates", register_hint: "Everyone saved, whether or not they are on a test day. Register people ahead of time with their face photo, then add them to today's list when they come.",
+    t_register: "Candidates", cands_hint: "Everyone saved, whether or not they are on a test day. Register people ahead of time with their face photo, then add them to today's list when they come.",
     ph_search_people: "Search name, ID or bib", ph_usual_bib: "Usual bib (optional)", rg_all: "Everyone", rg_not_today: "Not on today's list", rg_today: "On today's list", rg_no_face: "No face photo",
     rg_new: "Register a person", rg_export: "Export CSV", rg_save: "Save", rg_save_today: "Save and add to today", rg_select_all: "Select everyone shown",
     age_h: "Age", rg_bib: "Usual bib", rg_last: "Last test", rg_today_h: "Today", rg_more: "Show more", rg_count: "{n} people", rg_count_some: "{shown} of {n} shown",
@@ -1916,7 +1917,7 @@ const I18N = {
     delete_entry: "Delete", sure_delete: "Delete with results?",
     face_camera: "Camera", face_upload: "Upload", sure_unface: "Delete face?",
     face_camera_hint: "Capture the face with the camera: 3 guided poses", face_upload_hint: "Add a face from a photo file (a passport photo)",
-    face_remove_hint: "Delete this person's face photos", face_count_hint: "Face photos on file (3 poses is complete)",
+    face_remove_hint: "Delete this person's face photos", face_count_hint: "Face photos on file: 3 or more is complete (the day adds up to 2 more, from sure matches)",
     enrol_title: "Enrol face", enrol_cancel: "Cancel", e_camera_busy: "The camera is in use by another tab or app",
     cam_taken_finish: "The webcam is in use by the finish camera.", cam_take_back: "Stop the finish camera and use the webcam here",
     e_not_lined_up: "Not at the line", e_remove_from_line_first: "At the line: remove from the line first", e_cannot_undo_weigh_in: "The weigh-in can no longer be undone",
@@ -1936,7 +1937,7 @@ const I18N = {
     fs_enter: "Full screen (Esc leaves)", fs_exit: "Leave full screen", menu: "Menu", hm_lang: "Language", hm_view: "View", adv_leave: "Advanced view: back to simple", fs_item: "Full screen", fit_item: "Fit to the window",
     fit_btn: "Fit every screen to the window (no page scrolling)", set_fit: "Fit to the window", fit_on: "On: no scrolling", fit_off: "Off: the page scrolls",
     set_fit_hint: "Every screen fills this window: the page does not scroll, long lists scroll inside their own column, and camera pictures take the free space. Off: pages scroll as usual. Also in the menu (☰).",
-    t_recordings: "Recordings", rc_hint: "Go back to any day and watch what the cameras saw: pick a person, then their start, finish, full attempt videos or a single rep. Crossed out: deleted under the retention rules (Settings > Recordings). , and . step one frame.",
+    t_recordings: "Recordings", rec_hint: "Go back to any day and watch what the cameras saw: pick a person, then their start, finish, full attempt videos or a single rep. Crossed out: deleted under the retention rules (Settings > Recordings). , and . step one frame.",
     rc_day: "Day", rc_find: "Bib or name", rc_people: "People", rc_today: "today", rc_pick: "Pick a recording below to watch it.", rc_download: "Download",
     rc_no_match: "No one matches.", rc_nobody: "No one on this day's list.", rc_other: "Not linked to anyone", rc_other_hint: "Recordings that belong to no one on this day's list: a crossing never assigned, a camera test or another database.",
     rc_kind_run: "Finish", rc_kind_start: "Start", rc_kind_station: "Station", rc_pick_person: "Pick a person on the left.", rc_empty_day: "No recordings on this day.",
@@ -1990,7 +1991,7 @@ const I18N = {
     st_end: "إنهاء الاختبار", st_end_sure: "إنهاء؟ اضغط مرة أخرى", st_end_hint: "لا يستطيع المتابعة: ينتهي الاختبار الآن ويُحتسب العدد حتى الآن نتيجةً له.",
     st_cancel: "إلغاء", st_cancel_sure: "إلغاء؟ اضغط مرة أخرى", st_cancel_hint: "لا يُحتسب: يُلغى الاختبار ويُعيده.",
     st_ended_examiner: "أنهاه الفاحص قبل الوقت.", st_ended_left_mat: "انتهى: غادر البساط.", st_ended_no_reps: "انتهى: توقف عن التكرار.",
-    st_ends_in: "لا تكرار: ينتهي الاختبار خلال {n} ث", set_stop_after: "إنهاء الاختبار بعد عدم التكرار لمدة", set_stop_after_hint: "محطة البساط الواحد: عندما يتوقف الشخص (لا تكرار طوال هذه المدة) ينتهي الاختبار بالعدد حتى الآن. مغادرة البساط 5 ث تنهيه أيضاً. لا يُحتسب إيقاف فيديو الاختبار مؤقتاً.",
+    st_ends_in: "لا تكرار: ينتهي الاختبار خلال {n} ث", set_stop_after: "إنهاء الاختبار بعد عدم التكرار لمدة", set_stop_after_hint: "محطة البساط الواحد: عندما يتوقف الشخص (بعد أول تكرار، لا تكرار طوال هذه المدة وهو خارج وضعية البداية؛ الراحة فيها مسموحة) ينتهي الاختبار بالعدد حتى الآن. مغادرة البساط 5 ث تنهيه أيضاً. لا يُحتسب إيقاف فيديو الاختبار مؤقتاً.",
     stop_off: "أبداً (الوقت فقط)", stop_10: "10 ث", stop_15: "15 ث", stop_20: "20 ث", stop_30: "30 ث", stop_60: "دقيقة",
     cal_title: "المعايرة التلقائية مباشرة", cal_sliders: "الضبط", cal_off: "متوقفة", cal_learning: "تتعلم {n}/{m}", cal_done: "تمت المعايرة", cal_nobody: "لم يُقَس أحد بعد",
     cal_now: "الآن", cal_work: "العمق المطلوب (نفسه للجميع)", cal_rest: "العودة للبداية (متعلَّمة من هذا الشخص)", cal_fixed: "العودة للبداية قبل التعلم", cal_range: "مدى حركة هذا الشخص",
@@ -2079,7 +2080,7 @@ const I18N = {
     review_queue: "قائمة المراجعة", clip: "مقطع", assign: "تعيين", finishers: "المنهون", time: "الزمن", status: "الحالة", bib: "الرقم", name: "الاسم", run: "الجري",
     pushup: "الضغط", crunch: "البطن", time_limit: "الحد الزمني", pass_mark: "النجاح", waiting_here: "أنهوا الجري ولم يختبروا هنا",
     sc_camera: "الكاميرا", sc_title: "كاميرا المحطة", sc_offline: "خدمة الكاميرا لا تعمل على جهاز المحطة. Start TestPoint.cmd يشغّلها (أو: python -m testpoint.camhost). حتى ذلك الحين، العدّ يدوي.",
-    sc_what: "تعدّ {ex} في {n} مسارات (التمرين والمسارات في هذه الصفحة).", sc_what_1: "تعدّ {ex} لشخص واحد (الصورة كاملة).", sc_running: "تعمل", sc_equal: "مسارات متساوية",
+    sc_what: "تعدّ {ex} في {n} مسارات (التمرين والمسارات في هذه الصفحة).", sc_what_1: "تعدّ {ex} لشخص واحد (الصورة كاملة).", sc_what_mat: "بساط واحد: تعدّ الضغط ثم البطن للشخص المسجّل (الصورة كاملة).", sc_running: "تعمل", sc_equal: "مسارات متساوية",
     sc_div_hint: "اسحب الخطوط المتقطعة ليحوي كل مسار شخصاً واحداً، ثم أعد التشغيل بهذه الإعدادات.", sc_cpu: "المعالج فقط: العدّ سيكون بطيئاً",
     sc_followed: "تحولت الكاميرا إلى {ex}، {n} مسارات.", sc_started: "كاميرا المحطة تبدأ: تظهر الصورة خلال ثوانٍ.", sc_stopped: "أُوقفت كاميرا المحطة.",
     idle_none_here: "لا أحد بانتظار {ex}.", idle_need_other: "{n} ما زالوا يحتاجون {ex}.", idle_switch: "التبديل إلى {ex}",
@@ -2107,7 +2108,7 @@ const I18N = {
     vb_seek: "الموضع في الفيديو", vb_speed: "سرعة التشغيل", vb_normal: "عادية", vb_keys_title: "اختصارات لوحة المفاتيح",
     vb_keys: "مسافة / K   تشغيل، إيقاف\nJ / L   رجوع، تقديم 10 ث\n→ / ←   رجوع، تقديم 5 ث\n, / .   إطار واحد (متوقف)\nHome / End   البداية، النهاية\n0 – 9   خطوات 10 %\n< / >   أبطأ، أسرع\nانقر الصورة   تشغيل، إيقاف", vb_ended: "انتهى الفيديو. أرجعه أو شغّله من جديد؛ الكاميرا تبقى تعمل.",
     vb_slow: "التحليل أبطأ من الفيديو، فيُعرض أبطأ: لا يُتخطّى أي إطار ولا يفوت أي تكرار.", vid_ended: "انتهى تشغيل الفيديو. فعّل التكرار ليستمر، ثم اضغط تشغيل الكاميرا.", vis_depth: "عمق التكرار الجاري: الخط هو العمق الكافي للعد", vis_depth_s: "العمق", vis_to_go: "{n} حتى 60%", hand_title: "التوقيت اليدوي", hand_hint: "احتياطي عند إيقاف الكاميرا أو فواتها لأحد: اضغط ثم اكتب الرقم.", fc_log: "رسائل الكاميرا", lane_bib: "المسار {n}: الرقم",
-    cam_view: "الكاميرا مباشرة", cam_off: "الكاميرا غير متصلة · عدّ يدوي", cam_live: "الكاميرا تعمل · {fps} إطار/ث", corrections: "تصحيحات الممتحن",
+    cam_view: "الكاميرا مباشرة", cam_off: "الكاميرا غير متصلة · عدّ يدوي", cam_live: "الكاميرا تعمل · {fps} إطار/ث", cam_paused: "الكاميرا تعمل · الفيديو متوقف", corrections: "تصحيحات الممتحن",
     ph_waiting: "خذ الوضعية", ph_rest: "أعلى", ph_work: "أسفل", no_person: "لا أحد في المسار",
     f_body_not_straight: "الجسم غير مستقيم", f_knee_on_ground: "الركبة على الأرض", f_rest_in_down: "استراحة في الأسفل", f_knees_not_bent: "الركبتان غير مثنيتين",
     lane: "مسار", st_empty: "متاح", st_verified: "مسجّل", st_refused: "مرفوض", st_running: "جارٍ الاختبار", st_done: "النتيجة",
@@ -2180,7 +2181,7 @@ const I18N = {
     rules_hint: "قيم مؤقتة حتى وصول اللائحة الرسمية.",
     s_expected: "متوقع", s_accepted: "مقبول", s_rejected: "مرفوض في الوزن", s_lined_up: "عند الخط", s_absent: "غائب",
     s_running: "يجري", s_run_passed: "اجتاز الجري", s_run_failed: "رسب في الجري", s_dnf: "لم يكمل", s_complete: "مكتمل",
-    e_not_on_todays_list: "غير موجود في قائمة اليوم", e_already_weighed: "تم وزنه اليوم", e_not_weighed: "لم يُوزن بعد",
+    e_not_on_todays_list: "غير موجود في قائمة اليوم", e_already_weighed: "تم وزنه اليوم", weighed_next: "{name} تم وزنه اليوم ✓ · التالي: الجري", e_not_weighed: "لم يُوزن بعد",
     e_has_not_run: "لم يجرِ بعد", e_still_running: "ما زال يجري", e_rejected_at_weigh_in: "مرفوض في الوزن",
     e_missed_the_run: "فاته الجري", e_run_not_passed: "لم يجتز الجري", e_run_not_finished: "لم يكمل الجري",
     e_event_already_done: "أدى هذا التمرين اليوم", e_already_lined_up: "موجود عند الخط",
@@ -2231,7 +2232,7 @@ const I18N = {
     start_cancelled: "أُلغي الانطلاق. العداؤون عادوا إلى الخط.", wrong_bib: "رقم خاطئ",
     unassigned: "أُعيد العبور إلى قائمة المراجعة؛ عيّن العدّاء الصحيح.", discard: "حذف", discarded: "حُذف العبور.",
     undo_weigh: "تراجع عن الوزن", weigh_undone: "أُلغي الوزن؛ أعد الوزن", remove: "إزالة", entry_removed: "أُزيل من قائمة اليوم (ما زال في المرشحين).",
-    t_register: "المرشحون", register_hint: "كل المحفوظين، سواء كانوا في يوم اختبار أم لا. سجّل الأشخاص مسبقاً مع صورة الوجه، ثم أضفهم إلى قائمة اليوم عند حضورهم.",
+    t_register: "المرشحون", cands_hint: "كل المحفوظين، سواء كانوا في يوم اختبار أم لا. سجّل الأشخاص مسبقاً مع صورة الوجه، ثم أضفهم إلى قائمة اليوم عند حضورهم.",
     ph_search_people: "ابحث بالاسم أو الرقم الشخصي أو رقم الصدر", ph_usual_bib: "رقم الصدر المعتاد (اختياري)", rg_all: "الجميع", rg_not_today: "ليسوا في قائمة اليوم", rg_today: "في قائمة اليوم", rg_no_face: "بلا صورة وجه",
     rg_new: "تسجيل شخص", rg_export: "تصدير CSV", rg_save: "حفظ", rg_save_today: "حفظ وإضافة إلى اليوم", rg_select_all: "اختيار كل المعروضين",
     age_h: "العمر", rg_bib: "رقم الصدر المعتاد", rg_last: "آخر اختبار", rg_today_h: "اليوم", rg_more: "عرض المزيد", rg_count: "{n} شخص", rg_count_some: "{shown} من {n} معروض",
@@ -2312,7 +2313,7 @@ const I18N = {
     delete_entry: "حذف", sure_delete: "حذف مع النتائج؟",
     face_camera: "الكاميرا", face_upload: "رفع صورة", sure_unface: "حذف الوجه؟",
     face_camera_hint: "التقاط الوجه بالكاميرا: 3 أوضاع موجّهة", face_upload_hint: "إضافة وجه من ملف صورة (صورة جواز)",
-    face_remove_hint: "حذف صور وجه هذا الشخص", face_count_hint: "صور الوجه المحفوظة (3 أوضاع = مكتمل)",
+    face_remove_hint: "حذف صور وجه هذا الشخص", face_count_hint: "صور الوجه المحفوظة: 3 أو أكثر = مكتمل (يضيف اليوم حتى صورتين من تطابقات مؤكدة)",
     enrol_title: "تسجيل الوجه", enrol_cancel: "إلغاء", e_camera_busy: "الكاميرا مستخدمة في تبويب أو تطبيق آخر",
     cam_taken_finish: "كاميرا الويب مستخدمة من كاميرا النهاية.", cam_take_back: "أوقف كاميرا النهاية واستخدم الكاميرا هنا",
     e_not_lined_up: "ليس عند الخط", e_remove_from_line_first: "عند الخط: أزله من الخط أولاً", e_cannot_undo_weigh_in: "لم يعد ممكناً التراجع عن الوزن",
@@ -2332,7 +2333,7 @@ const I18N = {
     fs_enter: "ملء الشاشة (Esc للخروج)", fs_exit: "الخروج من ملء الشاشة", menu: "القائمة", hm_lang: "اللغة", hm_view: "العرض", adv_leave: "العرض المتقدم: العودة إلى البسيط", fs_item: "ملء الشاشة", fit_item: "ملاءمة النافذة",
     fit_btn: "ملاءمة كل الشاشات للنافذة (بلا تمرير للصفحة)", set_fit: "ملاءمة النافذة", fit_on: "تشغيل: بلا تمرير", fit_off: "إيقاف: تتمرر الصفحة",
     set_fit_hint: "تملأ كل الشاشات هذه النافذة: لا تتمرر الصفحة، وتتمرر القوائم الطويلة داخل عمودها، وتأخذ صور الكاميرا المساحة المتاحة. إيقاف: تتمرر الصفحات كالمعتاد. وأيضاً في القائمة (☰).",
-    t_recordings: "التسجيلات", rc_hint: "ارجع إلى أي يوم وشاهد ما رأته الكاميرات: اختر شخصاً، ثم انطلاقه أو وصوله أو فيديو المحاولة كاملاً أو تكراراً واحداً. المشطوب: حُذف حسب قواعد الاحتفاظ (الإعدادات > التسجيلات). , و . لإطار واحد.",
+    t_recordings: "التسجيلات", rec_hint: "ارجع إلى أي يوم وشاهد ما رأته الكاميرات: اختر شخصاً، ثم انطلاقه أو وصوله أو فيديو المحاولة كاملاً أو تكراراً واحداً. المشطوب: حُذف حسب قواعد الاحتفاظ (الإعدادات > التسجيلات). , و . لإطار واحد.",
     rc_day: "اليوم", rc_find: "الرقم أو الاسم", rc_people: "الأشخاص", rc_today: "اليوم", rc_pick: "اختر تسجيلاً أدناه لمشاهدته.", rc_download: "تنزيل",
     rc_no_match: "لا أحد مطابق.", rc_nobody: "لا أحد في قائمة هذا اليوم.", rc_other: "غير مرتبطة بأحد", rc_other_hint: "تسجيلات لا تخص أحداً في قائمة هذا اليوم: وصول لم يُسند، أو تجربة كاميرا، أو قاعدة بيانات أخرى.",
     rc_kind_run: "الوصول", rc_kind_start: "الانطلاق", rc_kind_station: "المحطة", rc_pick_person: "اختر شخصاً من القائمة.", rc_empty_day: "لا توجد تسجيلات في هذا اليوم.",
@@ -2357,7 +2358,8 @@ function applyI18n() {
   document.querySelectorAll("[data-tl]").forEach(el => { el.title = t(el.dataset.tl); el.setAttribute("aria-label", t(el.dataset.tl)); });
   for (const l of ["en", "ar"]) { const b = document.getElementById("lang-" + l); b.classList.toggle("active", l === lang); b.setAttribute("aria-checked", String(l === lang)); }
 }
-function setLang(l, remember = true) { lang = l; if (remember) save("lang", l); applyI18n(); if (typeof applySiteName === "function" && S) applySiteName(); lastReviewSig = ""; lanes.forEach(renderLane); render();
+function setLang(l, remember = true) { lang = l; if (remember) save("lang", l); applyI18n();
+  for (const c of [typeof FinishCam !== "undefined" && FinishCam, typeof StationCam !== "undefined" && StationCam]) if (c && c.endedSaid) { c.endedSaid = false; c.render(); }   // its note again, in the new language if (typeof applySiteName === "function" && S) applySiteName(); lastReviewSig = ""; lanes.forEach(renderLane); render();
   if (typeof Cam !== "undefined") { Cam.show(); $("autoBtn").textContent = autoId ? t("auto_on") : t("auto_off"); } }
 
 /* ============================== helpers ============================== */
@@ -2648,28 +2650,32 @@ const Cam = {
   },
   stop(keepService) { if (this.stream) { this.stream.getTracks().forEach(tr => tr.stop()); this.stream = null; } BgFx.stop($("camVideo")); if (typeof StartCam !== "undefined") { StartCam.detach(); if (!keepService) StartCam.releaseWebcam(); } },
   async use(kind) {
-    if (this.opening) return;
+    // One opening at a time, for the same screen and source: a browser asking for camera permission
+    // can wait for ever, and must not keep another screen or source from opening (the newer wins).
+    const key = role + ":" + kind;
+    if (this.opening && this.opening === key) return;
     this.stop(kind === "webcam" && role === "start"); this.kind = kind; save("camKind", kind); save("camKind-" + role, kind); this.fileName = "";   // the start line's webcam service keeps running: no reload of its models
     if (kind === "ipcam") { await StartCam.attach(); return; }
     if (kind === "webcam" && role === "start") {   // through the camera service, for the raised-hand start
-      this.opening = true;
-      try { if (await StartCam.webcam()) { this.show(); return; } } finally { this.opening = false; }
+      this.opening = key;
+      try { if (await StartCam.webcam()) { this.show(); return; } } finally { if (this.opening === key) this.opening = false; }
     }
     if (kind === "webcam") {
-      this.opening = true; $("deskCamRow").classList.remove("hidden");
+      this.opening = key; $("deskCamRow").classList.remove("hidden");
       const box = role === "start" ? "sMsg" : "wMsg";
       try {
         const perm = await cameraPermission();
         if (perm === "prompt") msg(box, "warn", t("cam_allow"));
         if (perm === "denied") throw { name: "NotAllowedError" };
         const want = load("camDevice", ""), r = await openCamera(want);
+        if (this.opening !== key) { r.stream.getTracks().forEach(tr => tr.stop()); return; }   // another screen or source was chosen meanwhile
         this.stream = r.stream;
         const v = $("camVideo"); v.srcObject = this.stream; v.removeAttribute("src"); await v.play();
         if (r.fellBack) msg(box, "warn", t("cam_fell_back", { cam: r.label || "—" })); else msg(box);
       } catch (e) {
         if (e && e.name === "NotAllowedError") msg(box, "bad", t("cam_blocked"));
         else await this.busy(box, e);
-      } finally { this.opening = false; cameraOptions($("deskCamSel")); }
+      } finally { if (this.opening === key) { this.opening = false; cameraOptions($("deskCamSel")); } }
     }
     this.show();
   },
@@ -2999,6 +3005,7 @@ async function identifyNow(quiet) {
       drawBox(r.box, f.w, f.h, `${cname(r.entry.candidate)} ${r.score.toFixed(2)}`, true);
       $("wWho").innerHTML = whoHtml(r.entry);
       if (r.allowed) { msg("wMsg", "ok", t("recognised", { name: cname(r.entry.candidate), score: r.score.toFixed(2) })); startWeigh(r.entry); }
+      else if (r.reason === "already_weighed") { msg("wMsg", "ok", t("weighed_next", { name: cname(r.entry.candidate) })); showNeeds(r.entry); }   // done here, not an error
       else { msg("wMsg", "bad", `${cname(r.entry.candidate)}: ${t("e_" + r.reason)}`); showNeeds(r.entry); }
     } else {
       // A face that is not the person on screen: drop that person's card and message, so the
@@ -3447,7 +3454,8 @@ async function lineIdentify(quiet) {
       if (r.allowed) { await lineUp(r.entry.id, "face"); lineSeen = ""; }
       else if (!quiet || lineSeen !== r.entry.id + r.reason) {
         lineSeen = r.entry.id + r.reason;
-        msg("sMsg", r.reason === "already_lined_up" ? "ok" : "bad", `${cname(r.entry.candidate)}: ${t("e_" + r.reason)}`);
+        // where they already are (at the line, on the course, run done) is news, not an error
+        msg("sMsg", ["already_lined_up", "still_running", "already_ran"].includes(r.reason) ? "ok" : "bad", `${cname(r.entry.candidate)}: ${t("e_" + r.reason)}`);
       }
     } else {
       drawBox(r.box, f.w, f.h, `? ${r.score.toFixed(2)}`, false);
@@ -3867,7 +3875,7 @@ const StationCam = {
     $("scStart").textContent = st.running ? (changed ? t("fc_restart") : t("sc_running")) : t("fc_start");
     $("scStart").disabled = $("scStart").disabled || (st.running && !changed);
     $("scStop").classList.toggle("hidden", !st.running);
-    $("scWhat").textContent = t(lanes.length === 1 ? "sc_what_1" : "sc_what", { ex: t(event), n: lanes.length });
+    $("scWhat").textContent = oneMat() ? t("sc_what_mat") : t("sc_what", { ex: t(event), n: lanes.length });   // one mat: both tests, the one each person does next
     $("scEqual").classList.toggle("hidden", lanes.length < 2);   // one lane: the whole picture, nothing to divide
     const log = (st.log || []).join("\n");
     $("scLog").textContent = log; $("scLog").classList.toggle("hidden", !log || st.running || !st.exit_code);
@@ -3878,6 +3886,7 @@ const StationCam = {
       this.open = false; $("scCard").classList.add("hidden"); $("stBody").classList.remove("one");
     }
     $("scDivs").classList.toggle("hidden", !live); $("scDivHint").classList.toggle("hidden", !live || lanes.length === 1);
+    if (live && this.startingSaid) { this.startingSaid = false; msg("scMsg"); }   // "the picture appears in a few seconds": it has
     if (oneMat()) $("scCard").classList.remove("hidden");   // one mat: the camera has its own card, always there
     if (live && !$("scDivs").children.length) this.drawDividers();
   },
@@ -3896,6 +3905,7 @@ const StationCam = {
     this.busy = true; this.render();
     try {
       this.st = { available: true, ...(await api("POST", "/api/stationcam/start", { ...use, exercise: this.exercise(), lanes: lanes.length, dividers: this.dividers(), app_url: location.origin, loop: use.kind === "video" && this.pref.loop !== false })) };
+      this.startingSaid = true;
       msg("scMsg", "ok", t(auto ? "sc_followed" : "sc_started", { ex: t(event), n: lanes.length }));
       $("scDivs").innerHTML = "";
     } catch (e) { msg("scMsg", "bad", err(e)); }
@@ -4404,7 +4414,8 @@ async function pollLanes() {
     S.live = live;
     VidCtl.got(live.engine.player);
     const cam = $("xCam");
-    cam.textContent = live.engine.online ? t("cam_live", { fps: Math.round(live.engine.fps || 0) }) : t("cam_off");
+    const pl = live.engine.player;   // a paused test video: its picture is only sent again, its rate means nothing
+    cam.textContent = !live.engine.online ? t("cam_off") : pl && (pl.paused || pl.ended) ? t("cam_paused") : t("cam_live", { fps: Math.round(live.engine.fps || 0) });
     cam.className = "pill " + (live.engine.online ? "live" : "off");
     lanes.forEach(l => {
       if (l.state !== "running") return;                                         // stopped: the number is frozen for saving
@@ -4647,7 +4658,8 @@ function stationLayout(one) {
 }
 function renderStationWaiting() {
   const nextOf = e => (e.events.pushup && e.events.pushup.status === "finished" ? "crunch" : "pushup");
-  const rows = S.entries.filter(e => RAN.includes(e.status) && !["pushup", "crunch"].every(x => e.events[x] && e.events[x].status === "finished"));
+  const busy = StationCall.v && ["position", "countdown", "testing"].includes(StationCall.v.state) ? StationCall.v.entry_id : null;   // on the mat now: not waiting
+  const rows = S.entries.filter(e => e.id !== busy && RAN.includes(e.status) && !["pushup", "crunch"].every(x => e.events[x] && e.events[x].status === "finished"));
   $("xWaitCount").textContent = rows.length;
   const html = rows.map(e => `<tr><td><b>${esc(e.candidate.bib ?? "")}</b></td><td>${esc(cname(e.candidate))}</td><td class="hint">${esc(t(nextOf(e)))}</td><td style="text-align:end"><button class="btn go sm" onclick="StationCall.manual('#${e.id}')">${esc(t("st_start"))}</button></td></tr>`).join("") || `<tr><td class="hint">—</td></tr>`;
   if ($("xWaitTable").dataset.sig !== html) { $("xWaitTable").innerHTML = html; $("xWaitTable").dataset.sig = html; }
@@ -4947,7 +4959,7 @@ function renderAdvanced() {
   // and remove (confirmed: it deletes personal data).
   const faceCell = e => {
     const n = e.faces || 0, full = n >= 3;
-    const status = n ? `<img class="thumb" src="/api/entries/${e.id}/face.jpg?n=${n}" alt=""><span class="n ${full ? "" : "part"}" title="${t("face_count_hint")}">${n}/3</span>`
+    const status = n ? `<img class="thumb" src="/api/entries/${e.id}/face.jpg?n=${n}" alt=""><span class="n ${full ? "" : "part"}" title="${t("face_count_hint")}">${n}${n >= 3 ? " ✓" : ""}</span>`
                      : `<span class="pill warn">${t("no_face")}</span>`;
     const cam = `<button class="btn sm ${full ? "ghost" : "amber"}" onclick="EnrolDlg.open(${e.id})" title="${t("face_camera_hint")}">${t("face_camera")}</button>`;
     const up = `<label class="btn ghost sm" title="${t("face_upload_hint")}">${t("face_upload")}<input type="file" accept="image/*" class="hidden" onchange="enrollFile(${e.id}, this)"></label>`;
@@ -4988,7 +5000,7 @@ const Register = {
     const unitTxt = u => u ? t("unit_" + u) : "—";
     const faceCell = c => {
       const n = c.faces || 0;
-      const status = n ? `<img class="thumb" src="/api/candidates/${c.id}/face.jpg?n=${n}" alt=""><span class="n ${n >= 3 ? "" : "part"}" title="${t("face_count_hint")}">${n}/3</span>`
+      const status = n ? `<img class="thumb" src="/api/candidates/${c.id}/face.jpg?n=${n}" alt=""><span class="n ${n >= 3 ? "" : "part"}" title="${t("face_count_hint")}">${n}${n >= 3 ? " ✓" : ""}</span>`
                        : `<span class="pill warn">${t("no_face")}</span>`;
       return `<td><div class="facecell">${status}<button class="btn sm ${n >= 3 ? "ghost" : "amber"}" onclick="Register.face(${c.id})" title="${t("face_camera_hint")}">${t("face_camera")}</button>`
         + `<label class="btn ghost sm" title="${t("face_upload_hint")}">${t("face_upload")}<input type="file" accept="image/*" class="hidden" onchange="Register.faceFile(${c.id}, this)"></label></div></td>`;
@@ -5066,7 +5078,7 @@ const Register = {
     $("pdBody").innerHTML = `<div class="pd-head">${photo}<div><b style="font-size:20px">${esc(c.name)}</b>${c.name_ar ? `<div dir="rtl">${esc(c.name_ar)}</div>` : ""}</div>
       <dl><dt>ID</dt><dd>${esc(c.external_id)}</dd><dt>${t("lbl_gender")}</dt><dd>${c.gender ? t(c.gender === "M" ? "male" : "female") : "—"}</dd>
       <dt>${t("lbl_dob")}</dt><dd>${esc(c.dob || "—")}${age != null ? ` (${age})` : ""}</dd><dt>${t("lbl_unit")}</dt><dd>${c.unit ? t("unit_" + c.unit) : "—"}</dd>
-      <dt>${t("rg_bib")}</dt><dd>${esc(c.bib ?? "—")}</dd><dt>${t("face")}</dt><dd>${c.faces}/3</dd></dl></div>
+      <dt>${t("rg_bib")}</dt><dd>${esc(c.bib ?? "—")}</dd><dt>${t("face")}</dt><dd>${c.faces}${c.faces >= 3 ? " ✓" : ""}</dd></dl></div>
       <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:12px">
         ${today ? `<span class="pill ok">${t("rg_on_list")}</span>` : `<button class="btn amber sm" style="flex:0 0 auto" onclick="Register.addToday([${c.id}])">${t("rg_add_today")}</button>`}
         <button class="btn sm" style="flex:0 0 auto" onclick="Register.face(${c.id})">${t("rg_take_face")}</button>

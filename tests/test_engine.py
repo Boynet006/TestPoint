@@ -213,3 +213,22 @@ def test_reporter_applies_each_player_command_once_and_reports_the_position():
     rp.on_reply({"lanes": {}, "player": {"seq": 3, "action": "play"}})
     assert rp.player.got == ["pause", "play"]
     assert rp.snapshot()["player"] == {"t": 2.0, "paused": True}
+
+
+def test_ready_is_the_counters_start_position_judgement():
+    """The station's "hold the start position" follows the counter's phase, not the raw
+    thresholds (a calibrated counter reads the body in its own units)."""
+    rp = Reporter("exercise", "clip.mp4", ["S"], counter=CFG)
+    rp.watching("pushup")
+
+    def look(phase, faults=()):
+        res = result(1.0, S={"phase": phase})
+        r = res.lanes["S"]
+        r.person = object()
+        r.metrics = FrameMetrics(metric=0.02, faults=list(faults))   # a body-length reading, far below enter_rest
+        rp.observe(res, 15.0)
+        return rp.lanes["S"].ready
+
+    assert look(Phase.REST) is True
+    assert look(Phase.WORK) is False
+    assert look(Phase.REST, faults=["knee_on_ground"]) is False

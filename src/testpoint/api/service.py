@@ -523,10 +523,12 @@ def import_csv(db: Session, day: Day, text: str, to_day: bool = True) -> dict:
         result: dict = {}
         try:
             with db.begin_nested():
+                # on today's list, a row without a bib gets the next free one (as the Add form does)
+                extra_kw = {"auto_bib": True} if to_day and not row.get("bib") else {}
                 (add_candidate if to_day else register_candidate)(
                     db, day, commit=False, result=result,
                     **{c: row.get(c) or None for c in CSV_COLUMNS if c in row}
-                    | {"external_id": row.get("external_id", ""), "name": row.get("name", "")})
+                    | {"external_id": row.get("external_id", ""), "name": row.get("name", "")} | extra_kw)
             counts[result["outcome"]] += 1
         except ServiceError as e:
             errors.append({"line": line_no, "code": e.code, "message": e.message})

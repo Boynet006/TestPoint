@@ -183,7 +183,7 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--evidence", default="data/evidence", help="evidence folder ('' = no videos of the starts)")
     args = p.parse_args(argv)
 
-    src = open_source(args.source, realtime=args.realtime, loop=args.loop)
+    src = open_source(args.source, realtime=args.realtime, loop=args.loop, every_frame=True)
     pub = FramePublisher(args.app, args.station, draw=draw, interval=1 / args.fps, max_width=args.max_width, quality=88)
     pub.start()
     analyst = poster = None

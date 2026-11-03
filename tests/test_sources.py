@@ -321,3 +321,10 @@ def test_player_control_commands_and_speed():
     assert p.status()["speed"] == 0.5
     p.control({"action": "play"})
     assert not p.status()["paused"]
+
+
+
+def test_player_without_controls_ends_with_the_clip():
+    p = sources.VideoPlayer(FakeVideo(2), clock=fast_clock(), hold_end=False)
+    assert [int(p.read()[0, 0, 0]) for _ in range(2)] == [0, 1]
+    assert p.read() is None

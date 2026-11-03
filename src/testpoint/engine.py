@@ -30,7 +30,7 @@ os.environ.setdefault("OPENCV_FFMPEG_CAPTURE_OPTIONS", "rtsp_transport;tcp")
 from .applink import ssl_context
 from .evidence import EvidenceWriter
 from .preview import FramePublisher
-from .vision.counter import RepCounter, RepCounterConfig
+from .vision.counter import Phase, RepCounter, RepCounterConfig
 from .vision.exercises import ANALYZERS, make_analyzer
 from .vision.lanes import Lane, equal_strips, load_lanes
 from .vision.pose import make_backend
@@ -126,8 +126,9 @@ class Reporter:
                 lane.work_seconds = round(r.work_seconds, 2)
                 lane.calib = r.calibration
                 lane.depth = rep_depth(r.metrics.metric if r.person is not None else None, self.counter)
-                lane.ready = bool(r.person is not None and r.metrics.metric is not None and self.counter is not None
-                                  and self.counter.in_rest(r.metrics.metric) and not r.metrics.faults)
+                # in the start position: the counter's own judgement (it reads the body as calibrated;
+                # the raw thresholds alone do not match until it has learned from a few reps)
+                lane.ready = bool(r.person is not None and r.phase == Phase.REST and not r.metrics.faults)
                 if r.event is not None:
                     ev = {"index": r.event.index, "valid": r.event.valid,
                           "faults": list(r.event.faults),
