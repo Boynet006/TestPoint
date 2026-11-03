@@ -303,3 +303,13 @@ def test_weigh_in_ip_camera_only_relays_its_picture():
     cmd = weigh_command(SourceIn(kind="url", source="rtsp://u:p@10.0.0.5/s", app_url="http://127.0.0.1:8080"))
     assert cmd[1:3] == ["-m", "testpoint.startcam"]
     assert cmd[cmd.index("--station") + 1] == "weigh" and "--no-analyse" in cmd and cmd[cmd.index("--evidence") + 1] == ""
+
+
+def test_one_webcam_serves_one_camera_program(svc):
+    c, _ = svc
+    assert c.post("/startcam/start", json={"kind": "webcam", "source": "0", "app_url": "http://127.0.0.1:8080"}).json()["running"]
+    r = c.post("/station/start", json={"kind": "webcam", "source": "0", "exercise": "auto", "lanes": 1, "app_url": "http://127.0.0.1:8080"}).json()
+    assert r["running"] and r["freed"] == ["start"]           # the start camera let go of the webcam
+    assert c.get("/startcam").json()["running"] is False and c.get("/startcam").json()["freed_by"] == "station"
+    r = c.post("/finish/start", json={"kind": "webcam", "source": "1", "line_y": 0.8, "direction": "down", "app_url": "http://127.0.0.1:8080"}).json()
+    assert "freed" not in r and c.get("/station").json()["running"]   # another webcam: both run

@@ -947,7 +947,8 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
             watch = flow.watching or flow.event or idle_watch["exercise"]
             for lane in reply["lanes"].values():
                 lane["exercise"] = watch
-            return reply | {"tuning": S.get_settings(db)["count_tuning"].get(watch, {}), "player": _player}
+            return reply | {"tuning": S.get_settings(db)["count_tuning"].get(watch, {}), "player": _player,
+                            "fast": flow.state == "choose"}   # the hand cursor: reports 15 a second
         # the counting rules to use now: a change in Settings or the tune panel reaches the engine
         # with its next report (a fraction of a second), without restarting the camera
         return reply | {"tuning": S.get_settings(db)["count_tuning"].get(body.station, {}), "player": _player}
@@ -1180,12 +1181,26 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         p.clear()
         p.update(seq=seq, action=None)
 
+    def _moves_back(body: PlayerIn) -> bool:
+        """Back in the station's test video while one of its tests is counted: those reps would count twice."""
+        now = clock()
+        fresh = [r for at, r in _last_report.values() if now - at <= ENGINE_STALE_S and r.player is not None]
+        counting = any(lane.attempt_id is not None for r in fresh for lane in r.lanes.values())
+        if not counting:
+            return False
+        if body.action == "step":
+            return body.n < 0
+        pos = max((float(r.player.get("t") or 0) for r in fresh), default=0.0)
+        return body.action == "seek" and (body.t or 0) < pos - 0.5
+
     @app.post("/api/player/{station}")
     def player_command(station: Literal["station", "finish"], body: PlayerIn) -> dict:
         """Play, pause, seek, frame step or speed for a camera's test video. Reaches the station's
         engine with its next report, the finish camera with its next picture (a quarter of a second)."""
         if body.action == "seek" and body.t is None:
             raise S.ServiceError("bad_player", "seek needs t", 400)
+        if station == "station" and _moves_back(body):
+            raise S.ServiceError("no_back_in_test", "a test is being counted: the video cannot go back (its reps would count again)", 409)
         p = _players.setdefault(station, {"seq": 0})
         seq = p["seq"] + 1
         p.clear()

@@ -114,10 +114,13 @@ class Reporter:
         """A test video's player (``VideoPlayer``): its position goes in each report, and the
         app's reply brings the station screen's play / pause / seek commands."""
         self._player_seq: int | None = None
+        self.fast = False
+        """Someone chooses on the screen with their hand: report often, so the cursor keeps up."""
         self._lock = threading.Lock()
 
-    def observe(self, res: MultiLaneResult, fps: float) -> list[tuple[str, dict]]:
-        """Record one frame's results. Returns the new events as ``(lane, event)``."""
+    def observe(self, res: MultiLaneResult, fps: float, size: tuple[int, int] | None = None) -> list[tuple[str, dict]]:
+        """Record one frame's results (``size``: the picture's width and height). Returns the new
+        events as ``(lane, event)``."""
         new = []
         with self._lock:
             self.t, self.fps = res.t, fps
@@ -133,7 +136,7 @@ class Reporter:
                 # in the start position: the counter's own judgement (it reads the body as calibrated;
                 # the raw thresholds alone do not match until it has learned from a few reps)
                 lane.ready = bool(r.person is not None and r.phase == Phase.REST and not r.metrics.faults)
-                lane.hand = pointer(r.person) if isinstance(r.person, Person) and lane.exercise else None
+                lane.hand = pointer(r.person, size) if size and isinstance(r.person, Person) and lane.exercise else None
                 if r.event is not None:
                     ev = {"index": r.event.index, "valid": r.event.valid,
                           "faults": list(r.event.faults),
@@ -185,6 +188,7 @@ class Reporter:
             self._tuning_applied = None    # the new exercise's own counting rules come with the next reply
 
     def on_reply(self, reply: dict) -> None:
+        self.fast = bool(reply.get("fast"))
         with self._lock:
             for name, index in (reply.get("acked") or {}).items():
                 lane = self.lanes.get(name)
@@ -303,9 +307,12 @@ class Sender(threading.Thread):
         self.reporter.on_reply(reply)
         return True
 
+    FAST_S = 0.066
+    """While someone chooses on the screen with their hand: 15 reports a second."""
+
     def run(self) -> None:
         while not self._stopping.is_set():
-            self._wake.wait(self.interval)
+            self._wake.wait(self.FAST_S if getattr(self.reporter, "fast", False) else self.interval)
             self._wake.clear()
             if self._stopping.is_set():
                 break
@@ -368,6 +375,9 @@ def run(session: MultiLaneSession, source, reporter: Reporter, sender: Sender,
         if jumped is not None and jumped():   # the test video was rewound or moved on:
             for counter in session.counters.values():   # a half-done rep must not span the jump
                 counter.reset()
+            forget = getattr(session.backend, "forget", None)
+            if forget is not None:                # nor the body followed from before it (a wrong pose)
+                forget()
         ex = reporter.take_exercise() if analyzers else None
         if ex in (analyzers or {}) and ex != session.analyzer.name:     # the next person does another test
             session.analyzer = analyzers[ex]
@@ -400,7 +410,7 @@ def run(session: MultiLaneSession, source, reporter: Reporter, sender: Sender,
         gap = 0.9 * gap + 0.1 * max(now - last, 1e-6) if gap else max(now - last, 1e-6)
         fps = 1.0 / gap
         last = now
-        new = reporter.observe(res, fps)
+        new = reporter.observe(res, fps, (frame.shape[1], frame.shape[0]))
         if faces is not None:
             for name, r in res.lanes.items():
                 if reporter.lanes[name].attempt_id is None and r.person is not None:
