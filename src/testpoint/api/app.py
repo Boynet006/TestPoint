@@ -15,6 +15,7 @@ import mimetypes
 import os
 import re
 import time
+from collections import deque
 from collections.abc import Iterator
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
@@ -446,6 +447,8 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     # The engines' live pictures (src/testpoint/preview.py): newest JPEG per station.
     _last_frame: dict[str, tuple[float, bytes]] = {}
     _frame_waiters: dict[str, asyncio.Event] = {}   # wakes the open streams when a new picture comes
+    _watchers: dict[str, int] = {}                  # open live streams per camera: nobody watching, the camera sends 1 a second
+    _frame_times: dict[str, deque] = {}             # arrival times of the latest pictures, for the picture rate
 
     def engine():
         if "e" not in _engine_cache:
@@ -949,10 +952,31 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         data = await request.body()
         if not data.startswith(JPEG_SOI):
             raise S.ServiceError("bad_image", "expected a JPEG", 400)
-        _last_frame[station] = (clock(), data)
+        now = clock()
+        _last_frame[station] = (now, data)
+        _frame_times.setdefault(station, deque(maxlen=64)).append(now)
         waiters = _frame_waiters.pop(station, None)
         if waiters is not None:
             waiters.set()
+        # the camera learns from this whether anyone is watching (FramePublisher): full rate or 1 a second
+        return Response(status_code=204, headers={"X-Watchers": str(_watchers.get(station, 0))})
+
+    def picture_rate(station: str) -> float | None:
+        """Pictures a second over the last 2 s, as the screens get them."""
+        ts = _frame_times.get(station)
+        if not ts:
+            return None
+        now = clock()
+        recent = [t for t in ts if now - t <= 2.0]
+        return round(len(recent) / 2.0, 1) if recent else 0.0
+
+    @app.get("/api/engine/live")
+    def engine_live() -> dict:
+        """Every camera's live picture: its rate, how old the newest is, and how many screens watch it."""
+        now = clock()
+        return {st: {"fps": picture_rate(st), "age_s": round(now - seen[0], 2), "watchers": _watchers.get(st, 0),
+                     "live": now - seen[0] <= FRAME_STALE_S}
+                for st, seen in _last_frame.items()}
 
     @app.get("/api/engine/frame/{station}.jpg")
     def engine_frame_jpg(station: str) -> Response:
@@ -971,6 +995,14 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
             raise S.ServiceError("unknown_station", f"bad station name {station!r}", 400)
 
         async def frames():
+            _watchers[station] = _watchers.get(station, 0) + 1
+            try:
+                async for part in pictures():
+                    yield part
+            finally:
+                _watchers[station] = max(0, _watchers.get(station, 1) - 1)
+
+        async def pictures():
             last = None
             while True:
                 new = _frame_waiters.setdefault(station, asyncio.Event())
