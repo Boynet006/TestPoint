@@ -16,6 +16,7 @@ standard split of video and analytics overlay).
 from __future__ import annotations
 
 import http.client
+import json
 import socket
 import threading
 import time
@@ -54,6 +55,10 @@ class FramePublisher(threading.Thread):
         """Screens showing this camera now (the app's answer to each picture); None until known.
         Nobody watching: one picture a second, enough for the screens to know the camera is there."""
         self.idle_interval = 1.0
+        self.player = None
+        """A test video with controls (``VideoPlayer``): its state goes with each picture
+        (X-Player) and the screen's commands come back with the answer (X-Player-Cmd)."""
+        self._player_seq: int | None = None
         self._state: object = _NO_STATE
         self.live = False
         """True once ``tap`` feeds the picture from the camera: ``offer`` then brings only the state."""
@@ -123,11 +128,15 @@ class FramePublisher(threading.Thread):
                     self._conn.connect()
                     # no Nagle: a picture leaves at once instead of waiting ~40 ms for an ACK
                     self._conn.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-                self._conn.request("POST", u.path, body=jpeg, headers={"Content-Type": "image/jpeg"})
+                headers = {"Content-Type": "image/jpeg"}
+                if self.player is not None:
+                    headers["X-Player"] = json.dumps(self.player.status())
+                self._conn.request("POST", u.path, body=jpeg, headers=headers)
                 resp = self._conn.getresponse()
                 resp.read()
                 w = resp.getheader("X-Watchers")
                 self.watchers = int(w) if w is not None and w.isdigit() else None
+                self._player_cmd(resp.getheader("X-Player-Cmd"))
                 if resp.status >= 400:
                     raise OSError(f"app answered {resp.status}")
                 return
@@ -136,6 +145,28 @@ class FramePublisher(threading.Thread):
                 self._conn = None
                 if attempt:
                     raise
+
+    def _player_cmd(self, raw: str | None) -> None:
+        if self.player is None or not raw:
+            return
+        try:
+            cmd = json.loads(raw)
+        except ValueError:
+            return
+        if not isinstance(cmd, dict) or not isinstance(cmd.get("seq"), int):
+            return
+        if cmd["seq"] != self._player_seq:   # the app clears the command when this camera starts
+            self._player_seq = cmd["seq"]
+            try:
+                self.player.control(cmd)
+            except (TypeError, ValueError):
+                pass
+
+    def attach_player(self, player) -> None:
+        """Let the screen control this test video; while paused the picture (and its state) is
+        sent four times a second, so a command takes effect at once."""
+        self.player = player
+        self.keepalive_s = 0.25
 
     def publish_once(self, again: bool = False) -> bool:
         jpeg = self.render(again)

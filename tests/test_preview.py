@@ -208,3 +208,27 @@ def test_nobody_watching_the_camera_sends_one_picture_a_second():
     pub = FramePublisher("http://app", "finish", lambda img, s: None, post=lambda b: None)
     pub.watchers = 0
     assert pub.idle_interval == 1.0 and pub.watchers == 0
+
+
+def test_the_finish_screens_player_reaches_the_cameras_test_video(tmp_path):
+    import json
+    app = create_app(db_url=f"sqlite:///{tmp_path / 'a.db'}", web_dir="does-not-exist")
+    c = TestClient(app)
+    jpeg = cv2.imencode(".jpg", np.zeros((8, 8, 3), np.uint8))[1].tobytes()
+    status = {"t": 1.5, "duration": 10.0, "paused": False, "speed": 1.0}
+    post = lambda: c.post("/api/engine/frame/finish", content=jpeg, headers={"content-type": "image/jpeg", "X-Player": json.dumps(status)})
+    assert "X-Player-Cmd" not in post().headers                        # nothing asked yet
+    assert c.get("/api/engine/live").json()["finish"]["player"] == status   # the screen sees where the video is
+    assert c.post("/api/player/finish", json={"action": "pause"}).status_code == 200
+    cmd = json.loads(post().headers["X-Player-Cmd"])
+    assert cmd["action"] == "pause"
+    # the camera applies a command once
+    seen = []
+
+    class P:
+        def status(self): return status
+        def control(self, cmd): seen.append(cmd["action"])
+    pub = FramePublisher("http://app", "finish", lambda img, s: None, post=lambda b: None)
+    pub.attach_player(P())
+    pub._player_cmd(json.dumps(cmd)); pub._player_cmd(json.dumps(cmd))
+    assert seen == ["pause"] and pub.keepalive_s == 0.25

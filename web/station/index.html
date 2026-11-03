@@ -618,7 +618,8 @@
   tr.newest td { background: color-mix(in srgb, var(--go) 8%, transparent); } tr.dim td { opacity: .6; }
   .fcview { position: relative; margin-top: 10px; } .fcline { position: absolute; left: 0; right: 0; height: 0; border-top: 3px dashed var(--amber); pointer-events: none; }
   .fclog { background: var(--bg2); border: 1px solid var(--line); padding: 8px; font-size: 12px; max-height: 120px; overflow: auto; white-space: pre-wrap; margin-top: 8px; }
-  #fcForm.dim { opacity: .45; }
+  #fcForm.dim, #fcSrc.dim { opacity: .45; }
+  .fcsrcbox { margin: 10px 0; }
   .stbody { display: block; } .stbody > #scCard { margin-bottom: 14px; }
   .stbody.one { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(360px, 1fr); gap: 16px; align-items: start; }
   .stbody.one > #scCard { margin-bottom: 0; } .stbody.one .scgrid { grid-template-columns: 1fr; }
@@ -630,55 +631,55 @@
   .scview .camlive { margin-bottom: 0; } .scview .camlive img { width: auto; max-width: 100%; max-height: 300px; }
   .scdivs { position: absolute; inset: 0; } .scdivs.hidden { display: none; }
   /* the test video's player: oTube's YouTube-style controls over the picture */
-  #vidBar { position: absolute; inset: 0; z-index: 5; pointer-events: none; user-select: none; -webkit-user-select: none; }
-  #vidBar.hidden { display: none; }
-  #vidBar .p-controls { position: absolute; left: 0; right: 0; bottom: 0; padding: 0 10px 8px; pointer-events: none;
+  .vidbar { position: absolute; inset: 0; z-index: 5; pointer-events: none; user-select: none; -webkit-user-select: none; }
+  .vidbar.hidden { display: none; }
+  .vidbar .p-controls { position: absolute; left: 0; right: 0; bottom: 0; padding: 0 10px 8px; pointer-events: none;
     background: linear-gradient(to top, rgba(0,0,0,.6), transparent 85%); opacity: 0; transition: opacity .25s; }
-  #vidBar.show-ui .p-controls, #vidBar.paused .p-controls { opacity: 1; pointer-events: auto; }
-  #vidBar .p-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 44px; }
-  #vidBar .p-left, #vidBar .p-right { display: flex; align-items: center; gap: 8px; min-width: 0; }
-  #vidBar .p-pill { display: flex; align-items: center; height: 44px; padding: 0 4px; border-radius: 22px;
+  .vidbar.show-ui .p-controls, .vidbar.paused .p-controls { opacity: 1; pointer-events: auto; }
+  .vidbar .p-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 44px; }
+  .vidbar .p-left, .vidbar .p-right { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .vidbar .p-pill { display: flex; align-items: center; height: 44px; padding: 0 4px; border-radius: 22px;
     background: rgba(0,0,0,.45); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
-  #vidBar .p-btn { width: 40px; height: 40px; display: grid; place-items: center; flex-shrink: 0; padding: 0; background: none; border: 0;
+  .vidbar .p-btn { width: 40px; height: 40px; display: grid; place-items: center; flex-shrink: 0; padding: 0; background: none; border: 0;
     color: #fff; cursor: pointer; border-radius: 50%; opacity: .92; transition: opacity .12s, background .12s; }
-  #vidBar .p-btn:hover { opacity: 1; background: rgba(255,255,255,.12); }
-  #vidBar .p-btn:focus-visible, #vidBar .p-scrub:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
-  #vidBar .p-btn svg { width: 24px; height: 24px; }
-  #vidBar .p-speed { width: auto; min-width: 40px; padding: 0 8px; border-radius: 20px; font: 700 14px var(--cond); letter-spacing: .5px; }
-  #vidBar .p-time { color: #fff; font-size: 14px; padding: 0 12px; white-space: nowrap; font-variant-numeric: tabular-nums; direction: ltr; }
-  #vidBar .p-scrub { position: relative; height: 16px; margin: 0 6px 6px; display: flex; align-items: center; cursor: pointer; touch-action: none; direction: ltr; }
-  #vidBar .p-scrub__rail { position: relative; width: 100%; height: 3px; background: rgba(255,255,255,.25); transition: height .1s; }
-  #vidBar .p-scrub:hover .p-scrub__rail, #vidBar .p-scrub.dragging .p-scrub__rail { height: 5px; }
-  #vidBar .p-scrub__hover, #vidBar .p-scrub__fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; }
-  #vidBar .p-scrub__hover { background: rgba(255,255,255,.45); }
-  #vidBar .p-scrub__fill { background: var(--amber); }
-  #vidBar .p-scrub__knob { position: absolute; top: 50%; left: 0; width: 13px; height: 13px; margin: -6.5px 0 0 -6.5px; border-radius: 50%;
+  .vidbar .p-btn:hover { opacity: 1; background: rgba(255,255,255,.12); }
+  .vidbar .p-btn:focus-visible, .vidbar .p-scrub:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
+  .vidbar .p-btn svg { width: 24px; height: 24px; }
+  .vidbar .p-speed { width: auto; min-width: 40px; padding: 0 8px; border-radius: 20px; font: 700 14px var(--cond); letter-spacing: .5px; }
+  .vidbar .p-time { color: #fff; font-size: 14px; padding: 0 12px; white-space: nowrap; font-variant-numeric: tabular-nums; direction: ltr; }
+  .vidbar .p-scrub { position: relative; height: 16px; margin: 0 6px 6px; display: flex; align-items: center; cursor: pointer; touch-action: none; direction: ltr; }
+  .vidbar .p-scrub__rail { position: relative; width: 100%; height: 3px; background: rgba(255,255,255,.25); transition: height .1s; }
+  .vidbar .p-scrub:hover .p-scrub__rail, .vidbar .p-scrub.dragging .p-scrub__rail { height: 5px; }
+  .vidbar .p-scrub__hover, .vidbar .p-scrub__fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; }
+  .vidbar .p-scrub__hover { background: rgba(255,255,255,.45); }
+  .vidbar .p-scrub__fill { background: var(--amber); }
+  .vidbar .p-scrub__knob { position: absolute; top: 50%; left: 0; width: 13px; height: 13px; margin: -6.5px 0 0 -6.5px; border-radius: 50%;
     background: var(--amber); transform: scale(0); transition: transform .1s; }
-  #vidBar .p-scrub:hover .p-scrub__knob, #vidBar .p-scrub.dragging .p-scrub__knob, #vidBar .p-scrub:focus-visible .p-scrub__knob, #vidBar.paused .p-scrub__knob { transform: scale(1); }
-  #vidBar .p-scrub__tip { position: absolute; bottom: 22px; left: 0; transform: translateX(-50%); background: rgba(28,28,28,.9); color: #fff;
+  .vidbar .p-scrub:hover .p-scrub__knob, .vidbar .p-scrub.dragging .p-scrub__knob, .vidbar .p-scrub:focus-visible .p-scrub__knob, .vidbar.paused .p-scrub__knob { transform: scale(1); }
+  .vidbar .p-scrub__tip { position: absolute; bottom: 22px; left: 0; transform: translateX(-50%); background: rgba(28,28,28,.9); color: #fff;
     font-size: 12.5px; font-weight: 600; padding: 4px 8px; border-radius: 4px; white-space: nowrap; pointer-events: none; opacity: 0;
     transition: opacity .1s; font-variant-numeric: tabular-nums; }
-  #vidBar .p-scrub:hover .p-scrub__tip, #vidBar .p-scrub.dragging .p-scrub__tip { opacity: 1; }
-  #vidBar .p-flash { position: absolute; top: 50%; left: 50%; width: 64px; height: 64px; margin: -32px 0 0 -32px; border-radius: 50%;
+  .vidbar .p-scrub:hover .p-scrub__tip, .vidbar .p-scrub.dragging .p-scrub__tip { opacity: 1; }
+  .vidbar .p-flash { position: absolute; top: 50%; left: 50%; width: 64px; height: 64px; margin: -32px 0 0 -32px; border-radius: 50%;
     background: rgba(0,0,0,.55); color: #fff; display: grid; place-items: center; opacity: 0; pointer-events: none; }
-  #vidBar .p-flash svg { width: 36px; height: 36px; }
-  #vidBar .p-flash.go { animation: p-flash .6s ease-out; }
+  .vidbar .p-flash svg { width: 36px; height: 36px; }
+  .vidbar .p-flash.go { animation: p-flash .6s ease-out; }
   @keyframes p-flash { 0% { opacity: .9; transform: scale(.8); } 100% { opacity: 0; transform: scale(1.4); } }
-  #vidBar .p-toast { position: absolute; top: 14%; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,.7); color: #fff;
+  .vidbar .p-toast { position: absolute; top: 14%; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,.7); color: #fff;
     font-size: 15px; font-weight: 600; padding: 8px 14px; border-radius: 8px; opacity: 0; transition: opacity .2s; pointer-events: none; white-space: nowrap; }
-  #vidBar .p-toast.show { opacity: 1; }
-  #vidBar .p-note { position: absolute; top: 10px; inset-inline-end: 10px; max-width: 60%; background: rgba(0,0,0,.65); color: #fff;
+  .vidbar .p-toast.show { opacity: 1; }
+  .vidbar .p-note { position: absolute; top: 10px; inset-inline-end: 10px; max-width: 60%; background: rgba(0,0,0,.65); color: #fff;
     font-size: 13px; padding: 6px 10px; border-radius: 8px; pointer-events: none; }
-  #vidBar .p-note:empty { display: none; }
-  #vidBar .p-menu { position: absolute; bottom: 70px; inset-inline-end: 12px; min-width: 150px; padding: 6px 0; border-radius: 12px;
+  .vidbar .p-note:empty { display: none; }
+  .vidbar .p-menu { position: absolute; bottom: 70px; inset-inline-end: 12px; min-width: 150px; padding: 6px 0; border-radius: 12px;
     background: rgba(28,28,28,.92); backdrop-filter: blur(12px); pointer-events: auto; }
-  #vidBar .p-menu[hidden] { display: none; }
-  #vidBar .p-menu button { display: flex; width: 100%; align-items: center; gap: 10px; padding: 8px 16px; background: none; border: 0; color: #fff;
+  .vidbar .p-menu[hidden] { display: none; }
+  .vidbar .p-menu button { display: flex; width: 100%; align-items: center; gap: 10px; padding: 8px 16px; background: none; border: 0; color: #fff;
     font-size: 14px; cursor: pointer; text-align: start; }
-  #vidBar .p-menu button:hover { background: rgba(255,255,255,.1); }
-  #vidBar .p-menu button.on { color: var(--amber); font-weight: 700; }
-  #vidBar .p-menu .p-keys { padding: 8px 16px; color: #ddd; font-size: 13px; line-height: 1.7; white-space: pre; }
-  .scview.vid { cursor: pointer; }
+  .vidbar .p-menu button:hover { background: rgba(255,255,255,.1); }
+  .vidbar .p-menu button.on { color: var(--amber); font-weight: 700; }
+  .vidbar .p-menu .p-keys { padding: 8px 16px; color: #ddd; font-size: 13px; line-height: 1.7; white-space: pre; }
+  .vid { cursor: pointer; }
   .lanediv { position: absolute; top: 0; bottom: 0; width: 22px; margin-left: -11px; cursor: ew-resize; touch-action: none; }
   .lanediv::before { content: ""; position: absolute; left: 10px; top: 0; bottom: 0; border-left: 3px dashed var(--amber); }
   .lanediv span { position: absolute; top: 50%; left: 0; transform: translateY(-50%); background: var(--amber); color: var(--amber-ink); font-size: 13px; padding: 2px 3px; }
@@ -880,6 +881,7 @@
         <button class="btn sm ghost hidden" type="button" id="ipCamStop" onclick="StartCam.stop()" data-t="fc_stop"></button>
       </div>
       <div class="viewer" id="viewer">
+        <div class="p vidbar hidden" id="camBar"></div>
         <video id="camVideo" muted loop playsinline class="hidden"></video>
         <canvas id="camFx" class="fx"></canvas>
         <img id="camImg" class="hidden" alt="">
@@ -1001,11 +1003,8 @@
   <div id="v-finish" class="grid2 hidden">
     <div class="card" id="fcCard">
       <div class="row" style="align-items:center"><h2 style="margin:0" data-t="r_finish"></h2><span class="spacer"></span><span class="pill camb off" id="fcState"></span></div>
-        <div class="camlive fcview hidden" id="camLive-finish"><img alt=""><canvas class="fx" id="fxFinish"></canvas><div class="viewer-tag" data-t="cam_view"></div></div>
-      <p class="hint camlegend"><span style="color:#00b4ff">■</span> <span data-t="fc_box_open"></span> &nbsp; <span style="color:#00c800">■</span> <span data-t="fc_box_crossed"></span> &nbsp; <span style="color:#e00000">━</span> <span data-t="fc_box_line"></span></p>
-      <div id="fcOffline" class="msg warn hidden" data-t="fc_offline"></div>
-      <div id="fcForm">
-        <div class="seg" style="margin-top:10px"><button id="fck-webcam" onclick="FinishCam.kind('webcam')" data-t="src_webcam"></button><button id="fck-video" onclick="FinishCam.kind('video')" data-t="src_video"></button><button id="fck-url" onclick="FinishCam.kind('url')" data-t="fc_ipcam"></button></div>
+      <div id="fcSrc" class="fcsrcbox">   <!-- the source, above the picture as on the other camera screens -->
+        <div class="seg"><button id="fck-webcam" onclick="FinishCam.kind('webcam')" data-t="src_webcam"></button><button id="fck-video" onclick="FinishCam.kind('video')" data-t="src_video"></button><button id="fck-url" onclick="FinishCam.kind('url')" data-t="fc_ipcam"></button></div>
         <div class="row" style="margin-top:8px">
           <select id="fcWebcam" class="fcsrc"></select>
           <select id="fcVideo" class="fcsrc hidden"></select>
@@ -1014,9 +1013,14 @@
           <button class="btn ghost sm" style="flex:0 0 auto" onclick="FinishCam.sources(true)" data-t="fc_refresh"></button>
         </div>
         <div class="row hidden" id="fcUp" style="margin-top:8px"><button class="btn ghost sm" style="flex:0 0 auto" onclick="ClipUp.pick('finish')" data-t="up_pick"></button></div>
+      </div>
+      <div class="camlive fcview hidden" id="camLive-finish"><img alt=""><canvas class="fx" id="fxFinish"></canvas><div class="fcline hidden" id="fcLine"></div><div class="p vidbar hidden" id="fcBar"></div></div>
+      <p class="hint camlegend"><span style="color:#00b4ff">■</span> <span data-t="fc_box_open"></span> &nbsp; <span style="color:#00c800">■</span> <span data-t="fc_box_crossed"></span> &nbsp; <span style="color:#e00000">━</span> <span data-t="fc_box_line"></span></p>
+      <div id="fcOffline" class="msg warn hidden" data-t="fc_offline"></div>
+      <div id="fcForm">
         <div class="settings" style="margin-top:8px">
           <label for="fcLineY" data-t="fc_line"></label>
-          <input id="fcLineY" type="range" min="5" max="95" step="1" onchange="FinishCam.lineChanged()">
+          <input id="fcLineY" type="range" min="5" max="95" step="1" oninput="FinishCam.showLine()" onchange="FinishCam.lineChanged()">
           <span class="hint" data-t="fc_line_hint"></span>
           <label for="fcDir" data-t="fc_dir"></label>
           <select id="fcDir" onchange="FinishCam.lineChanged()"><option value="down" data-t="fc_dir_down"></option><option value="up" data-t="fc_dir_up"></option><option value="any" data-t="fc_dir_any"></option></select>
@@ -1110,36 +1114,8 @@
     <div class="card hidden" id="scCard">
       <div class="scgrid">
         <div id="scViewHome">
-          <div class="scview" id="scView"><div class="camlive hidden" id="camLive-station"><img alt=""><canvas class="fx" id="fxStation"></canvas><div class="viewer-tag" data-t="cam_view"></div></div><div class="scdivs" id="scDivs"></div>
-            <div class="p hidden" id="vidBar">
-              <div class="p-flash" aria-hidden="true"></div>
-              <div class="p-toast" aria-live="polite"></div>
-              <div class="p-note" id="vbNote"></div>
-              <div class="p-menu" id="vbMenu" hidden role="menu"></div>
-              <div class="p-controls">
-                <div class="p-scrub" id="vbScrub" role="slider" tabindex="0" data-tl="vb_seek">
-                  <div class="p-scrub__rail"><div class="p-scrub__hover"></div><div class="p-scrub__fill"></div></div>
-                  <div class="p-scrub__knob"></div><div class="p-scrub__tip"></div>
-                </div>
-                <div class="p-bar">
-                  <div class="p-left">
-                    <div class="p-pill">
-                      <button type="button" class="p-btn" data-a="start" data-tl="vb_start"></button>
-                      <button type="button" class="p-btn" data-a="play"></button>
-                      <button type="button" class="p-btn" data-a="back" data-tl="vb_frame_back"></button>
-                      <button type="button" class="p-btn" data-a="fwd" data-tl="vb_frame_fwd"></button>
-                    </div>
-                    <div class="p-pill"><span class="p-time"><span id="vbCur">0:00</span> / <span id="vbDur">0:00</span></span></div>
-                  </div>
-                  <div class="p-right">
-                    <div class="p-pill">
-                      <button type="button" class="p-btn p-speed" data-a="speed" data-tl="vb_speed" aria-haspopup="menu"></button>
-                      <button type="button" class="p-btn" data-a="keys" data-tl="vb_keys_title"></button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div></div>
+          <div class="scview" id="scView"><div class="camlive hidden" id="camLive-station"><img alt=""><canvas class="fx" id="fxStation"></canvas></div><div class="scdivs" id="scDivs"></div>
+            <div class="p vidbar hidden" id="vidBar"></div></div>
           <p class="hint" id="scDivHint" data-t="sc_div_hint"></p>
         </div>
         <div>
@@ -1707,7 +1683,7 @@ const I18N = {
     vb_seek: "Position in the video", vb_speed: "Playback speed", vb_normal: "Normal", vb_keys_title: "Keyboard shortcuts",
     vb_keys: "Space / K   play, pause\nJ / L   10 s back, on\n← / →   5 s back, on\n, / .   one frame (paused)\nHome / End   start, end\n0 – 9   10 % steps\n< / >   slower, faster\nClick the picture   play, pause", vb_ended: "End of the video. Rewind or play it again; the camera keeps running.",
     vb_slow: "The analysis is slower than the video, so it plays slower: no frame is skipped and no rep is missed.", vid_ended: "The video played to its end. Tick Repeat to keep it playing, then press Start camera.", vis_depth: "How deep the rep in progress is: the line is deep enough to count", vis_depth_s: "depth", vis_to_go: "{n} to 60%", hand_title: "Time by hand", hand_hint: "Backup when the camera is off or misses someone: tap, then type the bib.", fc_log: "Camera messages", lane_bib: "Lane {n}: bib",
-    cam_view: "Live camera", cam_off: "Camera offline · manual count", cam_live: "Camera live · {fps} fps", cam_paused: "Camera live · video paused", cb_live: "Camera live · {fps} fps", cb_live_nofps: "Camera live", cb_starting: "Camera starting…",
+    cam_off: "Camera offline · manual count", cam_live: "Camera live · {fps} fps", cam_paused: "Camera live · video paused", cb_live: "Camera live · {fps} fps", cb_live_nofps: "Camera live", cb_starting: "Camera starting…",
     cb_off: "Camera off", cb_error: "Camera stopped with an error", cb_offline: "Camera service offline", cb_test: "Test source", corrections: "Examiner corrections",
     ph_waiting: "Get into position", ph_rest: "Up", ph_work: "Down", no_person: "Nobody in the lane",
     f_body_not_straight: "Body not straight", f_knee_on_ground: "Knee on the ground", f_rest_in_down: "Resting down", f_knees_not_bent: "Knees not bent",
@@ -2101,7 +2077,7 @@ const I18N = {
     vb_seek: "الموضع في الفيديو", vb_speed: "سرعة التشغيل", vb_normal: "عادية", vb_keys_title: "اختصارات لوحة المفاتيح",
     vb_keys: "مسافة / K   تشغيل، إيقاف\nJ / L   رجوع، تقديم 10 ث\n→ / ←   رجوع، تقديم 5 ث\n, / .   إطار واحد (متوقف)\nHome / End   البداية، النهاية\n0 – 9   خطوات 10 %\n< / >   أبطأ، أسرع\nانقر الصورة   تشغيل، إيقاف", vb_ended: "انتهى الفيديو. أرجعه أو شغّله من جديد؛ الكاميرا تبقى تعمل.",
     vb_slow: "التحليل أبطأ من الفيديو، فيُعرض أبطأ: لا يُتخطّى أي إطار ولا يفوت أي تكرار.", vid_ended: "انتهى تشغيل الفيديو. فعّل التكرار ليستمر، ثم اضغط تشغيل الكاميرا.", vis_depth: "عمق التكرار الجاري: الخط هو العمق الكافي للعد", vis_depth_s: "العمق", vis_to_go: "{n} حتى 60%", hand_title: "التوقيت اليدوي", hand_hint: "احتياطي عند إيقاف الكاميرا أو فواتها لأحد: اضغط ثم اكتب الرقم.", fc_log: "رسائل الكاميرا", lane_bib: "المسار {n}: الرقم",
-    cam_view: "الكاميرا مباشرة", cam_off: "الكاميرا غير متصلة · عدّ يدوي", cam_live: "الكاميرا تعمل · {fps} إطار/ث", cam_paused: "الكاميرا تعمل · الفيديو متوقف", cb_live: "الكاميرا تعمل · {fps} إطار/ث", cb_live_nofps: "الكاميرا تعمل", cb_starting: "الكاميرا تبدأ…", cb_off: "الكاميرا متوقفة",
+    cam_off: "الكاميرا غير متصلة · عدّ يدوي", cam_live: "الكاميرا تعمل · {fps} إطار/ث", cam_paused: "الكاميرا تعمل · الفيديو متوقف", cb_live: "الكاميرا تعمل · {fps} إطار/ث", cb_live_nofps: "الكاميرا تعمل", cb_starting: "الكاميرا تبدأ…", cb_off: "الكاميرا متوقفة",
     cb_error: "توقفت الكاميرا بخطأ", cb_offline: "خدمة الكاميرا متوقفة", cb_test: "مصدر تجريبي", corrections: "تصحيحات الممتحن",
     ph_waiting: "خذ الوضعية", ph_rest: "أعلى", ph_work: "أسفل", no_person: "لا أحد في المسار",
     f_body_not_straight: "الجسم غير مستقيم", f_knee_on_ground: "الركبة على الأرض", f_rest_in_down: "استراحة في الأسفل", f_knees_not_bent: "الركبتان غير مثنيتين",
@@ -2650,6 +2626,7 @@ const Cam = {
     const live = ip ? StartCam.live : st === "webcam" ? !!this.stream : st === "ipcam" ? false : !!this.fileName;
     camBadge($("camBadge"), live ? (ip ? { state: "live", fps: Live.fps(StartCam.cfg().station) } : st === "webcam" ? { state: "live", fps: LocalFps.fps } : { state: "test" })
                                : this.opening ? { state: "starting" } : { state: "off" });
+    if (typeof DeskPlayer !== "undefined") DeskPlayer.render();
   },
   stop(keepService) { if (this.stream) { this.stream.getTracks().forEach(tr => tr.stop()); this.stream = null; } BgFx.stop($("camVideo")); if (typeof StartCam !== "undefined") { StartCam.detach(); if (!keepService) StartCam.releaseWebcam(); } },
   async use(kind) {
@@ -3699,8 +3676,8 @@ const FinishCam = {
     if (!st.running) $("camLive-finish").classList.add("hidden");   // no camera: no old picture
     const live = !$("camLive-finish").classList.contains("hidden");
     $("fcOffline").classList.toggle("hidden", !!st.available);
-    $("fcForm").classList.toggle("dim", !st.available);
-    document.querySelectorAll("#fcForm button, #fcForm select, #fcForm input").forEach(el => { el.disabled = !st.available || this.busy; });
+    $("fcForm").classList.toggle("dim", !st.available); $("fcSrc").classList.toggle("dim", !st.available);
+    document.querySelectorAll("#fcForm button, #fcForm select, #fcForm input, #fcSrc button, #fcSrc select, #fcSrc input").forEach(el => { el.disabled = !st.available || this.busy; });
     camStatus();
     const ended = !st.running && st.exit_code === 0 && st.config && st.config.kind === "video";
     if (ended && !this.endedSaid) { msg("fcMsg", "warn", t("vid_ended")); this.endedSaid = true; } if (st.running) this.endedSaid = false;
@@ -3715,8 +3692,16 @@ const FinishCam = {
     if (timing !== this.timing) { this.timing = timing; this.handTouched = false; }
     if (!this.handTouched) { const d = $("fHand"); if (d.open === timing) { d.open = !timing; this.handTouched = false; } }
     this.showLine();
+    if (typeof FinPlayer !== "undefined") FinPlayer.render();
   },
-  showLine() {},
+  // While the slider moves, a dashed line shows where the finish line will go; let go and the
+  // camera restarts with it, its red line moves there and the dashed one goes.
+  showLine() {
+    const y = +$("fcLineY").value, cfg = this.st && this.st.config;
+    const inUse = cfg && Math.round(cfg.line_y * 100) === y;
+    $("fcLine").style.top = y + "%";
+    $("fcLine").classList.toggle("hidden", !!inUse || !(this.st && this.st.running));
+  },
   // The line (or direction) changed: a running camera restarts with it at once, so the red line on
   // the picture, drawn by the camera itself, is always the line in use.
   lineChanged() {
@@ -3940,11 +3925,19 @@ const StationCam = {
   init() { this.kind(this.pref.kind || "webcam"); if (this.pref.url) $("scUrlIn").value = this.pref.url; },
 };
 
-// ---- the station camera's test video: oTube's YouTube-style player over the picture (play, pause,
-// seek, frame step, speed, the same keys). The video plays in the engine, not in the page: every
-// frame is analysed (it plays slower rather than skip one), so a clip always gives its true count.
-// Commands reach the engine with its next report; the bar moves on its own between reports.
-const VidCtl = (() => {
+// ---- a test video's player, YouTube-style, on every camera screen: play, pause, seek, frame
+// step, speed, the same keys. Station and finish: the video plays in the camera process, every
+// frame analysed (a clip always gives its true count); commands reach it within a quarter of a
+// second and the bar moves on its own between reports. Weigh-in, start and results: the video
+// plays in this page, and the same controls drive it directly.
+const PLAYER_HTML = `<div class="p-flash" aria-hidden="true"></div><div class="p-toast" aria-live="polite"></div><div class="p-note"></div><div class="p-menu" hidden role="menu"></div>
+<div class="p-controls"><div class="p-scrub" role="slider" tabindex="0" data-tl="vb_seek"><div class="p-scrub__rail"><div class="p-scrub__hover"></div><div class="p-scrub__fill"></div></div><div class="p-scrub__knob"></div><div class="p-scrub__tip"></div></div>
+<div class="p-bar"><div class="p-left"><div class="p-pill"><button type="button" class="p-btn" data-a="start" data-tl="vb_start"></button><button type="button" class="p-btn" data-a="play"></button><button type="button" class="p-btn" data-a="back" data-tl="vb_frame_back"></button><button type="button" class="p-btn" data-a="fwd" data-tl="vb_frame_fwd"></button></div>
+<div class="p-pill"><span class="p-time"><span class="p-cur">0:00</span> / <span class="p-dur">0:00</span></span></div></div>
+<div class="p-right"><div class="p-pill"><button type="button" class="p-btn p-speed" data-a="speed" data-tl="vb_speed" aria-haspopup="menu"></button><button type="button" class="p-btn" data-a="keys" data-tl="vb_keys_title"></button></div></div></div></div>`;
+// o: box / wrap (element ids: the bar, the picture it sits on), shown() (a test video on screen),
+// send(cmd) (to the camera, or to this page's video), pull() (this page's video: its state now)
+function makePlayer(o) {
   const svg = d => `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="${d}"/></svg>`;
   const I = {
     play: svg("M8 5.14v13.72a1 1 0 0 0 1.5.86l11-6.86a1 1 0 0 0 0-1.72l-11-6.86A1 1 0 0 0 8 5.14z"),
@@ -3958,12 +3951,14 @@ const VidCtl = (() => {
     ff: svg("M4 18l8.5-6L4 6v12zm9-12v12l8.5-6L13 6z"),
   };
   const SPEEDS = [0.25, 0.5, 1, 2];
-  const el = id => $(id), box = () => el("vidBar"), q = sel => box().querySelector(sel), btn = a => q(`[data-a="${a}"]`);
+  const box = () => $(o.box), q = sel => box().querySelector(sel), btn = a => q(`[data-a="${a}"]`);
   const fmt = x => { x = Math.max(0, Math.floor(x || 0)); return `${Math.floor(x / 60)}:${String(x % 60).padStart(2, "0")}`; };
   let st = null, at = 0, dragging = false, timer = null, hideT = null, toastT = null, built = false;
 
   function build() {
     if (built) return; built = true;
+    box().innerHTML = PLAYER_HTML;
+    box().querySelectorAll("[data-tl]").forEach(e => { e.title = t(e.dataset.tl); e.setAttribute("aria-label", t(e.dataset.tl)); });
     for (const a of ["start", "back", "fwd", "keys"]) btn(a).innerHTML = I[a];
     btn("play").addEventListener("click", toggle);
     btn("start").addEventListener("click", () => seekTo(0));
@@ -3972,13 +3967,14 @@ const VidCtl = (() => {
     btn("speed").addEventListener("click", e => { e.stopPropagation(); menu("speed"); });
     btn("keys").addEventListener("click", e => { e.stopPropagation(); menu("keys"); });
     // click on the picture plays / pauses (YouTube); not on the lane dividers or the controls
-    el("scView").addEventListener("click", e => {
-      if (!on() || e.target.closest(".p-controls, .p-menu, .lanediv")) return;
+    const wrap = $(o.wrap);
+    wrap.addEventListener("click", e => {
+      if (!visible() || e.target.closest(".p-controls, .p-menu, .lanediv")) return;
       toggle();
     });
-    const wrap = el("scView");
-    wrap.addEventListener("pointermove", poke); wrap.addEventListener("pointerleave", () => { if (!dragging) box().classList.remove("show-ui"); });
-    const scrub = el("vbScrub");
+    wrap.addEventListener("pointermove", () => { if (visible()) poke(); });
+    wrap.addEventListener("pointerleave", () => { if (!dragging) box().classList.remove("show-ui"); });
+    const scrub = q(".p-scrub");
     const ratioAt = e => { const r = scrub.getBoundingClientRect(); return Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)); };
     const preview = ratio => {
       const d = (st && st.duration) || 0, r = scrub.getBoundingClientRect(), tip = q(".p-scrub__tip"), tw = tip.offsetWidth / 2;
@@ -3999,38 +3995,39 @@ const VidCtl = (() => {
     };
     scrub.addEventListener("pointerup", end); scrub.addEventListener("pointercancel", end);
     scrub.addEventListener("click", e => e.stopPropagation());
-    document.addEventListener("click", e => { if (!e.target.closest("#vbMenu")) el("vbMenu").hidden = true; });
+    document.addEventListener("click", e => { if (!e.target.closest(".p-menu")) q(".p-menu").hidden = true; });
   }
-  function on() { const c = StationCam.st && StationCam.st.config; return !!(StationCam.st && StationCam.st.running && c && c.kind === "video"); }
+  const visible = () => !!$(o.box) && !box().classList.contains("hidden");
   function now() {   // the position now: the last report moved on by the time since, while playing
     if (!st) return 0;
     const x = st.paused ? st.t : st.t + (Date.now() - at) / 1000 * st.speed;
     return st.duration ? Math.min(x, st.duration) : x;
   }
-  function paint(ratio) { q(".p-scrub__fill").style.width = q(".p-scrub__knob").style.left = ratio * 100 + "%"; el("vbCur").textContent = fmt(ratio * ((st && st.duration) || 0)); }
+  function paint(ratio) { q(".p-scrub__fill").style.width = q(".p-scrub__knob").style.left = ratio * 100 + "%"; q(".p-cur").textContent = fmt(ratio * ((st && st.duration) || 0)); }
   function render() {
     build();
-    const show = on() && !!st && role === "station" && !el("camLive-station").classList.contains("hidden");
-    box().classList.toggle("hidden", !show); el("scView").classList.toggle("vid", show);
+    if (o.pull && !dragging) { st = o.shown() ? o.pull() : null; at = Date.now(); }
+    const show = !!o.shown() && !!st;
+    box().classList.toggle("hidden", !show); $(o.wrap).classList.toggle("vid", show);
     if (!show) { clearInterval(timer); timer = null; return; }
     if (!timer) timer = setInterval(render, 250);
     const d = st.duration || 0, x = now();
     if (!dragging) { paint(d ? x / d : 0); }
-    el("vbDur").textContent = d ? fmt(d) : "--:--";
-    const scrub = el("vbScrub");
+    q(".p-dur").textContent = d ? fmt(d) : "--:--";
+    const scrub = q(".p-scrub");
     scrub.setAttribute("aria-valuenow", Math.round(x)); scrub.setAttribute("aria-valuemax", Math.round(d)); scrub.setAttribute("aria-valuetext", `${fmt(x)} / ${fmt(d)}`);
     const b = btn("play"), label = t(st.ended ? "vb_replay" : st.paused ? "vb_play" : "vb_pause"), icon = st.ended ? "replay" : st.paused ? "play" : "pause";
     if (b.dataset.icon !== icon) { b.innerHTML = I[icon]; b.dataset.icon = icon; }
     b.title = label; b.setAttribute("aria-label", label);
     btn("speed").textContent = st.speed === 1 ? "1×" : `${st.speed}×`;
     box().classList.toggle("paused", !!(st.paused || st.ended));
-    el("vbNote").textContent = st.ended ? t("vb_ended") : st.slow ? t("vb_slow") : "";
+    q(".p-note").textContent = st.ended ? t("vb_ended") : st.slow ? t("vb_slow") : "";
   }
-  function poke() { box().classList.add("show-ui"); clearTimeout(hideT); hideT = setTimeout(() => { if (!dragging && el("vbMenu").hidden) box().classList.remove("show-ui"); }, 2500); }
+  function poke() { box().classList.add("show-ui"); clearTimeout(hideT); hideT = setTimeout(() => { if (!dragging && q(".p-menu").hidden) box().classList.remove("show-ui"); }, 2500); }
   function flash(icon) { const f = q(".p-flash"); f.innerHTML = I[icon]; f.classList.remove("go"); void f.offsetWidth; f.classList.add("go"); }
   function toast(text) { const e = q(".p-toast"); e.textContent = text; e.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => e.classList.remove("show"), 900); }
   function menu(kind) {
-    const m = el("vbMenu");
+    const m = q(".p-menu");
     if (!m.hidden && m.dataset.kind === kind) { m.hidden = true; return; }
     m.dataset.kind = kind; poke();
     m.innerHTML = kind === "speed"
@@ -4039,35 +4036,31 @@ const VidCtl = (() => {
     m.querySelectorAll("button[data-v]").forEach(x => x.addEventListener("click", e => { e.stopPropagation(); speed(+x.dataset.v); m.hidden = true; }));
     m.hidden = false;
   }
-  async function send(cmd) {
-    try { await api("POST", "/api/stationcam/player", cmd); }
-    catch (e) { msg("scMsg", "bad", err(e)); }
-  }
   function local(change) { st = { ...st, t: now(), ...change }; at = Date.now(); render(); poke(); }
   function toggle() {
     if (!st) return;
     const play = st.paused || st.ended;
     local(play ? { paused: false, ended: false, ...(st.ended ? { t: 0 } : {}) } : { paused: true });
     flash(play ? "play" : "pause");
-    send({ action: play ? "play" : "pause" });
+    o.send({ action: play ? "play" : "pause" });
   }
   function seekTo(x, quiet) {
     if (!st) return;
     const to = Math.max(0, st.duration ? Math.min(x, st.duration) : x);
     local({ t: to, ended: false });
     if (!quiet) toast(fmt(to));
-    send({ action: "seek", t: to });
+    o.send({ action: "seek", t: to });
   }
   function seekBy(sec) { seekTo(now() + sec, true); flash(sec < 0 ? "rw" : "ff"); toast(`${sec > 0 ? "+" : "−"}${Math.abs(sec)} s`); }
   function step(n) {
     if (!st) return;
     local({ t: Math.max(0, now() + n / (st.fps || 30)), paused: true, ended: false });
     toast(t(n < 0 ? "vb_frame_back" : "vb_frame_fwd").replace(/\s*\(.*\)$/, ""));
-    send({ action: "step", n });
+    o.send({ action: "step", n });
   }
-  function speed(v) { if (st) local({ speed: v }); toast(v === 1 ? t("vb_normal") : `${v}×`); send({ action: "speed", speed: v }); }
+  function speed(v) { if (st) local({ speed: v }); toast(v === 1 ? t("vb_normal") : `${v}×`); o.send({ action: "speed", speed: v }); }
   function key(e) {   // YouTube's keys: Space / k, j l 10 s, arrows 5 s, , . one frame, Home End, 0-9, < >
-    if (box().classList.contains("hidden") || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (!visible() || e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key, rtl = lang === "ar", d = (st && st.duration) || 0;
     if (k === " " || k === "k") toggle();
     else if (k === "j") seekBy(-10); else if (k === "l") seekBy(10);
@@ -4076,21 +4069,45 @@ const VidCtl = (() => {
     else if (k === "Home") seekTo(0); else if (k === "End" && d) seekTo(d);
     else if (k >= "0" && k <= "9" && d) seekTo(d * (+k / 10));
     else if (k === ">" || k === "<") { const i = SPEEDS.indexOf(st.speed) + (k === ">" ? 1 : -1); if (SPEEDS[i]) speed(SPEEDS[i]); }
-    else if (k === "Escape") el("vbMenu").hidden = true;
+    else if (k === "Escape") q(".p-menu").hidden = true;
     else return;
     e.preventDefault();
   }
   return {
-    on, render, key,
+    on: () => !!o.shown(), visible, render, key,
     got(p) { if (!dragging) { st = p || null; at = Date.now(); } render(); },
   };
-})();
+}
+const toCamera = (station, msgId) => async cmd => {
+  try { await api("POST", `/api/player/${station}`, cmd); } catch (e) { msg(msgId, "bad", err(e)); }
+};
+const VidCtl = makePlayer({   // the exercise station
+  box: "vidBar", wrap: "scView", send: toCamera("station", "scMsg"),
+  shown: () => { const c = StationCam.st && StationCam.st.config; return role === "station" && !!(StationCam.st && StationCam.st.running && c && c.kind === "video") && !$("camLive-station").classList.contains("hidden"); },
+});
+const FinPlayer = makePlayer({   // the finish line
+  box: "fcBar", wrap: "camLive-finish", send: toCamera("finish", "fcMsg"),
+  shown: () => { const c = FinishCam.st && FinishCam.st.config; return role === "finish" && !!(FinishCam.st && FinishCam.st.running && c && c.kind === "video") && !$("camLive-finish").classList.contains("hidden"); },
+});
+const DeskPlayer = makePlayer({   // weigh-in, start, results: this page's video
+  box: "camBar", wrap: "viewer",
+  shown: () => CAM_ROLES.includes(role) && Cam.kind === "video" && !!$("camVideo").getAttribute("src") && !$("camVideo").classList.contains("hidden"),
+  pull: () => { const v = $("camVideo"); return { t: v.currentTime, duration: isFinite(v.duration) ? v.duration : null, paused: v.paused, ended: v.ended, speed: v.playbackRate, fps: 30 }; },
+  send: cmd => {
+    const v = $("camVideo");
+    if (cmd.action === "play") v.play().catch(() => {}); else if (cmd.action === "pause") v.pause();
+    else if (cmd.action === "seek") v.currentTime = cmd.t;
+    else if (cmd.action === "step") { v.pause(); v.currentTime = Math.max(0, v.currentTime + cmd.n / 30); }
+    else if (cmd.action === "speed") v.playbackRate = cmd.speed;
+  },
+});
+const PLAYERS = [VidCtl, FinPlayer, DeskPlayer];
 document.addEventListener("keydown", ev => {
-  if (role !== "station" || settingsOpen || document.querySelector("dialog[open]")) return;
+  if (settingsOpen || document.querySelector("dialog[open]")) return;
   const tg = ev.target;
   if (tg && (tg.tagName === "INPUT" || tg.tagName === "TEXTAREA" || tg.tagName === "SELECT" || tg.isContentEditable)) return;
   if (ev.key === " " && tg && tg.tagName === "BUTTON") return;   // let buttons handle Space
-  VidCtl.key(ev);
+  const p = PLAYERS.find(x => x.visible()); if (p) p.key(ev);
 });
 
 // ---- DNF for one runner, with the reason (audited)
@@ -4644,6 +4661,7 @@ const Live = {
     try { this.data = await api("GET", "/api/engine/live"); } catch { /* the ONLINE pill says it */ } finally { this.busy = false; }
     if (typeof Cam !== "undefined") Cam.badge();
     if (typeof camStatus === "function" && role === "finish") camStatus();
+    if (typeof FinPlayer !== "undefined") FinPlayer.got((this.data.finish || {}).player);
   },
   fps(station) { const d = this.data[station]; return d && d.live ? d.fps : null; },
 };
