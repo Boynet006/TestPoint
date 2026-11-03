@@ -41,7 +41,7 @@ from .vision.bib import BibReader, BibResult, BibVote
 from .vision.detect import Box
 from .vision.lanes import whole_frame
 from .vision.line import CrossEvent, FinishLine, parse_line
-from .vision.sources import SourceError, iter_frames, open_source
+from .vision.sources import SourceError, VideoPlayer, iter_frames, open_source
 from .vision.tracker import IoUTracker, Track
 
 CROSSING_PATH = "/api/engine/crossing"
@@ -302,6 +302,56 @@ class FinishCam:
             self._ocr.shutdown(wait=True)
 
 
+class Analyser(threading.Thread):
+    """A test video played as a live camera is: the picture moves at the video's own speed
+    (every frame shown) while the analysis takes the newest frame whenever it is free, instead
+    of the video crawling at the analysis' rate. The first frame waits for the analysis (the
+    models warm up), so a crossing at the start of a clip is not lost."""
+
+    def __init__(self, process: Callable[[np.ndarray, float, bool], None]) -> None:
+        super().__init__(name="finish-analysis", daemon=True)
+        self.process = process
+        self.fps = 0.0
+        self.error: BaseException | None = None
+        self.first = threading.Event()
+        self._latest: tuple[np.ndarray, float, bool] | None = None
+        self._jumped = False
+        self._cv = threading.Condition()
+        self._halt = False
+
+    def offer(self, frame: np.ndarray, t: float, jumped: bool = False) -> None:
+        with self._cv:
+            self._jumped = self._jumped or jumped    # a seek between two analysed frames still counts
+            self._latest = (frame, t, self._jumped)
+            self._cv.notify()
+
+    def stop(self) -> None:
+        with self._cv:
+            self._halt = True
+            self._cv.notify()
+
+    def run(self) -> None:
+        last = time.monotonic()
+        while True:
+            with self._cv:
+                while self._latest is None and not self._halt:
+                    self._cv.wait()
+                if self._halt:
+                    return
+                (frame, t, jumped), self._latest, self._jumped = self._latest, None, False
+            try:
+                self.process(frame, t, jumped)
+            except BaseException as e:   # noqa: BLE001 - the frame loop reports it
+                self.error = e
+                self.first.set()
+                return
+            now = time.monotonic()
+            inst = 1.0 / max(now - last, 1e-6)
+            self.fps = inst if not self.fps else 0.9 * self.fps + 0.1 * inst
+            last = now
+            self.first.set()
+
+
 def draw(frame: np.ndarray, cam: FinishCam, fps: float) -> None:
     h, w = frame.shape[:2]
     x0, y0, x1, y1 = cam.line.to_pixels(w, h)
@@ -420,16 +470,47 @@ def main(argv: list[str] | None = None) -> int:
         preview = FramePublisher(args.app, args.station, lambda img, fps_now: draw(img, cam, fps_now))
         preview.tap(source, None if crop is None else lambda f: f[int(crop[1] * f.shape[0]):int(crop[3] * f.shape[0]),
                                                                     int(crop[0] * f.shape[1]):int(crop[2] * f.shape[1])])
+        if isinstance(source, VideoPlayer):
+            preview.attach_player(source)    # the finish screen's player controls this test video
         preview.start()
     writer = None
     fps = 0.0
     last = time.monotonic()
+    analyser = None
+    if args.realtime and not source.is_live and not (args.out or args.show):
+        def analyse(frame, t, jumped):
+            if jumped:
+                cam.tracker.tracks.clear()   # a seek or a repeat: no one is followed across the jump (ids go on)
+            cam.process(frame, t)
+            if preview is not None:
+                preview.offer(frame, analyser.fps)
+        analyser = Analyser(analyse)
+        shown, said = 0, time.monotonic()
+        analyser.start()
+        if preview is not None:
+            preview.live = True              # the frames come from the loop below, every one shown
     try:
         # realtime: a crossing in a video is reported when it happens on screen
         for frame, t in iter_frames(source, realtime=args.realtime):
             if crop is not None:
                 h, w = frame.shape[:2]
                 frame = frame[int(crop[1] * h):int(crop[3] * h), int(crop[0] * w):int(crop[2] * w)]
+            jumped = bool(getattr(source, "take_jump", None) and source.take_jump())
+            if analyser is not None:
+                shown += 1
+                if time.monotonic() - said >= 10.0:   # in the camera's messages: the picture and the analysis rates
+                    print(f"finish cam: {shown / (time.monotonic() - said):.0f} pictures a second shown, {analyser.fps:.0f} analysed", flush=True)
+                    shown, said = 0, time.monotonic()
+                if preview is not None:
+                    preview.offer_frame(frame)
+                analyser.offer(frame, t, jumped)
+                if not analyser.first.is_set():
+                    analyser.first.wait()    # the models warm up on the first frame; the clip waits
+                if analyser.error is not None:
+                    raise analyser.error
+                continue
+            if jumped:
+                cam.tracker.tracks.clear()
             cam.process(frame, t)
             now = time.monotonic()
             inst = 1.0 / max(now - last, 1e-6)
@@ -454,6 +535,9 @@ def main(argv: list[str] | None = None) -> int:
     except KeyboardInterrupt:
         pass
     finally:
+        if analyser is not None:
+            analyser.stop()
+            analyser.join(timeout=5.0)
         source.release()
         if writer is not None:
             writer.release()

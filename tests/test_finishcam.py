@@ -296,3 +296,25 @@ def test_the_finish_keeps_the_clearest_faces_of_the_approach():
     assert len(kept) == FinishCam.FACE_SNAPSHOTS
     assert kept == sorted(kept, reverse=True) and kept[0] == 120 * 0.9   # 30 px is too small to keep
     assert all(q >= 45 * 0.9 for q in kept)
+
+
+def test_a_test_video_plays_at_its_speed_while_the_analysis_takes_the_newest_frame():
+    import threading
+    from testpoint.finishcam import Analyser
+    seen, gate = [], threading.Event()
+
+    def slow(frame, t, jumped):
+        seen.append((t, jumped))
+        gate.wait(2)                         # the analysis is busy with frame 0
+    a = Analyser(slow); a.start()
+    a.offer(None, 0.0)
+    assert a.first.wait(0.01) is False       # the first frame waits for the analysis (warm-up)
+    for k in range(1, 5):
+        a.offer(None, k * 0.04, jumped=(k == 2))   # meanwhile the video moves on, a seek at frame 2
+    gate.set(); a.first.wait(2)
+    for _ in range(100):
+        if len(seen) == 2:
+            break
+        threading.Event().wait(0.01)
+    a.stop(); a.join(2)
+    assert seen == [(0.0, False), (0.16, True)]   # the newest frame next, and the jump not lost

@@ -441,9 +441,12 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     # The live picture per station from the camera engine: the last report and when it
     # arrived. Not persisted; the reps it carried are in the database.
     _last_report: dict[str, tuple[float, EngineReportIn]] = {}
-    _player: dict = {"seq": 0}
-    """The latest player command for the station camera; each reply carries it, the engine
-    applies a ``seq`` once."""
+    _players: dict[str, dict] = {"station": {"seq": 0}}
+    """The latest player command per camera playing a test video. The station's engine gets it
+    with each report's reply; the other cameras (finish) with each picture's (X-Player-Cmd).
+    A ``seq`` is applied once."""
+    _player = _players["station"]
+    _player_status: dict[str, tuple[float, dict]] = {}   # a camera's test video now (X-Player), and when
     # The engines' live pictures (src/testpoint/preview.py): newest JPEG per station.
     _last_frame: dict[str, tuple[float, bytes]] = {}
     _frame_waiters: dict[str, asyncio.Event] = {}   # wakes the open streams when a new picture comes
@@ -955,11 +958,23 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         now = clock()
         _last_frame[station] = (now, data)
         _frame_times.setdefault(station, deque(maxlen=64)).append(now)
+        try:   # a test video's position and state, for the screen's player
+            st = json.loads(request.headers.get("X-Player") or "null")
+        except ValueError:
+            st = None
+        if isinstance(st, dict):
+            _player_status[station] = (now, st)
+        else:
+            _player_status.pop(station, None)
         waiters = _frame_waiters.pop(station, None)
         if waiters is not None:
             waiters.set()
         # the camera learns from this whether anyone is watching (FramePublisher): full rate or 1 a second
-        return Response(status_code=204, headers={"X-Watchers": str(_watchers.get(station, 0))})
+        headers = {"X-Watchers": str(_watchers.get(station, 0))}
+        cmd = _players.get(station)
+        if station != "station" and cmd and cmd.get("action"):
+            headers["X-Player-Cmd"] = json.dumps(cmd)
+        return Response(status_code=204, headers=headers)
 
     def picture_rate(station: str) -> float | None:
         """Pictures a second over the last 2 s, as the screens get them."""
@@ -974,8 +989,11 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     def engine_live() -> dict:
         """Every camera's live picture: its rate, how old the newest is, and how many screens watch it."""
         now = clock()
+        def player(st: str) -> dict | None:
+            p = _player_status.get(st)
+            return p[1] if p and now - p[0] <= FRAME_STALE_S else None
         return {st: {"fps": picture_rate(st), "age_s": round(now - seen[0], 2), "watchers": _watchers.get(st, 0),
-                     "live": now - seen[0] <= FRAME_STALE_S}
+                     "live": now - seen[0] <= FRAME_STALE_S, "player": player(st)}
                 for st, seen in _last_frame.items()}
 
     @app.get("/api/engine/frame/{station}.jpg")
@@ -1129,6 +1147,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
 
     @app.post("/api/finishcam/start")
     def finishcam_start(body: FinishCamIn, request: Request, db: Session = Depends(get_db)) -> dict:
+        _new_player("finish")
         return _shown(_camhost("POST", "/finish/start", _source(db, "finish", body.model_dump()) | {"app_url": _loopback(request)}, timeout=10.0))
 
     @app.post("/api/finishcam/stop")
@@ -1146,20 +1165,32 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     @app.post("/api/stationcam/start")
     def stationcam_start(body: StationCamIn, request: Request, db: Session = Depends(get_db)) -> dict:
         tuning = S.get_settings(db)["count_tuning"].get(body.exercise, {})
-        _player.update(seq=_player["seq"] + 1, action=None)    # a new engine starts playing; no old command
+        _new_player("station")
         return _shown(_camhost("POST", "/station/start", _source(db, "station", body.model_dump()) | {"tuning": tuning, "app_url": _loopback(request)},
                                timeout=10.0))
 
-    @app.post("/api/stationcam/player")
-    def stationcam_player(body: PlayerIn) -> dict:
-        """Play, pause, seek, frame step or speed for the station camera's test video. Reaches
-        the engine with its next report (a quarter of a second)."""
+    def _new_player(station: str) -> None:
+        """A camera starts playing anew: no old command for it."""
+        p = _players.setdefault(station, {"seq": 0})
+        seq = p["seq"] + 1
+        p.clear()
+        p.update(seq=seq, action=None)
+
+    @app.post("/api/player/{station}")
+    def player_command(station: Literal["station", "finish"], body: PlayerIn) -> dict:
+        """Play, pause, seek, frame step or speed for a camera's test video. Reaches the station's
+        engine with its next report, the finish camera with its next picture (a quarter of a second)."""
         if body.action == "seek" and body.t is None:
             raise S.ServiceError("bad_player", "seek needs t", 400)
-        seq = _player["seq"] + 1
-        _player.clear()
-        _player.update({"seq": seq, **body.model_dump(exclude_none=True)})
-        return {"ok": True, "seq": _player["seq"]}
+        p = _players.setdefault(station, {"seq": 0})
+        seq = p["seq"] + 1
+        p.clear()
+        p.update({"seq": seq, **body.model_dump(exclude_none=True)})
+        return {"ok": True, "seq": seq}
+
+    @app.post("/api/stationcam/player")
+    def stationcam_player(body: PlayerIn) -> dict:
+        return player_command("station", body)
 
     @app.post("/api/stationcam/stop")
     def stationcam_stop() -> dict:
