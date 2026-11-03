@@ -618,3 +618,14 @@ def test_station_manual_start_needs_a_camera(client):
     ok(client.post("/api/entries/import", content=CSV.encode()))
     err(client.post("/api/stationflow/start", json={"query": "11"}), 409, "camera_off")
     err(client.post("/api/stationflow/go"), 409, "not_in_position")
+
+
+def test_station_video_player_commands_ride_on_the_engine_reply(client):
+    report = {"station": "pushup", "lanes": {"1": {}}, "player": {"t": 1.5, "duration": 12.0, "paused": False}}
+    first = ok(client.post("/api/engine/report", json=report))["player"]
+    assert first.get("action") is None
+    sent = ok(client.post("/api/stationcam/player", json={"action": "seek", "t": 4.0}))
+    cmd = ok(client.post("/api/engine/report", json=report))["player"]
+    assert cmd["seq"] == sent["seq"] > first["seq"] and cmd["action"] == "seek" and cmd["t"] == 4.0
+    err(client.post("/api/stationcam/player", json={"action": "seek"}), 400, "bad_player")
+    assert ok(client.get("/api/lanes?station=pushup"))["engine"]["player"]["duration"] == 12.0

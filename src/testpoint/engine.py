@@ -106,6 +106,10 @@ class Reporter:
         self.fps = 0.0
         self._wanted: dict[str, int | None] | None = None
         self._exercise_new: str | None = None
+        self.player = None
+        """A test video's player (``VideoPlayer``): its position goes in each report, and the
+        app's reply brings the station screen's play / pause / seek commands."""
+        self._player_seq: int | None = None
         self._lock = threading.Lock()
 
     def observe(self, res: MultiLaneResult, fps: float) -> list[tuple[str, dict]]:
@@ -151,6 +155,8 @@ class Reporter:
                     for name, lane in self.lanes.items()
                 },
             }
+            if self.player is not None:
+                out["player"] = self.player.status()
             for lane in self.lanes.values():
                 lane.face = None           # each look at the face is sent once
             return out
@@ -186,6 +192,16 @@ class Reporter:
                 self._exercise_new = ex
             if isinstance(reply.get("tuning"), dict):
                 self._tuning_new = reply["tuning"]
+            cmd = reply.get("player") if self.player is not None else None
+            if not (isinstance(cmd, dict) and isinstance(cmd.get("seq"), int)) or cmd["seq"] == self._player_seq:
+                cmd = None
+            else:
+                self._player_seq = cmd["seq"]
+        if cmd and cmd.get("action"):     # outside the lock: the player wakes the frame loop
+            try:
+                self.player.control(cmd)
+            except (TypeError, ValueError):
+                pass
 
     def take_tuning(self) -> dict | None:
         """New counting rules from the app, once (None when unchanged)."""
@@ -340,7 +356,11 @@ def run(session: MultiLaneSession, source, reporter: Reporter, sender: Sender,
     frames = 0
     fps = gap = 0.0
     last = time.monotonic()
+    jumped = getattr(source, "take_jump", None)
     for frame, t in iter_frames(source, realtime=realtime):
+        if jumped is not None and jumped():   # the test video was rewound or moved on:
+            for counter in session.counters.values():   # a half-done rep must not span the jump
+                counter.reset()
         ex = reporter.take_exercise() if analyzers else None
         if ex in (analyzers or {}) and ex != session.analyzer.name:     # the next person does another test
             session.analyzer = analyzers[ex]
@@ -434,7 +454,7 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, ValueError, KeyError) as e:
         raise SystemExit(f"bad lanes: {e}") from None
     try:
-        source = open_source(args.source, realtime=args.realtime, loop=args.loop, timeout_s=args.connect_timeout,
+        source = open_source(args.source, realtime=args.realtime, loop=args.loop, controls=True, timeout_s=args.connect_timeout,
                              max_attempts=args.connect_attempts)
     except SourceError as e:
         raise SystemExit(f"error: {e}") from None
@@ -465,6 +485,8 @@ def main(argv: list[str] | None = None) -> int:
     reporter = Reporter(station, display, [lane.name for lane in lanes],
                         clip_for=evidence.clip if evidence else None, counter=analyzer.counter_config())
     reporter.tuning_in_use(json.loads(args.tuning) if args.tuning else {})
+    if hasattr(source, "control"):
+        reporter.player = source
     if analyzers:
         reporter.watching(args.exercise)
     sender = Sender(reporter, HttpTransport(args.app), interval=args.interval)

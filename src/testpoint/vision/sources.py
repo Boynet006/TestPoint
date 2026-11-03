@@ -342,13 +342,176 @@ class RealtimeVideo:
         self.inner.release()
 
 
-def open_source(source: str, latest: bool = True, realtime: bool = False, loop: bool = False, **rtsp_options):
+class VideoPlayer:
+    """A test video with player controls (play, pause, seek, frame step, speed), for the station.
+
+    Unlike ``RealtimeVideo`` no frame is ever skipped: every frame of the clip reaches the
+    analysis, in order, at most at the video's own speed. When the analysis is slower (the first
+    frames on the GPU, a slow PC) the video plays slower instead of dropping frames, so a clip
+    always gives the count it holds. The clock starts at the first ``read()``, i.e. when the
+    engine is ready, not when the file opens. At the end it pauses on the last frame (or starts
+    again with ``loop``), so it can be rewound without restarting the camera.
+
+    The controls are called from another thread (the engine's report sender); ``read()`` waits
+    while paused. ``take_jump()`` tells the frame loop once that the picture jumped (seek or
+    loop), so a half-done rep does not join two unrelated moments of the clip."""
+
+    is_live = False
+    paced = True
+    """Paces itself: ``iter_frames`` must not skip frames for it."""
+    SPEEDS = (0.25, 0.5, 1.0, 2.0)
+
+    def __init__(self, inner: FileSource, clock: Callable[[], float] = time.monotonic, loop: bool = False) -> None:
+        self.inner = inner
+        self.source = inner.source
+        self.fps = inner.fps or 30.0
+        self.frames = max(0, int(inner.cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0))
+        self.clock = clock
+        self.loop = loop
+        self.loops = 0
+        self.speed = 1.0
+        self.paused = False
+        self.ended = False
+        self._pos = 0               # index of the next frame to decode
+        self._seek: int | None = None
+        self._steps = 0             # frames to hand out while paused (frame step)
+        self._jumped = False
+        self._t0: float | None = None   # wall time of frame _base at the current speed
+        self._base = 0
+        self._behind = 0.0          # smoothed: how far below the wanted speed the analysis runs
+        self._stop = False
+        self._cv = threading.Condition()
+
+    # ---- controls (any thread)
+    def play(self) -> None:
+        with self._cv:
+            if self.ended:          # play at the end: from the beginning
+                self._seek, self.ended = 0, False
+            self.paused, self._t0 = False, None
+            self._cv.notify_all()
+
+    def pause(self) -> None:
+        with self._cv:
+            self.paused = True
+            self._cv.notify_all()
+
+    def seek(self, t: float) -> None:
+        """Jump to ``t`` seconds into the clip (clamped). Keeps playing or paused as it was."""
+        with self._cv:
+            last = max(0, self.frames - 1) if self.frames else None
+            idx = max(0, int(round(t * self.fps)))
+            self._seek = min(idx, last) if last is not None else idx
+            self.ended, self._t0 = False, None
+            if self.paused:
+                self._steps = max(self._steps, 1)   # show the frame it landed on
+            self._cv.notify_all()
+
+    def step(self, n: int = 1) -> None:
+        """While paused: ``n`` frames on (negative: back), each one analysed."""
+        with self._cv:
+            self.paused = True
+            if n < 0:
+                self._seek = max(0, self._pos + n - 1)
+                self._steps = 1
+            else:
+                self._steps += n
+            self.ended = False
+            self._cv.notify_all()
+
+    def set_speed(self, speed: float) -> None:
+        with self._cv:
+            self.speed = min(self.SPEEDS, key=lambda s: abs(s - float(speed)))
+            self._t0 = None
+            self._cv.notify_all()
+
+    def control(self, cmd: dict) -> None:
+        """One command from the station screen: ``{"action": play|pause|seek|step|speed, ...}``."""
+        a = cmd.get("action")
+        if a == "play":
+            self.play()
+        elif a == "pause":
+            self.pause()
+        elif a == "seek":
+            self.seek(float(cmd.get("t", 0)))
+        elif a == "step":
+            self.step(int(cmd.get("n", 1)))
+        elif a == "speed":
+            self.set_speed(float(cmd.get("speed", 1)))
+
+    def status(self) -> dict:
+        with self._cv:
+            shown = max(0, self._pos - 1)
+            return {"t": round(shown / self.fps, 2), "duration": round(self.frames / self.fps, 2) if self.frames else None,
+                    "frame": shown, "frames": self.frames, "fps": round(self.fps, 2), "paused": self.paused or self.ended,
+                    "ended": self.ended, "speed": self.speed, "loop": self.loop, "loops": self.loops,
+                    "slow": self._behind > 0.15 and not (self.paused or self.ended)}
+
+    def take_jump(self) -> bool:
+        with self._cv:
+            j, self._jumped = self._jumped, False
+            return j
+
+    # ---- the frame loop's side
+    def read(self) -> np.ndarray | None:
+        with self._cv:
+            while True:
+                if self._stop:
+                    return None
+                if self._seek is not None:
+                    if self._seek != self._pos:
+                        self.inner.cap.set(cv2.CAP_PROP_POS_FRAMES, self._seek)
+                        self._jumped = True
+                    self._pos, self._seek, self._t0 = self._seek, None, None
+                held = self.paused or self.ended
+                if held and self._steps <= 0:
+                    self._cv.wait()
+                    continue
+                if held:                # frame step: one frame now, whatever the clock says
+                    self._steps -= 1
+                else:
+                    now = self.clock()
+                    if self._t0 is None:
+                        self._t0, self._base = now, self._pos
+                    due = self._t0 + (self._pos - self._base) / (self.fps * self.speed)
+                    if due > now:       # ahead of the clip's time: wait (a command wakes it at once)
+                        self._behind *= 0.9
+                        self._cv.wait(due - now)
+                        continue
+                    if now - due > 0.25:    # analysis slower than the clip: play slower, skip nothing
+                        self._behind = 0.9 * self._behind + 0.1
+                        self._t0, self._base = now, self._pos
+                frame = self.inner.read()
+                if frame is None:
+                    if self.loop and self._pos > 1 and self.inner.rewind():
+                        self.loops += 1
+                        self._pos, self._t0, self._jumped = 0, None, True
+                    else:               # the end: stay on the last frame, ready to rewind
+                        self.ended, self._steps = True, 0
+                        if self.frames == 0:
+                            self.frames = self._pos
+                    continue
+                self._pos += 1
+                return frame
+
+    def release(self) -> None:
+        with self._cv:
+            self._stop = True
+            self._cv.notify_all()
+        self.inner.release()
+
+
+def open_source(source: str, latest: bool = True, realtime: bool = False, loop: bool = False,
+                controls: bool = False, **rtsp_options):
     """A webcam index, a video file or an RTSP address. Live cameras come with only their newest
     frame (``LatestFrame``) unless ``latest`` is False. ``realtime``: a video file is played like
-    a camera (``RealtimeVideo`` in a ``LatestFrame``); ``loop``: on repeat (with ``realtime``)."""
+    a camera (``RealtimeVideo`` in a ``LatestFrame``); ``loop``: on repeat (with ``realtime``).
+    ``controls`` (with ``realtime``): a ``VideoPlayer`` instead, every frame analysed, with
+    play / pause / seek from the station screen."""
     src = RtspSource(source, **rtsp_options) if is_rtsp(source) else FileSource(source)
     if src.is_live:
         return LatestFrame(src) if latest else src
+    if realtime and controls:
+        return VideoPlayer(src, loop=loop)
     return LatestFrame(RealtimeVideo(src, loop=loop)) if realtime else src
 
 
@@ -364,7 +527,7 @@ def iter_frames(source, clock: Callable[[], float] = time.monotonic, realtime: b
     fps = source.fps or 30.0
     t0 = clock()
     idx = 0
-    pace = realtime and not source.is_live
+    pace = realtime and not source.is_live and not getattr(source, "paced", False)
     while True:
         if pace:
             due = (clock() - t0) * fps           # the frame that should be on screen now

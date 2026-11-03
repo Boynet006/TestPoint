@@ -192,3 +192,24 @@ def test_session_retune_changes_every_lane_at_once():
     cfg = s.retune({"down_elbow_deg": 85, "up_elbow_deg": 160})
     assert cfg.enter_work == 85 and all(c.cfg.enter_rest == 160 for c in s.counters.values())
     assert s.retune({}).enter_work == 95                  # back to the calibrated rules
+
+
+def test_reporter_applies_each_player_command_once_and_reports_the_position():
+    class Player:
+        def __init__(self):
+            self.got = []
+
+        def control(self, cmd):
+            self.got.append(cmd["action"])
+
+        def status(self):
+            return {"t": 2.0, "paused": True}
+
+    rp = Reporter("pushup", "clip.mp4", ["1"])
+    rp.player = Player()
+    rp.on_reply({"lanes": {}, "player": {"seq": 1}})                      # the start: nothing to do
+    rp.on_reply({"lanes": {}, "player": {"seq": 2, "action": "pause"}})
+    rp.on_reply({"lanes": {}, "player": {"seq": 2, "action": "pause"}})   # the same command again
+    rp.on_reply({"lanes": {}, "player": {"seq": 3, "action": "play"}})
+    assert rp.player.got == ["pause", "play"]
+    assert rp.snapshot()["player"] == {"t": 2.0, "paused": True}

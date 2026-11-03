@@ -237,3 +237,87 @@ def test_wrong_password_stops_at_once_without_retrying(monkeypatch):
     with pytest.raises(SourceError, match="401"):
         RtspSource("rtsp://admin:example-pw@10.0.0.1/s", sleep=lambda s: None, log=lambda m: None)
     assert opened == []
+
+
+class FakeVideo:
+    """A FileSource stand-in: frame i is an image filled with i."""
+
+    def __init__(self, n: int) -> None:
+        self.source, self.fps, self.n, self.i = "clip.mp4", 10.0, n, 0
+        video = self
+
+        class Cap:
+            def get(self, prop):
+                return n if prop == sources.cv2.CAP_PROP_FRAME_COUNT else 10.0
+
+            def set(self, prop, value):
+                video.i = int(value)
+                return True
+        self.cap = Cap()
+
+    def read(self):
+        if self.i >= self.n:
+            return None
+        self.i += 1
+        return np.full((1, 1, 1), self.i - 1, dtype=np.uint8)
+
+    def rewind(self):
+        self.i = 0
+        return True
+
+    def release(self):
+        pass
+
+
+def fast_clock():
+    t = [0.0]
+
+    def clock():
+        t[0] += 1.0          # always "late": nothing ever waits, nothing may be skipped
+        return t[0]
+    return clock
+
+
+def test_player_hands_out_every_frame_even_when_the_analysis_is_slow():
+    p = sources.VideoPlayer(FakeVideo(5), clock=fast_clock())
+    got = [int(p.read()[0, 0, 0]) for _ in range(5)]
+    assert got == [0, 1, 2, 3, 4]
+    st = p.status()
+    assert st["frames"] == 5 and st["duration"] == 0.5 and not st["ended"]
+
+
+def test_player_seek_step_and_end():
+    p = sources.VideoPlayer(FakeVideo(10), clock=fast_clock())
+    assert int(p.read()[0, 0, 0]) == 0
+    p.seek(0.6)                                   # frame 6
+    assert int(p.read()[0, 0, 0]) == 6 and p.take_jump() and not p.take_jump()
+    p.step(1)                                     # pauses, one frame on
+    assert int(p.read()[0, 0, 0]) == 7 and p.status()["paused"]
+    p.step(-1)                                    # one back
+    assert int(p.read()[0, 0, 0]) == 6
+    p.seek(0.9)                                   # paused: shows the frame it landed on
+    assert int(p.read()[0, 0, 0]) == 9
+    p.play()
+    done = threading.Event()
+    threading.Thread(target=lambda: (p.read(), done.set()), daemon=True).start()
+    assert not done.wait(0.2)                     # the end: waits on the last frame
+    assert p.status()["ended"]
+    p.play()                                      # play at the end starts again
+    assert done.wait(1.0)
+    p.release()
+
+
+def test_player_loops_and_says_it_jumped():
+    p = sources.VideoPlayer(FakeVideo(3), clock=fast_clock(), loop=True)
+    assert [int(p.read()[0, 0, 0]) for _ in range(5)] == [0, 1, 2, 0, 1]
+    assert p.take_jump() and p.status()["loops"] == 1
+
+
+def test_player_control_commands_and_speed():
+    p = sources.VideoPlayer(FakeVideo(3), clock=fast_clock())
+    p.control({"action": "pause"})
+    assert p.status()["paused"]
+    p.control({"action": "speed", "speed": 0.4})
+    assert p.status()["speed"] == 0.5
+    p.control({"action": "play"})
+    assert not p.status()["paused"]

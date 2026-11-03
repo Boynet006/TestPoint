@@ -338,6 +338,16 @@ class EngineReportIn(BaseModel):
     fps: float | None = None
     source: str | None = None
     lanes: dict[str, EngineLaneIn]
+    player: dict | None = None
+    """A test video's position and state (VideoPlayer.status), for the station screen's player."""
+
+
+class PlayerIn(BaseModel):
+    """A command for the station camera's test video."""
+    action: Literal["play", "pause", "seek", "step", "speed"]
+    t: float | None = Field(default=None, ge=0, le=36000)
+    n: int = Field(default=1, ge=-300, le=300)
+    speed: float | None = Field(default=None, gt=0, le=4)
 
 
 class CrossingIn(BaseModel):
@@ -414,6 +424,9 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     # The live picture per station from the camera engine: the last report and when it
     # arrived. Not persisted; the reps it carried are in the database.
     _last_report: dict[str, tuple[float, EngineReportIn]] = {}
+    _player: dict = {"seq": 0}
+    """The latest player command for the station camera; each reply carries it, the engine
+    applies a ``seq`` once."""
     # The engines' live pictures (src/testpoint/preview.py): newest JPEG per station.
     _last_frame: dict[str, tuple[float, bytes]] = {}
     _frame_waiters: dict[str, asyncio.Event] = {}   # wakes the open streams when a new picture comes
@@ -908,10 +921,10 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
             watch = flow.watching or flow.event or idle_watch["exercise"]
             for lane in reply["lanes"].values():
                 lane["exercise"] = watch
-            return reply | {"tuning": S.get_settings(db)["count_tuning"].get(watch, {})}
+            return reply | {"tuning": S.get_settings(db)["count_tuning"].get(watch, {}), "player": _player}
         # the counting rules to use now: a change in Settings or the tune panel reaches the engine
         # with its next report (a fraction of a second), without restarting the camera
-        return reply | {"tuning": S.get_settings(db)["count_tuning"].get(body.station, {})}
+        return reply | {"tuning": S.get_settings(db)["count_tuning"].get(body.station, {}), "player": _player}
 
     @app.post("/api/engine/frame/{station}", status_code=204)
     async def engine_frame(station: str, request: Request) -> None:
@@ -1085,8 +1098,20 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     @app.post("/api/stationcam/start")
     def stationcam_start(body: StationCamIn, request: Request, db: Session = Depends(get_db)) -> dict:
         tuning = S.get_settings(db)["count_tuning"].get(body.exercise, {})
+        _player.update(seq=_player["seq"] + 1, action=None)    # a new engine starts playing; no old command
         return _shown(_camhost("POST", "/station/start", _source(db, "station", body.model_dump()) | {"tuning": tuning, "app_url": _loopback(request)},
                                timeout=10.0))
+
+    @app.post("/api/stationcam/player")
+    def stationcam_player(body: PlayerIn) -> dict:
+        """Play, pause, seek, frame step or speed for the station camera's test video. Reaches
+        the engine with its next report (a quarter of a second)."""
+        if body.action == "seek" and body.t is None:
+            raise S.ServiceError("bad_player", "seek needs t", 400)
+        seq = _player["seq"] + 1
+        _player.clear()
+        _player.update({"seq": seq, **body.model_dump(exclude_none=True)})
+        return {"ok": True, "seq": _player["seq"]}
 
     @app.post("/api/stationcam/stop")
     def stationcam_stop() -> dict:
@@ -1407,7 +1432,8 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         return {"station": station,
                 "engine": {"online": online, "age_s": None if age is None else round(age, 2),
                            "fps": seen[1].fps if seen else None,
-                           "source": seen[1].source if seen else None},
+                           "source": seen[1].source if seen else None,
+                           "player": seen[1].player if seen and online else None},
                 "lanes": out}
 
     # ---------------------------------------------------------------- web UI

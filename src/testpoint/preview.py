@@ -46,6 +46,10 @@ class FramePublisher(threading.Thread):
         self._post = post or self._http_post
         self._conn: http.client.HTTPConnection | None = None
         self._frame: np.ndarray | None = None
+        self._held: np.ndarray | None = None
+        """The last picture sent: sent again now and then while no new one comes (a paused test
+        video), so the page keeps showing it, with the latest counts drawn on it."""
+        self.keepalive_s = 1.0
         self._state: object = _NO_STATE
         self.live = False
         """True once ``tap`` feeds the picture from the camera: ``offer`` then brings only the state."""
@@ -80,9 +84,13 @@ class FramePublisher(threading.Thread):
         source.on_frame = self.offer_frame if prepare is None else (lambda f: self.offer_frame(prepare(f)))
         return True
 
-    def render(self) -> bytes | None:
+    def render(self, again: bool = False) -> bytes | None:
         with self._lock:
             frame, self._frame = self._frame, None
+            if frame is None and again:
+                frame = self._held
+            if frame is not None:
+                self._held = frame
             state = self._state
         if frame is None:
             return None
@@ -123,8 +131,8 @@ class FramePublisher(threading.Thread):
                 if attempt:
                     raise
 
-    def publish_once(self) -> bool:
-        jpeg = self.render()
+    def publish_once(self, again: bool = False) -> bool:
+        jpeg = self.render(again)
         if jpeg is None:
             return False
         try:
@@ -141,6 +149,9 @@ class FramePublisher(threading.Thread):
         last = 0.0
         while not self._stopping.is_set():
             if not self._new.wait(0.5):
+                if time.monotonic() - last >= self.keepalive_s:
+                    last = time.monotonic()
+                    self.publish_once(again=True)
                 continue
             wait = last + self.interval - time.monotonic()
             if wait > 0:
