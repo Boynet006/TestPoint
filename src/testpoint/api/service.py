@@ -205,6 +205,24 @@ def norm_dob(d: str | None) -> str | None:
 # Station settings: shared by every device, changed in Advanced -> Settings, each change audited.
 # Per-device choices (role, simple/advanced, camera source, a language picked on that device)
 # stay in the browser.
+# the camera sources each screen can offer (the finish and the station show no still photo; results have no IP camera)
+CAM_SCREENS = {
+    "weigh": ("webcam", "video", "photo", "ipcam"), "start": ("webcam", "video", "photo", "ipcam"),
+    "results": ("webcam", "video", "photo"), "finish": ("webcam", "video", "ipcam"), "station": ("webcam", "video", "ipcam"),
+}
+
+
+def camera_sources(v) -> dict:
+    """Each screen's camera choices. A list (the old one-for-all setting) applies to every screen;
+    a screen left out keeps all its sources; a screen with none left keeps its first one."""
+    per = {sc: list(v) for sc in CAM_SCREENS} if isinstance(v, list) else dict(v or {})
+    out = {}
+    for sc, allowed in CAM_SCREENS.items():
+        picked = per.get(sc, allowed)
+        out[sc] = [k for k in allowed if k in picked] or [allowed[0]]
+    return out
+
+
 SETTINGS: dict[str, object] = {
     # check-in and weigh-in
     "auto_identify": True,       # identify faces continuously when the weigh-in camera is on
@@ -235,7 +253,7 @@ SETTINGS: dict[str, object] = {
     "evidence_max_gb": 0,        # the evidence folder's ceiling in GB; 0 = no ceiling
     "evidence_min_free_gb": 5,   # keep at least this much disk free; 0 = no floor
     "evidence_held_days": [],    # days kept whatever the rules say (an appeal, an investigation)
-    "camera_sources": ["webcam", "video", "photo", "ipcam"],   # the camera choices shown on every screen (testing sources can be hidden)
+    "camera_sources": {sc: list(src) for sc, src in CAM_SCREENS.items()},   # each screen's camera choices (testing ones can be hidden)
     "theme": "night",            # colours of every screen: night, desert, desert_night, desert_sand, daylight, track, falcon, neural, mirage or desert_stars (a device may pick its own)
 }
 # Face match thresholds: similarity needed, and the lead over the second-best person.
@@ -379,6 +397,7 @@ def set_admin_pin(db: Session, day: Day, pin: str | None) -> None:
 def get_settings(db: Session) -> dict:
     stored = {s.key: json.loads(s.value) for s in db.scalars(select(Setting).where(Setting.key.in_(list(SETTINGS))))}
     out = {k: stored.get(k, default) for k, default in SETTINGS.items()}
+    out["camera_sources"] = camera_sources(out["camera_sources"])
     out["admin_pin_set"] = pin_is_set(db)
     img = db.get(Setting, BACKGROUND_KEY)
     out["background_image"] = img.updated_at.strftime("%Y%m%d%H%M%S%f") if img is not None else None   # a version, for caching
@@ -398,6 +417,8 @@ def update_settings(db: Session, day: Day, changes: dict) -> dict:
             changes["count_tuning"] = check_tuning(changes["count_tuning"])
         except (ValueError, TypeError) as e:
             raise ServiceError("bad_tuning", str(e), 400) from None
+    if changes.get("camera_sources") is not None:
+        changes["camera_sources"] = camera_sources(changes["camera_sources"])
     if changes.get("evidence_held_days") is not None:
         changes["evidence_held_days"] = sorted(set(changes["evidence_held_days"]))
     changed = {k: v for k, v in changes.items() if v is not None and v != before[k]}

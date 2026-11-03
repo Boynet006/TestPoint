@@ -205,7 +205,7 @@ def test_bibs_are_assigned_automatically_when_asked(client):
 def test_station_settings_defaults_update_and_audit(client):
     assert ok(client.get("/api/settings")) == {
         "auto_identify": True, "camera_background": "off", "camera_bg_places": ["weigh", "start", "photo"], "backdrop_color": "#8a949e", "face_match": "normal", "face_required": False, "walk_ins": True,
-        "default_gender": "M", "default_unit": "combat", "bib_start": 1, "lanes": 3, "station_stop_after_s": 20, "start_countdown_s": 3, "cancel_window_s": 120, "finish_face_threshold": 0.0, "site_name": "", "default_language": "en", "trouble_run_cutoff_s": 0, "count_tuning": {}, "evidence_keep_days": 30, "evidence_max_gb": 0, "evidence_min_free_gb": 5, "evidence_held_days": [], "camera_sources": ["webcam", "video", "photo", "ipcam"], "theme": "night",
+        "default_gender": "M", "default_unit": "combat", "bib_start": 1, "lanes": 3, "station_stop_after_s": 20, "start_countdown_s": 3, "cancel_window_s": 120, "finish_face_threshold": 0.0, "site_name": "", "default_language": "en", "trouble_run_cutoff_s": 0, "count_tuning": {}, "evidence_keep_days": 30, "evidence_max_gb": 0, "evidence_min_free_gb": 5, "evidence_held_days": [], "camera_sources": {"weigh": ["webcam", "video", "photo", "ipcam"], "start": ["webcam", "video", "photo", "ipcam"], "results": ["webcam", "video", "photo"], "finish": ["webcam", "video", "ipcam"], "station": ["webcam", "video", "ipcam"]}, "theme": "night",
         "admin_pin_set": False, "background_image": None}
     s = ok(client.put("/api/settings", json={"auto_identify": False, "bib_start": 500}))
     assert s["auto_identify"] is False and s["bib_start"] == 500 and s["default_gender"] == "M"
@@ -707,3 +707,15 @@ def test_import_gives_a_bib_to_rows_without_one(client):
     assert r["added"] == 2
     bibs = {e["candidate"]["external_id"]: e["candidate"]["bib"] for e in ok(client.get("/api/entries"))}
     assert bibs["W-2"] == "77" and bibs["W-1"] and bibs["W-1"].isdigit() and bibs["W-1"] not in ("11", "12", "13", "14", "77")
+
+
+def test_each_screen_has_its_own_camera_choices(client):
+    # the weigh-in keeps its webcam while the start and the finish use IP cameras
+    got = ok(client.put("/api/settings", json={"camera_sources": {"weigh": ["webcam"], "start": ["ipcam"], "finish": ["ipcam", "photo"]}}))["camera_sources"]
+    assert got["weigh"] == ["webcam"] and got["start"] == ["ipcam"]
+    assert got["finish"] == ["ipcam"]                       # the finish cannot show a still photo
+    assert got["station"] == ["webcam", "video", "ipcam"]   # a screen left out keeps all its sources
+    assert got["results"] == ["webcam", "video", "photo"]
+    # the old one-for-all list still works: every screen gets it (a screen that cannot use any keeps its first)
+    got = ok(client.put("/api/settings", json={"camera_sources": ["ipcam"]}))["camera_sources"]
+    assert got["weigh"] == ["ipcam"] and got["finish"] == ["ipcam"] and got["results"] == ["webcam"]
