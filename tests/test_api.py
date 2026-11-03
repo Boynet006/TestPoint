@@ -697,3 +697,13 @@ def test_recordings_of_a_day_person_by_person(monkeypatch, tmp_path):
         assert [o["folder"] for o in r["other"]] == ["run/000001-t1.mp4"]
         days = ok(c.get("/api/recordings/days"))
         assert days[0]["day"] == "2026-10-20" and days[0]["people"] == 5
+
+
+
+def test_import_gives_a_bib_to_rows_without_one(client):
+    ok(client.post("/api/entries/import", content=CSV.encode()))                     # bibs 11..
+    rows = "external_id,name,bib\nW-1,No Bib,\nW-2,Own Bib,77\n"
+    r = ok(client.post("/api/entries/import", content=rows.encode()))
+    assert r["added"] == 2
+    bibs = {e["candidate"]["external_id"]: e["candidate"]["bib"] for e in ok(client.get("/api/entries"))}
+    assert bibs["W-2"] == "77" and bibs["W-1"] and bibs["W-1"].isdigit() and bibs["W-1"] not in ("11", "12", "13", "14", "77")

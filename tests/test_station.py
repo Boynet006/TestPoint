@@ -191,3 +191,22 @@ def test_the_test_ends_when_no_rep_comes_and_a_pause_does_not_count():
     off = flow()                                                    # idle_s 0: only the time ends it
     under_way(off)
     assert off.observe(100.0, StationLook(True, count=0)) == []
+
+
+
+def test_no_rep_yet_is_not_stopping():
+    f = StationFlow(countdown_s=3.0, time_s=120.0, idle_s=20.0)
+    under_way(f)
+    assert f.observe(60.0, StationLook(True, count=0)) == []        # getting down on the mat: still on
+    f.observe(61.0, StationLook(True, count=1))
+    assert f.observe(81.5, StationLook(True, count=1)) == [("finish", 55, "no_reps")]
+
+
+
+def test_resting_in_the_start_position_is_not_stopping():
+    f = StationFlow(countdown_s=3.0, time_s=120.0, idle_s=20.0)
+    under_way(f)
+    f.observe(10.0, StationLook(True, count=3))
+    for t in range(12, 60, 2):                                       # arms straight, getting their breath
+        assert f.observe(float(t), StationLook(True, ready=True, count=3)) == []
+    assert f.observe(80.5, StationLook(True, ready=False, count=3)) == [("finish", 55, "no_reps")]

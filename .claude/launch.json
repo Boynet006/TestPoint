@@ -39,6 +39,25 @@
       "port": 8002
     },
     {
+      "name": "walk-app",
+      "runtimeExecutable": ".venv\\Scripts\\python.exe",
+      "runtimeArgs": [
+        "-m",
+        "testpoint.api.app",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8003",
+        "--db",
+        "sqlite:///data/walk.db"
+      ],
+      "env": {
+        "DISABLE_SQLALCHEMY_CEXT_RUNTIME": "1",
+        "TESTPOINT_FACE_MODELS": "data/models/face"
+      },
+      "port": 8003
+    },
+    {
       "name": "deck-app",
       "runtimeExecutable": ".venv\\Scripts\\python.exe",
       "runtimeArgs": [

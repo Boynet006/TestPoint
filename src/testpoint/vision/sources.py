@@ -361,8 +361,11 @@ class VideoPlayer:
     """Paces itself: ``iter_frames`` must not skip frames for it."""
     SPEEDS = (0.25, 0.5, 1.0, 2.0)
 
-    def __init__(self, inner: FileSource, clock: Callable[[], float] = time.monotonic, loop: bool = False) -> None:
+    def __init__(self, inner: FileSource, clock: Callable[[], float] = time.monotonic, loop: bool = False,
+                 hold_end: bool = True) -> None:
         self.inner = inner
+        self.hold_end = hold_end
+        """At the end: pause on the last frame (the station's player can rewind), or end (False)."""
         self.source = inner.source
         self.fps = inner.fps or 30.0
         self.frames = max(0, int(inner.cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0))
@@ -485,6 +488,8 @@ class VideoPlayer:
                     if self.loop and self._pos > 1 and self.inner.rewind():
                         self.loops += 1
                         self._pos, self._t0, self._jumped = 0, None, True
+                    elif not self.hold_end:
+                        return None     # the end of the clip: the program stops, as before
                     else:               # the end: stay on the last frame, ready to rewind
                         self.ended, self._steps = True, 0
                         if self.frames == 0:
@@ -501,17 +506,19 @@ class VideoPlayer:
 
 
 def open_source(source: str, latest: bool = True, realtime: bool = False, loop: bool = False,
-                controls: bool = False, **rtsp_options):
+                controls: bool = False, every_frame: bool = False, **rtsp_options):
     """A webcam index, a video file or an RTSP address. Live cameras come with only their newest
     frame (``LatestFrame``) unless ``latest`` is False. ``realtime``: a video file is played like
     a camera (``RealtimeVideo`` in a ``LatestFrame``); ``loop``: on repeat (with ``realtime``).
     ``controls`` (with ``realtime``): a ``VideoPlayer`` instead, every frame analysed, with
-    play / pause / seek from the station screen."""
+    play / pause / seek from the station screen. ``every_frame``: the same player without the
+    controls, ending with the clip (the finish and start cameras: a short test clip must not be
+    skipped while the models warm up)."""
     src = RtspSource(source, **rtsp_options) if is_rtsp(source) else FileSource(source)
     if src.is_live:
         return LatestFrame(src) if latest else src
-    if realtime and controls:
-        return VideoPlayer(src, loop=loop)
+    if realtime and (controls or every_frame):
+        return VideoPlayer(src, loop=loop, hold_end=controls)
     return LatestFrame(RealtimeVideo(src, loop=loop)) if realtime else src
 
 

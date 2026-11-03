@@ -8,7 +8,8 @@
 
 A test ends when the time is up, or earlier when the person cannot go on (as in an official
 fitness test, the count so far stands): the examiner presses End test, the person leaves the mat
-for LEFT_MAT_S, or no rep has been counted for ``idle_s`` (a setting; 0 = only the time).
+for LEFT_MAT_S, or, after their first rep, no rep has been counted for ``idle_s`` while they are out of
+the start position (kneeling, sitting, standing; resting in it is allowed) (a setting; 0 = only the time).
 
 The test is chosen for them: push-ups first, crunches when they come back (after a break,
 others testing meanwhile). The station's camera engine (testpoint.engine --station exercise)
@@ -160,9 +161,13 @@ class StationFlow:
                 if look.count > max(self.last_count, 0):
                     self.last_rep_at = now
                 self.last_count = look.count
+            if look.ready:          # resting in the start position (arms straight, lying back) is allowed
+                self.last_rep_at = now
             if self.off_since is not None and now - self.off_since >= LEFT_MAT_S:
                 return acts + self._finish(now, "left_mat")
-            if self.idle_s > 0 and now - self.last_rep_at >= self.idle_s:
+            # "stopped": no rep for idle_s after doing some; before the first rep (getting down on
+            # the mat, a slow start) only the time, the examiner or leaving the mat ends the test
+            if self.idle_s > 0 and self.last_count > 0 and now - self.last_rep_at >= self.idle_s:
                 return acts + self._finish(now, "no_reps")
             return acts
 
