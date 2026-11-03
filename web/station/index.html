@@ -2646,10 +2646,10 @@ const Cam = {
     $("ipCamRow").classList.toggle("hidden", !(this.kind === "ipcam" && RELAY_ROLES.includes(role)));
     $("idBtn").disabled = !live; $("autoBtn").disabled = !live;
   },
-  stop() { if (this.stream) { this.stream.getTracks().forEach(tr => tr.stop()); this.stream = null; } BgFx.stop($("camVideo")); if (typeof StartCam !== "undefined") { StartCam.detach(); StartCam.releaseWebcam(); } },
+  stop(keepService) { if (this.stream) { this.stream.getTracks().forEach(tr => tr.stop()); this.stream = null; } BgFx.stop($("camVideo")); if (typeof StartCam !== "undefined") { StartCam.detach(); if (!keepService) StartCam.releaseWebcam(); } },
   async use(kind) {
     if (this.opening) return;
-    this.stop(); this.kind = kind; save("camKind", kind); save("camKind-" + role, kind); this.fileName = "";
+    this.stop(kind === "webcam" && role === "start"); this.kind = kind; save("camKind", kind); save("camKind-" + role, kind); this.fileName = "";   // the start line's webcam service keeps running: no reload of its models
     if (kind === "ipcam") { await StartCam.attach(); return; }
     if (kind === "webcam" && role === "start") {   // through the camera service, for the raised-hand start
       this.opening = true;
@@ -2723,9 +2723,10 @@ const StartCam = {
     try { st = await api("GET", "/api/startcam"); } catch {}
     if (!st || !st.available) return false;
     this.svcWebcam = true;
-    if (st.running && st.config && st.config.kind === "webcam") { this.buttons(st); await this.watch(); return true; }
+    const idx = String(await this.webcamIndex());
+    if (st.running && st.config && st.config.kind === "webcam" && String(st.config.source) === idx) { this.buttons(st); await this.watch(); return true; }   // already on it
     save("startCamStopped", "");
-    try { this.buttons(await api("POST", "/api/startcam/start", { kind: "webcam", source: String(await this.webcamIndex()), app_url: location.origin })); await this.watch(); }
+    try { this.buttons(await api("POST", "/api/startcam/start", { kind: "webcam", source: idx, app_url: location.origin })); await this.watch(); }
     catch (e) { msg("sMsg", "bad", err(e)); }
     return true;
   },
