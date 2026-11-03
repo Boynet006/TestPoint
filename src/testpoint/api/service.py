@@ -220,6 +220,7 @@ SETTINGS: dict[str, object] = {
     "bib_start": 1,              # first number for automatically assigned bibs
     # exercise station
     "lanes": 3,                  # lanes per exercise station (must match the engine's --lanes)
+    "station_stop_after_s": 20,  # one-mat station: no rep for this long ends the test (the person stopped); 0 = off
     # run start
     "start_countdown_s": 3,      # the 3-2-1 before a runner's GO (their clock starts at GO)
     "cancel_window_s": 120,      # a start can be cancelled without the admin PIN this long; 0 = until the first finisher
@@ -1475,6 +1476,12 @@ def cancel_attempt(db: Session, day: Day, attempt_id: int) -> None:
     attempt.ended_at = utcnow()
     _audit(db, day, attempt.event, "cancel_attempt", attempt.entry, attempt_id=attempt.id)
     db.commit()
+
+
+def note_ended_early(db: Session, day: Day, attempt: Attempt, why: str, after_s: float) -> None:
+    """The audit trail of a station test that ended before its time (the count so far stands)."""
+    _audit(db, day, attempt.event, "ended_early", attempt.entry, attempt_id=attempt.id, why=why, after_s=after_s,
+           count=attempt.auto_count or 0)
 
 
 def note_manual_start(db: Session, day: Day, entry: Entry, event: str, step: str) -> None:

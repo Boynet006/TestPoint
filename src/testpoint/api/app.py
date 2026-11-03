@@ -141,6 +141,7 @@ class SettingsIn(BaseModel):
     default_language: Literal["en", "ar"] | None = None
     trouble_run_cutoff_s: int | None = Field(default=None, ge=0, le=3600)
     count_tuning: dict[str, dict[str, float]] | None = None
+    station_stop_after_s: int | None = Field(default=None, ge=0, le=120)
     evidence_keep_days: int | None = Field(default=None, ge=0, le=3650)
     evidence_max_gb: float | None = Field(default=None, ge=0, le=100000)
     evidence_min_free_gb: float | None = Field(default=None, ge=0, le=10000)
@@ -1259,6 +1260,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
             flows.clear()
             f = flows[day.date] = StationFlow(countdown_s=float(S.get_settings(db)["start_countdown_s"]),
                                               time_s=float(S.rules_for(db, day, rules).exercise_time_s))
+        f.idle_s = float(S.get_settings(db)["station_stop_after_s"])    # a change applies to the next check
         if f.attempt_id is not None and f.state == "testing":
             a = db.get(Attempt, f.attempt_id)
             if a is None or a.status != "running":       # saved or cancelled by the examiner
@@ -1290,6 +1292,9 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
                 elif act[0] == "finish":
                     a = db.get(Attempt, act[1])
                     if a is not None and a.status == "running":
+                        why = act[2] if len(act) > 2 else None
+                        if why:     # before its time: who or what ended it, in the audit trail
+                            S.note_ended_early(db, day, a, why, round(wall() - (flow.go_at or wall()), 1))
                         S.finish_attempt(db, day, S.rules_for(db, day, rules), a.id,
                                          count=a.auto_count or 0, rejected=a.auto_rejected or 0)
                         seen = _last_report.get(S.EXERCISE_STATION)
@@ -1316,7 +1321,10 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
             if emb is not None and emb.shape == (128,):
                 match = flow_match(db, day, emb)
         ready = lane.ready and lane.exercise is not None and lane.exercise == flow.watching
-        flow_act(db, day, flow, flow.observe(wall(), StationLook(lane.person, match, ready)))
+        counting = flow.state == "testing" and flow.attempt_id is not None and lane.attempt_id == flow.attempt_id
+        if (body.player or {}).get("paused"):
+            flow.hold(wall())
+        flow_act(db, day, flow, flow.observe(wall(), StationLook(lane.person, match, ready, lane.count if counting else None)))
 
     @app.get("/api/stationflow")
     def stationflow_view(db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
@@ -1335,7 +1343,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
                       "faults": lane.pending_faults, "depth": lane.depth, "calib": lane.calib} if lane else None)
         v["engine"] = lane is not None
         v["idle_watch"] = idle_watch["exercise"]
-        for k in ("go_at", "ends_at", "since"):
+        for k in ("go_at", "ends_at", "since", "last_rep_at"):
             v[k] = at_wall(v[k])
         return v
 
@@ -1410,9 +1418,24 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         idle_watch["exercise"] = exercise
         return idle_watch
 
+    @app.post("/api/stationflow/end")
+    def stationflow_end(db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        """The person cannot go on: end the test now; the count so far is their result."""
+        flow = station_flow(db, day)
+        if flow.state != "testing" or flow.attempt_id is None:
+            raise S.ServiceError("not_testing", "no test is running at this station", 409)
+        flow_act(db, day, flow, flow.end_now(wall()))
+        return {"state": flow.state, "attempt_id": flow.attempt_id}
+
     @app.post("/api/stationflow/reset")
     def stationflow_reset(db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
-        station_flow(db, day).reset(wall())
+        """Clear the station screen. A test being done is cancelled, not scored: they do it again."""
+        flow = station_flow(db, day)
+        if flow.state == "testing" and flow.attempt_id is not None:
+            a = db.get(Attempt, flow.attempt_id)
+            if a is not None and a.status == "running":
+                S.cancel_attempt(db, day, a.id)
+        flow.reset(wall())
         return {"state": "idle"}
 
     @app.post("/api/attempts/{attempt_id}/redo", dependencies=[Depends(admin)])

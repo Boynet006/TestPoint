@@ -1265,6 +1265,9 @@
         <label for="setLanes" data-t="set_lanes"></label>
         <select id="setLanes"><option>1</option><option>2</option><option>3</option><option>4</option></select>
         <span class="hint" data-t="set_lanes_hint"></span>
+        <label for="setStopAfter" data-t="set_stop_after"></label>
+        <select id="setStopAfter"><option value="0" data-t="stop_off"></option><option value="10" data-t="stop_10"></option><option value="15" data-t="stop_15"></option><option value="20" data-t="stop_20"></option><option value="30" data-t="stop_30"></option><option value="60" data-t="stop_60"></option></select>
+        <span class="hint" data-t="set_stop_after_hint"></span>
       </div>
       <h3 class="sec" data-t="tn_title"></h3>
       <p class="hint" data-t="tn_hint"></p>
@@ -1505,6 +1508,11 @@ const I18N = {
     r_results: "Results",
     e_all_done: "Push-ups and crunches are both done",
     st_reset: "Reset",
+    st_end: "End test", st_end_sure: "End it? Press again", st_end_hint: "The person cannot go on: the test ends now and the count so far is their result.",
+    st_cancel: "Cancel", st_cancel_sure: "Cancel? Press again", st_cancel_hint: "Not scored: the test is thrown away and they do it again.",
+    st_ended_examiner: "Ended by the examiner before the time.", st_ended_left_mat: "Ended: they left the mat.", st_ended_no_reps: "Ended: no more reps.",
+    st_ends_in: "No rep: the test ends in {n} s", set_stop_after: "End the test after no rep for", set_stop_after_hint: "One-mat station: when the person stops (no rep counted this long), the test ends with the count so far. Leaving the mat for 5 s also ends it. A paused test video does not count.",
+    stop_off: "Never (only the time)", stop_10: "10 s", stop_15: "15 s", stop_20: "20 s", stop_30: "30 s", stop_60: "1 minute",
     cal_title: "Auto-calibration, live", cal_sliders: "Adjust", cal_off: "Off", cal_learning: "Learning {n}/{m}", cal_done: "Calibrated", cal_nobody: "Nobody measured yet",
     cal_now: "Now", cal_work: "Depth that counts (same for everyone)", cal_rest: "Back at the start (learned from this person)", cal_fixed: "Back at the start, before learning", cal_range: "How far this person moves",
     tn_auto_share: "Auto-calibration: back at the start", tnh_auto_share: "Share of the person's own movement, learned over the first 3 reps. 0 turns it off.",
@@ -1890,6 +1898,11 @@ const I18N = {
     r_results: "النتائج",
     e_all_done: "أُنجز الضغط والبطن كلاهما",
     st_reset: "إعادة",
+    st_end: "إنهاء الاختبار", st_end_sure: "إنهاء؟ اضغط مرة أخرى", st_end_hint: "لا يستطيع المتابعة: ينتهي الاختبار الآن ويُحتسب العدد حتى الآن نتيجةً له.",
+    st_cancel: "إلغاء", st_cancel_sure: "إلغاء؟ اضغط مرة أخرى", st_cancel_hint: "لا يُحتسب: يُلغى الاختبار ويُعيده.",
+    st_ended_examiner: "أنهاه الفاحص قبل الوقت.", st_ended_left_mat: "انتهى: غادر البساط.", st_ended_no_reps: "انتهى: توقف عن التكرار.",
+    st_ends_in: "لا تكرار: ينتهي الاختبار خلال {n} ث", set_stop_after: "إنهاء الاختبار بعد عدم التكرار لمدة", set_stop_after_hint: "محطة البساط الواحد: عندما يتوقف الشخص (لا تكرار طوال هذه المدة) ينتهي الاختبار بالعدد حتى الآن. مغادرة البساط 5 ث تنهيه أيضاً. لا يُحتسب إيقاف فيديو الاختبار مؤقتاً.",
+    stop_off: "أبداً (الوقت فقط)", stop_10: "10 ث", stop_15: "15 ث", stop_20: "20 ث", stop_30: "30 ث", stop_60: "دقيقة",
     cal_title: "المعايرة التلقائية مباشرة", cal_sliders: "الضبط", cal_off: "متوقفة", cal_learning: "تتعلم {n}/{m}", cal_done: "تمت المعايرة", cal_nobody: "لم يُقَس أحد بعد",
     cal_now: "الآن", cal_work: "العمق المطلوب (نفسه للجميع)", cal_rest: "العودة للبداية (متعلَّمة من هذا الشخص)", cal_fixed: "العودة للبداية قبل التعلم", cal_range: "مدى حركة هذا الشخص",
     tn_auto_share: "المعايرة التلقائية: العودة للبداية", tnh_auto_share: "نسبة من حركة الشخص نفسه، تُتعلَّم من أول 3 عدات. 0 يوقفها.",
@@ -4465,11 +4478,13 @@ const StationCall = {
     } else if (v.state === "testing") {
       const left = Math.max(0, (Date.parse(v.ends_at) - serverNow()) / 1000), live = v.live || {};
       cls = "go";
-      body = `<div><div class="c-who">${who} · ${esc(ex)}</div><div class="c-big"><div><div class="c-num">${live.count ?? 0}</div><div class="c-label">${esc(t("st_reps"))}</div></div><div><div class="c-time${left <= 10 ? " low" : ""}">${mmss(left)}</div><div class="c-label">${esc(t("st_time_left"))}</div></div></div>${(live.faults || []).length ? `<div class="hint">${esc(live.faults.map(f => t("f_" + f)).join(" · "))}</div>` : ""}</div>`;
+      const still = v.idle_s && v.last_rep_at ? Math.ceil(v.idle_s - (serverNow() - Date.parse(v.last_rep_at)) / 1000) : null;
+      const stop = still != null && still <= Math.min(10, v.idle_s / 2) && still > 0 ? `<div class="hint c-stop">${esc(t("st_ends_in", { n: still }))}</div>` : "";
+      body = `<div><div class="c-who">${who} · ${esc(ex)}</div><div class="c-big"><div><div class="c-num">${live.count ?? 0}</div><div class="c-label">${esc(t("st_reps"))}</div></div><div><div class="c-time${left <= 10 ? " low" : ""}">${mmss(left)}</div><div class="c-label">${esc(t("st_time_left"))}</div></div></div>${(live.faults || []).length ? `<div class="hint">${esc(live.faults.map(f => t("f_" + f)).join(" · "))}</div>` : ""}${stop}</div>`;
     } else if (v.state === "done") {
       const r = v.result || {};
       cls = r.passed === false ? "no" : "go";
-      body = `<div><div class="c-who">${who} · ${esc(ex)}</div><div class="c-say">${r.count ?? "—"} ${r.grade != null ? "· " + esc(gradeTxt(r.grade)) : ""} ${r.passed === true ? "✓" : r.passed === false ? "✗" : ""}</div><div class="hint">${esc(t(e && e.done && e.done.length >= 2 ? "st_all_done" : "st_come_back"))}</div></div>`;
+      body = `<div><div class="c-who">${who} · ${esc(ex)}</div><div class="c-say">${r.count ?? "—"} ${r.grade != null ? "· " + esc(gradeTxt(r.grade)) : ""} ${r.passed === true ? "✓" : r.passed === false ? "✗" : ""}</div>${v.ended ? `<div class="hint">${esc(t("st_ended_" + v.ended))}</div>` : ""}<div class="hint">${esc(t(e && e.done && e.done.length >= 2 ? "st_all_done" : "st_come_back"))}</div></div>`;
     } else if (v.state === "refused") {
       cls = "no";
       body = `<div><div class="c-who">${who}</div><div class="c-say">${esc(t("e_" + v.reason))}</div></div>`;
@@ -4479,7 +4494,9 @@ const StationCall = {
     }
     const redo = v.state === "done" && v.attempt_id ? `<button class="btn ghost sm" onclick="StationCall.redo(${v.attempt_id}, this)">${esc(t("st_redo"))}</button> ` : "";
     const goNow = v.state === "position" ? `<button class="btn go sm" onclick="StationCall.go()">${esc(t("st_go_now"))}</button> ` : "";
-    const acts = v.state !== "idle" ? `${goNow}${redo}<button class="btn ghost sm" onclick="StationCall.reset()">${esc(t("st_reset"))}</button>` : "";
+    const acts = v.state === "testing"
+      ? `<button class="btn stop sm" onclick="confirmClick('stend', this, () => StationCall.end(), 'st_end_sure')" title="${esc(t("st_end_hint"))}">${esc(t("st_end"))}</button> <button class="btn ghost sm" onclick="confirmClick('stcancel', this, () => StationCall.reset(), 'st_cancel_sure')" title="${esc(t("st_cancel_hint"))}">${esc(t("st_cancel"))}</button>`
+      : v.state !== "idle" ? `${goNow}${redo}<button class="btn ghost sm" onclick="StationCall.reset()">${esc(t("st_reset"))}</button>` : "";
     const html = (cls === "" ? "<span></span>" : photo) + body, sig = cls + html;
     box.classList.remove("hidden");
     // The buttons have their own place: the message above them changes several times a second while
@@ -4495,6 +4512,8 @@ const StationCall = {
     this.last = v.state;
   },
   async reset() { try { await api("POST", "/api/stationflow/reset"); } catch (e) { msg("scMsg", "bad", err(e)); } this.poll(); },
+  // The person cannot go on: the test ends now and the count so far is their result.
+  async end() { try { await api("POST", "/api/stationflow/end"); msg("xMsg"); } catch (e) { msg("xMsg", "bad", err(e)); } this.poll(); },
   // The camera did not recognise them: the examiner names them (a typed bib or ID, or a row's Start).
   async manual(query) {
     const q = query || $("xQuery").value.trim();
@@ -5430,7 +5449,7 @@ const Evidence = {
 const SET_FIELDS = {   // input id -> [setting, read, write]
   setAuto: ["auto_identify", v => v === "1", v => (v ? "1" : "0")], setBg: ["camera_background"], setMatch: ["face_match"], setFaceReq: ["face_required", v => v === "1", v => (v ? "1" : "0")],
   setWalk: ["walk_ins", v => v === "1", v => (v ? "1" : "0")], setGender: ["default_gender"], setUnit: ["default_unit"], setBib: ["bib_start", v => parseInt(v, 10)],
-  setLanes: ["lanes", v => parseInt(v, 10), String],
+  setLanes: ["lanes", v => parseInt(v, 10), String], setStopAfter: ["station_stop_after_s", v => parseInt(v, 10) || 0, String],
   setCountdown: ["start_countdown_s", v => parseInt(v, 10), String], setCancelWin: ["cancel_window_s", v => parseInt(v, 10), String], setFinishFace: ["finish_face_threshold", v => parseFloat(v) || 0, v => String(+v || 0)], setSite: ["site_name", v => v.trim()], setEvKeep: ["evidence_keep_days", v => parseInt(v, 10), String],
   setEvMax: ["evidence_max_gb", v => Math.max(0, parseFloat(v) || 0), v => String(+v || 0)], setEvFree: ["evidence_min_free_gb", v => Math.max(0, parseFloat(v) || 0), v => String(+v || 0)],
   setEvHeld: ["evidence_held_days", v => (v ? v.split(",") : []), a => (a || []).slice().sort().join(",")], setTuning: ["count_tuning", v => JSON.parse(v || "{}"), o => JSON.stringify(o || {})], setTroubleRun: ["trouble_run_cutoff_s", v => parseInt(v, 10) || 0, String], setBgPlaces: ["camera_bg_places", v => (v ? v.split(",") : []), a => (a || []).join(",")], setLang: ["default_language"], setTheme: ["theme"],

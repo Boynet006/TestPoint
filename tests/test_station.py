@@ -34,7 +34,7 @@ def test_recognised_position_countdown_testing_done():
     for t in range(7, 126, 2):
         assert f.observe(float(t), StationLook(True)) == []
     acts = f.observe(126.2, StationLook(True))
-    assert acts == [("finish", 55)] and f.state == "done"
+    assert acts == [("finish", 55, None)] and f.state == "done"
     v = f.view(127.0)
     assert v["attempt_id"] == 55 and v["ends_at"] == 126.1
     f.observe(130.0, StationLook(True))
@@ -151,3 +151,43 @@ def test_the_examiner_can_name_the_person_and_start_without_the_posture():
     f.go_now(101.0)
     assert f.state == "countdown" and f.go_at == 104.0 and f.entry_id == 7
     assert f.tick(104.0) == [("start", 7, "crunch")] and f.state == "testing"
+
+
+def under_way(f, attempt=55):
+    recognise(f, 0.0)
+    f.go_now(1.0)
+    f.observe(4.1, StationLook(True))
+    f.started(attempt)
+    assert f.state == "testing"
+
+
+def test_the_examiner_ends_the_test_early_and_the_count_stands():
+    f = flow()
+    under_way(f)
+    assert f.end_now(30.0) == [("finish", 55, "examiner")]
+    assert f.state == "done" and f.view(30.5)["ended"] == "examiner"
+    assert f.end_now(31.0) == []                      # nothing left to end
+
+
+def test_the_test_ends_when_they_leave_the_mat():
+    f = flow()
+    under_way(f)
+    f.observe(10.0, StationLook(False, count=3))
+    assert f.observe(14.0, StationLook(False, count=3)) == []      # 4 s away: still on
+    f.observe(14.5, StationLook(True, count=3))                    # back in time
+    f.observe(20.0, StationLook(False, count=3))
+    assert f.observe(25.1, StationLook(False, count=3)) == [("finish", 55, "left_mat")]
+
+
+def test_the_test_ends_when_no_rep_comes_and_a_pause_does_not_count():
+    f = StationFlow(countdown_s=3.0, time_s=120.0, idle_s=20.0)
+    under_way(f)
+    f.observe(10.0, StationLook(True, count=1))
+    assert f.observe(29.0, StationLook(True, count=1)) == []
+    f.observe(29.5, StationLook(True, count=2))                     # a rep: the 20 s start again
+    f.hold(45.0)                                                    # a test video was paused
+    assert f.observe(60.0, StationLook(True, count=2)) == []
+    assert f.observe(65.1, StationLook(True, count=2)) == [("finish", 55, "no_reps")]
+    off = flow()                                                    # idle_s 0: only the time ends it
+    under_way(off)
+    assert off.observe(100.0, StationLook(True, count=0)) == []
