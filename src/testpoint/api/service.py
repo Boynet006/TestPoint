@@ -233,6 +233,7 @@ SETTINGS: dict[str, object] = {
     "face_required": False,      # at weigh-in, people with a face on file must check in by face
     # registration
     "finish_setup_shown": True,  # the finish screen shows its line position, direction and colour key (hide them once set)
+    "station_choose_first": True,   # the one-mat station: the person picks push-ups or crunches first, with a raised hand
     "walk_ins": True,            # the weigh-in desk may register people who are not on the list
     "default_gender": "M",       # new candidates: "M", "F" or "" (none)
     "default_unit": "combat",    # unit type when a list or walk-in gives none: combat, admin or special

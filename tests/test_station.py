@@ -119,6 +119,13 @@ def test_the_station_camera_runs_pushups_then_crunches(monkeypatch):
 
         report(0.0, face=emb)
         r = report(0.3, face=emb)
+        v = c.get("/api/stationflow").json()
+        # both tests to do: they choose with a raised hand; held on push-ups (the left) 1.5 s picks it
+        assert v["state"] == "choose" and v["choices"] == ["pushup", "crunch"] and v["entry"]["bib"] == "11"
+        report(0.6, hand=[0.2, 0.5])
+        v = c.get("/api/stationflow").json()
+        assert v["hover"] == "pushup" and v["hand"] == [0.2, 0.5]
+        r = report(2.2, hand=[0.2, 0.5])
         assert r["lanes"]["S"] == {"attempt_id": None, "exercise": "pushup"}
         v = c.get("/api/stationflow").json()
         assert v["state"] == "position" and v["event"] == "pushup" and v["entry"]["bib"] == "11"
@@ -210,3 +217,51 @@ def test_resting_in_the_start_position_is_not_stopping():
     for t in range(12, 60, 2):                                       # arms straight, getting their breath
         assert f.observe(float(t), StationLook(True, ready=True, count=3)) == []
     assert f.observe(80.5, StationLook(True, ready=False, count=3)) == [("finish", 55, "no_reps")]
+
+
+def test_choosing_the_first_test_with_a_raised_hand():
+    from testpoint.api.station import CHOOSE_DWELL_S, CHOOSE_TIMEOUT_S
+    me = (7, "choose", None)
+    f = StationFlow()
+    f.observe(0.0, StationLook(True, me)); f.observe(0.25, StationLook(True, me))
+    assert f.state == "choose" and f.watching is None
+    f.observe(0.5, StationLook(True, hand=(0.8, 0.4)))          # on crunches
+    f.observe(1.0, StationLook(True, hand=(0.5, 0.4)))          # the gap in the middle: starts again
+    f.observe(1.2, StationLook(True, hand=(0.8, 0.4)))
+    assert f.view(1.2)["hover"] == "crunch" and f.state == "choose"
+    f.observe(1.2 + CHOOSE_DWELL_S, StationLook(True, hand=(0.85, 0.5)))
+    assert f.state == "position" and f.event == "crunch"
+    # no choice in time: push-ups, as without choosing
+    g = StationFlow()
+    g.observe(0.0, StationLook(True, me)); g.observe(0.25, StationLook(True, me))
+    for k in range(1, int(CHOOSE_TIMEOUT_S) + 2):
+        g.observe(0.25 + k, StationLook(True))
+    assert g.state == "position" and g.event == "pushup"
+    # the examiner taps it; stepping away goes back to waiting
+    h = StationFlow()
+    h.observe(0.0, StationLook(True, me)); h.observe(0.25, StationLook(True, me))
+    assert h.choose(0.5, "crunch") and h.event == "crunch" and not h.choose(0.6, "pushup")
+    k = StationFlow()
+    k.observe(0.0, StationLook(True, me)); k.observe(0.25, StationLook(True, me))
+    k.observe(6.0, StationLook(False))
+    assert k.state == "idle"
+
+
+def test_a_raised_hand_points_as_in_a_mirror():
+    import numpy as np
+
+    from testpoint.vision.gesture import pointer
+    from testpoint.vision.keypoints import Person
+
+    def person(points):
+        xy, conf = np.zeros((17, 2), np.float32), np.zeros(17, np.float32)
+        for i, (x, y) in points.items():
+            xy[i], conf[i] = (x, y), 0.9
+        return Person(xy=xy, conf=conf)
+    body = {5: (120, 100), 6: (80, 100), 11: (115, 200), 12: (85, 200)}   # facing the camera: their left is image right
+    arms_down = person({**body, 9: (125, 230), 10: (75, 230)})
+    assert pointer(arms_down) is None
+    x, y = pointer(person({**body, 9: (125, 230), 10: (20, 60)}))           # right hand up and out to their right
+    assert x > 0.6 and y < 0.5
+    x, _ = pointer(person({**body, 9: (180, 60), 10: (75, 230)}))           # left hand out to their left
+    assert x < 0.4

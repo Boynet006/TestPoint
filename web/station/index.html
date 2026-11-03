@@ -547,6 +547,14 @@
   .rcard td.v { font-family: var(--cond); font-size: 30px; font-weight: 700; text-align: end; }
   /* start line run by its camera: what the runner at the mark is asked to do, readable from metres away */
   .callbox { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center; margin-top: 12px; padding: 16px 18px; background: var(--bg2); border: 1px solid var(--line); border-inline-start: 6px solid var(--muted); }
+  .choose { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 16%; margin: 14px 0 8px; }   /* the gap: the cursor between them picks nothing */
+  .choose .ch { position: relative; min-height: 150px; overflow: hidden; background: var(--bg); color: var(--text); border: 3px solid var(--line); cursor: pointer;
+    font-family: var(--cond); font-size: 40px; font-weight: 800; letter-spacing: 1px; transition: border-color .15s, transform .15s; }
+  .choose .ch.on { border-color: var(--amber); transform: scale(1.03); }
+  .choose .ch::after { content: ""; position: absolute; left: 0; bottom: 0; height: 10px; width: calc(var(--p, 0) * 100%); background: var(--amber); transition: width .12s linear; }
+  .choose .ch-cursor { position: absolute; z-index: 2; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; pointer-events: none;
+    border: 4px solid var(--amber); background: color-mix(in srgb, var(--amber) 35%, transparent); box-shadow: 0 0 18px var(--amber); transition: left .12s linear, top .12s linear; }
+  .choose .ch-cursor.hidden { display: none; }
   .callbox img { width: 96px; height: 120px; object-fit: cover; border-radius: 4px; background: var(--bg); }
   .callbox .c-who { font-family: var(--cond); font-size: 22px; color: var(--muted); }
   .callbox .c-say { font-family: var(--cond); font-size: 46px; font-weight: 800; line-height: 1.05; }
@@ -1337,6 +1345,9 @@
         <label for="setStopAfter" data-t="set_stop_after"></label>
         <select id="setStopAfter"><option value="0" data-t="stop_off"></option><option value="10" data-t="stop_10"></option><option value="15" data-t="stop_15"></option><option value="20" data-t="stop_20"></option><option value="30" data-t="stop_30"></option><option value="60" data-t="stop_60"></option></select>
         <span class="hint" data-t="set_stop_after_hint"></span>
+        <label for="setChooseFirst" data-t="set_choose_first"></label>
+        <select id="setChooseFirst"><option value="1" data-t="on"></option><option value="0" data-t="off"></option></select>
+        <span class="hint" data-t="set_choose_first_hint"></span>
       </div>
       <h3 class="sec" data-t="tn_title"></h3>
       <p class="hint" data-t="tn_hint"></p>
@@ -1724,6 +1735,8 @@ const I18N = {
     set_match: "Face match", match_normal: "Normal", match_strict: "Strict",
     set_match_hint: "Strict: fewer automatic matches, even less chance of a wrong one. Use when look-alikes (e.g. relatives) are tested together.",
     set_face_req: "Require face check-in", set_face_req_hint: "People with a face on file cannot be checked in at weigh-in by typing their bib or ID.",
+    e_not_choosing: "Nobody is choosing a test now.", st_choose: "Choose your first test", st_choose_how: "Raise a hand: the circle follows it. Hold it on one test.", st_choose_left: "{n} s, then {ex}.",
+    set_choose_first: "People choose their first test", set_choose_first_hint: "One mat: with both tests still to do, the person picks push-ups or crunches first with a raised hand (a circle follows it; held on one test 1.5 s). Off: push-ups first.",
     ph_date: "dd-mm-yyyy", pick_date: "Pick a date", fc_setup: "Finish line set-up", fc_setup_hint: "Colour key, line position, runners' direction.",
     set_fc_setup: "Finish line set-up on the finish screen", set_shown: "Shown", set_hidden: "Hidden",
     set_fc_setup_hint: "The fold-out with the colour key, the finish line position and the runners' direction. Hide it once they are set, so the test day screen stays simple.",
@@ -2121,6 +2134,8 @@ const I18N = {
     set_match: "مطابقة الوجه", match_normal: "عادية", match_strict: "صارمة",
     set_match_hint: "صارمة: مطابقات تلقائية أقل، واحتمال خطأ أقل. استخدمها عند اختبار أشخاص متشابهين (مثل الأقارب) معاً.",
     set_face_req: "إلزام التحقق بالوجه", set_face_req_hint: "من له وجه مسجل لا يمكن تسجيله عند الوزن بكتابة رقمه أو هويته.",
+    e_not_choosing: "لا أحد يختار اختباراً الآن.", st_choose: "اختر اختبارك الأول", st_choose_how: "ارفع يدك: الدائرة تتبعها. أبقِها على اختبار واحد.", st_choose_left: "{n} ث، ثم {ex}.",
+    set_choose_first: "يختار الشخص اختباره الأول", set_choose_first_hint: "بساط واحد: إذا بقي الاختباران، يختار الشخص الضغط أو البطن أولاً برفع يده (دائرة تتبعها؛ يبقيها على اختبار 1.5 ث). إيقاف: الضغط أولاً.",
     ph_date: "يوم-شهر-سنة", pick_date: "اختر تاريخاً", fc_setup: "إعداد خط النهاية", fc_setup_hint: "دليل الألوان، موضع الخط، اتجاه العدّائين.",
     set_fc_setup: "إعداد خط النهاية في شاشة النهاية", set_shown: "ظاهر", set_hidden: "مخفي",
     set_fc_setup_hint: "دليل الألوان وموضع خط النهاية واتجاه العدّائين. أخفِها بعد ضبطها لتبقى شاشة يوم الاختبار بسيطة.",
@@ -4785,8 +4800,8 @@ function renderStation() {
 }
 
 // ---- the exercise station with one mat, run by its camera (api/station.py): recognised ->
-// "PUSH-UPS: get into position" -> 3-2-1 -> counting with the time left -> the score. The next test
-// is chosen for them: push-ups first, crunches when they come back.
+// "PUSH-UPS: get into position" -> 3-2-1 -> counting with the time left -> the score. With both tests
+// still to do they choose which first, with a raised hand (a setting); else push-ups first, then crunches.
 const oneMat = () => lanes.length === 1;
 const StationCall = {
   sig: "", busy: false, v: null,
@@ -4806,7 +4821,14 @@ const StationCall = {
     const photo = e && e.faces ? `<img src="/api/entries/${e.id}/face.jpg" alt="">` : "<span></span>";
     const ex = v.event ? t(v.event).toUpperCase() : "";
     let cls = "", body;
-    if (v.state === "position") {
+    if (v.state === "choose") {
+      // two big targets, the cursor that follows the raised hand, and a bar that fills while it is held
+      // on one; laid out left to right whatever the language (it matches the hand, not the text)
+      cls = "ask";
+      body = `<div><div class="c-who">${who}</div><div class="c-say">${esc(t("st_choose"))}</div>`
+        + `<div class="choose" dir="ltr">${(v.choices || []).map(x => `<button type="button" class="ch" data-ex="${x}" onclick="StationCall.choose('${x}')"><b>${esc(t(x).toUpperCase())}</b></button>`).join("")}<div class="ch-cursor hidden"></div></div>`
+        + `<div class="hint">${esc(t("st_choose_how"))} <span class="ch-left"></span></div></div>`;
+    } else if (v.state === "position") {
       cls = "ask";
       body = `<div><div class="c-who">${who}</div><div class="c-say">${esc(ex)}: ${esc(t(v.ready ? "st_hold" : "st_position"))}</div>${v.reason ? `<div class="hint">${esc(t("st_" + v.reason))}</div>` : ""}</div>`;
     } else if (v.state === "countdown") {
@@ -4843,12 +4865,31 @@ const StationCall = {
     if (!box.querySelector(".cb-acts")) { box.innerHTML = `<div class="cb-main" style="display:contents"></div><div class="cb-acts" style="grid-column:1/-1;text-align:end"></div>`; this.sig = this.acts = ""; }
     if (sig !== this.sig) { box.className = "callbox " + cls; box.querySelector(".cb-main").innerHTML = html; this.sig = sig; }
     if (acts !== this.acts) { box.querySelector(".cb-acts").innerHTML = acts; this.acts = acts; }
+    if (v.state === "choose") this.chooseLive(v);
+    // while someone chooses, the cursor is asked for more often, so it follows the hand smoothly
+    if (v.state === "choose" && !this.fast) this.fast = setInterval(() => this.poll(), 120);
+    if (v.state !== "choose" && this.fast) { clearInterval(this.fast); this.fast = null; }
     if (v.state !== this.last) {
-      if (v.state === "position") Sound.chime();
+      if (v.state === "position" || v.state === "choose") Sound.chime();
       if (v.state === "testing") Signal.start();
       if (v.state === "done") { Signal.end(); refresh(); if (e && e.done && e.done.length >= 2) setTimeout(() => ResultsCard.show(e.id), 4000); }
     }
     this.last = v.state;
+  },
+  chooseLive(v) {   // only what moves: rebuilding the targets would lose a tap on them
+    const box = $("xCall"), cur = box.querySelector(".ch-cursor"); if (!cur) return;
+    cur.classList.toggle("hidden", !v.hand);
+    if (v.hand) { cur.style.left = v.hand[0] * 100 + "%"; cur.style.top = v.hand[1] * 100 + "%"; }
+    box.querySelectorAll(".choose .ch").forEach(b => {
+      const on = b.dataset.ex === v.hover;
+      b.classList.toggle("on", on); b.style.setProperty("--p", on ? v.dwell || 0 : 0);
+    });
+    const left = v.choose_ends_at ? Math.max(0, Math.ceil((Date.parse(v.choose_ends_at) - serverNow()) / 1000)) : null;
+    box.querySelector(".ch-left").textContent = left != null ? t("st_choose_left", { n: left, ex: t((v.choices || [])[0] || "pushup") }) : "";
+  },
+  async choose(ex) {
+    try { await api("POST", `/api/stationflow/choose/${ex}`); msg("xMsg"); } catch (e) { msg("xMsg", "bad", err(e)); }
+    this.poll();
   },
   async reset() { try { await api("POST", "/api/stationflow/reset"); } catch (e) { msg("scMsg", "bad", err(e)); } this.poll(); },
   // The person cannot go on: the test ends now and the count so far is their result.
@@ -5829,7 +5870,7 @@ const Evidence = {
 };
 const SET_FIELDS = {   // input id -> [setting, read, write]
   setAuto: ["auto_identify", v => v === "1", v => (v ? "1" : "0")], setBg: ["camera_background"], setMatch: ["face_match"], setFaceReq: ["face_required", v => v === "1", v => (v ? "1" : "0")],
-  setFcSetup: ["finish_setup_shown", v => v === "1", v => (v ? "1" : "0")], setWalk: ["walk_ins", v => v === "1", v => (v ? "1" : "0")], setGender: ["default_gender"], setUnit: ["default_unit"], setBib: ["bib_start", v => parseInt(v, 10)],
+  setChooseFirst: ["station_choose_first", v => v === "1", v => (v ? "1" : "0")], setFcSetup: ["finish_setup_shown", v => v === "1", v => (v ? "1" : "0")], setWalk: ["walk_ins", v => v === "1", v => (v ? "1" : "0")], setGender: ["default_gender"], setUnit: ["default_unit"], setBib: ["bib_start", v => parseInt(v, 10)],
   setLanes: ["lanes", v => parseInt(v, 10), String], setStopAfter: ["station_stop_after_s", v => parseInt(v, 10) || 0, String],
   setCountdown: ["start_countdown_s", v => parseInt(v, 10), String], setCancelWin: ["cancel_window_s", v => parseInt(v, 10), String], setFinishFace: ["finish_face_threshold", v => parseFloat(v) || 0, v => String(+v || 0)], setSite: ["site_name", v => v.trim()], setCamSrc: ["camera_sources", v => JSON.parse(v || "{}"), o => JSON.stringify(o || {})], setEvKeep: ["evidence_keep_days", v => parseInt(v, 10), String],
   setEvMax: ["evidence_max_gb", v => Math.max(0, parseFloat(v) || 0), v => String(+v || 0)], setEvFree: ["evidence_min_free_gb", v => Math.max(0, parseFloat(v) || 0), v => String(+v || 0)],

@@ -1,6 +1,6 @@
 """The exercise station run by its camera: one person at a time, both exercises.
 
-    idle ── face recognised (2 of the last 3 looks) ──► position ("PUSH-UPS: get into position")
+    idle ── face recognised (2 of the last 3 looks) ──► [choose] ──► position ("PUSH-UPS: get into position")
       ▲                                                    │ start posture held 1 s
       │                                                    ▼
       ├── done (score shown) ◄── testing (counting) ◄── countdown (3-2-1-GO: the attempt starts)
@@ -11,8 +11,9 @@ fitness test, the count so far stands): the examiner presses End test, the perso
 for LEFT_MAT_S, or, after their first rep, no rep has been counted for ``idle_s`` while they are out of
 the start position (kneeling, sitting, standing; resting in it is allowed) (a setting; 0 = only the time).
 
-The test is chosen for them: push-ups first, crunches when they come back (after a break,
-others testing meanwhile). The station's camera engine (testpoint.engine --station exercise)
+Push-ups first, crunches when they come back (after a break, others testing meanwhile); or, with
+both still to do and the setting on, the person chooses which first: a raised hand moves a cursor
+on the screen and held on one test for CHOOSE_DWELL_S picks it (push-ups after CHOOSE_TIMEOUT_S). The station's camera engine (testpoint.engine --station exercise)
 sends, a few times a second: whether someone is on the mat, their face embedding while nobody
 is being tested, and whether they hold the start posture of the exercise it was told to watch.
 This module decides; ``observe`` returns actions for the app: ("start", entry id, event) at GO,
@@ -33,6 +34,16 @@ DONE_S = 8.0                # the score stays on screen
 COOLDOWN_S = 20.0           # the person just tested is not picked up again meanwhile
 STALE_S = 3.0               # no word from the camera this long before GO: idle
 LEFT_MAT_S = 5.0            # off the mat this long during the test: it ends with the count so far
+CHOOSE_DWELL_S = 1.5        # the cursor held on one test this long picks it
+CHOOSE_TIMEOUT_S = 20.0     # no choice: push-ups, as without choosing
+CHOICES = ("pushup", "crunch")   # on the screen left to right (push-ups first, as without choosing)
+
+
+def choice_at(hand: tuple[float, float] | None) -> str | None:
+    """The test under the cursor: the left or the right part of the screen (a gap between)."""
+    if hand is None:
+        return None
+    return CHOICES[0] if hand[0] < 0.42 else CHOICES[1] if hand[0] > 0.58 else None
 
 
 @dataclass
@@ -44,6 +55,8 @@ class StationLook:
     """The person holds the start posture of the exercise being watched."""
     count: int | None = None
     """The engine's count for the attempt being tested (None: not counting it yet)."""
+    hand: tuple[float, float] | None = None
+    """Where a raised hand points on the screen (0..1 each), for choosing the first test."""
 
 
 @dataclass
@@ -70,9 +83,13 @@ class StationFlow:
     last_count: int = -1
     last_rep_at: float = 0.0
     off_since: float | None = None
+    hand: tuple[float, float] | None = None
+    hover: str | None = None
+    hover_since: float | None = None
 
     def _to(self, state: str, now: float, **kw) -> None:
         self.state, self.since, self.ready_since, self.reason = state, now, None, None
+        self.hover = self.hover_since = self.hand = None
         if state == "idle":
             self.entry_id = self.event = self.go_at = self.attempt_id = self.ended = None
             self.votes.clear()
@@ -92,10 +109,12 @@ class StationFlow:
 
     def tick(self, now: float) -> list[tuple]:
         acts: list[tuple] = []
-        if self.state in ("position", "countdown") and now - self.last_look > STALE_S:
+        if self.state in ("choose", "position", "countdown") and now - self.last_look > STALE_S:
             self._to("idle", now)
         if self.state in ("refused", "done") and now >= self.until:
             self._to("idle", now)
+        if self.state == "choose" and now - self.since > CHOOSE_TIMEOUT_S:
+            self._to("position", now, entry_id=self.entry_id, event=CHOICES[0])
         if self.state == "position" and now - self.since > POSITION_TIMEOUT_S:
             self._to("idle", now, reason="timeout")
         if self.state == "countdown" and self.go_at is not None and now >= self.go_at:
@@ -138,8 +157,22 @@ class StationFlow:
                 entry_id, event, reason = m
                 if event is None:
                     self._to("refused", now, entry_id=entry_id, reason=reason, until=now + REFUSED_S)
+                elif event == "choose":
+                    self._to("choose", now, entry_id=entry_id)
                 else:
                     self._to("position", now, entry_id=entry_id, event=event)
+            return acts
+
+        if self.state == "choose":
+            if now - self.last_seen > AWAY_S:
+                self._to("idle", now, reason="stepped_away")
+                return acts
+            self.hand = look.hand
+            on = choice_at(look.hand)
+            if on is None or on != self.hover:
+                self.hover, self.hover_since = on, (now if on else None)
+            elif now - self.hover_since >= CHOOSE_DWELL_S:
+                self._to("position", now, entry_id=self.entry_id, event=on)
             return acts
 
         if self.state == "position":
@@ -181,6 +214,13 @@ class StationFlow:
         self.last_look = self.last_seen = now
         self._to("position", now, entry_id=entry_id, event=event)
 
+    def choose(self, now: float, event: str) -> bool:
+        """The examiner taps the test the person chose (or picks it for them)."""
+        if self.state != "choose" or event not in CHOICES:
+            return False
+        self._to("position", now, entry_id=self.entry_id, event=event)
+        return True
+
     def go_now(self, now: float) -> None:
         """The examiner starts the countdown without waiting for the start posture to be seen."""
         self.last_look = self.last_seen = now
@@ -197,6 +237,9 @@ class StationFlow:
                 "attempt_id": self.attempt_id, "go_at": self.go_at, "since": self.since,
                 "ends_at": (self.go_at + self.time_s) if self.go_at is not None and self.state in ("testing", "done") else None,
                 "ready": self.ready_since is not None, "camera": now - self.last_look <= STALE_S,
+                **({"hand": self.hand, "hover": self.hover, "choices": list(CHOICES),
+                    "dwell": round(min(1.0, (now - self.hover_since) / CHOOSE_DWELL_S), 2) if self.hover_since is not None else 0.0,
+                    "choose_ends_at": self.since + CHOOSE_TIMEOUT_S} if self.state == "choose" else {}),
                 "present": now - self.last_seen <= 1.5}
 
 

@@ -41,7 +41,7 @@ from .. import retention as R
 from . import journey as J
 from . import service as S
 from .startline import Look, StartLine
-from .station import StationFlow, StationLook, next_event
+from .station import CHOICES, StationFlow, StationLook, next_event
 from .models import Attempt, Crossing, Day, Entry, FaceTemplate, Rep, make_sessionmaker
 from .rules import EVENTS, GRADES, TESTS, DayRules
 
@@ -133,6 +133,7 @@ class SettingsIn(BaseModel):
     face_required: bool | None = None
     walk_ins: bool | None = None
     finish_setup_shown: bool | None = None
+    station_choose_first: bool | None = None
     default_gender: Literal["M", "F", ""] | None = None
     default_unit: Literal["combat", "admin", "special"] | None = None
     bib_start: int | None = Field(default=None, ge=1, le=99999)
@@ -341,6 +342,8 @@ class EngineLaneIn(BaseModel):
     exercise: str | None = None
     ready: bool = False
     face: str | None = Field(default=None, max_length=2000)
+    hand: list[float] | None = Field(default=None, min_length=2, max_length=2)
+    """Where a raised hand points on the screen (0..1 each): choosing the first test."""
 
 
 class EngineReportIn(BaseModel):
@@ -1363,7 +1366,13 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         if ev is None:
             return e.id, None, "all_done"
         g = S.gate_for(e, day, ev)
-        return (e.id, ev, None) if g.ok else (e.id, None, g.reason)
+        if not g.ok:
+            return e.id, None, g.reason
+        # both tests still to do: the person chooses which first, with a raised hand (a setting)
+        if (S.get_settings(db)["station_choose_first"] and not S.done_events(e) & set(CHOICES)
+                and all(S.gate_for(e, day, x).ok for x in CHOICES)):
+            return e.id, "choose", None
+        return e.id, ev, None
 
     def flow_act(db: Session, day: Day, flow: StationFlow, acts: list[tuple]) -> None:
         for act in acts:
@@ -1406,7 +1415,8 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         counting = flow.state == "testing" and flow.attempt_id is not None and lane.attempt_id == flow.attempt_id
         if (body.player or {}).get("paused"):
             flow.hold(wall())
-        flow_act(db, day, flow, flow.observe(wall(), StationLook(lane.person, match, ready, lane.count if counting else None)))
+        hand = (lane.hand[0], lane.hand[1]) if lane.hand else None
+        flow_act(db, day, flow, flow.observe(wall(), StationLook(lane.person, match, ready, lane.count if counting else None, hand)))
 
     @app.get("/api/stationflow")
     def stationflow_view(db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
@@ -1425,8 +1435,9 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
                       "faults": lane.pending_faults, "depth": lane.depth, "calib": lane.calib} if lane else None)
         v["engine"] = lane is not None
         v["idle_watch"] = idle_watch["exercise"]
-        for k in ("go_at", "ends_at", "since", "last_rep_at"):
-            v[k] = at_wall(v[k])
+        for k in ("go_at", "ends_at", "since", "last_rep_at", "choose_ends_at"):
+            if k in v:
+                v[k] = at_wall(v[k])
         return v
 
     @app.post("/api/stationflow/start")
@@ -1448,6 +1459,14 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         flow.manual(wall(), e.id, event)
         S.note_manual_start(db, day, e, event, "named")
         return {"state": flow.state, "event": event, "entry_id": e.id}
+
+    @app.post("/api/stationflow/choose/{event}")
+    def stationflow_choose(event: str, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        """The test the person chose first, tapped by the examiner (the hand cursor does it by itself)."""
+        flow = station_flow(db, day)
+        if not flow.choose(wall(), event):
+            raise S.ServiceError("not_choosing", "nobody is choosing a test now", 409)
+        return {"state": flow.state, "event": flow.event}
 
     @app.post("/api/stationflow/go")
     def stationflow_go(db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
