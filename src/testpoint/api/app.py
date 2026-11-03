@@ -132,6 +132,7 @@ class SettingsIn(BaseModel):
     face_match: Literal["normal", "strict"] | None = None
     face_required: bool | None = None
     walk_ins: bool | None = None
+    finish_setup_shown: bool | None = None
     default_gender: Literal["M", "F", ""] | None = None
     default_unit: Literal["combat", "admin", "special"] | None = None
     bib_start: int | None = Field(default=None, ge=1, le=99999)
