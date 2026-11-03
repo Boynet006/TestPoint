@@ -1242,6 +1242,7 @@
       <button type="button" data-p="register" onclick="SetNav.show('register')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="8" r="4"/><path d="M3 21c0-4 3-6 7-6 1.6 0 3 .3 4.2.9"/><path d="M19 14v6M16 17h6"/></svg><span data-t="sec_register"></span><i class="dot"></i></button>
       <button type="button" data-p="checkin" onclick="SetNav.show('checkin')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg><span data-t="sec_checkin"></span><i class="dot"></i></button>
       <button type="button" data-p="run" onclick="SetNav.show('run')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/></svg><span data-t="sec_run"></span><i class="dot"></i></button>
+      <button type="button" data-p="finish" onclick="SetNav.show('finish')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4"/><path d="M5 4h14v8H5"/><path d="M9 4v8M13 4v8M17 4v8M5 8h14"/></svg><span data-t="sec_finish"></span><i class="dot"></i></button>
       <button type="button" data-p="station" onclick="SetNav.show('station')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8v8M18 8v8M3 10v4M21 10v4M6 12h12"/></svg><span data-t="sec_station"></span><i class="dot"></i></button>
       <div class="grp" data-t="nav_rules"></div>
       <button type="button" data-p="rules" onclick="SetNav.show('rules')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4h6v3H9z"/><path d="M8 5H5v16h14V5h-3"/><path d="m9 14 2 2 4-4"/></svg><span data-t="sec_rules"></span><i class="dot"></i></button>
@@ -1304,9 +1305,18 @@
         <label for="setCancelWin" data-t="set_cancel_win"></label>
         <select id="setCancelWin"><option value="120" data-t="min_2"></option><option value="300" data-t="min_5"></option><option value="600" data-t="min_10"></option><option value="1800" data-t="min_30"></option><option value="0" data-t="until_first_finisher"></option></select>
         <span class="hint" data-t="set_cancel_win_hint"></span>
+      </div>
+    </div>
+    <div class="card setpanel" data-p="finish" data-scope="station">
+      <h2 data-t="sec_finish"></h2>
+      <p class="hint" data-t="settings_hint"></p>
+      <div class="settings">
         <label for="setFinishFace" data-t="set_finish_face"></label>
         <select id="setFinishFace"><option value="0" data-t="ff_auto"></option><option value="0.3">0.30</option><option value="0.33">0.33</option><option value="0.36">0.36</option><option value="0.4">0.40</option><option value="0.45">0.45</option><option value="0.5">0.50</option><option value="0.55">0.55</option><option value="0.6" data-t="ff_060"></option><option value="0.65" data-t="ff_065"></option><option value="0.7" data-t="ff_070"></option></select>
         <span class="hint" data-t="set_finish_face_hint"></span>
+        <label for="setFcSetup" data-t="set_fc_setup"></label>
+        <select id="setFcSetup"><option value="1" data-t="set_shown"></option><option value="0" data-t="set_hidden"></option></select>
+        <span class="hint" data-t="set_fc_setup_hint"></span>
       </div>
     </div>
     <div class="card setpanel" data-p="station" data-scope="station">
@@ -1366,11 +1376,6 @@
       <p class="hint" data-t="cs_hint"></p>
       <input type="hidden" id="setCamSrc">
       <div class="tablewrap"><table class="camgrid" id="camSrcGrid"></table></div>
-      <div class="settings">
-        <label for="setFcSetup" data-t="set_fc_setup"></label>
-        <select id="setFcSetup"><option value="1" data-t="set_shown"></option><option value="0" data-t="set_hidden"></option></select>
-        <span class="hint" data-t="set_fc_setup_hint"></span>
-      </div>
       <h3 class="sec" data-t="ipc_title"></h3>
       <p class="hint" data-t="ipc_hint"></p>
       <div class="settings wide">
@@ -1638,7 +1643,7 @@ const I18N = {
     line_not_recognised: "Not recognised: type the bib",
     e_wave_full: "This wave is full: start it, then line up for the next", e_still_running: "Still out on the course", e_already_ran: "Already ran today",
     e_countdown_running: "The countdown is running", e_bad_countdown: "Countdown out of range",
-    sec_run: "Run start", set_wave: "Runners per wave", set_wave_hint: "What the finish line can time and check at once (camera and examiners).",
+    sec_run: "Run start", sec_finish: "Run finish", set_wave: "Runners per wave", set_wave_hint: "What the finish line can time and check at once (camera and examiners).",
     set_countdown: "Start countdown", set_countdown_hint: "\"Get ready\", 3-2-1 and the horn from the start-line tablet; the time starts at the horn.",
     elapsed: "Elapsed", started_at: "Started at", missing_list: "Accepted but not at the line", present: "Present",
     finished: "Finished", needs_review: "Need review", run_not_started: "Waiting for the start.", record_finish: "Finish",
@@ -2035,7 +2040,7 @@ const I18N = {
     line_not_recognised: "لم يتم التعرف: اكتب الرقم",
     e_wave_full: "الموجة ممتلئة: أطلقها ثم سجّل للموجة التالية", e_still_running: "ما زال في المسار", e_already_ran: "جرى اليوم",
     e_countdown_running: "العد التنازلي جارٍ", e_bad_countdown: "العد التنازلي خارج النطاق",
-    sec_run: "انطلاق الجري", set_wave: "عدد العدّائين في الموجة", set_wave_hint: "ما يستطيع خط النهاية توقيته والتحقق منه في وقت واحد (الكاميرا والممتحنون).",
+    sec_run: "انطلاق الجري", sec_finish: "نهاية الجري", set_wave: "عدد العدّائين في الموجة", set_wave_hint: "ما يستطيع خط النهاية توقيته والتحقق منه في وقت واحد (الكاميرا والممتحنون).",
     set_countdown: "العد التنازلي للانطلاق", set_countdown_hint: "\"استعد\"، 3-2-1 والبوق من جهاز خط البداية؛ يبدأ الوقت عند البوق.",
     elapsed: "الزمن", started_at: "بدأ في", missing_list: "مقبولون لم يصلوا إلى الخط", present: "حاضر",
     finished: "أنهوا", needs_review: "للمراجعة", run_not_started: "بانتظار الانطلاق.", record_finish: "وصول",
