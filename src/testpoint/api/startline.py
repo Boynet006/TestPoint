@@ -67,6 +67,12 @@ class StartLine:
         """The examiner took over (cancel, manual start) or the camera stopped."""
         self._to("idle", now)
 
+    def examiner_started(self, now: float, entry_id: int, go_at: float) -> None:
+        """The examiner pressed Start for the runner the camera was calling: their own 3-2-1 and GO
+        on the screen, and they are not recognised again (and refused, "still running") meanwhile."""
+        self.recent[entry_id] = max(now, go_at) + COOLDOWN_S
+        self._to("started", now, entry_id=entry_id, go_at=go_at, until=go_at + STARTED_S)
+
     def tick(self, now: float) -> list[tuple[str, int]]:
         """Time passing without a new look (also called before each look)."""
         if self.state != "idle" and now - self.last_look > STALE_S:

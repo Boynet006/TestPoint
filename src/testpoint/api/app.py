@@ -1278,7 +1278,9 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         if sl.entry_id is not None and sl.state in ("raise_hand", "countdown"):
             e = db.get(Entry, sl.entry_id)
             want = J.LINED_UP if sl.state == "raise_hand" else J.RUNNING
-            if e is None or e.status != want:
+            if e is not None and sl.state == "raise_hand" and e.status == J.RUNNING and e.run_started_at is not None:
+                sl.examiner_started(wall(), e.id, e.run_started_at.replace(tzinfo=timezone.utc).timestamp())
+            elif e is None or e.status != want:
                 sl.reset(wall())
         return sl
 
@@ -1294,6 +1296,8 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         e = db.get(Entry, m.candidate_id)
         if e.status == J.LINED_UP:
             return e.id, True, None
+        if e.status == J.RUNNING and e.run_started_at is not None and wall() - e.run_started_at.replace(tzinfo=timezone.utc).timestamp() < 60:
+            return None     # just started (by the examiner too): leaving the line, nothing to refuse
         g = S.gate_for(e, day, "lineup")
         return e.id, g.ok, g.reason or None
 
@@ -1401,8 +1405,11 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         g = S.gate_for(e, day, ev)
         if not g.ok:
             return e.id, None, g.reason
-        # both tests still to do: the person chooses which first, with a raised hand (a setting)
-        if (S.get_settings(db)["station_choose_first"] and not S.done_events(e) & set(CHOICES)
+        # both tests still to do: the person chooses which first, with a raised hand (a setting);
+        # not from a test video (nobody in a recording raises a hand: push-ups first, as without)
+        seen = _last_report.get(S.EXERCISE_STATION)
+        video = seen is not None and seen[1].player is not None
+        if (S.get_settings(db)["station_choose_first"] and not video and not S.done_events(e) & set(CHOICES)
                 and all(S.gate_for(e, day, x).ok for x in CHOICES)):
             return e.id, "choose", None
         return e.id, ev, None
@@ -1449,7 +1456,8 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         if (body.player or {}).get("paused"):
             flow.hold(wall())
         hand = (lane.hand[0], lane.hand[1]) if lane.hand else None
-        flow_act(db, day, flow, flow.observe(wall(), StationLook(lane.person, match, ready, lane.count if counting else None, hand)))
+        ready_ex = lane.exercise if lane.ready and flow.state == "choose" else None
+        flow_act(db, day, flow, flow.observe(wall(), StationLook(lane.person, match, ready, lane.count if counting else None, hand, ready_ex)))
 
     @app.get("/api/stationflow")
     def stationflow_view(db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:

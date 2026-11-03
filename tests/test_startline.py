@@ -165,3 +165,42 @@ def test_the_start_camera_lines_up_and_starts_the_runner(monkeypatch):
         look(8.2, emb=emb(B))
         v = look(8.4, emb=emb(B))
         assert v["state"] == "refused" and v["reason"] == "not_weighed" and v["entry"]["bib"] == "12"
+
+
+def test_the_examiner_starting_the_called_runner_shows_their_countdown_not_a_refusal(monkeypatch):
+    import base64
+    from datetime import timedelta
+
+    from fastapi.testclient import TestClient
+    from sqlalchemy.pool import StaticPool
+    from test_faces import A, FakeEngine
+
+    from testpoint.api import app as app_mod
+    from testpoint.api import models
+    from testpoint.api.app import create_app
+
+    real = models.create_engine
+    monkeypatch.setattr(models, "create_engine", lambda url, **kw: real(url, poolclass=StaticPool, **kw))
+    app = create_app(db_url="sqlite:///:memory:", web_dir="none", today=lambda: "2026-10-20", face_engine=lambda: FakeEngine())
+    t0 = models.utcnow()
+    clock = {"t": t0}
+    monkeypatch.setattr(app_mod.S, "utcnow", lambda: clock["t"])
+    emb = base64.b64encode(np.asarray(A, np.float32).tobytes()).decode()
+    with TestClient(app) as c:
+        c.post("/api/entries/import", content=b"external_id,name,bib,gender,dob\nC-1,Alpha,11,M,2000-01-01\n")
+        e = c.get("/api/entries").json()[0]["id"]
+        c.post(f"/api/entries/{e}/face", content=b"face:A")
+        c.post(f"/api/entries/{e}/weigh-in", json={"weight_kg": 70, "height_cm": 175, "accept": True})
+
+        def look(dt, **kw):
+            clock["t"] = t0 + timedelta(seconds=dt)
+            return c.post("/api/engine/start/obs", json={"present": True, **kw}).json()
+
+        look(0.0, emb=emb)
+        assert look(0.25, emb=emb)["state"] == "raise_hand"
+        clock["t"] = t0 + timedelta(seconds=1)
+        assert c.post(f"/api/entries/{e}/start", json={"countdown_s": 3}).status_code == 200   # the examiner presses Start
+        v = look(1.25, emb=emb)
+        assert v["state"] == "started" and v["entry_id"] == e and v["go_at"]   # their 3-2-1, not "still running"
+        for dt in (2.0, 4.0, 6.0, 9.0, 12.0, 20.0):                          # still in front of the camera after GO
+            assert look(dt, emb=emb)["state"] in ("started", "idle")

@@ -57,6 +57,8 @@ class StationLook:
     """The engine's count for the attempt being tested (None: not counting it yet)."""
     hand: tuple[float, float] | None = None
     """Where a raised hand points on the screen (0..1 each), for choosing the first test."""
+    ready_ex: str | None = None
+    """The exercise whose start position the person holds now (the one the camera watches)."""
 
 
 @dataclass
@@ -171,6 +173,15 @@ class StationFlow:
             if h is not None and self.hand is not None:   # a little smoothing: the pose shakes a few pixels
                 h = (round(0.5 * self.hand[0] + 0.5 * h[0], 3), round(0.5 * self.hand[1] + 0.5 * h[1], 3))
             self.hand = h
+            # getting straight into a test's start position chooses it, as clearly as a raised hand
+            if look.ready_ex in CHOICES:
+                self.ready_since = self.ready_since if self.ready_since is not None else now
+                if now - self.ready_since >= READY_HOLD_S:
+                    self._to("position", now, entry_id=self.entry_id, event=look.ready_ex)
+                    self.ready_since = now - READY_HOLD_S   # already in position: the 3-2-1 follows at once
+                    return acts
+            else:
+                self.ready_since = None
             on = choice_at(h)
             if on is None or on != self.hover:
                 self.hover, self.hover_since = on, (now if on else None)

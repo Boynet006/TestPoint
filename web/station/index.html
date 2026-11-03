@@ -1747,8 +1747,12 @@ const I18N = {
     cam_taken: "The webcam is now used by the {by} camera. Start the camera here to take it back.", cam_freed: "(The webcam was taken from the {by} camera.)",
     cam_by_finish: "finish line", cam_by_station: "exercise station", cam_by_start: "start line", cam_by_weigh: "weigh-in",
     vb_no_back: "Not back during a test: its reps would count again", e_no_back_in_test: "A test is being counted: the video cannot go back (its reps would count again).",
-    e_not_choosing: "Nobody is choosing a test now.", st_choose: "Choose your first test", st_choose_how: "Raise a hand: the circle follows it. Hold it on one test.", st_choose_left: "{n} s, then {ex}.",
-    set_choose_first: "People choose their first test", set_choose_first_hint: "One mat: with both tests still to do, the person picks push-ups or crunches first with a raised hand (a circle follows it; held on one test 1.5 s). Off: push-ups first.",
+    e_not_choosing: "Nobody is choosing a test now.",
+    e_bad_camera_url: "A camera address starts with rtsp:// or http://", e_bad_day: "That day is not a date", e_bad_player: "The video could not be moved there",
+    e_before_start: "That crossing is before the runner's GO", e_bib_not_on_list: "That bib is not on today's list", e_no_camera: "No live picture from this camera",
+    e_no_https: "HTTPS is not set up on this station", e_no_saved_camera: "No address saved for this camera: add it in Settings > Cameras",
+    e_not_testing: "No test is running at this station", e_unknown_camera: "Unknown camera", e_unknown_setting: "Unknown setting", st_choose: "Choose your first test", st_choose_how: "Raise a hand: the circle follows it. Hold it on one test.", st_choose_left: "{n} s, then {ex}.",
+    set_choose_first: "People choose their first test", set_choose_first_hint: "One mat: with both tests still to do, the person picks push-ups or crunches first with a raised hand (a circle follows it; held on one test 1.5 s), or by getting into its start position. Not with a test video. Off: push-ups first.",
     ph_date: "dd-mm-yyyy", pick_date: "Pick a date", fc_setup: "Finish line set-up", fc_setup_hint: "Colour key, line position, runners' direction.",
     set_fc_setup: "Finish line set-up on the finish screen", set_shown: "Shown", set_hidden: "Hidden",
     set_fc_setup_hint: "The fold-out with the colour key, the finish line position and the runners' direction. Hide it once they are set, so the test day screen stays simple.",
@@ -2149,8 +2153,12 @@ const I18N = {
     cam_taken: "كاميرا الويب تستخدمها الآن كاميرا {by}. شغّل الكاميرا هنا لاستعادتها.", cam_freed: "(أُخذت كاميرا الويب من كاميرا {by}.)",
     cam_by_finish: "خط النهاية", cam_by_station: "محطة التمارين", cam_by_start: "خط البداية", cam_by_weigh: "الوزن",
     vb_no_back: "لا رجوع أثناء الاختبار: ستُحسب العدّات مرة أخرى", e_no_back_in_test: "يُعدّ اختبار الآن: لا يمكن إرجاع الفيديو (ستُحسب العدّات مرة أخرى).",
-    e_not_choosing: "لا أحد يختار اختباراً الآن.", st_choose: "اختر اختبارك الأول", st_choose_how: "ارفع يدك: الدائرة تتبعها. أبقِها على اختبار واحد.", st_choose_left: "{n} ث، ثم {ex}.",
-    set_choose_first: "يختار الشخص اختباره الأول", set_choose_first_hint: "بساط واحد: إذا بقي الاختباران، يختار الشخص الضغط أو البطن أولاً برفع يده (دائرة تتبعها؛ يبقيها على اختبار 1.5 ث). إيقاف: الضغط أولاً.",
+    e_not_choosing: "لا أحد يختار اختباراً الآن.",
+    e_bad_camera_url: "عنوان الكاميرا يبدأ بـ rtsp:// أو http://", e_bad_day: "هذا اليوم ليس تاريخاً", e_bad_player: "تعذّر نقل الفيديو إلى هناك",
+    e_before_start: "هذا العبور قبل انطلاق العدّاء", e_bib_not_on_list: "رقم الصدر هذا ليس في قائمة اليوم", e_no_camera: "لا صورة مباشرة من هذه الكاميرا",
+    e_no_https: "HTTPS غير مُعدّ في هذه المحطة", e_no_saved_camera: "لا عنوان محفوظ لهذه الكاميرا: أضفه في الإعدادات > الكاميرات",
+    e_not_testing: "لا اختبار جارٍ في هذه المحطة", e_unknown_camera: "كاميرا غير معروفة", e_unknown_setting: "إعداد غير معروف", st_choose: "اختر اختبارك الأول", st_choose_how: "ارفع يدك: الدائرة تتبعها. أبقِها على اختبار واحد.", st_choose_left: "{n} ث، ثم {ex}.",
+    set_choose_first: "يختار الشخص اختباره الأول", set_choose_first_hint: "بساط واحد: إذا بقي الاختباران، يختار الشخص الضغط أو البطن أولاً برفع يده (دائرة تتبعها؛ يبقيها على اختبار 1.5 ث)، أو باتخاذ وضعية بدايته. ليس مع فيديو تجريبي. إيقاف: الضغط أولاً.",
     ph_date: "يوم-شهر-سنة", pick_date: "اختر تاريخاً", fc_setup: "إعداد خط النهاية", fc_setup_hint: "دليل الألوان، موضع الخط، اتجاه العدّائين.",
     set_fc_setup: "إعداد خط النهاية في شاشة النهاية", set_shown: "ظاهر", set_hidden: "مخفي",
     set_fc_setup_hint: "دليل الألوان وموضع خط النهاية واتجاه العدّائين. أخفِها بعد ضبطها لتبقى شاشة يوم الاختبار بسيطة.",
@@ -5140,6 +5148,8 @@ function showNeeds(entry) {
 }
 // every date on screen reads dd-mm-yyyy (the app keeps yyyy-mm-dd underneath)
 const fmtDate = d => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d || ""); return m ? `${m[3]}-${m[2]}-${m[1]}` : (d || ""); };
+// a time of day as every screen shows it: 24-hour, in the app's language (not the PC's)
+const clockTime = (at, secs) => new Date(at).toLocaleTimeString(lang === "ar" ? "ar-EG" : "en-GB", secs ? undefined : { hour: "2-digit", minute: "2-digit" });
 const isoDate = d => { const m = /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/.exec((d || "").trim()); return m ? `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}` : (d || "").trim(); };
 // ---- date boxes: dd-mm-yyyy on every screen, whatever the PC's language. Each stays a real date
 // input underneath (its value is yyyy-mm-dd, as before, so nothing that reads or sets it changes);
@@ -5267,7 +5277,7 @@ const Register = {
       return `<tr class="${sel ? "sel" : ""}"><td><input type="checkbox" ${sel ? "checked" : ""} onchange="Register.toggle(${c.id}, this.checked)" aria-label="${esc(cname(c))}"></td>${faceCell(c)}`
         + `<td>${esc(c.external_id)}</td><td><b>${esc(cname(c))}</b>${lang === "ar" ? (c.name !== cname(c) ? `<br><small class="hint">${esc(c.name)}</small>` : "") : (c.name_ar ? `<br><small class="hint" dir="rtl">${esc(c.name_ar)}</small>` : "")}</td>`
         + `<td class="t">${ageOf(c.dob) ?? "—"}</td><td>${unitTxt(c.unit)}</td><td class="t">${esc(c.bib ?? "—")}</td>`
-        + `<td>${c.last_date ? `${esc(c.last_date)} ${verdictPill(c.last_verdict)}` : `<span class="hint">${t("rg_never")}</span>`}</td>`
+        + `<td>${c.last_date ? `${esc(fmtDate(c.last_date))} ${verdictPill(c.last_verdict)}` : `<span class="hint">${t("rg_never")}</span>`}</td>`
         + `<td>${on ? `<span class="pill ok">${t("rg_on_list")}</span>` : `<button class="btn sm" onclick="Register.addToday([${c.id}])">${t("rg_add_today")}</button>`}</td>`
         + `<td style="white-space:nowrap"><button class="btn ghost sm" onclick="Register.open(${c.id})">${t("rg_history")}</button> <button class="btn ghost sm" onclick="EditDlg.openPerson(${c.id})">${t("edit")}</button> <button class="btn ghost sm danger" onclick="DelDlg.open([Register.rows.find(x => x.id === ${c.id})])" title="${t("rg_delete")}" aria-label="${t("rg_delete")}">✕</button></td></tr>`;
     });
@@ -5848,7 +5858,7 @@ const Recs = {
     const d = this.data, box = $("rcDetail"); if (!d) return;
     if (this.sel === "other") {
       box.innerHTML = `<div class="rcsec"><h3>${t("rc_other")}</h3><p class="hint">${t("rc_other_hint")}</p><div class="rcchips">` +
-        d.other.map(o => o.clip ? this.chip(o.clip, `${t("rc_kind_" + o.kind) || o.kind} · ${new Date(o.at).toLocaleTimeString()}`)
+        d.other.map(o => o.clip ? this.chip(o.clip, `${t("rc_kind_" + o.kind) || o.kind} · ${clockTime(o.at, true)}`)
           : (o.files || []).filter(f => f.endsWith(".mp4")).map(f => this.chip(`${o.folder}/${f}`, `${o.folder.split("/")[1]} · ${f.replace(".mp4", "")}`)).join("")).join("") + `</div></div>`;
       return;
     }
@@ -5865,7 +5875,7 @@ const Recs = {
       const why = a.override_reason ? ` · ${esc(a.override_reason)}` : "";
       const chips = this.chip(a.full, t("rc_full"), "full") + a.reps.map(r => this.chip(r.clip, `${t("rep")} ${r.index}${r.valid ? "" : " ✕"}`, r.valid ? "ok" : "bad")).join("")
         + a.redone.map((x, i) => this.chip(x.clip, `${t("rc_redone")} ${i + 1}`)).join("");
-      html += sec(`${t(a.event)} · ${a.started_at ? new Date(a.started_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""}`, chips, `${saved}${cam}${why}`);
+      html += sec(`${t(a.event)} · ${a.started_at ? clockTime(a.started_at) : ""}`, chips, `${saved}${cam}${why}`);
     }
     box.innerHTML = html;
   },
