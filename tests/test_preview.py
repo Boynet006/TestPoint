@@ -186,3 +186,25 @@ def test_the_last_picture_is_sent_again_while_none_comes():
     pub.offer(np.zeros((4, 4, 3), np.uint8), "state")
     assert pub.publish_once() and not pub.publish_once()
     assert pub.publish_once(again=True) and len(sent) == 2
+
+
+def test_the_app_tells_the_camera_how_many_watch_and_measures_its_rate(tmp_path):
+    from fastapi.testclient import TestClient
+
+    from testpoint.api.app import create_app
+    now = [100.0]
+    app = create_app(db_url=f"sqlite:///{tmp_path / 'a.db'}", web_dir="does-not-exist", clock=lambda: now[0])
+    c = TestClient(app)
+    jpeg = cv2.imencode(".jpg", np.zeros((8, 8, 3), np.uint8))[1].tobytes()
+    for i in range(6):
+        now[0] = 100.0 + i * 0.25
+        r = c.post("/api/engine/frame/finish", content=jpeg, headers={"content-type": "image/jpeg"})
+        assert r.status_code == 204 and r.headers["X-Watchers"] == "0"      # nobody watching yet
+    live = c.get("/api/engine/live").json()["finish"]
+    assert live["live"] and live["watchers"] == 0 and live["fps"] == 3.0
+
+
+def test_nobody_watching_the_camera_sends_one_picture_a_second():
+    pub = FramePublisher("http://app", "finish", lambda img, s: None, post=lambda b: None)
+    pub.watchers = 0
+    assert pub.idle_interval == 1.0 and pub.watchers == 0

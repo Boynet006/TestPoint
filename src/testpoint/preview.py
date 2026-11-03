@@ -50,6 +50,10 @@ class FramePublisher(threading.Thread):
         """The last picture sent: sent again now and then while no new one comes (a paused test
         video), so the page keeps showing it, with the latest counts drawn on it."""
         self.keepalive_s = 1.0
+        self.watchers: int | None = None
+        """Screens showing this camera now (the app's answer to each picture); None until known.
+        Nobody watching: one picture a second, enough for the screens to know the camera is there."""
+        self.idle_interval = 1.0
         self._state: object = _NO_STATE
         self.live = False
         """True once ``tap`` feeds the picture from the camera: ``offer`` then brings only the state."""
@@ -122,6 +126,8 @@ class FramePublisher(threading.Thread):
                 self._conn.request("POST", u.path, body=jpeg, headers={"Content-Type": "image/jpeg"})
                 resp = self._conn.getresponse()
                 resp.read()
+                w = resp.getheader("X-Watchers")
+                self.watchers = int(w) if w is not None and w.isdigit() else None
                 if resp.status >= 400:
                     raise OSError(f"app answered {resp.status}")
                 return
@@ -153,7 +159,8 @@ class FramePublisher(threading.Thread):
                     last = time.monotonic()
                     self.publish_once(again=True)
                 continue
-            wait = last + self.interval - time.monotonic()
+            interval = self.idle_interval if self.watchers == 0 else self.interval   # nobody watching: no need to encode 30 a second
+            wait = last + interval - time.monotonic()
             if wait > 0:
                 time.sleep(wait)        # precise; Event.wait moves in ~16 ms steps on Windows
             if self._stopping.is_set():
