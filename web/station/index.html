@@ -521,6 +521,8 @@
   .rtable input { width: 64px; padding: 6px; text-align: center; } .rtable .ages { white-space: nowrap; } .rtable .ages input { width: 46px; }
   .rtable input.invalid { border-color: var(--stop); }
   .settings .sub { padding-inline-start: 18px; color: var(--muted); }
+  #fcForm .settings { grid-template-columns: minmax(120px, auto) 1fr; gap: 6px 16px; }   /* a narrow card: each hint under its control */
+  #fcForm .settings .hint { grid-column: 1 / -1; margin: -2px 0 6px; }
   .swatch { flex: 0 0 34px; height: 34px; border: 1px solid var(--line); }
   #setBgCustom { flex: 0 0 48px; height: 36px; padding: 2px; }
   .bgpick { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -1015,9 +1017,11 @@
         <div class="row hidden" id="fcUp" style="margin-top:8px"><button class="btn ghost sm" style="flex:0 0 auto" onclick="ClipUp.pick('finish')" data-t="up_pick"></button></div>
       </div>
       <div class="camlive fcview hidden" id="camLive-finish"><img alt=""><canvas class="fx" id="fxFinish"></canvas><div class="fcline hidden" id="fcLine"></div><div class="p vidbar hidden" id="fcBar"></div></div>
-      <p class="hint camlegend"><span style="color:#00b4ff">■</span> <span data-t="fc_box_open"></span> &nbsp; <span style="color:#00c800">■</span> <span data-t="fc_box_crossed"></span> &nbsp; <span style="color:#e00000">━</span> <span data-t="fc_box_line"></span></p>
       <div id="fcOffline" class="msg warn hidden" data-t="fc_offline"></div>
       <div id="fcForm">
+        <details class="handtime fcsetup" id="fcSetupBox" ontoggle="save('fcSetupOpen', this.open ? '1' : '0')">
+          <summary><span data-t="fc_setup"></span><small data-t="fc_setup_hint"></small></summary>
+          <p class="hint camlegend"><span style="color:#00b4ff">■</span> <span data-t="fc_box_open"></span> &nbsp; <span style="color:#00c800">■</span> <span data-t="fc_box_crossed"></span> &nbsp; <span style="color:#e00000">━</span> <span data-t="fc_box_line"></span></p>
         <div class="settings" style="margin-top:8px">
           <label for="fcLineY" data-t="fc_line"></label>
           <input id="fcLineY" type="range" min="5" max="95" step="1" oninput="FinishCam.showLine()" onchange="FinishCam.lineChanged()">
@@ -1026,6 +1030,7 @@
           <select id="fcDir" onchange="FinishCam.lineChanged()"><option value="down" data-t="fc_dir_down"></option><option value="up" data-t="fc_dir_up"></option><option value="any" data-t="fc_dir_any"></option></select>
           <span class="hint" data-t="fc_dir_hint"></span>
         </div>
+        </details>
         <div class="row" style="margin-top:10px">
           <button class="btn go" style="flex:0 0 auto" id="fcStart" onclick="FinishCam.start()"></button>
           <button class="btn stop" style="flex:0 0 auto" id="fcStop" onclick="FinishCam.stop()" data-t="fc_stop"></button>
@@ -1361,6 +1366,11 @@
       <p class="hint" data-t="cs_hint"></p>
       <input type="hidden" id="setCamSrc">
       <div class="tablewrap"><table class="camgrid" id="camSrcGrid"></table></div>
+      <div class="settings">
+        <label for="setFcSetup" data-t="set_fc_setup"></label>
+        <select id="setFcSetup"><option value="1" data-t="set_shown"></option><option value="0" data-t="set_hidden"></option></select>
+        <span class="hint" data-t="set_fc_setup_hint"></span>
+      </div>
       <h3 class="sec" data-t="ipc_title"></h3>
       <p class="hint" data-t="ipc_hint"></p>
       <div class="settings wide">
@@ -1701,6 +1711,9 @@ const I18N = {
     set_match: "Face match", match_normal: "Normal", match_strict: "Strict",
     set_match_hint: "Strict: fewer automatic matches, even less chance of a wrong one. Use when look-alikes (e.g. relatives) are tested together.",
     set_face_req: "Require face check-in", set_face_req_hint: "People with a face on file cannot be checked in at weigh-in by typing their bib or ID.",
+    fc_setup: "Finish line set-up", fc_setup_hint: "Colour key, line position, runners' direction.",
+    set_fc_setup: "Finish line set-up on the finish screen", set_shown: "Shown", set_hidden: "Hidden",
+    set_fc_setup_hint: "The fold-out with the colour key, the finish line position and the runners' direction. Hide it once they are set, so the test day screen stays simple.",
     set_walk: "Register walk-ins at the desk", set_walk_hint: "Off: only people on today's list (CSV or Advanced) can be tested.",
     walk_ins_off: "Not on today's list. Registering at the desk is switched off: add them in Advanced.",
     set_lanes: "Lanes per station", set_lanes_hint: "Must match the cameras the engine watches (--lanes).", lanes_wait: "The lane change waits until those lanes are free.",
@@ -2095,6 +2108,9 @@ const I18N = {
     set_match: "مطابقة الوجه", match_normal: "عادية", match_strict: "صارمة",
     set_match_hint: "صارمة: مطابقات تلقائية أقل، واحتمال خطأ أقل. استخدمها عند اختبار أشخاص متشابهين (مثل الأقارب) معاً.",
     set_face_req: "إلزام التحقق بالوجه", set_face_req_hint: "من له وجه مسجل لا يمكن تسجيله عند الوزن بكتابة رقمه أو هويته.",
+    fc_setup: "إعداد خط النهاية", fc_setup_hint: "دليل الألوان، موضع الخط، اتجاه العدّائين.",
+    set_fc_setup: "إعداد خط النهاية في شاشة النهاية", set_shown: "ظاهر", set_hidden: "مخفي",
+    set_fc_setup_hint: "دليل الألوان وموضع خط النهاية واتجاه العدّائين. أخفِها بعد ضبطها لتبقى شاشة يوم الاختبار بسيطة.",
     set_walk: "تسجيل الحضور غير المدرجين", set_walk_hint: "إيقاف: فقط المدرجون في قائمة اليوم يمكن اختبارهم.",
     walk_ins_off: "غير موجود في قائمة اليوم. التسجيل عند المكتب متوقف: أضفه من القائمة المتقدمة.",
     set_lanes: "عدد المسارات في المحطة", set_lanes_hint: "يجب أن يطابق الكاميرات التي يراقبها المحرك.", lanes_wait: "تغيير المسارات ينتظر حتى تفرغ.",
@@ -3457,7 +3473,10 @@ const camShown = (k, screen) => {
   const per = setting("camera_sources"), list = Array.isArray(per) ? per : per && per[screen];
   return (list || CAM_SCREENS[screen] || CAM_SOURCES).includes(k === "url" ? "ipcam" : k);
 };
+$("fcSetupBox").open = load("fcSetupOpen", "1") === "1";   // the finish set-up fold-out, open or closed as this device left it
 function applyCamSources() {
+  // the finish line's set-up (colour key, line position, direction): hidden once it is set, if chosen
+  document.querySelectorAll(".fcsetup").forEach(e => e.classList.toggle("hidden", setting("finish_setup_shown") === false));
   if (typeof Cam === "undefined") return;
   // the desk camera: a hidden choice in use gives way to the first one shown that runs by itself
   if (CAM_ROLES.includes(role) && Cam.kind && !camShown(Cam.kind, role) && !Cam.opening) {
@@ -5756,7 +5775,7 @@ const Evidence = {
 };
 const SET_FIELDS = {   // input id -> [setting, read, write]
   setAuto: ["auto_identify", v => v === "1", v => (v ? "1" : "0")], setBg: ["camera_background"], setMatch: ["face_match"], setFaceReq: ["face_required", v => v === "1", v => (v ? "1" : "0")],
-  setWalk: ["walk_ins", v => v === "1", v => (v ? "1" : "0")], setGender: ["default_gender"], setUnit: ["default_unit"], setBib: ["bib_start", v => parseInt(v, 10)],
+  setFcSetup: ["finish_setup_shown", v => v === "1", v => (v ? "1" : "0")], setWalk: ["walk_ins", v => v === "1", v => (v ? "1" : "0")], setGender: ["default_gender"], setUnit: ["default_unit"], setBib: ["bib_start", v => parseInt(v, 10)],
   setLanes: ["lanes", v => parseInt(v, 10), String], setStopAfter: ["station_stop_after_s", v => parseInt(v, 10) || 0, String],
   setCountdown: ["start_countdown_s", v => parseInt(v, 10), String], setCancelWin: ["cancel_window_s", v => parseInt(v, 10), String], setFinishFace: ["finish_face_threshold", v => parseFloat(v) || 0, v => String(+v || 0)], setSite: ["site_name", v => v.trim()], setCamSrc: ["camera_sources", v => JSON.parse(v || "{}"), o => JSON.stringify(o || {})], setEvKeep: ["evidence_keep_days", v => parseInt(v, 10), String],
   setEvMax: ["evidence_max_gb", v => Math.max(0, parseFloat(v) || 0), v => String(+v || 0)], setEvFree: ["evidence_min_free_gb", v => Math.max(0, parseFloat(v) || 0), v => String(+v || 0)],
