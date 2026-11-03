@@ -1354,12 +1354,30 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     flows: dict[str, StationFlow] = {}
     idle_watch = {"exercise": "pushup"}     # what the one-mat engine watches with nobody being tested (tuning)
 
+    def adopt_running(db: Session, day: Day, f: StationFlow) -> None:
+        """The app started again (an update, a power cut) while the camera ran a test: the test goes
+        on where it is, or, its time already up, is cancelled (the person does it again). Left
+        running, nobody could finish it and the person could never be tested again."""
+        open_ = db.scalars(select(Attempt).join(Entry).where(Entry.day_id == day.id, Attempt.lane == S.EXERCISE_LANE,
+                                                            Attempt.status == "running").order_by(Attempt.id.desc())).all()
+        for k, a in enumerate(open_):
+            go = a.started_at.replace(tzinfo=timezone.utc).timestamp()
+            if k == 0 and wall() < go + f.time_s:
+                f._to("testing", wall(), entry_id=a.entry_id, event=a.event, go_at=go, attempt_id=a.id)
+                f.last_look = f.last_seen = wall()
+                continue
+            # its time ran out while the app was away: the count may miss reps, so no score from it;
+            # cancelled (in the audit trail), the person does the test again
+            S._audit(db, day, a.event, "interrupted", a.entry, attempt_id=a.id, why="app_restarted", count=a.auto_count or 0)
+            S.cancel_attempt(db, day, a.id)
+
     def station_flow(db: Session, day: Day) -> StationFlow:
         f = flows.get(day.date)
         if f is None:
             flows.clear()
             f = flows[day.date] = StationFlow(countdown_s=float(S.get_settings(db)["start_countdown_s"]),
                                               time_s=float(S.rules_for(db, day, rules).exercise_time_s))
+            adopt_running(db, day, f)
         f.idle_s = float(S.get_settings(db)["station_stop_after_s"])    # a change applies to the next check
         if f.attempt_id is not None and f.state == "testing":
             a = db.get(Attempt, f.attempt_id)
