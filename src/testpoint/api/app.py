@@ -16,9 +16,10 @@ import os
 import re
 import time
 from collections.abc import Iterator
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 from zoneinfo import ZoneInfo
 
 # Windows' registry may not know these; a module script or wasm with the wrong type is refused.
@@ -35,6 +36,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from .. import retention as R
 from . import journey as J
 from . import service as S
 from .startline import Look, StartLine
@@ -139,6 +141,10 @@ class SettingsIn(BaseModel):
     default_language: Literal["en", "ar"] | None = None
     trouble_run_cutoff_s: int | None = Field(default=None, ge=0, le=3600)
     count_tuning: dict[str, dict[str, float]] | None = None
+    evidence_keep_days: int | None = Field(default=None, ge=0, le=3650)
+    evidence_max_gb: float | None = Field(default=None, ge=0, le=100000)
+    evidence_min_free_gb: float | None = Field(default=None, ge=0, le=10000)
+    evidence_held_days: list[Annotated[str, Field(pattern=r"^\d{4}-\d{2}-\d{2}$")]] | None = Field(default=None, max_length=400)
     theme: Literal["night", "desert", "desert_night", "desert_sand", "daylight", "track", "falcon", "neural", "mirage", "desert_stars"] | None = None
 
 
@@ -417,7 +423,14 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     SessionLocal = make_sessionmaker(db_url)
     today = today or (lambda: datetime.now(zone).date().isoformat())
 
-    app = FastAPI(title="TestPoint station", version="0.3.0")
+    @asynccontextmanager
+    async def lifespan(_app):
+        job = start_retention()      # defined below, with the evidence routes
+        yield
+        if job is not None:
+            job.cancel()
+
+    app = FastAPI(title="TestPoint station", version="0.3.0", lifespan=lifespan)
     app.state.sessionmaker = SessionLocal
     face_engine = face_engine or default_face_engine
     _engine_cache: dict = {}
@@ -1435,6 +1448,80 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
                            "source": seen[1].source if seen else None,
                            "player": seen[1].player if seen and online else None},
                 "lanes": out}
+
+    # --------------------------------------------------------------- evidence retention
+    GB = 1024 ** 3
+
+    def evidence_plan(db: Session) -> tuple[list[R.Item], R.Plan]:
+        st = S.get_settings(db)
+        items = R.scan(evidence)
+        # still in use: a crossing waiting for review, an attempt not saved yet
+        reviewing = set(db.scalars(select(Crossing.clip_path).where(Crossing.needs_review, Crossing.clip_path.is_not(None))))
+        running = {str(i) for i in db.scalars(select(Attempt.id).where(Attempt.status == "running"))}
+        return items, R.plan(items, today=today(), keep_days=int(st["evidence_keep_days"]),
+                             max_bytes=int(float(st["evidence_max_gb"]) * GB), free_bytes=R.disk_free(evidence),
+                             min_free_bytes=int(float(st["evidence_min_free_gb"]) * GB),
+                             held_days=set(st["evidence_held_days"]), in_use_paths=reviewing, open_attempts=running)
+
+    def evidence_cleanup(db: Session, by: str) -> dict:
+        _, p = evidence_plan(db)
+        n, freed = R.apply(p, evidence)
+        out = {"deleted": n, "bytes": freed, "by_age": sum(1 for _, why in p.delete if why == "age"),
+               "by_space": sum(1 for _, why in p.delete if why == "space"), "over_limit": p.over_limit}
+        if n:   # audited: what went, and why
+            day = S.get_or_create_day(db, today(), rules)
+            S._audit(db, day, by, "evidence_cleanup", None, **out,
+                     items=[f"{i.key} ({why})" for i, why in p.delete[:200]])
+            db.commit()
+        _last_cleanup.update(out | {"at": S.utcnow().isoformat(timespec="seconds") + "Z"})
+        return out
+
+    _last_cleanup: dict = {}
+
+    @app.get("/api/storage/evidence")
+    def evidence_storage(db: Session = Depends(get_db)) -> dict:
+        """What the cameras' recordings take, per day, and what the next clean-up would remove."""
+        items, p = evidence_plan(db)
+        held = set(S.get_settings(db)["evidence_held_days"])
+        doomed = {i.key for i, _ in p.delete}
+        days = R.by_day(items)
+        for d, info in days.items():
+            info.update(day=d, held=d in held, today=d == today(),
+                        next_cleanup_bytes=sum(i.size for i in items if i.day == d and i.key in doomed))
+        return {"total_bytes": p.total_bytes, "free_bytes": p.free_bytes, "kept_bytes": p.held_bytes,
+                "next_cleanup": {"items": len(p.delete), "bytes": p.delete_bytes,
+                                 "by_age": sum(1 for _, why in p.delete if why == "age"),
+                                 "by_space": sum(1 for _, why in p.delete if why == "space")},
+                "over_limit": p.over_limit, "last_cleanup": _last_cleanup or None,
+                "days": sorted(days.values(), key=lambda d: d["day"], reverse=True)}
+
+    @app.post("/api/storage/evidence/cleanup", dependencies=[Depends(admin)])
+    def evidence_cleanup_now(db: Session = Depends(get_db)) -> dict:
+        """Apply the retention rules now (they also run by themselves every hour)."""
+        return evidence_cleanup(db, "admin")
+
+    every = float(os.environ.get("TESTPOINT_RETENTION_EVERY_S", "3600"))
+
+    def start_retention() -> asyncio.Task | None:
+        """The clean-up every hour (``TESTPOINT_RETENTION_EVERY_S``; 0 = only when asked)."""
+        if every <= 0:
+            return None
+
+        async def loop():
+            await asyncio.sleep(min(120.0, every))   # let the cameras start first
+            while True:
+                try:
+                    def once():
+                        db = SessionLocal()
+                        try:
+                            evidence_cleanup(db, "retention")
+                        finally:
+                            db.close()
+                    await run_in_threadpool(once)
+                except Exception as e:   # noqa: BLE001 - never stop the job; the next run tries again
+                    print(f"evidence clean-up failed: {e}")
+                await asyncio.sleep(every)
+        return asyncio.create_task(loop())
 
     # ---------------------------------------------------------------- web UI
     web = Path(web_dir or os.environ.get("TESTPOINT_WEB", "web/station"))

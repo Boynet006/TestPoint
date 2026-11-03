@@ -47,6 +47,7 @@ RUN pip install --no-deps . && rm -rf build src/*.egg-info \
  && python -m testpoint.api.faces --download /opt/testpoint/models/face
 COPY web/station ./web/station
 ENV TESTPOINT_DB=sqlite:////data/testpoint.db \
+    TESTPOINT_EVIDENCE=/data/evidence \
     TESTPOINT_WEB=/app/web/station \
     TESTPOINT_FACE_MODELS=/opt/testpoint/models/face \
     TESTPOINT_PORT=8000

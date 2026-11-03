@@ -425,6 +425,17 @@
   .grades td { font-size: 22px; font-weight: 700; }
   .grades .need { background: color-mix(in srgb, var(--go) 14%, transparent); color: var(--go); }
   .grades th small { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }
+  .evsum { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; margin: 10px 0 16px; }
+  .evsum > div { background: var(--bg2); border: 1px solid var(--line); padding: 10px 12px; }
+  .evsum b { display: block; font-family: var(--cond); font-size: 24px; color: var(--text); font-variant-numeric: tabular-nums; }
+  .evsum small { color: var(--muted); font-size: 13px; }
+  .evsum .warn b { color: var(--amber); } .evsum .bad b { color: var(--red, #d2353f); }
+  .evbar { height: 6px; background: var(--line); margin-top: 6px; } .evbar i { display: block; height: 100%; background: var(--amber); }
+  .evtable { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .evtable th, .evtable td { padding: 7px 8px; text-align: start; border-bottom: 1px solid var(--line); }
+  .evtable th { font-family: var(--cond); color: var(--muted); font-weight: 600; letter-spacing: .5px; text-transform: uppercase; font-size: 13px; }
+  .evtable td.n { text-align: end; } .evtable .gone { color: var(--amber); } .evtable .tag { color: var(--muted); font-size: 13px; }
+  .evtable input { width: 20px; height: 20px; accent-color: var(--amber); cursor: pointer; }
   .rtable { border-collapse: collapse; } .rtable th, .rtable td { padding: 4px; text-align: center; }
   .rtable input { width: 64px; padding: 6px; text-align: center; } .rtable .ages { white-space: nowrap; } .rtable .ages input { width: 46px; }
   .rtable input.invalid { border-color: var(--stop); }
@@ -1139,6 +1150,7 @@
       <div class="grp" data-t="nav_equipment"></div>
       <button type="button" data-p="ipcams" onclick="SetNav.show('ipcams')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="13" height="10" rx="2"/><path d="M16 11l5-3v8l-5-3"/></svg><span data-t="sec_ipcams"></span><i class="dot"></i></button>
       <button type="button" data-p="camera" onclick="SetNav.show('camera')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span data-t="sec_camera"></span><i class="dot"></i></button>
+      <button type="button" data-p="evidence" onclick="SetNav.show('evidence')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8" cy="12" r="2.2"/><path d="M13 10h5M13 14h3"/></svg><span data-t="sec_evidence"></span><i class="dot"></i></button>
       <button type="button" data-p="look" onclick="SetNav.show('look')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="8" cy="10" r="1.3"/><circle cx="12" cy="7.5" r="1.3"/><circle cx="16" cy="10" r="1.3"/><path d="M12 21c-1.5 0-2-1-1.5-2.2.6-1.4 2-1.8 3.5-1.8H17"/></svg><span data-t="sec_look"></span><i class="dot"></i></button>
       <div class="grp" data-t="nav_device"></div>
       <button type="button" data-p="screen" onclick="SetNav.show('screen')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="1"/><path d="M8 20h8M12 16v4"/></svg><span data-t="sec_screen"></span><i class="dot"></i></button>
@@ -1293,6 +1305,31 @@
       </div>
       <p class="msg warn hidden" id="bgPlacesWarn" data-t="cam_screen_warn"></p>
       <ul class="never"><li data-t="cam_n_files"></li><li data-t="cam_n_evidence"></li></ul>
+    </div>
+    <div class="card setpanel" data-p="evidence" data-scope="station">
+      <h2 data-t="sec_evidence"></h2>
+      <p class="hint" data-t="ev_hint"></p>
+      <div class="evsum" id="evSum"></div>
+      <div class="settings">
+        <label for="setEvKeep" data-t="ev_keep"></label>
+        <select id="setEvKeep"><option value="7" data-t="ev_d7"></option><option value="14" data-t="ev_d14"></option><option value="30" data-t="ev_d30"></option><option value="60" data-t="ev_d60"></option><option value="90" data-t="ev_d90"></option><option value="180" data-t="ev_d180"></option><option value="365" data-t="ev_d365"></option><option value="0" data-t="ev_forever"></option></select>
+        <span class="hint" data-t="ev_keep_hint"></span>
+        <label for="setEvMax" data-t="ev_max"></label>
+        <div class="pair"><input id="setEvMax" type="number" min="0" max="100000" step="1" inputmode="decimal" style="max-width:120px"><span class="kv">GB</span></div>
+        <span class="hint" data-t="ev_max_hint"></span>
+        <label for="setEvFree" data-t="ev_free"></label>
+        <div class="pair"><input id="setEvFree" type="number" min="0" max="10000" step="1" inputmode="decimal" style="max-width:120px"><span class="kv">GB</span></div>
+        <span class="hint" data-t="ev_free_hint"></span>
+      </div>
+      <input type="hidden" id="setEvHeld">
+      <h3 class="sec" data-t="ev_days"></h3>
+      <p class="hint" data-t="ev_days_hint"></p>
+      <div class="scroll" style="max-height:420px"><table class="evtable" id="evDays"></table></div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn amber" style="flex:0 0 auto" type="button" id="evClean" onclick="Evidence.clean()" data-t="ev_clean"></button>
+        <button class="btn ghost sm" style="flex:0 0 auto" type="button" onclick="Evidence.load()" data-t="fc_refresh"></button>
+      </div>
+      <div id="evMsg"></div>
     </div>
     <div class="card setpanel" data-p="look" data-scope="station">
       <h2 data-t="sec_look"></h2>
@@ -1670,6 +1707,14 @@ const I18N = {
     rg_date: "Date", rg_verdict: "Result", rg_delete: "Delete person",
     rg_deleted: "{name} deleted.",
     sec_camera: "Camera", cam_applies: "Use it on",
+    sec_evidence: "Recordings", ev_loading: "Measuring the recordings…", ev_hint: "The cameras record every attempt, rep, start and finish so they can be checked later. Recordings are deleted oldest first: when they are older than the period below, or when they need more space than allowed. Never deleted: today, days you keep, an attempt still running and a finish waiting for review. Every clean-up is in the audit log.",
+    ev_keep: "Keep recordings for", ev_keep_hint: "Days older than this are deleted. Allow time for appeals.", ev_d7: "7 days", ev_d14: "14 days", ev_d30: "30 days", ev_d60: "60 days", ev_d90: "90 days", ev_d180: "6 months", ev_d365: "1 year", ev_forever: "Until space runs out",
+    ev_max: "Space for recordings", ev_max_hint: "The oldest go when the recordings need more than this. 0 = no limit.", ev_free: "Always leave free on the disk", ev_free_hint: "The oldest go when the disk has less free than this, so the cameras never run out of room. 0 = no floor.",
+    ev_days: "Recordings by day", ev_days_hint: "Tick Keep for a day under appeal or investigation: nothing of it is deleted until you untick it (then Save).",
+    ev_day: "Day", ev_size: "Size", ev_items: "Recordings", ev_keep_day: "Keep", ev_today: "Today: kept", ev_held: "Kept", ev_goes: "Next clean-up: {b}", ev_none: "No recordings yet.",
+    ev_used: "recordings", ev_used_of: "of {max} allowed", ev_disk_free: "free on the disk", ev_protected: "kept (today, kept days, in use)", ev_next: "next clean-up: {n} recordings", ev_next_none: "nothing to clean up",
+    ev_clean: "Clean up now", ev_cleaned: "{n} recordings deleted, {b} freed.", ev_nothing: "Nothing to delete under the current rules.", ev_last: "Last clean-up: {n} recordings, {b}.",
+    ev_over: "Over the limit, but what is left is kept on purpose (today, kept days or in use). Free a kept day or raise the limit.", ev_save_first: "Save the changed settings first, then clean up.",
     cam_p_weigh: "Weigh-in desk", cam_p_weigh_d: "This device's camera at weigh-in.", cam_p_start: "Start line", cam_p_start_d: "The same camera at the start line.",
     cam_p_photo: "Face photo windows", cam_p_photo_d: "Enrol face, register a person.", cam_p_finish: "Finish line screen", cam_p_station: "Exercise station screen",
     cam_p_screen_d: "The live picture from the camera service, on screen only.",
@@ -2041,6 +2086,14 @@ const I18N = {
     rg_date: "التاريخ", rg_verdict: "النتيجة", rg_delete: "حذف الشخص",
     rg_deleted: "حُذف {name}.",
     sec_camera: "الكاميرا", cam_applies: "استخدمه في",
+    sec_evidence: "التسجيلات", ev_loading: "جارٍ قياس التسجيلات…", ev_hint: "تسجّل الكاميرات كل محاولة وتكرار وانطلاق ووصول لمراجعتها لاحقاً. تُحذف التسجيلات الأقدم أولاً: عندما تتجاوز المدة أدناه، أو عندما تحتاج مساحة أكبر من المسموح. لا يُحذف أبداً: اليوم، والأيام المحتفظ بها، والمحاولة الجارية، والوصول المنتظر للمراجعة. كل تنظيف مسجّل في سجل التدقيق.",
+    ev_keep: "الاحتفاظ بالتسجيلات لمدة", ev_keep_hint: "تُحذف الأيام الأقدم من ذلك. اترك وقتاً للتظلمات.", ev_d7: "7 أيام", ev_d14: "14 يوماً", ev_d30: "30 يوماً", ev_d60: "60 يوماً", ev_d90: "90 يوماً", ev_d180: "6 أشهر", ev_d365: "سنة", ev_forever: "حتى تنفد المساحة",
+    ev_max: "المساحة للتسجيلات", ev_max_hint: "تُحذف الأقدم عندما تحتاج التسجيلات أكثر من ذلك. 0 = بلا حد.", ev_free: "اترك دائماً مساحة حرة على القرص", ev_free_hint: "تُحذف الأقدم عندما تقل المساحة الحرة عن ذلك، حتى لا تنفد مساحة الكاميرات. 0 = بلا حد أدنى.",
+    ev_days: "التسجيلات حسب اليوم", ev_days_hint: "فعّل «احتفاظ» ليوم قيد التظلم أو التحقيق: لا يُحذف منه شيء حتى تلغيه (ثم احفظ).",
+    ev_day: "اليوم", ev_size: "الحجم", ev_items: "التسجيلات", ev_keep_day: "احتفاظ", ev_today: "اليوم: محفوظ", ev_held: "محفوظ", ev_goes: "التنظيف التالي: {b}", ev_none: "لا توجد تسجيلات بعد.",
+    ev_used: "تسجيلات", ev_used_of: "من {max} مسموح", ev_disk_free: "حرة على القرص", ev_protected: "محفوظة (اليوم، الأيام المحفوظة، قيد الاستخدام)", ev_next: "التنظيف التالي: {n} تسجيلاً", ev_next_none: "لا شيء للتنظيف",
+    ev_clean: "نظّف الآن", ev_cleaned: "حُذف {n} تسجيلاً، وتحررت {b}.", ev_nothing: "لا شيء للحذف حسب القواعد الحالية.", ev_last: "آخر تنظيف: {n} تسجيلاً، {b}.",
+    ev_over: "تجاوز الحد، لكن المتبقي محفوظ عمداً (اليوم أو أيام محفوظة أو قيد الاستخدام). ألغِ حفظ يوم أو ارفع الحد.", ev_save_first: "احفظ الإعدادات المعدّلة أولاً، ثم نظّف.",
     cam_p_weigh: "مكتب الوزن", cam_p_weigh_d: "كاميرا هذا الجهاز عند الوزن.", cam_p_start: "خط الانطلاق", cam_p_start_d: "الكاميرا نفسها عند خط الانطلاق.",
     cam_p_photo: "نوافذ صورة الوجه", cam_p_photo_d: "تسجيل الوجه، تسجيل شخص.", cam_p_finish: "شاشة خط الوصول", cam_p_station: "شاشة محطة التمارين",
     cam_p_screen_d: "الصورة المباشرة من خدمة الكاميرا، على الشاشة فقط.",
@@ -5177,17 +5230,65 @@ function applySiteName() {
   $("tagline").textContent = site || t("tagline");
   document.title = site ? `TestPoint · ${site}` : "TestPoint Station";
 }
+// ---- Settings > Recordings: the cameras' evidence, how long it is kept and how much space it may use
+// (src/testpoint/retention.py). The rules run every hour on the server; "Clean up now" runs them at once.
+const Evidence = {
+  st: null,
+  bytes(n) {
+    if (n == null) return "–";
+    const u = ["B", "KB", "MB", "GB", "TB"]; let i = 0; while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
+    return `${n >= 100 || i === 0 ? Math.round(n) : n.toFixed(1)} ${u[i]}`;
+  },
+  async load() {
+    if (!this.st) $("evSum").innerHTML = `<div><small>${t("ev_loading")}</small></div>`;
+    try { this.st = await api("GET", "/api/storage/evidence"); } catch (e) { msg("evMsg", "bad", err(e)); return; }
+    this.render();
+  },
+  held() { const v = $("setEvHeld").value; return new Set(v ? v.split(",") : []); },
+  hold(day, on) {
+    const h = this.held(); if (on) h.add(day); else h.delete(day);
+    $("setEvHeld").value = [...h].sort().join(","); SetNav.check(); this.render();
+  },
+  render() {
+    const st = this.st; if (!st || !$("evSum")) return;
+    const max = (parseFloat($("setEvMax").value) || 0) * 1024 ** 3, used = st.total_bytes, nx = st.next_cleanup;
+    const pct = max ? Math.min(100, used / max * 100) : 0;
+    $("evSum").innerHTML = `
+      <div class="${max && used > max ? "bad" : max && pct > 85 ? "warn" : ""}"><b>${this.bytes(used)}</b><small>${max ? t("ev_used_of", { max: this.bytes(max) }) : t("ev_used")}</small>${max ? `<div class="evbar"><i style="width:${pct.toFixed(1)}%"></i></div>` : ""}</div>
+      <div><b>${this.bytes(st.free_bytes)}</b><small>${t("ev_disk_free")}</small></div>
+      <div><b>${this.bytes(st.kept_bytes)}</b><small>${t("ev_protected")}</small></div>
+      <div class="${nx.items ? "warn" : ""}"><b>${nx.items ? this.bytes(nx.bytes) : "0"}</b><small>${nx.items ? t("ev_next", { n: nx.items }) : t("ev_next_none")}</small></div>`;
+    const held = this.held();
+    $("evDays").innerHTML = st.days.length ? `<thead><tr><th>${t("ev_day")}</th><th class="n">${t("ev_size")}</th><th class="n">${t("ev_items")}</th><th>${t("ev_keep_day")}</th><th></th></tr></thead><tbody>` +
+      st.days.map(d => `<tr><td>${esc(d.day)}</td><td class="n">${this.bytes(d.bytes)}</td><td class="n">${d.items}</td>
+        <td><input type="checkbox" ${held.has(d.day) ? "checked" : ""} ${d.today ? "disabled" : ""} onchange="Evidence.hold('${d.day}', this.checked)" aria-label="${esc(t("ev_keep_day"))} ${esc(d.day)}"></td>
+        <td class="${d.next_cleanup_bytes && !held.has(d.day) ? "gone" : "tag"}">${d.today ? t("ev_today") : held.has(d.day) ? t("ev_held") : d.next_cleanup_bytes ? t("ev_goes", { b: this.bytes(d.next_cleanup_bytes) }) : ""}</td></tr>`).join("") + "</tbody>"
+      : `<tbody><tr><td class="tag">${t("ev_none")}</td></tr></tbody>`;
+    if (st.over_limit) msg("evMsg", "warn", t("ev_over"));
+    else if (st.last_cleanup && st.last_cleanup.deleted) msg("evMsg", "ok", t("ev_last", { n: st.last_cleanup.deleted, b: this.bytes(st.last_cleanup.bytes) }));
+  },
+  async clean() {
+    if (Object.keys(SetNav.changed()).some(id => id.startsWith("setEv"))) { msg("evMsg", "warn", t("ev_save_first")); return; }
+    try {
+      const r = await api("POST", "/api/storage/evidence/cleanup");
+      await this.load();
+      msg("evMsg", "ok", r.deleted ? t("ev_cleaned", { n: r.deleted, b: this.bytes(r.bytes) }) : t("ev_nothing"));
+    } catch (e) { if (e.code === "admin_pin_required") PinDlg.open(() => this.clean()); else msg("evMsg", "bad", err(e)); }
+  },
+};
 const SET_FIELDS = {   // input id -> [setting, read, write]
   setAuto: ["auto_identify", v => v === "1", v => (v ? "1" : "0")], setBg: ["camera_background"], setMatch: ["face_match"], setFaceReq: ["face_required", v => v === "1", v => (v ? "1" : "0")],
   setWalk: ["walk_ins", v => v === "1", v => (v ? "1" : "0")], setGender: ["default_gender"], setUnit: ["default_unit"], setBib: ["bib_start", v => parseInt(v, 10)],
   setLanes: ["lanes", v => parseInt(v, 10), String],
-  setCountdown: ["start_countdown_s", v => parseInt(v, 10), String], setCancelWin: ["cancel_window_s", v => parseInt(v, 10), String], setFinishFace: ["finish_face_threshold", v => parseFloat(v) || 0, v => String(+v || 0)], setSite: ["site_name", v => v.trim()], setTuning: ["count_tuning", v => JSON.parse(v || "{}"), o => JSON.stringify(o || {})], setTroubleRun: ["trouble_run_cutoff_s", v => parseInt(v, 10) || 0, String], setBgPlaces: ["camera_bg_places", v => (v ? v.split(",") : []), a => (a || []).join(",")], setLang: ["default_language"], setTheme: ["theme"],
+  setCountdown: ["start_countdown_s", v => parseInt(v, 10), String], setCancelWin: ["cancel_window_s", v => parseInt(v, 10), String], setFinishFace: ["finish_face_threshold", v => parseFloat(v) || 0, v => String(+v || 0)], setSite: ["site_name", v => v.trim()], setEvKeep: ["evidence_keep_days", v => parseInt(v, 10), String],
+  setEvMax: ["evidence_max_gb", v => Math.max(0, parseFloat(v) || 0), v => String(+v || 0)], setEvFree: ["evidence_min_free_gb", v => Math.max(0, parseFloat(v) || 0), v => String(+v || 0)],
+  setEvHeld: ["evidence_held_days", v => (v ? v.split(",") : []), a => (a || []).slice().sort().join(",")], setTuning: ["count_tuning", v => JSON.parse(v || "{}"), o => JSON.stringify(o || {})], setTroubleRun: ["trouble_run_cutoff_s", v => parseInt(v, 10) || 0, String], setBgPlaces: ["camera_bg_places", v => (v ? v.split(",") : []), a => (a || []).join(",")], setLang: ["default_language"], setTheme: ["theme"],
 };
 function showSettings() {
   for (const [id, [k, , out]] of Object.entries(SET_FIELDS)) $(id).value = out ? out(setting(k)) : setting(k);
   const col = setting("backdrop_color"), preset = [...$("setBgColor").options].some(o => o.value === col);
   $("setBgColor").value = preset ? col : "custom"; $("setBgCustom").value = col;
-  bgColorPicked(); bgPreview(); bgRows(); themeCards(); bgPlacesShow(); tuningRows();
+  bgColorPicked(); bgPreview(); bgRows(); themeCards(); bgPlacesShow(); tuningRows(); Evidence.render();
   msg("setMsg"); showRules(); showPin(); SetNav.check();
   if (S.state) $("resetConfirm").placeholder = t("rd_type_date", { d: S.state.date });
 }
@@ -5277,6 +5378,7 @@ async function saveSettings() {
     if (S.settings.auto_identify !== before.auto_identify && S.settings.auto_identify !== autoId) toggleAuto();   // this device right away
     applySettings(false); showSettings();
     msg("setMsg", "ok", t("settings_saved") + (setting("lanes") !== lanes.length ? " " + t("lanes_wait") : "") + (S.settings.station_restarted ? " " + t("tn_restarted") : ""));
+    if (SetNav.cur === "evidence") Evidence.load();   // the next clean-up follows the new rules
   } catch (e) { msg("setMsg", "bad", err(e)); }
 }
 
@@ -5325,6 +5427,7 @@ const SetNav = {
   cur: null, timer: 0,
   show(key) {
     this.cur = document.querySelector(`#t-settings .setpanel[data-p="${key}"]`) ? key : "rules"; save("setPanel", this.cur);
+    if (this.cur === "evidence") Evidence.load();
     $("setSearch").value = ""; this.search(""); window.scrollTo(0, 0);
     document.querySelector(`#setNav button[data-p="${this.cur}"]`).scrollIntoView({ block: "nearest", inline: "nearest" });
   },

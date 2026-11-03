@@ -205,7 +205,7 @@ def test_bibs_are_assigned_automatically_when_asked(client):
 def test_station_settings_defaults_update_and_audit(client):
     assert ok(client.get("/api/settings")) == {
         "auto_identify": True, "camera_background": "off", "camera_bg_places": ["weigh", "start", "photo"], "backdrop_color": "#8a949e", "face_match": "normal", "face_required": False, "walk_ins": True,
-        "default_gender": "M", "default_unit": "combat", "bib_start": 1, "lanes": 3, "start_countdown_s": 3, "cancel_window_s": 120, "finish_face_threshold": 0.0, "site_name": "", "default_language": "en", "trouble_run_cutoff_s": 0, "count_tuning": {}, "theme": "night",
+        "default_gender": "M", "default_unit": "combat", "bib_start": 1, "lanes": 3, "start_countdown_s": 3, "cancel_window_s": 120, "finish_face_threshold": 0.0, "site_name": "", "default_language": "en", "trouble_run_cutoff_s": 0, "count_tuning": {}, "evidence_keep_days": 30, "evidence_max_gb": 0, "evidence_min_free_gb": 5, "evidence_held_days": [], "theme": "night",
         "admin_pin_set": False, "background_image": None}
     s = ok(client.put("/api/settings", json={"auto_identify": False, "bib_start": 500}))
     assert s["auto_identify"] is False and s["bib_start"] == 500 and s["default_gender"] == "M"
@@ -629,3 +629,29 @@ def test_station_video_player_commands_ride_on_the_engine_reply(client):
     assert cmd["seq"] == sent["seq"] > first["seq"] and cmd["action"] == "seek" and cmd["t"] == 4.0
     err(client.post("/api/stationcam/player", json={"action": "seek"}), 400, "bad_player")
     assert ok(client.get("/api/lanes?station=pushup"))["engine"]["player"]["duration"] == 12.0
+
+
+def test_evidence_retention_settings_storage_and_cleanup(monkeypatch, tmp_path):
+    import os
+    import time
+    monkeypatch.setenv("TESTPOINT_RETENTION_EVERY_S", "0")
+    real = models.create_engine
+    monkeypatch.setattr(models, "create_engine", lambda url, **kw: real(url, poolclass=StaticPool, **kw))
+    app = create_app(db_url="sqlite:///:memory:", tz="Asia/Dubai", web_dir="does-not-exist",
+                     today=lambda: "2026-10-20", evidence_dir=tmp_path)
+    for rel, age in (("2026-09-01/7/full.mp4", 49), ("2026-09-02/8/full.mp4", 48), ("2026-10-19/9/full.mp4", 1)):
+        f = tmp_path / rel
+        f.parent.mkdir(parents=True)
+        f.write_bytes(b"x" * 1000)
+        t = time.time() - age * 86400
+        os.utime(f, (t, t))
+    with TestClient(app) as c:
+        err(c.put("/api/settings", json={"evidence_held_days": ["1 Sept"]}), 422, "bad_input")
+        ok(c.put("/api/settings", json={"evidence_held_days": ["2026-09-02"], "evidence_min_free_gb": 0}))
+        st = ok(c.get("/api/storage/evidence"))
+        assert st["total_bytes"] == 3000 and st["next_cleanup"] == {"items": 1, "bytes": 1000, "by_age": 1, "by_space": 0}
+        assert [d["day"] for d in st["days"]] == ["2026-10-19", "2026-09-02", "2026-09-01"] and st["days"][1]["held"]
+        done = ok(c.post("/api/storage/evidence/cleanup"))
+        assert done["deleted"] == 1 and not (tmp_path / "2026-09-01").exists() and (tmp_path / "2026-09-02").exists()
+        with app.state.sessionmaker() as db:
+            assert db.query(models.AuditLog).filter_by(action="evidence_cleanup").count() == 1
