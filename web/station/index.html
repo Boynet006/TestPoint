@@ -605,6 +605,14 @@
   .npkeys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
   .npkeys .btn { font-size: 20px; padding: 8px 0; background: var(--bg2); border-color: var(--line); }
   .npkeys .btn:hover { border-color: var(--amber); }
+  .npkeys .btn.go { background: var(--go); color: var(--go-ink); border-color: var(--go); }   /* OK: always readable */
+  .npkeys .btn.go:disabled { opacity: 1; background: var(--bg2); color: var(--muted); border-color: var(--line); }
+  .datefield { display: flex; gap: 6px; align-items: stretch; position: relative; min-width: 0; }
+  .datefield input[type="text"] { flex: 1 1 auto; min-width: 0; font-variant-numeric: tabular-nums; }
+  .datefield input.bad { border-color: var(--stop); }
+  .datefield .datecal { flex: 0 0 auto; display: grid; place-items: center; padding: 0 10px; }
+  .datefield .datecal svg { width: 18px; height: 18px; }
+  .datefield .datenative { position: absolute; inset-inline-end: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; border: 0; padding: 0; }
   .tagbox { grid-template-columns: 1fr 210px; }
   .numpad .npdisp { padding: 4px 10px; } .numpad .npdisp span { font-size: 26px; } .numpad .npdisp span.ph { font-size: 17px; }
   .handtime { margin-top: 12px; border: 1px solid var(--line); background: color-mix(in srgb, var(--bg2) 60%, transparent); padding: 0 12px; }
@@ -1528,7 +1536,7 @@
         <label><input type="radio" name="resetKeep" value="0"><span><b data-t="rd_clear"></b><small data-t="rd_clear_d"></small></span></label>
       </div>
       <div class="row" style="gap:8px;flex-wrap:wrap">
-        <input id="resetConfirm" autocomplete="off" style="max-width:220px" oninput="$('resetGo').disabled = this.value.trim() !== (S.state ? S.state.date : '')">
+        <input id="resetConfirm" autocomplete="off" style="max-width:220px" oninput="$('resetGo').disabled = isoDate(this.value) !== (S.state ? S.state.date : '')">
         <button class="btn stop" style="flex:0 0 auto" id="resetGo" disabled onclick="resetDay()" data-t="rd_go"></button>
       </div>
       <div id="resetMsg"></div>
@@ -1716,7 +1724,7 @@ const I18N = {
     set_match: "Face match", match_normal: "Normal", match_strict: "Strict",
     set_match_hint: "Strict: fewer automatic matches, even less chance of a wrong one. Use when look-alikes (e.g. relatives) are tested together.",
     set_face_req: "Require face check-in", set_face_req_hint: "People with a face on file cannot be checked in at weigh-in by typing their bib or ID.",
-    fc_setup: "Finish line set-up", fc_setup_hint: "Colour key, line position, runners' direction.",
+    ph_date: "dd-mm-yyyy", pick_date: "Pick a date", fc_setup: "Finish line set-up", fc_setup_hint: "Colour key, line position, runners' direction.",
     set_fc_setup: "Finish line set-up on the finish screen", set_shown: "Shown", set_hidden: "Hidden",
     set_fc_setup_hint: "The fold-out with the colour key, the finish line position and the runners' direction. Hide it once they are set, so the test day screen stays simple.",
     set_walk: "Register walk-ins at the desk", set_walk_hint: "Off: only people on today's list (CSV or Advanced) can be tested.",
@@ -2113,7 +2121,7 @@ const I18N = {
     set_match: "مطابقة الوجه", match_normal: "عادية", match_strict: "صارمة",
     set_match_hint: "صارمة: مطابقات تلقائية أقل، واحتمال خطأ أقل. استخدمها عند اختبار أشخاص متشابهين (مثل الأقارب) معاً.",
     set_face_req: "إلزام التحقق بالوجه", set_face_req_hint: "من له وجه مسجل لا يمكن تسجيله عند الوزن بكتابة رقمه أو هويته.",
-    fc_setup: "إعداد خط النهاية", fc_setup_hint: "دليل الألوان، موضع الخط، اتجاه العدّائين.",
+    ph_date: "يوم-شهر-سنة", pick_date: "اختر تاريخاً", fc_setup: "إعداد خط النهاية", fc_setup_hint: "دليل الألوان، موضع الخط، اتجاه العدّائين.",
     set_fc_setup: "إعداد خط النهاية في شاشة النهاية", set_shown: "ظاهر", set_hidden: "مخفي",
     set_fc_setup_hint: "دليل الألوان وموضع خط النهاية واتجاه العدّائين. أخفِها بعد ضبطها لتبقى شاشة يوم الاختبار بسيطة.",
     set_walk: "تسجيل الحضور غير المدرجين", set_walk_hint: "إيقاف: فقط المدرجون في قائمة اليوم يمكن اختبارهم.",
@@ -2418,7 +2426,7 @@ const runElapsed = () => S.state && S.state.run_started_at ? (serverNow() - Date
 
 function render() {
   if (!S.state) return;
-  $("hdrDate").textContent = S.state.date;
+  $("hdrDate").textContent = fmtDate(S.state.date);
   if (mode === "advanced") renderAdvanced();
   else ({ weigh: renderWeigh, start: renderStart, finish: renderFinish, station: renderStation, results: () => {} })[role]();
 }
@@ -5014,7 +5022,48 @@ function showNeeds(entry) {
     if (r.needs) needsCard(entry, r.age, r.band, r.level, ["run", "pushup", "crunch"].map(x => [x, GRADES.map(g => r.needs[x][String(g)])]));
   }).catch(() => {});
 }
-const fmtDate = d => new Date(d + "T12:00:00").toLocaleDateString(lang === "ar" ? "ar-EG" : "en-GB", { day: "numeric", month: "short", year: "numeric" });
+// every date on screen reads dd-mm-yyyy (the app keeps yyyy-mm-dd underneath)
+const fmtDate = d => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d || ""); return m ? `${m[3]}-${m[2]}-${m[1]}` : (d || ""); };
+const isoDate = d => { const m = /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/.exec((d || "").trim()); return m ? `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}` : (d || "").trim(); };
+// ---- date boxes: dd-mm-yyyy on every screen, whatever the PC's language. Each stays a real date
+// input underneath (its value is yyyy-mm-dd, as before, so nothing that reads or sets it changes);
+// a text box beside it shows and takes dd-mm-yyyy, and the calendar button opens the browser's picker.
+function dateFields() {
+  const proto = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+  const real = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso), d = m && new Date(+m[1], m[2] - 1, +m[3]);
+    return !!d && d.getFullYear() === +m[1] && d.getMonth() === m[2] - 1 && d.getDate() === +m[3]; };
+  document.querySelectorAll('input[type="date"]').forEach(d => {
+    if (d.dataset.ddmm) return; d.dataset.ddmm = "1";
+    const box = document.createElement("span"); box.className = "datefield";
+    const txt = document.createElement("input");
+    Object.assign(txt, { type: "text", inputMode: "numeric", placeholder: t("ph_date"), autocomplete: "off", maxLength: 10, dir: "ltr" });
+    txt.dataset.tp = "ph_date";
+    const cal = document.createElement("button");
+    cal.type = "button"; cal.className = "btn ghost sm datecal"; cal.dataset.tl = "pick_date";
+    cal.title = t("pick_date"); cal.setAttribute("aria-label", t("pick_date"));
+    cal.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
+    d.replaceWith(box); box.append(txt, cal, d); d.classList.add("datenative"); d.tabIndex = -1;
+    Object.defineProperty(d, "value", {   // set from code (a person's record): the text box follows
+      configurable: true, get() { return proto.get.call(this); },
+      set(v) { proto.set.call(this, v); txt.value = fmtDate(proto.get.call(this)); txt.classList.remove("bad"); },
+    });
+    txt.value = fmtDate(d.value);
+    txt.addEventListener("input", () => {
+      let v = txt.value.replace(/\D/g, "").slice(0, 8);   // digits only; the dashes come by themselves
+      if (v.length > 4) v = `${v.slice(0, 2)}-${v.slice(2, 4)}-${v.slice(4)}`; else if (v.length > 2) v = `${v.slice(0, 2)}-${v.slice(2)}`;
+      txt.value = v;
+      const iso = v.length === 10 ? isoDate(v) : "", ok = !!iso && real(iso);
+      txt.classList.toggle("bad", v.length === 10 && !ok);
+      if (proto.get.call(d) === (ok ? iso : "")) return;
+      proto.set.call(d, ok ? iso : "");
+      d.dispatchEvent(new Event("input", { bubbles: true }));
+      d.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    cal.addEventListener("click", () => { try { d.showPicker(); } catch { d.focus(); } });
+    for (const ev of ["input", "change"]) d.addEventListener(ev, e => { if (e.isTrusted) { txt.value = fmtDate(proto.get.call(d)); txt.classList.remove("bad"); } });
+  });
+}
+dateFields();
 // What each grade needs, one row per test; the column this person must reach is marked.
 function gradeTable(rows, level) {
   const head = `<tr><th></th>${GRADES.map(g => `<th class="${g === level ? "need" : ""}">${g}%${g === level ? ` <small>${t("required")}</small>` : ""}</th>`).join("")}</tr>`;
@@ -5164,12 +5213,12 @@ const Register = {
     this.openId = id;
     const today = c.days.find(d => d.today), age = ageOf(c.dob);
     const ev = (d, k) => { const a = d.tests[k]; return a ? `${a.count} <small class="hint">${gradeTxt(a.grade)}</small>` : "—"; };
-    const days = c.days.map(d => `<tr><td>${esc(d.date)}${d.today ? ` <span class="pill info">${t("rg_today_h")}</span>` : ""}</td><td>${statusPill(d.status)}</td><td>${d.bmi ?? "—"}</td>`
+    const days = c.days.map(d => `<tr><td>${esc(fmtDate(d.date))}${d.today ? ` <span class="pill info">${t("rg_today_h")}</span>` : ""}</td><td>${statusPill(d.status)}</td><td>${d.bmi ?? "—"}</td>`
       + `<td class="t">${d.run_time_s == null ? "—" : `${fmt(d.run_time_s)} <small class="hint">${gradeTxt(d.run_grade)}</small>`}</td><td class="t">${ev(d, "pushup")}</td><td class="t">${ev(d, "crunch")}</td><td>${verdictPill(d.verdict)}</td></tr>`).join("");
     const photo = c.faces ? `<img src="/api/candidates/${c.id}/face.jpg?n=${c.faces}" alt="">` : `<div class="avatar">${initials(c)}</div>`;
     $("pdBody").innerHTML = `<div class="pd-head">${photo}<div><b style="font-size:20px">${esc(c.name)}</b>${c.name_ar ? `<div dir="rtl">${esc(c.name_ar)}</div>` : ""}</div>
       <dl><dt>ID</dt><dd>${esc(c.external_id)}</dd><dt>${t("lbl_gender")}</dt><dd>${c.gender ? t(c.gender === "M" ? "male" : "female") : "—"}</dd>
-      <dt>${t("lbl_dob")}</dt><dd>${esc(c.dob || "—")}${age != null ? ` (${age})` : ""}</dd><dt>${t("lbl_unit")}</dt><dd>${c.unit ? t("unit_" + c.unit) : "—"}</dd>
+      <dt>${t("lbl_dob")}</dt><dd>${esc(c.dob ? fmtDate(c.dob) : "—")}${age != null ? ` (${age})` : ""}</dd><dt>${t("lbl_unit")}</dt><dd>${c.unit ? t("unit_" + c.unit) : "—"}</dd>
       <dt>${t("rg_bib")}</dt><dd>${esc(c.bib ?? "—")}</dd><dt>${t("face")}</dt><dd>${c.faces}${c.faces >= 3 ? " ✓" : ""}</dd></dl></div>
       <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:12px">
         ${today ? `<span class="pill ok">${t("rg_on_list")}</span>` : `<button class="btn amber sm" style="flex:0 0 auto" onclick="Register.addToday([${c.id}])">${t("rg_add_today")}</button>`}
@@ -5651,7 +5700,7 @@ const Recs = {
     const sel = $("rcDay"), today = S.state && S.state.date;
     const list = this.days.map(d => d.day);
     if (today && !list.includes(today)) list.unshift(today);
-    sel.innerHTML = list.map(d => { const x = this.days.find(y => y.day === d); return `<option value="${d}">${d}${d === today ? " · " + t("rc_today") : ""}${x ? ` · ${Evidence.bytes(x.bytes)}` : ""}</option>`; }).join("");
+    sel.innerHTML = list.map(d => { const x = this.days.find(y => y.day === d); return `<option value="${d}">${fmtDate(d)}${d === today ? " · " + t("rc_today") : ""}${x ? ` · ${Evidence.bytes(x.bytes)}` : ""}</option>`; }).join("");
     const want = this.cur && list.includes(this.cur) ? this.cur : list[0];
     if (want) { sel.value = want; await this.day(want, force); }
   },
@@ -5762,8 +5811,8 @@ const Evidence = {
       <div class="${nx.items ? "warn" : ""}"><b>${nx.items ? this.bytes(nx.bytes) : "0"}</b><small>${nx.items ? t("ev_next", { n: nx.items }) : t("ev_next_none")}</small></div>`;
     const held = this.held();
     $("evDays").innerHTML = st.days.length ? `<thead><tr><th>${t("ev_day")}</th><th class="n">${t("ev_size")}</th><th class="n">${t("ev_items")}</th><th>${t("ev_keep_day")}</th><th></th></tr></thead><tbody>` +
-      st.days.map(d => `<tr><td><a href="#" onclick="event.preventDefault(); Recs.open('${d.day}')" title="${esc(t("rc_watch"))}">${esc(d.day)}</a></td><td class="n">${this.bytes(d.bytes)}</td><td class="n">${d.items}</td>
-        <td><input type="checkbox" ${held.has(d.day) ? "checked" : ""} ${d.today ? "disabled" : ""} onchange="Evidence.hold('${d.day}', this.checked)" aria-label="${esc(t("ev_keep_day"))} ${esc(d.day)}"></td>
+      st.days.map(d => `<tr><td><a href="#" onclick="event.preventDefault(); Recs.open('${d.day}')" title="${esc(t("rc_watch"))}">${esc(fmtDate(d.day))}</a></td><td class="n">${this.bytes(d.bytes)}</td><td class="n">${d.items}</td>
+        <td><input type="checkbox" ${held.has(d.day) ? "checked" : ""} ${d.today ? "disabled" : ""} onchange="Evidence.hold('${d.day}', this.checked)" aria-label="${esc(t("ev_keep_day"))} ${esc(fmtDate(d.day))}"></td>
         <td class="${d.next_cleanup_bytes && !held.has(d.day) ? "gone" : "tag"}">${d.today ? t("ev_today") : held.has(d.day) ? t("ev_held") : d.next_cleanup_bytes ? t("ev_goes", { b: this.bytes(d.next_cleanup_bytes) }) : ""}</td></tr>`).join("") + "</tbody>"
       : `<tbody><tr><td class="tag">${t("ev_none")}</td></tr></tbody>`;
     if (st.over_limit) msg("evMsg", "warn", t("ev_over"));
@@ -5792,7 +5841,7 @@ function showSettings() {
   $("setBgColor").value = preset ? col : "custom"; $("setBgCustom").value = col;
   bgColorPicked(); bgPreview(); bgRows(); themeCards(); bgPlacesShow(); camSourcesShow(); tuningRows(); Evidence.render();
   msg("setMsg"); showRules(); showPin(); SetNav.check();
-  if (S.state) $("resetConfirm").placeholder = t("rd_type_date", { d: S.state.date });
+  if (S.state) $("resetConfirm").placeholder = t("rd_type_date", { d: fmtDate(S.state.date) });
 }
 // The colour / picture controls appear under "Camera background" only when that choice needs them.
 function bgRows() {
@@ -6043,7 +6092,7 @@ function openSettings() {
 async function resetDay(stopRunning) {
   const keep = document.querySelector('input[name="resetKeep"]:checked').value === "1";
   try {
-    const r = await api("POST", "/api/day/reset", { confirm: $("resetConfirm").value.trim(), keep_list: keep, stop_running: !!stopRunning });
+    const r = await api("POST", "/api/day/reset", { confirm: isoDate($("resetConfirm").value), keep_list: keep, stop_running: !!stopRunning });
     $("resetConfirm").value = ""; $("resetGo").disabled = true;
     msg("resetMsg", "ok", t(keep ? "rd_done_keep" : "rd_done_clear", { p: r.people, a: r.attempts }));
     lanes.forEach((l, i) => Object.assign(l, newLane(i + 1))); refresh();
