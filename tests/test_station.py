@@ -310,3 +310,16 @@ def test_a_test_left_running_when_the_app_restarts_goes_on_or_ends(monkeypatch):
             else:
                 assert v["state"] == "idle" and a["id"] not in finished
                 assert c.post("/api/attempts", json={"entry_id": e, "event": "pushup", "lane": "S"}).status_code == 201   # free to test again
+
+
+def test_getting_into_a_start_position_while_choosing_chooses_that_test():
+    from testpoint.api.station import READY_HOLD_S
+    me = (7, "choose", None)
+    f = StationFlow(countdown_s=3.0)
+    f.observe(0.0, StationLook(True, me)); f.observe(0.25, StationLook(True, me))
+    assert f.state == "choose"
+    f.observe(1.0, StationLook(True, ready_ex="pushup"))
+    f.observe(1.0 + READY_HOLD_S, StationLook(True, ready_ex="pushup"))
+    assert f.state == "position" and f.event == "pushup"
+    f.observe(1.1 + READY_HOLD_S, StationLook(True, ready=True))      # still in position: the 3-2-1 at once
+    assert f.state == "countdown"
