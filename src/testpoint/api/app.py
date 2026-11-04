@@ -396,7 +396,7 @@ class StartObsIn(BaseModel):
     emb: str | None = Field(default=None, max_length=2000)
     """The face embedding (128 float32, base64) when a face was looked at in this frame."""
     quality: float | None = None
-    crop: str | None = Field(default=None, max_length=40000)
+    crop: str | None = Field(default=None, max_length=400_000)
     """The face picture (aligned crop, JPEG, base64) with the embedding: kept as a template when
     this person is started (see start_obs)."""
 
