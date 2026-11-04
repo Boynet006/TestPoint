@@ -93,8 +93,7 @@ class YuNetOrt:
         canvas[:h, :w] = img
         f = self._run(canvas)
         if len(f):
-            f[:, 0:14:2] = (f[:, 0:14:2] + x0) / scale
-            f[:, 1:14:2] = (f[:, 1:14:2] + y0) / scale
+            _place(f, x0, y0, scale)
             out.append(f)
 
     def detect(self, img: np.ndarray) -> np.ndarray:
@@ -114,14 +113,25 @@ class YuNetOrt:
                     f = []
                     self._view(tile, 0, 0, 1.0, f)
                     for a in f:
-                        a[:, 0:14:2] = (a[:, 0:14:2] + tx) / s2
-                        a[:, 1:14:2] = (a[:, 1:14:2] + ty) / s2
+                        _place(a, tx, ty, s2)
                         found.append(a)
         if not found:
             return np.zeros((0, 15), np.float32)
         f = np.concatenate(found)
         keep = cv2.dnn.NMSBoxes(f[:, :4].tolist(), f[:, 14].tolist(), SCORE, NMS)
         return f[np.array(keep, dtype=int).reshape(-1)] if len(keep) else np.zeros((0, 15), np.float32)
+
+
+X_COLS, Y_COLS, SIZE_COLS = [0, 4, 6, 8, 10, 12], [1, 5, 7, 9, 11, 13], [2, 3]
+
+
+def _place(f: np.ndarray, x0: float, y0: float, scale: float) -> None:
+    """Rows found in a tile or a scaled copy, back in the picture's own pixels: the box corner and the
+    landmarks move by the tile's origin, the box's width and height only scale (adding the tile's origin
+    to them made a 47-pixel face 721 pixels wide)."""
+    f[:, X_COLS] = (f[:, X_COLS] + x0) / scale
+    f[:, Y_COLS] = (f[:, Y_COLS] + y0) / scale
+    f[:, SIZE_COLS] = f[:, SIZE_COLS] / scale
 
 
 def _starts(n: int) -> list[int]:

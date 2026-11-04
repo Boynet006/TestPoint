@@ -194,7 +194,26 @@ class FaceEngine:
     """A crop this small (a head or body crop from a camera) is found faster on the CPU: 1.5 ms
     against 7.5 on the GPU for 200x200 (measured), where starting the GPU costs more than the work."""
 
+    RETRY_SCALES = (0.5, 0.35)
+    """No face found: look again in smaller copies. YuNet finds faces of about 30-40 px best; a soft
+    face of 70-100 px (a head crop from a camera at night, in infrared) is found only once halved."""
+
     def detect(self, img: np.ndarray) -> np.ndarray:
+        faces = self._detect_once(img)
+        if len(faces) or min(img.shape[:2]) < 120:
+            return faces
+        import cv2
+
+        for scale in self.RETRY_SCALES:
+            small = cv2.resize(img, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
+            faces = self._detect_once(small)
+            if len(faces):
+                faces = faces.copy()
+                faces[:, :14] /= scale        # back in this picture's pixels (box, size and landmarks)
+                return faces
+        return faces
+
+    def _detect_once(self, img: np.ndarray) -> np.ndarray:
         if self._gpu_det is not None and img.shape[0] * img.shape[1] > self.SMALL_PX:
             return self._gpu_det.detect(img)
         h, w = img.shape[:2]

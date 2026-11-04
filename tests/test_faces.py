@@ -293,3 +293,23 @@ def test_finish_face_match_from_settings():
     from testpoint.api import service as S
     assert S.finish_face_match(1, 0.4) == (0.4, S.FACE_MATCH["normal"][1])
     assert S.finish_face_match(30, 0.33)[0] == 0.33 and S.finish_face_match(30, 0.0) == S.FACE_MATCH["strict"]
+
+
+def test_a_face_missed_at_full_size_is_looked_for_in_smaller_copies():
+    """A soft face of 70-100 px (a camera's head crop at night) is found only in a halved copy; the
+    face comes back in the picture's own pixels."""
+    from testpoint.api.faces import FaceEngine
+
+    eng = FaceEngine.__new__(FaceEngine)
+    seen = []
+
+    def once(img):
+        seen.append(img.shape[1])
+        if img.shape[1] > 150:
+            return np.zeros((0, 15), np.float32)
+        return np.array([[10, 12, 40, 50] + [0] * 10 + [0.9]], np.float32)
+
+    eng._detect_once = once
+    faces = eng.detect(np.zeros((240, 240, 3), np.uint8))
+    assert seen == [240, 120] and faces[0, :4].tolist() == [20, 24, 80, 100]
+
