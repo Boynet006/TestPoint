@@ -3324,6 +3324,10 @@ const FaceTrack = {
       const fresh = Date.now() - this.at < 4000;
       this.drawing = true;
       drawBox(r.box, r.w, r.h, fresh ? this.label : "", fresh && this.ok);
+      // On sight: a face not recognised in the last moment is checked at once (a full check takes
+      // about 0.1 s), again every 0.3 s until it is; then the usual check every 1.5 s keeps it.
+      const named = this.ok && Date.now() - this.at < 2000;
+      if (!named && !idBusy && Date.now() - (this.asked || 0) >= 300 && autoReady()) { this.asked = Date.now(); identifyNow(true); }
     } catch { /* the next look */ }
     finally { this.drawing = false; this.busy = false; }
   },
@@ -3331,11 +3335,17 @@ const FaceTrack = {
 setInterval(() => FaceTrack.tick(), 100);
 
 let autoId = false, autoTimer = null, idBusy = false;
+// May the screen look for a face by itself now (Auto on, nobody being weighed, ...)?
+function autoReady() {
+  if (!autoId || mode !== "simple" || settingsOpen) return false;
+  if (role === "start") return !startingNow() && !StartCall.active();
+  if (role === "results") return !ResultsCard.isOpen();
+  return role === "weigh" && !wEntry && wSource !== "typed" && !enrolBusy && $("wNew").classList.contains("hidden");
+}
 function toggleAuto() { autoId = !autoId; $("autoBtn").textContent = autoId ? t("auto_on") : t("auto_off"); $("autoBtn").classList.toggle("on", autoId);
-  clearInterval(autoTimer); if (autoId) autoTimer = setInterval(() => { if (mode !== "simple" || settingsOpen) return;
-    if (role === "start") { if (!startingNow() && !StartCall.active()) identifyNow(true); return; }
+  clearInterval(autoTimer); if (autoId) autoTimer = setInterval(() => {
     if (role === "results") return;      // its own, faster loop (resultsLoop)
-    if (!wEntry && wSource !== "typed" && !enrolBusy && $("wNew").classList.contains("hidden") && role === "weigh") identifyNow(true); }, 1500); }
+    if (autoReady()) identifyNow(true); }, 1500); }
 async function identifyNow(quiet) {
   if (role === "start") return lineIdentify(quiet);
   if (role === "results") return resultsIdentify(quiet);
