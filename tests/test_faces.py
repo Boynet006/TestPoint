@@ -352,3 +352,29 @@ def test_each_test_day_uses_that_days_photos_and_checks_them_against_the_last_vi
         # today only today's photo counts for Bravo: the real Bravo is no longer matched to them
         r = c.post("/api/face/identify?station=weigh", content=b"face:B").json()
         assert r["entry"] is None or r["entry"]["id"] != i["12"]
+
+
+def test_photos_are_taken_again_later_the_same_day(client, monkeypatch):
+    """Morning, then the afternoon (or after dark): the light changed. After face_fresh_min the
+    desk is asked for new photos; then only the newest set counts, checked against the morning's."""
+    from datetime import timedelta
+
+    from testpoint.api import service as S
+
+    i = ids(client)
+    morning = S.utcnow()
+    client.post(f"/api/entries/{i['11']}/face", content=b"face:A:straight")
+    faces = lambda: next(e for e in client.get("/api/entries").json() if e["id"] == i["11"])["faces"]
+    assert faces() == 1
+    monkeypatch.setattr(S, "utcnow", lambda: morning + timedelta(hours=3))
+    assert faces() == 0                                                       # ask again
+    assert client.post("/api/face/identify?station=weigh", content=b"face:A").json()["entry"]["id"] == i["11"]
+    r = client.post(f"/api/entries/{i['11']}/face", content=b"face:A:straight:venue").json()
+    assert r["faces"] == 1 and r["last_visit"]["differs"] is False          # the same person as this morning
+    cid = client.get(f"/api/entries/{i['11']}").json()["candidate"]["id"]
+    assert len(client.get(f"/api/candidates/{cid}/faces").json()["faces"]) == 2   # the new one, and the morning's for the check
+    # someone else sitting for Bravo in the afternoon is flagged too
+    monkeypatch.setattr(S, "utcnow", lambda: morning)
+    client.post(f"/api/entries/{i['12']}/face", content=b"face:B")
+    monkeypatch.setattr(S, "utcnow", lambda: morning + timedelta(hours=3))
+    assert client.post(f"/api/entries/{i['12']}/face", content=b"face:C").json()["last_visit"]["differs"] is True

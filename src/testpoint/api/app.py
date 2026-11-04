@@ -623,7 +623,8 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
                 day: Day = Depends(get_day)) -> list[dict]:
         rows = S.list_entries(db, day, status)
         counts = dict(db.execute(select(FaceTemplate.candidate_id, func.count()).where(
-            FaceTemplate.day_id == day.id, FaceTemplate.source.not_in(S.LEARNT) | FaceTemplate.source.is_(None))
+            FaceTemplate.day_id == day.id, FaceTemplate.source.not_in(S.LEARNT) | FaceTemplate.source.is_(None),
+            FaceTemplate.created_at >= S.utcnow() - S.face_window(db))
             .group_by(FaceTemplate.candidate_id)).all())
         return [entry_out(e, day, counts.get(e.candidate_id, 0)) for e in rows]
 
@@ -1409,7 +1410,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
             return None
         keep_start_face(m, emb, quality, crop)
         e = db.get(Entry, m.candidate_id)
-        if e.status in (J.ACCEPTED, J.LINED_UP) and not S.face_count(db, e.candidate_id, day):
+        if e.status in (J.ACCEPTED, J.LINED_UP) and not S.face_count(db, e.candidate_id, day, fresh=False):
             return e.id, False, "no_photos_today"     # recognised by an earlier day's photos: back to the desk
         if e.status == J.LINED_UP:
             return e.id, True, None

@@ -1342,6 +1342,9 @@
         <label for="setFaceReq" data-t="set_face_req"></label>
         <select id="setFaceReq"><option value="0" data-t="off"></option><option value="1" data-t="on"></option></select>
         <span class="hint" data-t="set_face_req_hint"></span>
+        <label for="setFaceFresh" data-t="set_face_fresh"></label>
+        <select id="setFaceFresh"><option value="60" data-t="h_1"></option><option value="120" data-t="h_2"></option><option value="240" data-t="h_4"></option><option value="0" data-t="whole_day"></option></select>
+        <span class="hint" data-t="set_face_fresh_hint"></span>
       </div>
     </div>
     <div class="card setpanel" data-p="run" data-scope="station">
@@ -1839,7 +1842,7 @@ const I18N = {
     rules_hint: "Placeholder values until the official regulation arrives (docs/RULES.md).",
     s_expected: "expected", s_accepted: "accepted", s_rejected: "rejected at weigh-in", s_lined_up: "at the line", s_absent: "absent",
     s_running: "running", s_run_passed: "run passed", s_run_failed: "run failed", s_dnf: "DNF", s_complete: "complete",
-    e_not_on_todays_list: "Not on today's list", e_already_weighed: "Already weighed in today", weighed_next: "{name} is weighed in today ✓ · next: the run", e_not_weighed: "Not weighed in yet", e_no_photos_today: "No face photos from today: go back to the weigh-in desk for them", photos_today: "Today's face photos: look at the camera",
+    e_not_on_todays_list: "Not on today's list", e_already_weighed: "Already weighed in today", weighed_next: "{name} is weighed in today ✓ · next: the run", e_not_weighed: "Not weighed in yet", e_no_photos_today: "No face photos from today: go back to the weigh-in desk for them", photos_today: "New face photos: look at the camera",
     e_has_not_run: "Has not run yet", e_still_running: "Still running", e_rejected_at_weigh_in: "Rejected at weigh-in",
     e_missed_the_run: "Missed the run", e_run_not_passed: "Run not passed", e_run_not_finished: "Run not finished (DNF)",
     e_event_already_done: "Already done this exercise today", e_already_lined_up: "Already at the line",
@@ -1867,7 +1870,7 @@ const I18N = {
     guide_straight: "Look straight at the camera", guide_left: "Turn your head to your left", guide_right: "Turn your head to your right",
     guide_more_left: "A little more to your left", guide_more_right: "A little more to your right",
     guide_no_face: "Put your face in the oval", guide_one_face: "Only one person in front of the camera", guide_closer: "Come closer to the camera", face: "Face", no_face_short: "no face",
-    no_face: "no face today", enroll: "Enrol photo", removed: "Face removed.",
+    no_face: "new photos needed", enroll: "Enrol photo", removed: "Face removed.",
     e_no_face: "No face in the picture", e_multiple_faces: "More than one face: use a picture of one person", e_face_too_small: "Face too small: move closer",
     e_bad_image: "That file is not a picture", e_face_unavailable: "Face recognition is not available on this server", e_face_not_recognised: "Face not recognised",
     e_nobody_enrolled: "Nobody on today's list has a face enrolled yet", e_no_face_enrolled: "No face enrolled",
@@ -1885,7 +1888,7 @@ const I18N = {
     close_blocked: "{n} crossing(s) to review at the finish line first", open_finish: "Open the finish line",
     void_wave: "Void wave (admin)", sure_void: "Take this wave back? Press again", wave_voided: "Wave voided: {n} back to waiting.",
     clear_line: "Clear the line", sure_clear_line: "Everyone back to waiting? Press again", line_cleared: "Line cleared: {n} back to waiting.",
-    set_cancel_win: "Cancel a start without the PIN", min_2: "2 minutes", min_5: "5 minutes", min_10: "10 minutes", min_30: "30 minutes", until_first_finisher: "Until the first finisher",
+    set_face_fresh: "New face photos after", set_face_fresh_hint: "Photos older than this are taken again at the weigh-in (the light changes during the day), and pictures learnt at the cameras stop being used", h_1: "1 hour", h_2: "2 hours", h_4: "4 hours", whole_day: "The whole day", set_cancel_win: "Cancel a start without the PIN", min_2: "2 minutes", min_5: "5 minutes", min_10: "10 minutes", min_30: "30 minutes", until_first_finisher: "Until the first finisher",
     set_cancel_win_hint: "After this, Cancel start stays but needs the admin PIN. Once a runner of the wave finishes it cannot be cancelled.",
     start_cancelled: "Start cancelled. Runners are back at the line.", wrong_bib: "Wrong bib",
     unassigned: "Crossing moved back to the review queue; assign the right runner.", discard: "Discard", discarded: "Crossing discarded.",
@@ -2248,7 +2251,7 @@ const I18N = {
     rules_hint: "قيم مؤقتة حتى وصول اللائحة الرسمية.",
     s_expected: "متوقع", s_accepted: "مقبول", s_rejected: "مرفوض في الوزن", s_lined_up: "عند الخط", s_absent: "غائب",
     s_running: "يجري", s_run_passed: "اجتاز الجري", s_run_failed: "رسب في الجري", s_dnf: "لم يكمل", s_complete: "مكتمل",
-    e_not_on_todays_list: "غير موجود في قائمة اليوم", e_already_weighed: "تم وزنه اليوم", weighed_next: "{name} تم وزنه اليوم ✓ · التالي: الجري", e_not_weighed: "لم يُوزن بعد", e_no_photos_today: "لا صور وجه من اليوم: ارجع إلى طاولة الوزن لالتقاطها", photos_today: "صور الوجه لليوم: انظر إلى الكاميرا",
+    e_not_on_todays_list: "غير موجود في قائمة اليوم", e_already_weighed: "تم وزنه اليوم", weighed_next: "{name} تم وزنه اليوم ✓ · التالي: الجري", e_not_weighed: "لم يُوزن بعد", e_no_photos_today: "لا صور وجه من اليوم: ارجع إلى طاولة الوزن لالتقاطها", photos_today: "صور وجه جديدة: انظر إلى الكاميرا",
     e_has_not_run: "لم يجرِ بعد", e_still_running: "ما زال يجري", e_rejected_at_weigh_in: "مرفوض في الوزن",
     e_missed_the_run: "فاته الجري", e_run_not_passed: "لم يجتز الجري", e_run_not_finished: "لم يكمل الجري",
     e_event_already_done: "أدى هذا التمرين اليوم", e_already_lined_up: "موجود عند الخط",
@@ -2276,7 +2279,7 @@ const I18N = {
     guide_straight: "انظر إلى الكاميرا مباشرة", guide_left: "أدر رأسك إلى يسارك", guide_right: "أدر رأسك إلى يمينك",
     guide_more_left: "أكثر قليلاً إلى يسارك", guide_more_right: "أكثر قليلاً إلى يمينك",
     guide_no_face: "ضع وجهك داخل الإطار", guide_one_face: "شخص واحد فقط أمام الكاميرا", guide_closer: "اقترب من الكاميرا", face: "الوجه", no_face_short: "لا وجه",
-    no_face: "لا وجه اليوم", enroll: "تسجيل صورة", removed: "تم حذف الوجه.",
+    no_face: "يلزم صور جديدة", enroll: "تسجيل صورة", removed: "تم حذف الوجه.",
     e_no_face: "لا يوجد وجه في الصورة", e_multiple_faces: "أكثر من وجه: استخدم صورة لشخص واحد", e_face_too_small: "الوجه صغير جداً: اقترب",
     e_bad_image: "الملف ليس صورة", e_face_unavailable: "التعرف على الوجه غير متاح على هذا الخادم", e_face_not_recognised: "لم يتم التعرف على الوجه",
     e_nobody_enrolled: "لا أحد في قائمة اليوم لديه وجه مسجل بعد", e_no_face_enrolled: "لا يوجد وجه مسجل",
@@ -2294,7 +2297,7 @@ const I18N = {
     close_blocked: "{n} عبور للمراجعة عند خط النهاية أولاً", open_finish: "فتح خط النهاية",
     void_wave: "إلغاء الموجة (مسؤول)", sure_void: "إلغاء هذه الموجة؟ اضغط مرة أخرى", wave_voided: "أُلغيت الموجة: عاد {n} إلى الانتظار.",
     clear_line: "إخلاء الخط", sure_clear_line: "إعادة الجميع إلى الانتظار؟ اضغط مرة أخرى", line_cleared: "أُخلي الخط: عاد {n} إلى الانتظار.",
-    set_cancel_win: "إلغاء الانطلاق دون رمز", min_2: "دقيقتان", min_5: "5 دقائق", min_10: "10 دقائق", min_30: "30 دقيقة", until_first_finisher: "حتى وصول أول عدّاء",
+    set_face_fresh: "صور وجه جديدة بعد", set_face_fresh_hint: "الصور الأقدم من ذلك تُلتقط من جديد عند الوزن (الإضاءة تتغير خلال اليوم)، ويتوقف استخدام الصور المتعلَّمة من الكاميرات", h_1: "ساعة", h_2: "ساعتان", h_4: "4 ساعات", whole_day: "اليوم كله", set_cancel_win: "إلغاء الانطلاق دون رمز", min_2: "دقيقتان", min_5: "5 دقائق", min_10: "10 دقائق", min_30: "30 دقيقة", until_first_finisher: "حتى وصول أول عدّاء",
     set_cancel_win_hint: "بعدها يبقى زر الإلغاء لكنه يطلب رمز المسؤول. بعد وصول أي عدّاء من الموجة لا يمكن الإلغاء.",
     start_cancelled: "أُلغي الانطلاق. العداؤون عادوا إلى الخط.", wrong_bib: "رقم خاطئ",
     unassigned: "أُعيد العبور إلى قائمة المراجعة؛ عيّن العدّاء الصحيح.", discard: "حذف", discarded: "حُذف العبور.",
@@ -2592,8 +2595,8 @@ async function weighCheckin() {
     }
   }
 }
-// Fewer than 3 photos from today (a new test day: faces change, a beard, a haircut): the camera
-// capture, however they were checked in (typed in, or recognised by last time's photos). With
+// Fewer than 3 recent photos (a new test day, or hours later the same day: faces and light
+// change): the camera capture, however they were checked in (typed in, or recognised by last time's photos). With
 // the webcam it starts by itself; the start line refuses anyone without photos from today.
 let autoEnrolFor = null;
 function offerEnrol(e) {
@@ -5868,7 +5871,7 @@ const CamLive = {
 
 /* ============================== settings ============================== */
 // Station settings from the server (shared by every device); see service.SETTINGS.
-const SETTING_DEFAULTS = { auto_identify: true, camera_background: "off", camera_bg_places: ["weigh", "start", "photo"], backdrop_color: "#8a949e", background_image: null, face_match: "normal", face_required: false, walk_ins: true, default_gender: "M", default_unit: "combat",
+const SETTING_DEFAULTS = { auto_identify: true, camera_background: "off", camera_bg_places: ["weigh", "start", "photo"], backdrop_color: "#8a949e", background_image: null, face_match: "normal", face_required: false, face_fresh_min: 120, walk_ins: true, default_gender: "M", default_unit: "combat",
                            bib_start: 1, lanes: 3, start_countdown_s: 3, cancel_window_s: 120, finish_face_threshold: 0, site_name: "", default_language: "en", theme: "night", admin_pin_set: false };
 const setting = k => (S.settings && k in S.settings ? S.settings[k] : SETTING_DEFAULTS[k]);
 function applySettings(first) {
@@ -6165,7 +6168,7 @@ const Evidence = {
   },
 };
 const SET_FIELDS = {   // input id -> [setting, read, write]
-  setAuto: ["auto_identify", v => v === "1", v => (v ? "1" : "0")], setBg: ["camera_background"], setMatch: ["face_match"], setFaceReq: ["face_required", v => v === "1", v => (v ? "1" : "0")],
+  setAuto: ["auto_identify", v => v === "1", v => (v ? "1" : "0")], setBg: ["camera_background"], setMatch: ["face_match"], setFaceReq: ["face_required", v => v === "1", v => (v ? "1" : "0")], setFaceFresh: ["face_fresh_min", v => parseInt(v, 10), String],
   setChooseFirst: ["station_choose_first", v => v === "1", v => (v ? "1" : "0")], setFcSetup: ["finish_setup_shown", v => v === "1", v => (v ? "1" : "0")], setWalk: ["walk_ins", v => v === "1", v => (v ? "1" : "0")], setGender: ["default_gender"], setUnit: ["default_unit"], setBib: ["bib_start", v => parseInt(v, 10)],
   setLanes: ["lanes", v => parseInt(v, 10), String], setStopAfter: ["station_stop_after_s", v => parseInt(v, 10) || 0, String],
   setCountdown: ["start_countdown_s", v => parseInt(v, 10), String], setCancelWin: ["cancel_window_s", v => parseInt(v, 10), String], setFinishFace: ["finish_face_threshold", v => parseFloat(v) || 0, v => String(+v || 0)], setSite: ["site_name", v => v.trim()], setCamSrc: ["camera_sources", v => JSON.parse(v || "{}"), o => JSON.stringify(o || {})], setEvKeep: ["evidence_keep_days", v => parseInt(v, 10), String],
