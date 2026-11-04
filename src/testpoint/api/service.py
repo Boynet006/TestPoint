@@ -737,6 +737,10 @@ MAX_TEMPLATES = MAX_ENROL + MAX_ADAPT
 ADAPT_SCORE, ADAPT_LEAD, ADAPT_QUALITY, ADAPT_NEW = 0.60, 0.15, 0.6, 0.85
 """An adaptive template needs a match this sure (score, lead over the next person), a picture this
 good, and must differ from every template already kept (similarity below ADAPT_NEW)."""
+ADAPT_START_SCORE, ADAPT_START_QUALITY = 0.45, 0.4
+"""At the start line a lower score is enough: the runner was recognised over several looks and
+then confirmed it by raising the hand, in front of the examiner (the lead is still needed). And a
+poorer picture: the template is there to match the finish camera's pictures, which are as poor."""
 
 
 def _face(engine, data: bytes, require_single: bool):
@@ -817,11 +821,12 @@ def enroll_face(db: Session, day: Day, entry: Entry | None, data: bytes | list[b
     return face_count(db, cid)
 
 
-def adapt_template(db: Session, day: Day, entry: Entry, face, score: float, runner_up: float) -> bool:
+def adapt_template(db: Session, day: Day, entry: Entry, face, score: float, runner_up: float,
+                   min_score: float = ADAPT_SCORE, min_quality: float = ADAPT_QUALITY) -> bool:
     """A very sure match at a station camera adds the picture as a template (the venue's light,
     the camera's angle), when it shows the person differently from every template kept. Never
     from the finish line (a wrong runner there would be learnt); the oldest adaptive one gives way."""
-    if face.quality is None or face.quality < ADAPT_QUALITY or score < ADAPT_SCORE or score - max(runner_up, 0.0) < ADAPT_LEAD:
+    if face.quality is None or face.quality < min_quality or score < min_score or score - max(runner_up, 0.0) < ADAPT_LEAD:
         return False
     cid = entry.candidate_id
     kept = list(db.scalars(select(FaceTemplate).where(FaceTemplate.candidate_id == cid).order_by(FaceTemplate.created_at)))

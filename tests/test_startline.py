@@ -207,3 +207,46 @@ def test_the_examiner_starting_the_called_runner_shows_their_countdown_not_a_ref
         assert v["state"] == "started" and v["entry_id"] == e and v["go_at"]   # their 3-2-1, not "still running"
         for dt in (2.0, 4.0, 6.0, 9.0, 12.0, 20.0):                          # still in front of the camera after GO
             assert look(dt, emb=emb)["state"] in ("started", "idle")
+
+
+def test_a_runner_started_by_the_camera_leaves_their_start_line_face_as_a_template(monkeypatch):
+    """The finish camera sees faces like the start camera does (small, often infrared): the face
+    seen at the start, once the runner raised the hand and was started, is kept."""
+    import base64
+    from datetime import timedelta
+
+    from fastapi.testclient import TestClient
+    from sqlalchemy.pool import StaticPool
+    from test_faces import A, FakeEngine, vec
+
+    from testpoint.api import app as app_mod
+    from testpoint.api import models
+    from testpoint.api.app import create_app
+
+    real = models.create_engine
+    monkeypatch.setattr(models, "create_engine", lambda url, **kw: real(url, poolclass=StaticPool, **kw))
+    app = create_app(db_url="sqlite:///:memory:", web_dir="none", today=lambda: "2026-10-20", face_engine=lambda: FakeEngine())
+    t0 = models.utcnow()
+    clock = {"t": t0}
+    monkeypatch.setattr(app_mod.S, "utcnow", lambda: clock["t"])
+    venue = base64.b64encode(np.asarray(vec(77, 0.8, A), np.float32).tobytes()).decode()   # A, less alike
+    crop = base64.b64encode(b"\xff\xd8start").decode()
+    with TestClient(app) as c:
+        c.post("/api/entries/import", content=b"external_id,name,bib,gender,dob\nC-1,Alpha,11,M,2000-01-01\n")
+        e = c.get("/api/entries").json()[0]["id"]
+        cid = c.get(f"/api/entries/{e}").json()["candidate"]["id"]
+        c.post(f"/api/entries/{e}/face", content=b"face:A")
+        c.post(f"/api/entries/{e}/weigh-in", json={"weight_kg": 70, "height_cm": 175, "accept": True})
+
+        def look(dt, **kw):
+            clock["t"] = t0 + timedelta(seconds=dt)
+            return c.post("/api/engine/start/obs", json={"present": True, **kw}).json()
+
+        look(0.0, emb=venue, quality=0.5, crop=crop)               # infrared, small: still kept
+        assert look(0.25, emb=venue, quality=0.5, crop=crop)["state"] == "raise_hand"
+        assert len(c.get(f"/api/candidates/{cid}/faces").json()["faces"]) == 1    # not before the start
+        look(0.75, hand="right")
+        look(1.3, hand="right")
+        assert c.get(f"/api/entries/{e}").json()["status"] == "running"
+        faces = c.get(f"/api/candidates/{cid}/faces").json()["faces"]
+        assert len(faces) == 2

@@ -109,6 +109,8 @@ class Analyst:
                     f = self.faces.largest_face(frame[y0:y1, x0:x1])
                     obs["emb"] = base64.b64encode(np.asarray(f.embedding, np.float32).tobytes()).decode()
                     obs["quality"] = f.quality
+                    if f.crop_jpeg:
+                        obs["crop"] = base64.b64encode(f.crop_jpeg).decode()
                     fx, fy, fw, fh = f.box
                     draw["face"] = (x0 + fx, y0 + fy, x0 + fx + fw, y0 + fy + fh)
                 except FaceError:

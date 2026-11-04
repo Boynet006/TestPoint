@@ -20,6 +20,7 @@ from collections.abc import Iterator
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Annotated, Literal
 from zoneinfo import ZoneInfo
 
@@ -395,6 +396,9 @@ class StartObsIn(BaseModel):
     emb: str | None = Field(default=None, max_length=2000)
     """The face embedding (128 float32, base64) when a face was looked at in this frame."""
     quality: float | None = None
+    crop: str | None = Field(default=None, max_length=40000)
+    """The face picture (aligned crop, JPEG, base64) with the embedding: kept as a template when
+    this person is started (see start_obs)."""
 
 
 FRAME_STATION = re.compile(r"[a-z][a-z0-9_-]{0,23}")
@@ -1377,7 +1381,12 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
                 sl.reset(wall())
         return sl
 
-    def start_match(db: Session, day: Day, emb: np.ndarray) -> tuple[int, bool, str | None] | None:
+    # The best face the start camera saw of each recognised runner (embedding, quality, crop,
+    # score, runner-up): kept as a template once they are started (S.adapt_template).
+    _start_faces: dict[int, tuple] = {}
+
+    def start_match(db: Session, day: Day, emb: np.ndarray, quality: float | None = None,
+                    crop: bytes | None = None) -> tuple[int, bool, str | None] | None:
         gallery: dict[int, list[np.ndarray]] = {}
         for entry_id, t in db.execute(select(Entry.id, FaceTemplate.embedding).join(
                 FaceTemplate, FaceTemplate.candidate_id == Entry.candidate_id).where(Entry.day_id == day.id)).all():
@@ -1386,6 +1395,9 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         m = S.face_match(emb, gallery, threshold=threshold, margin=margin)
         if m.candidate_id is None:
             return None
+        seen = _start_faces.get(m.candidate_id)
+        if crop and (seen is None or m.score > seen[3]):
+            _start_faces[m.candidate_id] = (emb, quality, crop, m.score, m.runner_up)
         e = db.get(Entry, m.candidate_id)
         if e.status == J.LINED_UP:
             return e.id, True, None
@@ -1393,6 +1405,19 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
             return None     # just started (by the examiner too): leaving the line, nothing to refuse
         g = S.gate_for(e, day, "lineup")
         return e.id, g.ok, g.reason or None
+
+    def learn_start_face(db: Session, day: Day, e: Entry) -> None:
+        """The runner was recognised, raised the hand and was started: their face as the start
+        camera saw it becomes a template. The finish camera is the same kind of camera (often in
+        infrared, the face small): a desk photo alone matches it poorly, this one well."""
+        seen = _start_faces.pop(e.id, None)
+        if seen is None:
+            return
+        emb, quality, crop, score, runner_up = seen
+        face = SimpleNamespace(embedding=emb, quality=quality, crop_jpeg=crop, yaw=None)
+        if S.adapt_template(db, day, e, face, score, runner_up, min_score=S.ADAPT_START_SCORE,
+                            min_quality=S.ADAPT_START_QUALITY):
+            db.commit()
 
     def startline_out(db: Session, day: Day, sl: StartLine) -> dict:
         v = sl.view(wall())
@@ -1417,8 +1442,14 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
                 emb = np.frombuffer(base64.b64decode(body.emb, validate=True), np.float32)
             except ValueError:
                 raise S.ServiceError("bad_input", "emb: not base64", 422) from None
+            crop = None
+            if body.crop:
+                try:
+                    crop = base64.b64decode(body.crop, validate=True)
+                except ValueError:
+                    crop = None
             if emb.shape == (128,):
-                match = start_match(db, day, emb)
+                match = start_match(db, day, emb, body.quality, crop)
         for act, entry_id in sl.observe(now, Look(body.present, match, body.hand)):
             e = db.get(Entry, entry_id)
             try:
@@ -1426,6 +1457,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
                     S.line_up(db, day, e, by="face")
                 elif act == "start":
                     S.start_runner(db, day, S.rules_for(db, day, rules), e, countdown_s=round(sl.countdown_s), by="camera")
+                    learn_start_face(db, day, e)
                 elif act == "cancel" and e.status == J.RUNNING:
                     S.cancel_start(db, day, e)
             except S.ServiceError as err:          # the examiner did something else meanwhile
