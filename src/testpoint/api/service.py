@@ -1222,6 +1222,28 @@ def start_runner(db: Session, day: Day, rules: DayRules, entry: Entry, countdown
     return entry
 
 
+START_CROSS_MAX_S = 15.0
+"""A crossing of the start line later than this after GO is not the runner setting off."""
+
+
+def start_at_line(db: Session, day: Day, entry: Entry, at: datetime | None = None) -> Entry | None:
+    """The start camera saw the runner cross the start line after GO: their clock runs from that
+    moment instead of GO (and their cut-off moves with it). The finish is timed by a camera too,
+    with the same delay, so the run time is the camera's from line to line. Nothing changes once
+    they finished, before GO, or for a crossing too long after GO."""
+    at = at or utcnow()
+    go = entry.run_started_at
+    if entry.status != J.RUNNING or go is None or at < go or at - go > timedelta(seconds=START_CROSS_MAX_S):
+        return None
+    shift = at - go
+    entry.run_started_at = at
+    if entry.run_cutoff_at is not None:
+        entry.run_cutoff_at += shift
+    _audit(db, day, "start", "start_at_line", entry, go=go, at=at, after_go_s=round(shift.total_seconds(), 2))
+    db.commit()
+    return entry
+
+
 def cancel_start(db: Session, day: Day, entry: Entry, now: datetime | None = None, late: bool = False) -> Entry:
     """A start by mistake (wrong person, false start): back to the line, clock cleared.
 

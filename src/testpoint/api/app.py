@@ -402,6 +402,8 @@ class StartObsIn(BaseModel):
     quality: float | None = None
     over: bool = False
     """With a start line: the person at the mark has a foot over it."""
+    line: bool = False
+    """The camera has a start line (the clock then starts when the runner crosses it)."""
     crop: str | None = Field(default=None, max_length=400_000)
     """The face picture (aligned crop, JPEG, base64) with the embedding: kept as a template when
     this person is started (see start_obs)."""
@@ -1477,7 +1479,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
                 m = start_face_match(db, day, emb)     # more pictures while they wait at the line
                 if m.candidate_id == sl.entry_id:
                     keep_start_face(m, emb, body.quality, crop)
-        for act, entry_id in sl.observe(now, Look(body.present, match, body.hand, body.over)):
+        for act, entry_id in sl.observe(now, Look(body.present, match, body.hand, body.over, body.line)):
             e = db.get(Entry, entry_id)
             try:
                 if act == "line_up" and e.status != J.LINED_UP:
@@ -1487,6 +1489,11 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
                     learn_start_face(db, day, e)
                 elif act == "cancel" and e.status == J.RUNNING:
                     S.cancel_start(db, day, e)
+                elif act == "crossed":
+                    S.start_at_line(db, day, e)
+                elif act == "cross_missed":
+                    S._audit(db, day, "start", "start_line_not_seen", e, go=e.run_started_at)
+                    db.commit()
             except S.ServiceError as err:          # the examiner did something else meanwhile
                 db.rollback()
                 sl.reset(now)

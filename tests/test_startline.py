@@ -108,6 +108,28 @@ def test_over_the_start_line_before_go_is_a_false_start():
     assert s.observe(4.2, Look(True, None, None, over=True)) == [] and s.state == "started"
 
 
+def test_with_a_start_line_the_clock_starts_when_the_runner_crosses_it():
+    s = StartLine(countdown_s=0.0)
+    lk = lambda **kw: Look(True, line=True, **kw)
+    s.observe(0.0, lk(match=ME)); s.observe(0.25, lk(match=ME))
+    s.observe(0.5, lk(hand="right"))
+    assert s.observe(1.0, lk(hand="right")) == [("start", 7)]          # GO now
+    assert s.observe(1.3, lk()) == []                                   # still behind the line
+    assert s.observe(1.6, lk(over=True)) == [("crossed", 7)]            # the clock runs from here
+    assert s.observe(1.8, lk(over=True)) == []                          # once
+    # not seen crossing within CROSS_WAIT_S: the clock stays from GO
+    s = StartLine(countdown_s=0.0)
+    s.observe(0.0, lk(match=ME)); s.observe(0.25, lk(match=ME))
+    s.observe(0.5, lk(hand="right")); s.observe(1.0, lk(hand="right"))
+    acts = [a for t in range(2, 14) for a in s.observe(float(t), lk())]
+    assert acts == [("cross_missed", 7)]
+    # without a line, nothing is awaited
+    s = StartLine(countdown_s=0.0)
+    s.observe(0.0, Look(True, ME)); s.observe(0.25, Look(True, ME))
+    s.observe(0.5, Look(True, None, "right")); s.observe(1.0, Look(True, None, "right"))
+    assert s.observe(1.5, Look(True, over=True)) == [] and s.crossing is None
+
+
 def test_the_start_line_picks_the_runner_at_it():
     from testpoint.vision.gesture import near_line, over_line
 
@@ -119,6 +141,7 @@ def test_the_start_line_picks_the_runner_at_it():
 
     h = 1000
     assert near_line(standing(820), h, 0.85) and not over_line(standing(820), h, 0.85)   # just behind
+    assert type(over_line(standing(900), h, 0.85)) is bool       # sent as JSON by the camera
     assert over_line(standing(900), h, 0.85) and near_line(standing(900), h, 0.85)       # a foot over: still the runner
     assert not near_line(standing(500), h, 0.85)                                         # far back: someone waiting
     # running up the picture: behind is below the line
@@ -379,3 +402,40 @@ def test_the_start_line_sends_someone_without_todays_photos_back_to_the_desk(mon
             look(dt)
         look(10.0, emb=emb)
         assert look(10.25, emb=emb)["state"] == "raise_hand"
+
+
+def test_the_run_is_timed_from_the_start_line_crossing(monkeypatch):
+    import base64
+    from datetime import timedelta
+
+    from fastapi.testclient import TestClient
+    from sqlalchemy.pool import StaticPool
+    from test_faces import A, FakeEngine
+
+    from testpoint.api import app as app_mod
+    from testpoint.api import models
+    from testpoint.api.app import create_app
+
+    real = models.create_engine
+    monkeypatch.setattr(models, "create_engine", lambda url, **kw: real(url, poolclass=StaticPool, **kw))
+    app = create_app(db_url="sqlite:///:memory:", web_dir="none", today=lambda: "2026-10-20", face_engine=lambda: FakeEngine())
+    t0 = models.utcnow()
+    clock = {"t": t0}
+    monkeypatch.setattr(app_mod.S, "utcnow", lambda: clock["t"])
+    emb = base64.b64encode(np.asarray(A, np.float32).tobytes()).decode()
+    with TestClient(app) as c:
+        c.post("/api/entries/import", content=b"external_id,name,bib,gender,dob\nC-1,Alpha,11,M,2000-01-01\n")
+        e = c.get("/api/entries").json()[0]["id"]
+        c.post(f"/api/entries/{e}/face", content=b"face:A")
+        c.post(f"/api/entries/{e}/weigh-in", json={"weight_kg": 70, "height_cm": 175, "accept": True})
+
+        def look(dt, **kw):
+            clock["t"] = t0 + timedelta(seconds=dt)
+            return c.post("/api/engine/start/obs", json={"present": True, "line": True, **kw}).json()
+
+        look(0.0, emb=emb); look(0.25, emb=emb)
+        look(0.5, hand="right"); look(1.0, hand="right")              # GO (no countdown)
+        go = c.get(f"/api/entries/{e}").json()["run_started_at"]
+        look(1.4); look(2.2, over=True)                                # crosses 1.2 s after GO
+        started = c.get(f"/api/entries/{e}").json()["run_started_at"]
+        assert started > go and started.startswith((t0 + timedelta(seconds=2.2)).isoformat()[:21])

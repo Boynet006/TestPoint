@@ -61,13 +61,13 @@ class ObsPoster(threading.Thread):
                 if self._stop:
                     return
                 obs, self._obs = self._obs, None
-            req = urllib.request.Request(self.url, data=json.dumps(obs).encode(), method="POST",
-                                         headers={"Content-Type": "application/json"})
-            try:
+            try:       # one bad look must not end the thread: the camera would go quiet for good
+                req = urllib.request.Request(self.url, data=json.dumps(obs).encode(), method="POST",
+                                             headers={"Content-Type": "application/json"})
                 with urllib.request.urlopen(req, timeout=self.timeout_s, context=ssl_context(self.url)) as r:
                     self.last_reply = json.loads(r.read() or b"{}")
                 self.sent += 1
-            except (urllib.error.URLError, OSError, ValueError) as e:
+            except (urllib.error.URLError, OSError, ValueError, TypeError) as e:
                 if self.failed == 0 or self.failed % 50 == 0:
                     print(f"start cam: the app did not take an observation ({e})", flush=True)
                 self.failed += 1
@@ -102,7 +102,7 @@ class Analyst:
         if self.line is not None:
             people = [q for q in people if near_line(q, h, self.line, self.direction)]
         p = at_the_mark(people, h)
-        obs: dict = {"present": p is not None}
+        obs: dict = {"present": p is not None, "line": self.line is not None}
         if p is None:
             return {"obs": obs, "draw": draw}
         if self.line is not None:

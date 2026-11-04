@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TestPoint Station</title>
 <script>try { document.documentElement.dataset.theme = localStorage.getItem("tp.theme") || localStorage.getItem("tp.stationTheme") || "night"; } catch {}</script>
-<link href="fonts.css" rel="stylesheet"><!-- saved locally: the station works without the internet -->
+<link rel="icon" href="icon.png"><link href="fonts.css" rel="stylesheet"><!-- saved locally: the station works without the internet -->
 <style>
   :root {
     --bg: #10161d; --bg2: #161e27; --panel: #1b252f; --line: #2a3745;
@@ -939,15 +939,17 @@
         <canvas id="camBox"></canvas>
         <div class="viewer-empty" id="camEmpty" data-t="no_source"></div>
         <div class="viewer-tag" id="camTag"></div>
+        <div class="fcline hidden" id="slLine"></div>
       </div>
-      <details class="handtime fcsetup hidden" id="slSetupBox" style="margin-top:8px">
+      <details class="handtime fcsetup hidden" id="slSetupBox" style="margin-top:8px" ontoggle="save('slSetupOpen', this.open ? '1' : '0')">
         <summary><span data-t="sl_setup"></span><small data-t="sl_setup_hint"></small></summary>
+        <p class="hint camlegend"><span style="color:#ffc800">■</span> <span data-t="sl_box_mark"></span> &nbsp; <span style="color:#50dc50">■</span> <span data-t="sl_box_hand"></span> &nbsp; <span style="color:#f0f0f0">━</span> <span data-t="sl_box_line"></span></p>
         <div class="settings" style="margin-top:8px">
           <label for="slOn" data-t="sl_on"></label>
           <select id="slOn" onchange="StartLineCfg.changed()"><option value="0" data-t="off"></option><option value="1" data-t="on"></option></select>
           <span class="hint" data-t="sl_on_hint"></span>
           <label for="slLineY" data-t="sl_line"></label>
-          <input id="slLineY" type="range" min="5" max="95" step="1" onchange="StartLineCfg.changed()">
+          <input id="slLineY" type="range" min="5" max="95" step="1" oninput="StartLineCfg.preview()" onchange="StartLineCfg.changed()">
           <span class="hint" data-t="sl_line_hint"></span>
           <label for="slDir" data-t="sl_dir"></label>
           <select id="slDir" onchange="StartLineCfg.changed()"><option value="down" data-t="sl_dir_down"></option><option value="up" data-t="sl_dir_up"></option></select>
@@ -1677,7 +1679,7 @@ const I18N = {
     n_face_bib_disagree: "the bib read and the face disagree: the face looks like bib {bib}",
     call_timeout: "No hand raised: step onto the mark again",
     call_stepped_away: "The runner stepped away: step onto the mark again",
-    call_raise: "Raise a hand to start", call_behind_line: "Step back behind the line", call_false_start: "False start: over the line before GO. Step back behind the line", sl_setup: "Start line", sl_setup_hint: "a line on the floor the runner stands behind", sl_on: "Start line", sl_on_hint: "On: the runner must stand behind the line to start; over it before GO is a false start (the start is cancelled)", sl_line: "Line position", sl_line_hint: "The white line on the picture: put it on the floor where the runners' toes go. It turns red when someone is over it.", sl_dir: "Running direction", sl_dir_down: "Towards the camera (down the picture)", sl_dir_up: "Away from the camera (up the picture)", sl_dir_hint: "Which side of the line is the course",
+    call_raise: "Raise a hand to start", call_behind_line: "Step back behind the line", call_false_start: "False start: over the line before GO. Step back behind the line", sl_setup: "Start line set-up", sl_setup_hint: "Colour key, line position, runners' direction.", sl_box_mark: "the runner at the mark", sl_box_hand: "a hand raised", sl_box_line: "the start line (red while a foot is over it)", sl_on: "Start line", sl_on_hint: "On: the runner stands behind the line; their clock starts when they cross it after GO (not seen within 10 s: from GO). Over it before GO is a false start (the start is cancelled)", sl_line: "Line position", sl_line_hint: "The white line on the picture: put it on the floor where the runners' toes go. It turns red when someone is over it.", sl_dir: "Running direction", sl_dir_down: "Towards the camera (down the picture)", sl_dir_up: "Away from the camera (up the picture)", sl_dir_hint: "Which side of the line is the course",
     call_no_camera: "The start camera is not sending: check it below",
     call_step_up: "Step onto the mark and look at the camera",
     e_low_quality: "The photo is not good enough to recognise them by later (blurred, dark or too small): take another",
@@ -1798,7 +1800,7 @@ const I18N = {
     e_not_testing: "No test is running at this station", e_unknown_camera: "Unknown camera", e_unknown_setting: "Unknown setting", st_choose: "Choose your first test", st_choose_how: "Raise a hand: the circle follows it. Hold it on one test.", st_choose_left: "{n} s, then {ex}.",
     set_choose_first: "People choose their first test", set_choose_first_hint: "One mat: with both tests still to do, the person picks push-ups or crunches first with a raised hand (a circle follows it; held on one test 1.5 s), or by getting into its start position. Not with a test video. Off: push-ups first.",
     ph_date: "dd-mm-yyyy", pick_date: "Pick a date", fc_setup: "Finish line set-up", fc_setup_hint: "Colour key, line position, runners' direction.",
-    set_fc_setup: "Finish line set-up on the finish screen", set_shown: "Shown", set_hidden: "Hidden",
+    set_fc_setup: "Line set-up on the start and finish screens", set_shown: "Shown", set_hidden: "Hidden",
     set_fc_setup_hint: "The fold-out with the colour key, the finish line position and the runners' direction. Hide it once they are set, so the test day screen stays simple.",
     set_walk: "Register walk-ins at the desk", set_walk_hint: "Off: only people on today's list (CSV or Advanced) can be tested.",
     walk_ins_off: "Not on today's list. Registering at the desk is switched off: add them in Advanced.",
@@ -2086,7 +2088,7 @@ const I18N = {
     n_face_bib_disagree: "الرقم المقروء والوجه لا يتطابقان: الوجه يشبه الرقم {bib}",
     call_timeout: "لم تُرفع اليد: قف على العلامة مجدداً",
     call_stepped_away: "ابتعد العدّاء: قف على العلامة مجدداً",
-    call_raise: "ارفع يدك للبدء", call_behind_line: "ارجع خلف الخط", call_false_start: "بداية خاطئة: تجاوز الخط قبل الانطلاق. ارجع خلف الخط", sl_setup: "خط البداية", sl_setup_hint: "خط على الأرض يقف العدّاء خلفه", sl_on: "خط البداية", sl_on_hint: "مفعّل: يجب أن يقف العدّاء خلف الخط ليبدأ؛ تجاوزه قبل الانطلاق بداية خاطئة (تُلغى البداية)", sl_line: "موضع الخط", sl_line_hint: "الخط الأبيض على الصورة: ضعه على الأرض حيث تكون أصابع قدمي العدّاء. يصبح أحمر عند تجاوزه.", sl_dir: "اتجاه الجري", sl_dir_down: "نحو الكاميرا (إلى أسفل الصورة)", sl_dir_up: "بعيداً عن الكاميرا (إلى أعلى الصورة)", sl_dir_hint: "أي جانب من الخط هو المسار",
+    call_raise: "ارفع يدك للبدء", call_behind_line: "ارجع خلف الخط", call_false_start: "بداية خاطئة: تجاوز الخط قبل الانطلاق. ارجع خلف الخط", sl_setup: "إعداد خط البداية", sl_setup_hint: "دليل الألوان، موضع الخط، اتجاه العدّائين.", sl_box_mark: "العدّاء عند العلامة", sl_box_hand: "يد مرفوعة", sl_box_line: "خط البداية (أحمر عند تجاوز قدم له)", sl_on: "خط البداية", sl_on_hint: "مفعّل: يقف العدّاء خلف الخط؛ يبدأ وقته عند عبوره بعد الانطلاق (إن لم يُرَ خلال 10 ثوانٍ: من الانطلاق). تجاوزه قبل الانطلاق بداية خاطئة (تُلغى البداية)", sl_line: "موضع الخط", sl_line_hint: "الخط الأبيض على الصورة: ضعه على الأرض حيث تكون أصابع قدمي العدّاء. يصبح أحمر عند تجاوزه.", sl_dir: "اتجاه الجري", sl_dir_down: "نحو الكاميرا (إلى أسفل الصورة)", sl_dir_up: "بعيداً عن الكاميرا (إلى أعلى الصورة)", sl_dir_hint: "أي جانب من الخط هو المسار",
     call_no_camera: "كاميرا البداية لا ترسل: تحقق منها أدناه",
     call_step_up: "قف على العلامة وانظر إلى الكاميرا",
     e_low_quality: "?????? ??? ????? ?????? ???? ?????? (??? ????? ?? ????? ?? ?????): ????? ???? ????",
@@ -2207,7 +2209,7 @@ const I18N = {
     e_not_testing: "لا اختبار جارٍ في هذه المحطة", e_unknown_camera: "كاميرا غير معروفة", e_unknown_setting: "إعداد غير معروف", st_choose: "اختر اختبارك الأول", st_choose_how: "ارفع يدك: الدائرة تتبعها. أبقِها على اختبار واحد.", st_choose_left: "{n} ث، ثم {ex}.",
     set_choose_first: "يختار الشخص اختباره الأول", set_choose_first_hint: "بساط واحد: إذا بقي الاختباران، يختار الشخص الضغط أو البطن أولاً برفع يده (دائرة تتبعها؛ يبقيها على اختبار 1.5 ث)، أو باتخاذ وضعية بدايته. ليس مع فيديو تجريبي. إيقاف: الضغط أولاً.",
     ph_date: "يوم-شهر-سنة", pick_date: "اختر تاريخاً", fc_setup: "إعداد خط النهاية", fc_setup_hint: "دليل الألوان، موضع الخط، اتجاه العدّائين.",
-    set_fc_setup: "إعداد خط النهاية في شاشة النهاية", set_shown: "ظاهر", set_hidden: "مخفي",
+    set_fc_setup: "إعداد الخط في شاشتي البداية والنهاية", set_shown: "ظاهر", set_hidden: "مخفي",
     set_fc_setup_hint: "دليل الألوان وموضع خط النهاية واتجاه العدّائين. أخفِها بعد ضبطها لتبقى شاشة يوم الاختبار بسيطة.",
     set_walk: "تسجيل الحضور غير المدرجين", set_walk_hint: "إيقاف: فقط المدرجون في قائمة اليوم يمكن اختبارهم.",
     walk_ins_off: "غير موجود في قائمة اليوم. التسجيل عند المكتب متوقف: أضفه من القائمة المتقدمة.",
@@ -3005,6 +3007,8 @@ const StartCam = {
     else { msg(c.box, "warn", t("ip_not_running")); Cam.show(); }
   },
   buttons(st) {
+    this.st = st;
+    try { StartLineCfg.preview(); } catch { /* the page is still loading */ }
     const on = !!(st && st.running);
     $("ipCamGo").textContent = t(on ? "fc_restart" : "fc_start");
     $("ipCamStop").classList.toggle("hidden", !on);
@@ -3248,6 +3252,27 @@ function drawBox(box, w, h, label, ok) {
   g.fillText(label, ox + bx * s, Math.max(16, oy + box[1] * s - 6));
 }
 function clearBox() { const cv = $("camBox"); cv.getContext("2d").clearRect(0, 0, cv.width, cv.height); }
+// The camera picture's box takes the picture's own shape (16:9 for the IP cameras, 4:3 or 16:9 for a
+// webcam), so it fills the box with no bars above and below, as on the finish and station screens.
+// In "fit to the window" the box is at most the space the window leaves: as tall as the picture at
+// the full width, or that space when the picture would be taller (as the finish's picture).
+function fitViewer(force) {
+  const v = $("viewer"), el = Cam.el(), w = el.videoWidth || el.naturalWidth, h = el.videoHeight || el.naturalHeight;
+  const fit = document.body.classList.contains("fit"), on = !!(w && h) && $("camEmpty").classList.contains("hidden");
+  const key = on ? `${w}x${h} ${innerWidth}x${innerHeight} ${fit} ${role} ${mode}` : "";
+  if (key === v.dataset.fitKey && force !== true) return;
+  v.dataset.fitKey = key;
+  v.style.aspectRatio = v.style.height = v.style.flex = "";
+  if (!on) return;
+  if (!fit) { v.style.aspectRatio = `${w} / ${h}`; return; }
+  const room = v.clientHeight, full = v.clientWidth * h / w;   // the space left, as laid out now
+  if (full < room) { v.style.flex = "0 0 auto"; v.style.height = Math.round(full) + "px"; }
+}
+$("camVideo").addEventListener("loadedmetadata", fitViewer); $("camVideo").addEventListener("resize", fitViewer);
+$("camImg").addEventListener("load", fitViewer);
+addEventListener("resize", () => fitViewer(true));
+$("slSetupBox").addEventListener("toggle", () => fitViewer(true));   // the fold-out takes or gives back room
+setInterval(fitViewer, 500);     // a live stream's picture can change size without an event
 // The face box follows the face live, about 10 times a second: a quick look for the face only (no
 // recognition) on the server. Who it is comes from the last full check (every 1.5 s), shown for a
 // few seconds; a new face is boxed at once and named at the next check. Weigh-in, start line and
@@ -3875,9 +3900,24 @@ const StartLineCfg = {
   pref() { try { return JSON.parse(load("startLine", "{}")) || {}; } catch { return {}; } },
   show() {
     const p = this.pref(), box = $("slSetupBox");
-    box.classList.toggle("hidden", role !== "start" || !Cam.relayed());
+    box.classList.toggle("hidden", role !== "start" || !Cam.relayed() || setting("finish_setup_shown") === false);
+    if (!this.opened) { box.open = load("slSetupOpen", "1") === "1"; this.opened = true; }   // as this device left it
     $("slOn").value = p.on ? "1" : "0"; $("slLineY").value = Math.round((p.y ?? 0.85) * 100); $("slDir").value = p.dir || "down";
     $("slLineY").disabled = $("slDir").disabled = !p.on;
+    this.preview();
+  },
+  // While the slider moves, a dashed line shows where the start line will go; let go and the
+  // camera restarts with it, its white line moves there and the dashed one goes (as at the finish).
+  preview() {
+    const el = $("slLine"), img = $("camImg"), cfg = StartCam.st && StartCam.st.config;
+    const y = +$("slLineY").value, inUse = cfg && cfg.line_y != null && Math.round(cfg.line_y * 100) === y;
+    const show = role === "start" && Cam.relayed() && $("slOn").value === "1" && !!(StartCam.st && StartCam.st.running) && !inUse;
+    el.classList.toggle("hidden", !show);
+    if (!show) return;
+    // the picture is fitted inside the viewer (bars above and below): the line goes on the picture
+    const v = $("viewer"), vw = v.clientWidth, vh = v.clientHeight, iw = img.naturalWidth || 16, ih = img.naturalHeight || 9;
+    const s = Math.min(vw / iw, vh / ih), top = (vh - ih * s) / 2;
+    el.style.top = (top + ih * s * y / 100) + "px";
   },
   body() { const p = this.pref(); return p.on ? { line_y: p.y ?? 0.85, direction: p.dir || "down" } : {}; },
   changed() {
@@ -4018,6 +4058,10 @@ const FinishCam = {
     this.polled = Date.now();
     try { this.st = await api("GET", "/api/finishcam"); } catch { this.st = { available: false, running: false }; }
     if (this.st.available && !this.src) this.sources(false);
+    // opened with its IP camera not running (the PC just started): it starts by itself, with this
+    // screen's line, as the start line's does, unless the examiner stopped it here
+    if (!this.autoTried && role === "finish" && this.st.available && !this.st.running && !this.busy
+        && this.pref.kind === "url" && !load("fcStopped", "") && $("fcCamSel").value) { this.autoTried = true; this.start(); }
     this.render();
   },
   render() {
@@ -4063,6 +4107,7 @@ const FinishCam = {
     if (k === "url") ({ kind: k, source } = camChoice("fcCamSel", "fcUrlIn"));
     if (source === "") { msg("fcMsg", "bad", t("fc_pick_source")); return; }
     if (k !== "saved") Object.assign(this.pref, { [k]: source }); Object.assign(this.pref, { line: +$("fcLineY").value, dir: $("fcDir").value }); this.save();
+    save("fcStopped", "");
     this.busy = true; this.render();
     try {
       this.st = { available: true, ...(await api("POST", "/api/finishcam/start", { kind: k, source, line_y: $("fcLineY").value / 100, direction: $("fcDir").value, app_url: location.origin, loop: k === "video" && this.pref.loop !== false })) };
@@ -4071,6 +4116,7 @@ const FinishCam = {
     finally { this.busy = false; this.render(); }
   },
   async stop() {
+    save("fcStopped", "1");          // stopped here on purpose: not started again by itself
     this.busy = true; this.render();
     try { this.st = { available: true, ...(await api("POST", "/api/finishcam/stop")) }; msg("fcMsg", "ok", t("fc_stopped")); }
     catch (e) { msg("fcMsg", "bad", err(e)); }
@@ -4202,7 +4248,16 @@ const StationCam = {
     // first visit: open the card when no camera runs, so the examiner sees how to start one
     if (this.open === null) { this.open = !this.st.running; $("scCard").classList.toggle("hidden", !this.open); }
     this.autoRestart();
+    this.autoStart();
     this.render();
+  },
+  // Opened with its IP camera not running (the PC was just started, from the desktop icon): it
+  // starts by itself, as the start line's does, unless the examiner stopped it here.
+  autoStart() {
+    const st = this.st;
+    if (this.autoTried || role !== "station" || !st || !st.available || st.running || this.busy) return;
+    if (this.pref.kind !== "url" || load("scStopped", "") || !$("scCamSel").value) return;
+    this.autoTried = true; this.start();
   },
   // One mat: the engine follows the person checked in ("auto"); several: the exercise on this page.
   exercise() { return oneMat() ? "auto" : event; },
@@ -4257,6 +4312,7 @@ const StationCam = {
     }
     if (use.source === "" || use.source == null) { msg("scMsg", "bad", t("fc_pick_source")); return; }
     if (!auto) { Object.assign(this.pref, { [k]: source }, k === "video" ? { ["video_" + event]: source } : {}); this.save(); }
+    save("scStopped", "");
     this.busy = true; this.render();
     try {
       this.st = { available: true, ...(await api("POST", "/api/stationcam/start", { ...use, exercise: this.exercise(), lanes: lanes.length, dividers: this.dividers(), app_url: location.origin, loop: use.kind === "video" && this.pref.loop !== false })) };
@@ -4267,6 +4323,7 @@ const StationCam = {
     finally { this.busy = false; this.render(); }
   },
   async stop() {
+    save("scStopped", "1");          // stopped here on purpose: not started again by itself
     this.busy = true; this.render();
     try { this.st = { available: true, ...(await api("POST", "/api/stationcam/stop")) }; msg("scMsg", "ok", t("sc_stopped")); }
     catch (e) { msg("scMsg", "bad", err(e)); }

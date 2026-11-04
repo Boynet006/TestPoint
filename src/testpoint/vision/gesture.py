@@ -103,8 +103,9 @@ sits a little above the sole, and toes on the line are allowed."""
 
 
 def feet_y(p: Person, frame_h: int, min_conf: float = 0.3) -> float | None:
-    """How far down the picture the feet are (0 top, 1 bottom): the lower ankle."""
-    ys = [p.xy[i][1] for i in (L_ANKLE, R_ANKLE) if p.conf[i] >= min_conf]
+    """How far down the picture the feet are (0 top, 1 bottom): the lower ankle. A plain float
+    (it goes into the camera's JSON reports, where numpy numbers are refused)."""
+    ys = [float(p.xy[i][1]) for i in (L_ANKLE, R_ANKLE) if p.conf[i] >= min_conf]
     return max(ys) / frame_h if ys else None
 
 

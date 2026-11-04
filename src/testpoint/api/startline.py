@@ -6,6 +6,9 @@
       ├── cooldown ◄── started (GO shown) ◄── countdown (3-2-1, their clock runs from GO)
       └── refused (already ran, not weighed in, ...) for a few seconds
 
+With a start line on the camera, the clock runs from the moment the runner crosses it after GO
+(the start camera and the finish camera then time alike); not seen within CROSS_WAIT_S, it stays GO.
+
 The camera process (testpoint.startcam) sends what it sees a few times a second: whether
 someone stands at the mark, their face embedding, and which hand is raised. This module
 decides; ``observe`` returns the actions for the app to carry out on the database (line the
@@ -27,6 +30,7 @@ AWAY_COUNTDOWN_S = 1.5       # stepped away during the 3-2-1: the start is cance
 REFUSED_S = 4.0
 STARTED_S = 2.5              # "GO" stays on screen
 COOLDOWN_S = 8.0             # the runner just started is not recognised again meanwhile
+CROSS_WAIT_S = 10.0          # with a start line: the crossing that starts the clock, at most this long after GO
 STALE_S = 3.0                # no word from the camera this long: idle
 
 
@@ -39,6 +43,8 @@ class Look:
     hand: str | None = None   # "left" / "right" / "both" raised, or None
     over: bool = False
     """With a start line on the camera: a foot over it (they must stand behind it)."""
+    line: bool = False
+    """The camera has a start line: the clock starts when the runner crosses it after GO."""
 
 
 @dataclass
@@ -54,6 +60,9 @@ class StartLine:
     last_seen: float = 0.0
     last_look: float = 0.0
     over: bool = False
+    line: bool = False
+    crossing: tuple | None = None
+    """(entry id, GO, until): the runner whose crossing of the start line is awaited."""
     votes: deque = field(default_factory=lambda: deque(maxlen=VOTE_WINDOW))
     recent: dict = field(default_factory=dict)    # entry id -> ignored until
 
@@ -75,6 +84,11 @@ class StartLine:
         on the screen, and they are not recognised again (and refused, "still running") meanwhile."""
         self.recent[entry_id] = max(now, go_at) + COOLDOWN_S
         self._to("started", now, entry_id=entry_id, go_at=go_at, until=go_at + STARTED_S)
+        self._await_crossing(entry_id, go_at)
+
+    def _await_crossing(self, entry_id: int, go_at: float) -> None:
+        if self.line:
+            self.crossing = (entry_id, go_at, go_at + CROSS_WAIT_S)
 
     def tick(self, now: float) -> list[tuple[str, int]]:
         """Time passing without a new look (also called before each look)."""
@@ -86,6 +100,7 @@ class StartLine:
             self._to("idle", now)
         if self.state == "countdown" and self.go_at is not None and now >= self.go_at:
             self.recent[self.entry_id] = now + COOLDOWN_S
+            self._await_crossing(self.entry_id, self.go_at)
             self._to("started", now, until=self.go_at + STARTED_S)
         if self.state == "raise_hand" and now - self.since > RAISE_TIMEOUT_S:
             self._to("idle", now, reason="timeout")
@@ -97,6 +112,15 @@ class StartLine:
         acts = self.tick(now)
         self.last_look = now
         self.over = look.present and look.over
+        self.line = look.line
+        if self.crossing is not None:
+            entry_id, go_at, until = self.crossing
+            if now > until:
+                self.crossing = None
+                acts.append(("cross_missed", entry_id))     # the clock stays from GO
+            elif now >= go_at and look.present and look.over:
+                self.crossing = None
+                acts.append(("crossed", entry_id))          # their clock runs from now
         if look.present:
             self.last_seen = now
         self.recent = {k: v for k, v in self.recent.items() if v > now}
