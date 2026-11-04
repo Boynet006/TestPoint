@@ -3236,17 +3236,21 @@ function drawBox(box, w, h, label, ok) {
 function clearBox() { const cv = $("camBox"); cv.getContext("2d").clearRect(0, 0, cv.width, cv.height); }
 // The face box follows the face live, about 10 times a second: a quick look for the face only (no
 // recognition) on the server. Who it is comes from the last full check (every 1.5 s), shown for a
-// few seconds; a new face is boxed at once and named at the next check.
+// few seconds; a new face is boxed at once and named at the next check. Weigh-in, start line and
+// results, from this device's webcam or an IP camera's relayed picture (read from the picture on
+// screen, small); not where the camera service draws its own boxes on the picture (the start
+// line's camera, the finish, the station).
 const FaceTrack = {
   busy: false, drawing: false, label: "", ok: false, at: 0,
   named(label, ok) { this.label = label; this.ok = ok; this.at = Date.now(); },
   async tick() {
-    if (this.busy || !["weigh", "results"].includes(role) || mode !== "simple" || settingsOpen || enrolBusy || document.hidden) return;
-    const v = $("camVideo");
-    if (Cam.kind !== "webcam" || !Cam.stream || !v.videoWidth) return;
+    if (this.busy || !["weigh", "results", "start"].includes(role) || mode !== "simple" || settingsOpen || enrolBusy || document.hidden) return;
+    if (role === "start" && Cam.relayed()) return;           // the start camera boxes the face itself
+    const el = Cam.el(), w = el.videoWidth || el.naturalWidth;
+    if (!["webcam", "ipcam", "video"].includes(Cam.kind) || !w || (Cam.kind === "webcam" && !Cam.relayed() && !Cam.stream)) return;
     this.busy = true;
     try {
-      const r = await apiImage("/api/face/pose", await grabFrame(v, 480, 0.6));
+      const r = await apiImage("/api/face/pose", await grabFrame(el, 480, 0.6));
       if (enrolBusy) return;                              // the 3 poses draw their own guide
       if (!r.face) { clearBox(); return; }
       const fresh = Date.now() - this.at < 4000;
@@ -3321,8 +3325,8 @@ const POSE_HOLD = 3, POSE_TIMEOUT_MS = 12000;
 // The weigh-in desk and the enrol window in the list use the same code.
 const deskView = seq => ({ video: $("camVideo"), canvas: $("camBox"), alive: () => seq === wSeq });
 
-function grabFrame(video, maxW, quality) {
-  const w = video.videoWidth, h = video.videoHeight; if (!w || !h) throw { code: "no_frame" };
+function grabFrame(video, maxW, quality) {   // a <video>, or an <img> (a relayed camera's live picture)
+  const w = video.videoWidth || video.naturalWidth, h = video.videoHeight || video.naturalHeight; if (!w || !h) throw { code: "no_frame" };
   const s = Math.min(1, maxW / w), c = document.createElement("canvas"); c.width = Math.round(w * s); c.height = Math.round(h * s);
   c.getContext("2d").drawImage(video, 0, 0, c.width, c.height);
   return new Promise(r => c.toBlob(r, "image/jpeg", quality));
