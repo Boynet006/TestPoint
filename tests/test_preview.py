@@ -247,3 +247,12 @@ def test_the_station_video_cannot_go_back_while_a_test_is_counted(tmp_path):
     assert c.post("/api/player/station", json={"action": "step", "n": -1}).status_code == 409
     assert c.post("/api/player/station", json={"action": "seek", "t": 8.0}).status_code == 200    # forward is fine
     assert c.post("/api/player/station", json={"action": "pause"}).status_code == 200
+
+
+def test_a_page_can_ask_whether_its_stream_is_still_open():
+    from fastapi.testclient import TestClient
+
+    from testpoint.api.app import create_app
+
+    with TestClient(create_app("sqlite://")) as c:
+        assert c.get("/api/engine/stream-alive", params={"key": "123"}).json() == {"alive": False}

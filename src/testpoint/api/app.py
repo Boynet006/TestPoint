@@ -454,6 +454,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     # The engines' live pictures (src/testpoint/preview.py): newest JPEG per station.
     _last_frame: dict[str, tuple[float, bytes]] = {}
     _frame_waiters: dict[str, asyncio.Event] = {}   # wakes the open streams when a new picture comes
+    _streams: set[str] = set()                      # the live streams open now, by the key the page gave
     _watchers: dict[str, int] = {}                  # open live streams per camera: nobody watching, the camera sends 1 a second
     _frame_times: dict[str, deque] = {}             # arrival times of the latest pictures, for the picture rate
 
@@ -1081,6 +1082,12 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
                      "live": now - seen[0] <= FRAME_STALE_S, "player": player(st)}
                 for st, seen in _last_frame.items()}
 
+    @app.get("/api/engine/stream-alive")
+    def engine_stream_alive(key: str) -> dict:
+        """Is the page's live stream (by the key in its address) still open? An app restart ends every
+        stream while the picture on the page simply stays: the page asks, and opens a new one."""
+        return {"alive": key in _streams}
+
     @app.get("/api/engine/frame/{station}.jpg")
     def engine_frame_jpg(station: str) -> Response:
         """The station camera's latest annotated picture; 404 when no engine sent one lately."""
@@ -1097,13 +1104,18 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         if not FRAME_STATION.fullmatch(station):
             raise S.ServiceError("unknown_station", f"bad station name {station!r}", 400)
 
+        key = request.query_params.get("t")
+
         async def frames():
             _watchers[station] = _watchers.get(station, 0) + 1
+            if key:
+                _streams.add(key)
             try:
                 async for part in pictures():
                     yield part
             finally:
                 _watchers[station] = max(0, _watchers.get(station, 1) - 1)
+                _streams.discard(key)
 
         async def pictures():
             last = None

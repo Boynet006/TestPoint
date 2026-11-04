@@ -2860,7 +2860,9 @@ const StartCam = {
           Cam.kind === "webcam" ? Cam.use("webcam") : this.attach();
         }, 3000); };
         img.src = `/api/engine/stream/${c.station}?t=${Date.now()}`;
-        this.live = true; msg(c.box); Cam.show(); return;
+        this.live = true; msg(c.box); Cam.show();
+        this.keepAlive(img, c.station, mine);
+        return;
       }
       if (i % 5 === 4) {   // did the camera program stop (wrong address or password)?
         const st = await api("GET", c.api).catch(() => null);
@@ -2893,8 +2895,19 @@ const StartCam = {
     this.svcWebcam = false;
     api("POST", "/api/startcam/stop").catch(() => {});
   },
+  // The stream ends when the app restarts, but the last picture stays on the page: check every few
+  // seconds that it is still open, and open a new one when it is not (no refresh needed).
+  keepAlive(img, station, mine) {
+    clearInterval(this.alive);
+    this.alive = setInterval(async () => {
+      if (!(this.live && Cam.relayed() && role === mine) || document.hidden) return;
+      const key = new URL(img.src, location.href).searchParams.get("t");
+      const r = await api("GET", `/api/engine/stream-alive?key=${encodeURIComponent(key)}`).catch(() => null);
+      if (r && !r.alive && this.live) img.src = `/api/engine/stream/${station}?t=${Date.now()}`;
+    }, 3000);
+  },
   detach() {
-    clearTimeout(this.retry);
+    clearTimeout(this.retry); clearInterval(this.alive);
     if (!this.live) return;
     this.live = false;
     const img = $("camImg"); img.onerror = null; img.removeAttribute("src"); clearBox();
@@ -5713,8 +5726,12 @@ const CamLive = {
         this.misses = 0; box.classList.remove("hidden");
         // (re)start the stream when there is none, or it ended (the server ends it when the camera pauses)
         if (!this.streaming || this.streaming.ended) {
-          this.streaming = { el: tg.el, station: tg.station };
-          img.src = `/api/engine/stream/${tg.station}?t=${Date.now()}`; BgFx.refresh();
+          this.streaming = { el: tg.el, station: tg.station, key: String(Date.now()), at: Date.now() };
+          img.src = `/api/engine/stream/${tg.station}?t=${this.streaming.key}`; BgFx.refresh();
+        } else if (Date.now() - this.streaming.at > 3000 && Date.now() - (this.streaming.checked || 0) > 3000) {
+          // the app restarted: the stream is gone though the picture stays (see StartCam.keepAlive)
+          const s = this.streaming; s.checked = Date.now();
+          api("GET", `/api/engine/stream-alive?key=${s.key}`).then(a => { if (a && !a.alive) s.ended = true; }).catch(() => {});
         }
       } else {
         if (this.streaming) this.streaming.ended = true;

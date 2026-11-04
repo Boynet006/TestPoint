@@ -173,7 +173,7 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--source", required=True, help="webcam index, video file or rtsp:// address")
     p.add_argument("--app", required=True, help="station app address, e.g. http://127.0.0.1:8000")
     p.add_argument("--station", default=STATION, help="screen this camera shows on (default start)")
-    p.add_argument("--fps", type=float, default=10.0, help="pictures sent to the screen a second (default 10)")
+    p.add_argument("--fps", type=float, default=25.0, help="pictures sent to the screen a second, at most the camera's own rate (default 25)")
     p.add_argument("--analyse-fps", type=float, default=12.0, help="frames looked at a second (default 12)")
     p.add_argument("--max-width", type=int, default=1920, help="widest picture sent (default 1920)")
     p.add_argument("--device", default="auto", help="cuda, cpu or auto (default)")
