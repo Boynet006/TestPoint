@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from .keypoints import Person
+from .keypoints import L_ANKLE, R_ANKLE, Person
 
 NOSE, L_EYE, R_EYE, L_EAR, R_EAR = 0, 1, 2, 3, 4
 L_SHOULDER, R_SHOULDER, L_WRIST, R_WRIST = 5, 6, 9, 10
@@ -92,6 +92,38 @@ def head_box(p: Person, frame_w: int, frame_h: int) -> tuple[int, int, int, int]
     x0, y0 = int(max(0, cx - half)), int(max(0, cy - half * 1.1))
     x1, y1 = int(min(frame_w, cx + half)), int(min(frame_h, cy + half * 1.2))
     return (x0, y0, x1, y1) if x1 - x0 > 16 and y1 - y0 > 16 else None
+
+
+LINE_BAND = 0.25
+"""With a start line: how far behind it (share of the picture's height) the feet may be to stand
+at it; further back is someone waiting or walking past."""
+OVER_MARGIN = 0.015
+"""Feet this far past the line (share of the picture's height) are over it: the ankle keypoint
+sits a little above the sole, and toes on the line are allowed."""
+
+
+def feet_y(p: Person, frame_h: int, min_conf: float = 0.3) -> float | None:
+    """How far down the picture the feet are (0 top, 1 bottom): the lower ankle."""
+    ys = [p.xy[i][1] for i in (L_ANKLE, R_ANKLE) if p.conf[i] >= min_conf]
+    return max(ys) / frame_h if ys else None
+
+
+def over_line(p: Person, frame_h: int, line_y: float, direction: str = "down") -> bool:
+    """A foot past the start line, on the side the runners set off to."""
+    y = feet_y(p, frame_h)
+    if y is None:
+        return False
+    return y > line_y + OVER_MARGIN if direction == "down" else y < line_y - OVER_MARGIN
+
+
+def near_line(p: Person, frame_h: int, line_y: float, direction: str = "down") -> bool:
+    """Standing at the start line: the feet behind it, but not far behind (or just over it: a
+    false start is still the runner at the mark)."""
+    y = feet_y(p, frame_h)
+    if y is None:
+        return False
+    behind = line_y - y if direction == "down" else y - line_y
+    return -LINE_BAND / 2 <= behind <= LINE_BAND
 
 
 def at_the_mark(people: list[Person], frame_h: int, min_height: float = 0.25) -> Person | None:
