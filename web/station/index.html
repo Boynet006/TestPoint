@@ -870,6 +870,21 @@
   <div id="pdBody"></div>
   <div id="pdMsg"></div>
 </dialog>
+<dialog id="correctDlg" class="dlg" style="max-width:560px">
+  <div class="dlg-head"><h2 data-t="correct_title"></h2><span class="spacer"></span><button class="btn ghost sm" type="button" onclick="$('correctDlg').close()" data-t="enrol_cancel"></button></div>
+  <p class="hint" id="cWho"></p>
+  <form onsubmit="event.preventDefault(); CorrectDlg.save()">
+    <div class="field" style="margin-top:8px">
+      <label class="lbl"><span data-t="rc_run"></span><input id="cRun" autocomplete="off" inputmode="decimal" placeholder="m:ss.s"></label>
+      <label class="lbl"><span data-t="pushup"></span><input id="cPush" type="number" min="0" step="1"></label>
+      <label class="lbl"><span data-t="crunch"></span><input id="cCrunch" type="number" min="0" step="1"></label>
+    </div>
+    <label class="lbl" style="margin-top:8px"><span data-t="correct_reason"></span><input id="cReason" autocomplete="off" required></label>
+    <p class="hint" data-t="correct_hint"></p>
+    <div id="correctMsg"></div>
+    <div class="row" style="margin-top:8px"><button class="btn amber" type="submit" data-t="finish_save"></button></div>
+  </form>
+</dialog>
 <dialog id="editDlg" class="dlg" style="max-width:720px">
   <div class="dlg-head"><h2 data-t="edit_title"></h2><span class="spacer"></span><button class="btn ghost sm" type="button" onclick="EditDlg.close()" data-t="enrol_cancel"></button></div>
   <form onsubmit="event.preventDefault(); EditDlg.save()">
@@ -1641,7 +1656,7 @@ const I18N = {
     cs_one: "Keep at least one camera choice on each screen.", cs_na: "This screen cannot use this source",
     ipc_hint: "The IP cameras' addresses, saved on the station PC: rtsp://user:password@ip:554/Streaming/Channels/101. Screens never see the password; a camera screen whose IP camera box is left empty uses the address saved here. Type a dash (-) to remove one.",
     sec_ipcams: "Cameras", sec_cameras: "Cameras", sec_camera_bg: "Camera background", ipc_title: "IP camera addresses",
-    rc_run: "3.2 km run", today_col: "Today",
+    rc_run: "3.2 km run", today_col: "Today", correct: "Correct", correct_title: "Correct a result", correct_reason: "Reason (required)", correct_hint: "Change what is wrong: the grade and the result follow. The old and new values and the reason go in the audit log.", correct_bad_time: "The run time as m:ss (for example 15:42.5)", corrected: "{name}: result corrected",
     rc_pending: "to do",
     rc_pending_all: "NOT FINISHED YET",
     rc_fail: "FAIL",
@@ -2050,7 +2065,7 @@ const I18N = {
     cs_one: "أبقِ خياراً واحداً للكاميرا على الأقل في كل شاشة.", cs_na: "هذه الشاشة لا تستخدم هذا المصدر",
     ipc_hint: "عناوين كاميرات IP محفوظة على جهاز المحطة: rtsp://user:password@ip:554/Streaming/Channels/101. لا تظهر كلمة المرور على أي شاشة؛ وإذا تُرك حقل كاميرا IP فارغاً تُستخدم العنوان المحفوظ هنا. اكتب (-) لحذف عنوان.",
     sec_ipcams: "الكاميرات", sec_cameras: "الكاميرات", sec_camera_bg: "خلفية الكاميرا", ipc_title: "عناوين كاميرات IP",
-    rc_run: "جري 3.2 كم", today_col: "اليوم",
+    rc_run: "جري 3.2 كم", today_col: "اليوم", correct: "تصحيح", correct_title: "تصحيح نتيجة", correct_reason: "السبب (مطلوب)", correct_hint: "غيّر ما هو خطأ: الدرجة والنتيجة تتبعان. القيم القديمة والجديدة والسبب تُسجّل في سجل التدقيق.", correct_bad_time: "زمن الجري بصيغة د:ث (مثلاً 15:42.5)", corrected: "{name}: صُحّحت النتيجة",
     rc_pending: "متبقٍ",
     rc_pending_all: "لم يكتمل بعد",
     rc_fail: "راسب",
@@ -5435,6 +5450,37 @@ function targetHtml(e, test) {
 }
 // ---- correct a candidate's details (admin PIN when set). A change to date of birth, gender or
 // unit after weigh-in re-scores every saved result on the server.
+// ---- correct a saved result: the run time, the push-ups or the crunches (a reason; the admin PIN)
+const CorrectDlg = {
+  e: null,
+  async open(id) {
+    const e = await api("GET", `/api/entries/${id}`).catch(() => null); if (!e) return;
+    this.e = e;
+    const ev = k => e.events[k] && e.events[k].status === "finished" ? e.events[k].count : null;
+    $("cWho").textContent = `${e.candidate.bib ?? ""} · ${cname(e.candidate)}`;
+    $("cRun").value = e.run_time_s != null ? fmt(e.run_time_s) : ""; $("cRun").disabled = e.run_time_s == null;
+    $("cPush").value = ev("pushup") ?? ""; $("cPush").disabled = ev("pushup") == null;
+    $("cCrunch").value = ev("crunch") ?? ""; $("cCrunch").disabled = ev("crunch") == null;
+    $("cReason").value = ""; msg("correctMsg"); $("correctDlg").showModal();
+  },
+  async save() {
+    const e = this.e, reason = $("cReason").value.trim(), todo = [];
+    const secs = s => { const m = /^(?:(\d+):)?(\d+(?:\.\d+)?)$/.exec(s.trim()); return m ? (+(m[1] || 0)) * 60 + +m[2] : NaN; };
+    if (e.run_time_s != null && $("cRun").value.trim() !== fmt(e.run_time_s)) {
+      const v = secs($("cRun").value); if (!(v > 0)) { msg("correctMsg", "bad", t("correct_bad_time")); return; }
+      todo.push({ test: "run", value: Math.round(v * 10) / 10 });
+    }
+    for (const [k, id] of [["pushup", "cPush"], ["crunch", "cCrunch"]]) {
+      const a = e.events[k]; if (!a || a.status !== "finished" || $(id).value === "") continue;
+      if (+$(id).value !== a.count) todo.push({ test: k, value: +$(id).value });
+    }
+    if (!todo.length) { $("correctDlg").close(); return; }
+    try {
+      for (const x of todo) await api("POST", `/api/entries/${e.id}/correct`, { ...x, reason });
+      $("correctDlg").close(); msg("aMsg", "ok", t("corrected", { name: cname(e.candidate) })); refresh();
+    } catch (x) { msg("correctMsg", "bad", err(x)); }
+  },
+};
 const EditDlg = {
   entry: null, person: null,
   async openPerson(id) {
@@ -5622,6 +5668,8 @@ function renderAdvanced() {
   };
   const actions = e => {
     const b = [`<button class="btn ghost sm" onclick="EditDlg.open(${e.id})">${t("edit")}</button>`];
+  if (e.run_time_s != null || Object.values(e.events || {}).some(a => a.status === "finished"))
+    b.push(`<button class="btn ghost sm" onclick="CorrectDlg.open(${e.id})">${t("correct")}</button>`);
     if (["accepted", "rejected"].includes(e.status)) b.push(`<button class="btn ghost sm" onclick="confirmClick('unweigh${e.id}', this, () => undoWeighIn(${e.id}))">${t("undo_weigh")}</button>`);
     // Nothing recorded yet: remove. With results: delete them too, after a second press.
     if (e.status === "expected" && !Object.keys(e.events).length) b.push(`<button class="btn ghost sm" onclick="confirmClick('remove${e.id}', this, () => removeEntry(${e.id}))">${t("remove")}</button>`);

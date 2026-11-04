@@ -146,6 +146,19 @@ def test_full_day(client, monkeypatch):
     assert ok(client.get(f"/api/entries/{ids[13]}"))["verdict"] == "fail"       # run below 60 %
     assert ok(client.get(f"/api/entries/{ids[12]}"))["verdict"] == "no_standard"
 
+    # an examiner corrects a saved result: a reason, regraded, the admin PIN when one is set
+    err(client.post(f"/api/entries/{ids[11]}/correct", json={"test": "crunch", "value": 40, "reason": " "}), 409, "override_reason_required")
+    e = ok(client.post(f"/api/entries/{ids[11]}/correct", json={"test": "crunch", "value": 80, "reason": "camera missed reps"}))
+    assert e["events"]["crunch"]["count"] == 80 and e["events"]["crunch"]["passed"] is True and e["verdict"] == "pass"
+    e = ok(client.post(f"/api/entries/{ids[11]}/correct", json={"test": "run", "value": 1200, "reason": "stopwatch"}))
+    assert e["run_time_s"] == 1200 and e["status"] == "complete" and e["run_grade"] < 60 and e["verdict"] == "fail"
+    err(client.post(f"/api/entries/{ids[15]}/correct", json={"test": "run", "value": 900, "reason": "x"}), 409, "no_result")
+    client.put("/api/settings/admin-pin", json={"pin": "2468"})
+    err(client.post(f"/api/entries/{ids[11]}/correct", json={"test": "run", "value": 852, "reason": "back"}), 403, "admin_pin_required")
+    assert client.post(f"/api/entries/{ids[11]}/correct", json={"test": "run", "value": 852, "reason": "back"},
+                       headers={"X-Admin-Pin": "2468"}).status_code == 200
+    client.put("/api/settings/admin-pin", json={"pin": ""}, headers={"X-Admin-Pin": "2468"})
+
     # a cancelled attempt can be retried
     att3 = ok(client.post("/api/attempts", json={"entry_id": ids[12], "event": "pushup"}), 201)
     assert client.post(f"/api/attempts/{att3['id']}/cancel").status_code == 204
