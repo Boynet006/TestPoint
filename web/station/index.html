@@ -3224,6 +3224,7 @@ async function apiImage(path, blob) {
 const mirrored = () => $("viewer").classList.contains("mirror");   // only this device's own webcam is shown as a mirror (not one through the camera service)
 function drawBox(box, w, h, label, ok) {
   CamLight.seen(box, w, h);
+  if (!FaceTrack.drawing) FaceTrack.named(label, ok);   // who it is, from the full check
   const cv = $("camBox"), vw = cv.clientWidth, vh = cv.clientHeight; cv.width = vw; cv.height = vh;
   const s = Math.min(vw / w, vh / h), ox = (vw - w * s) / 2, oy = (vh - h * s) / 2, g = cv.getContext("2d");
   const bx = mirrored() ? w - box[0] - box[2] : box[0];
@@ -3233,6 +3234,29 @@ function drawBox(box, w, h, label, ok) {
   g.fillText(label, ox + bx * s, Math.max(16, oy + box[1] * s - 6));
 }
 function clearBox() { const cv = $("camBox"); cv.getContext("2d").clearRect(0, 0, cv.width, cv.height); }
+// The face box follows the face live, about 10 times a second: a quick look for the face only (no
+// recognition) on the server. Who it is comes from the last full check (every 1.5 s), shown for a
+// few seconds; a new face is boxed at once and named at the next check.
+const FaceTrack = {
+  busy: false, drawing: false, label: "", ok: false, at: 0,
+  named(label, ok) { this.label = label; this.ok = ok; this.at = Date.now(); },
+  async tick() {
+    if (this.busy || !["weigh", "results"].includes(role) || mode !== "simple" || settingsOpen || enrolBusy || document.hidden) return;
+    const v = $("camVideo");
+    if (Cam.kind !== "webcam" || !Cam.stream || !v.videoWidth) return;
+    this.busy = true;
+    try {
+      const r = await apiImage("/api/face/pose", await grabFrame(v, 480, 0.6));
+      if (enrolBusy) return;                              // the 3 poses draw their own guide
+      if (!r.face) { clearBox(); return; }
+      const fresh = Date.now() - this.at < 4000;
+      this.drawing = true;
+      drawBox(r.box, r.w, r.h, fresh ? this.label : "", fresh && this.ok);
+    } catch { /* the next look */ }
+    finally { this.drawing = false; this.busy = false; }
+  },
+};
+setInterval(() => FaceTrack.tick(), 100);
 
 let autoId = false, autoTimer = null, idBusy = false;
 function toggleAuto() { autoId = !autoId; $("autoBtn").textContent = autoId ? t("auto_on") : t("auto_off"); $("autoBtn").classList.toggle("on", autoId);
