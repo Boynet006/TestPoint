@@ -486,6 +486,7 @@
   .grades td { font-size: 22px; font-weight: 700; }
   .grades .need { background: color-mix(in srgb, var(--go) 14%, transparent); color: var(--go); }
   .grades th small { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }
+  .grades .got { border-inline-start: 2px solid var(--line); color: var(--ink, inherit); white-space: nowrap; }
   .rcgrid { display: grid; grid-template-columns: minmax(220px, 300px) 1fr; gap: 16px; margin-top: 10px; }
   @media (max-width: 900px) { .rcgrid { grid-template-columns: 1fr; } }
   .rclist { max-height: 70vh; overflow: auto; border: 1px solid var(--line); background: var(--bg2); }
@@ -1625,7 +1626,7 @@ const I18N = {
     cs_one: "Keep at least one camera choice on each screen.", cs_na: "This screen cannot use this source",
     ipc_hint: "The IP cameras' addresses, saved on the station PC: rtsp://user:password@ip:554/Streaming/Channels/101. Screens never see the password; a camera screen whose IP camera box is left empty uses the address saved here. Type a dash (-) to remove one.",
     sec_ipcams: "Cameras", sec_cameras: "Cameras", sec_camera_bg: "Camera background", ipc_title: "IP camera addresses",
-    rc_run: "3.2 km run",
+    rc_run: "3.2 km run", today_col: "Today",
     rc_pending: "to do",
     rc_pending_all: "NOT FINISHED YET",
     rc_fail: "FAIL",
@@ -2034,7 +2035,7 @@ const I18N = {
     cs_one: "أبقِ خياراً واحداً للكاميرا على الأقل في كل شاشة.", cs_na: "هذه الشاشة لا تستخدم هذا المصدر",
     ipc_hint: "عناوين كاميرات IP محفوظة على جهاز المحطة: rtsp://user:password@ip:554/Streaming/Channels/101. لا تظهر كلمة المرور على أي شاشة؛ وإذا تُرك حقل كاميرا IP فارغاً تُستخدم العنوان المحفوظ هنا. اكتب (-) لحذف عنوان.",
     sec_ipcams: "الكاميرات", sec_cameras: "الكاميرات", sec_camera_bg: "خلفية الكاميرا", ipc_title: "عناوين كاميرات IP",
-    rc_run: "جري 3.2 كم",
+    rc_run: "جري 3.2 كم", today_col: "اليوم",
     rc_pending: "متبقٍ",
     rc_pending_all: "لم يكتمل بعد",
     rc_fail: "راسب",
@@ -2765,9 +2766,14 @@ const CamLight = {
     if (!change) return;
     if (this.exp) {
       // exposure time: in steps of about a third (the sensor's own light), from the camera's auto value
+      // Some webcams only take doublings (19.5, 39, 78 ... 2500): a smaller step snaps back to
+      // the same time, so when it did not move, the next try is a whole doubling.
       const now = Number(tr.getSettings().exposureTime) || this.exp.max / 8;
-      const v = Math.max(this.exp.min, Math.min(this.exp.max, now * (change > 0 ? 1.45 : 0.7)));
+      const stuck = this.lastTry && this.lastTry.from === now && this.lastTry.up === change > 0;
+      const k = change > 0 ? (stuck ? 2 : 1.45) : (stuck ? 0.5 : 0.7);
+      const v = Math.max(this.exp.min, Math.min(this.exp.max, now * k));
       if (Math.abs(v - now) < (this.exp.step || 1)) return;
+      this.lastTry = { from: now, up: change > 0 };
       tr.applyConstraints({ advanced: [{ exposureMode: "manual", exposureTime: v }] }).catch(() => {});
       $("camLight").value = this.level(v);
       return;
@@ -3244,13 +3250,13 @@ async function identifyNow(quiet) {
     if (!quiet) msg("wMsg", "warn", t("identifying"));
     const r = await apiImage("/api/face/identify?station=weigh", f.blob);
     if (seqAtStart !== wSeq || (quiet && wEntry)) { if (!quiet) msg("wMsg"); return; }   // someone else was checked in meanwhile
-    if (r.entry && r.entry.status === "complete") { ResultsCard.show(r.entry.id); return; }   // all done: their results
     if (r.entry) {
       if (wEntry && wEntry.id === r.entry.id) { if (!quiet) msg("wMsg"); return; }   // already weighing this person: no "Looking…" left behind
       newCheckin(); wSource = "face"; wLast = r.entry;
       drawBox(r.box, f.w, f.h, `${cname(r.entry.candidate)} ${r.score.toFixed(2)}`, true);
       $("wWho").innerHTML = whoHtml(r.entry); offerEnrol(r.entry);
       if (r.allowed) { msg("wMsg", "ok", t("recognised", { name: cname(r.entry.candidate), score: r.score.toFixed(2) })); startWeigh(r.entry); }
+      else if (r.entry.status === "complete") { msg("wMsg", "ok", `${cname(r.entry.candidate)}: ${t("st_all_done")}`); showNeeds(r.entry); }   // their results below
       else if (r.reason === "already_weighed") { msg("wMsg", "ok", t("weighed_next", { name: cname(r.entry.candidate) })); showNeeds(r.entry); }   // done here, not an error
       else { msg("wMsg", "bad", `${cname(r.entry.candidate)}: ${t("e_" + r.reason)}`); showNeeds(r.entry); }
     } else {
@@ -5368,19 +5374,26 @@ const EditDlg = {
 
 // ---- "What you need": the person's row of the pass table, at the desk where they can read it.
 let needsFor = null;
-function needsCard(entry, age, band, level, rows) {
+function needsCard(entry, age, band, level, rows, res) {
   needsFor = entry ? entry.id : null;
   // Name and age large; the date of birth next to the age so a wrong record is caught at the desk.
   const c = entry.candidate, unit = $("wUnit") && wEntry && wEntry.id === entry.id ? $("wUnit").value : c.unit;
   const dob = c.dob || ($("wDob") && $("wDob").value) || "";
   setHTML("wNeedsBody", `<div class="needs-who"><b>${esc(cname(c))}</b><span class="age">${t("age_n", { age })}</span><span class="spacer"></span><button class="btn ghost sm" onclick="EditDlg.open(${entry.id})">${t("edit_details")}</button></div>`
     + `<div class="needs-sub">${dob ? `${t("born")} ${esc(fmtDate(dob))} · ` : ""}${t("band_n", { band: band.replace("-", "–") })}${unit ? ` · ${t("unit_" + unit)}` : ""} · <b>${t("std_needs", { level })}</b></div>`
-    + gradeTable(rows, level) + `<p class="hint" style="margin:8px 0 0">${t("needs_note")}</p>`);
+    + gradeTable(rows, level, res) + `<p class="hint" style="margin:8px 0 0">${t("needs_note")}</p>`);
   $("wNeeds").classList.remove("hidden");
 }
 function showNeeds(entry) {
   const b = bandOf(entry);
-  if (b) { needsCard(entry, entry.standard.age, entry.standard.band, entry.standard.level, ["run", "pushup", "crunch"].map(x => [x, b[x === "run" ? "run_s" : x]])); return; }
+  if (b) {
+    const card = res => needsCard(entry, entry.standard.age, entry.standard.band, entry.standard.level, ["run", "pushup", "crunch"].map(x => [x, b[x === "run" ? "run_s" : x]]), res);
+    card(null);
+    // tested today (all or some): their results in the same table, beside what was needed
+    if (entry.run_time_s != null || RAN.includes(entry.status) || entry.status === "complete" || Object.keys(entry.events || {}).length)
+      api("GET", `/api/entries/${entry.id}/results`).then(r => { if (needsFor === entry.id) card(Object.fromEntries(r.tests.map(x => [x.test, x]))); }).catch(() => {});
+    return;
+  }
   if (entry.status !== "expected" || needsFor === entry.id) return;   // weighed without a table: nothing to show
   api("POST", `/api/entries/${entry.id}/standard`, { unit: entry.candidate.unit }).then(r => {
     if (r.needs) needsCard(entry, r.age, r.band, r.level, ["run", "pushup", "crunch"].map(x => [x, GRADES.map(g => r.needs[x][String(g)])]));
@@ -5433,10 +5446,17 @@ function dateFields() {
 }
 dateFields();
 // What each grade needs, one row per test; the column this person must reach is marked.
-function gradeTable(rows, level) {
-  const head = `<tr><th></th>${GRADES.map(g => `<th class="${g === level ? "need" : ""}">${g}%${g === level ? ` <small>${t("required")}</small>` : ""}</th>`).join("")}</tr>`;
+// ``res``: today's results by test (/api/entries/{id}/results), shown in a last column with a mark.
+function gradeTable(rows, level, res) {
+  const head = `<tr><th></th>${GRADES.map(g => `<th class="${g === level ? "need" : ""}">${g}%${g === level ? ` <small>${t("required")}</small>` : ""}</th>`).join("")}${res ? `<th>${t("today_col")}</th>` : ""}</tr>`;
+  const got = test => {
+    const x = res && res[test]; if (!x) return "";
+    const v = x.test === "run" ? (x.dnf ? "DNF" : x.value != null ? mmss(x.value) : "—") : (x.value ?? "—");
+    const mark = x.passed === true ? `<span style="color:var(--go)">✓</span>` : x.passed === false ? `<span style="color:var(--bad)">✗</span>` : "";
+    return `<td class="got">${esc(String(v))} ${mark}</td>`;
+  };
   const body = rows.map(([test, vals]) => `<tr><th>${t(test)} <small>${test === "run" ? "≤" : "≥"}</small></th>${vals.map((v, i) =>
-    `<td class="${GRADES[i] === level ? "need" : ""}">${test === "run" || test === "run_s" ? mmss0(v) : v}</td>`).join("")}</tr>`).join("");
+    `<td class="${GRADES[i] === level ? "need" : ""}">${test === "run" || test === "run_s" ? mmss0(v) : v}</td>`).join("")}${res ? got(test) : ""}</tr>`).join("");
   return `<table class="grades">${head}${body}</table>`;
 }
 const verdictPill = v => v ? `<span class="pill ${v === "pass" ? "ok" : v === "fail" ? "bad" : ""}">${t("v_" + v)}</span>` : "—";
