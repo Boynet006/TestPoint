@@ -53,13 +53,20 @@ def iso(dt: datetime | None) -> str | None:
     return None if dt is None else dt.isoformat(timespec="milliseconds") + "Z"
 
 
+def day_rules(day: Day | None) -> DayRules:
+    """The rules the day is scored by (fixed once it started), for the percentages."""
+    return DayRules.from_dict(json.loads(day.rules_json)) if day is not None and day.rules_json else DayRules()
+
+
 def entry_out(e: Entry, day: Day | None = None, faces: int | None = None) -> dict:
     c = e.candidate
+    pc = S.percents(e, day_rules(day))
     events = {}
     for a in e.attempts:
         if a.status in ("running", "finished"):
             events[a.event] = {"attempt_id": a.id, "status": a.status, "count": a.count,
-                               "rejected": a.rejected, "passed": a.passed, "grade": a.grade, "lane": a.lane}
+                               "rejected": a.rejected, "passed": a.passed, "grade": a.grade, "lane": a.lane,
+                               "percent": pc[a.event] if a.status == "finished" else None}
     out = {
         "id": e.id, "status": e.status,
         "candidate": {"id": c.id, "external_id": c.external_id, "name": c.name,
@@ -69,6 +76,7 @@ def entry_out(e: Entry, day: Day | None = None, faces: int | None = None) -> dic
         "standard": {"age": e.age, "band": e.band, "level": e.level},
         "run_started_at": iso(e.run_started_at),
         "run_grade": e.run_grade, "verdict": S.verdict(e),
+        "run_percent": pc["run"], "overall_percent": pc["overall"],
     }
     if faces is not None:
         out["faces"] = faces
@@ -896,7 +904,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     def entry_results(entry_id: int, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
         """The results card: each test, its grade against the required level, the verdict."""
         e = S.get_entry(db, day, entry_id)
-        return S.results_for(e) | {"entry": entry_out(e, day, S.face_count(db, e.candidate_id, day))}
+        return S.results_for(e, S.rules_for(db, day, rules)) | {"entry": entry_out(e, day, S.face_count(db, e.candidate_id, day))}
 
     @app.post("/api/entries/{entry_id}/standard")
     def standard(entry_id: int, body: StandardIn, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
@@ -1640,7 +1648,8 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         v["entry"] = ({"id": e.id, "bib": e.candidate.bib, "name": e.candidate.name, "name_ar": e.candidate.name_ar,
                        "faces": S.face_count(db, e.candidate_id, day), "done": sorted(S.done_events(e)), "status": e.status} if e else None)
         a = db.get(Attempt, v["attempt_id"]) if v["attempt_id"] else None
-        v["result"] = ({"count": a.count, "passed": a.passed, "grade": a.grade, "status": a.status} if a and a.status == "finished" else None)
+        v["result"] = ({"count": a.count, "passed": a.passed, "grade": a.grade, "status": a.status,
+                        "percent": S.percents(a.entry, S.rules_for(db, day, rules))[a.event]} if a and a.status == "finished" else None)
         seen = _last_report.get(S.EXERCISE_STATION)
         lane = seen[1].lanes.get(S.EXERCISE_LANE) if seen and clock() - seen[0] <= ENGINE_STALE_S else None
         v["live"] = ({"count": lane.count, "rejected": lane.rejected, "phase": lane.phase, "person": lane.person,

@@ -698,20 +698,43 @@ def verdict(entry: Entry) -> str | None:
     return "pass" if all(g is not None for g in grades) else "pending"
 
 
-def results_for(entry: Entry) -> dict:
-    """The day's results for the results card: each test with what was done, the grade reached
-    and whether it meets the person's required level, and the overall verdict."""
+def percents(entry: Entry, rules: DayRules) -> dict:
+    """The exact percentage of each test done (rules.percent) and the overall one: the average of
+    the three, once all three are done. Pass or fail stays each test at the required level."""
+    band = rules.find_band(entry.band)
+    out: dict = {"run": None, "pushup": None, "crunch": None, "overall": None}
+    if band is None:
+        return out
+    if entry.run_time_s is not None:
+        out["run"] = rules.percent("run", entry.run_time_s, band)
+    elif entry.status == J.DNF:
+        out["run"] = 0.0
+    for a in entry.attempts:
+        if a.status == "finished" and a.event in EVENTS and a.count is not None:
+            out[a.event] = rules.percent(a.event, a.count, band)
+    if all(out[t] is not None for t in ("run", *EVENTS)):
+        out["overall"] = round(sum(out[t] for t in ("run", *EVENTS)) / 3, 1)
+    return out
+
+
+def results_for(entry: Entry, rules: DayRules | None = None) -> dict:
+    """The day's results for the results card: each test with what was done, the grade reached,
+    its exact percentage and whether it meets the person's required level; the overall percentage
+    and verdict."""
     finished = {a.event: a for a in entry.attempts if a.status == "finished"}
     level = entry.level
-    tests = [{"test": "run", "value": entry.run_time_s, "grade": entry.run_grade,
+    pc = percents(entry, rules) if rules is not None else {}
+    tests = [{"test": "run", "value": entry.run_time_s, "grade": entry.run_grade, "percent": pc.get("run"),
               "passed": (entry.run_grade >= level) if entry.run_grade is not None and level else None,
               "dnf": entry.status == J.DNF and entry.run_time_s is None}]
     for ev in EVENTS:
         a = finished.get(ev)
         tests.append({"test": ev, "value": a.count if a else None, "grade": a.grade if a else None,
-                      "passed": a.passed if a else None, "dnf": False, "attempt_id": a.id if a else None})
+                      "percent": pc.get(ev), "passed": a.passed if a else None, "dnf": False,
+                      "attempt_id": a.id if a else None})
     return {"entry_id": entry.id, "status": entry.status, "verdict": verdict(entry), "level": level,
-            "band": entry.band, "age": entry.age, "complete": entry.status == J.COMPLETE, "tests": tests}
+            "band": entry.band, "age": entry.age, "complete": entry.status == J.COMPLETE, "tests": tests,
+            "overall_percent": pc.get("overall")}
 
 
 def done_events(entry: Entry) -> set[str]:

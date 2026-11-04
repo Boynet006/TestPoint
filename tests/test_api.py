@@ -146,6 +146,15 @@ def test_full_day(client, monkeypatch):
     assert ok(client.get(f"/api/entries/{ids[13]}"))["verdict"] == "fail"       # run below 60 %
     assert ok(client.get(f"/api/entries/{ids[12]}"))["verdict"] == "no_standard"
 
+    # exact percentages (age 27, band 23-30: push-ups 36/42/58, crunches 42/47/61, run 18:30/17:40/15:10)
+    e11 = ok(client.get(f"/api/entries/{ids[11]}"))
+    assert e11["events"]["pushup"]["percent"] == round(70 + 30 * (45 - 42) / (58 - 42), 1)   # 75.6
+    assert e11["events"]["crunch"]["percent"] == round(60 * 10 / 42, 1)               # below 60 %: in proportion
+    assert e11["run_percent"] == 100.0                                                # 14:12, under 15:10
+    assert e11["overall_percent"] == round((100.0 + 75.6 + 14.3) / 3, 1)
+    r = ok(client.get(f"/api/entries/{ids[11]}/results"))
+    assert r["overall_percent"] == e11["overall_percent"] and [t["percent"] for t in r["tests"]] == [100.0, 75.6, 14.3]
+
     # an examiner corrects a saved result: a reason, regraded, the admin PIN when one is set
     err(client.post(f"/api/entries/{ids[11]}/correct", json={"test": "crunch", "value": 40, "reason": " "}), 409, "override_reason_required")
     e = ok(client.post(f"/api/entries/{ids[11]}/correct", json={"test": "crunch", "value": 80, "reason": "camera missed reps"}))
