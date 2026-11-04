@@ -81,6 +81,50 @@ def test_stepping_away_during_the_countdown_cancels_the_start():
     assert s.observe(2.5, Look(False)) == [("cancel", 7)] and s.state == "idle"
 
 
+def test_a_hand_raised_over_the_start_line_does_not_start():
+    s = line()
+    s.observe(0.0, Look(True, ME))
+    s.observe(0.25, Look(True, ME))
+    assert s.observe(0.5, Look(True, None, "right", over=True)) == []
+    assert s.observe(1.2, Look(True, None, "right", over=True)) == [] and s.state == "raise_hand"
+    assert s.view(1.2)["over"] is True                               # the screen says: behind the line
+    s.observe(1.3, Look(True, None, "right"))                        # stepped back: the hand counts
+    assert s.observe(1.9, Look(True, None, "right")) == [("start", 7)]
+
+
+def test_over_the_start_line_before_go_is_a_false_start():
+    s = line()
+    s.observe(0.0, Look(True, ME))
+    s.observe(0.25, Look(True, ME))
+    s.observe(0.5, Look(True, None, "both"))
+    assert s.observe(1.0, Look(True, None, "both")) == [("start", 7)]   # GO at 4.0
+    assert s.observe(2.0, Look(True, None, None, over=True)) == [("cancel", 7)]
+    assert s.state == "idle" and s.reason == "false_start"
+    # over the line after GO is simply running
+    s = line()
+    s.observe(0.0, Look(True, ME)); s.observe(0.25, Look(True, ME))
+    s.observe(0.5, Look(True, None, "both")); s.observe(1.0, Look(True, None, "both"))
+    s.observe(2.5, Look(True)); s.observe(3.9, Look(True))
+    assert s.observe(4.2, Look(True, None, None, over=True)) == [] and s.state == "started"
+
+
+def test_the_start_line_picks_the_runner_at_it():
+    from testpoint.vision.gesture import near_line, over_line
+
+    def standing(feet_y):
+        xy = np.zeros((17, 2), np.float32)
+        xy[:, 1] = feet_y - 300
+        xy[15:17, 1] = feet_y
+        return Person(xy, np.full(17, 0.9, np.float32))
+
+    h = 1000
+    assert near_line(standing(820), h, 0.85) and not over_line(standing(820), h, 0.85)   # just behind
+    assert over_line(standing(900), h, 0.85) and near_line(standing(900), h, 0.85)       # a foot over: still the runner
+    assert not near_line(standing(500), h, 0.85)                                         # far back: someone waiting
+    # running up the picture: behind is below the line
+    assert near_line(standing(880), h, 0.85, "up") and over_line(standing(800), h, 0.85, "up")
+
+
 def test_the_camera_going_quiet_resets():
     s = line()
     s.observe(0.0, Look(True, ME))

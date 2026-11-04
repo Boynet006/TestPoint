@@ -207,6 +207,10 @@ class StartCamIn(BaseModel):
     source: str = Field(default="saved", min_length=1, max_length=500)
     app_url: str = Field(max_length=100)
     loop: bool = False
+    line_y: float | None = Field(default=None, ge=0.05, le=0.95)
+    """A start line on the floor (share of the picture's height from the top): the runner stands
+    behind it, and stepping over before GO is a false start. None: no line."""
+    direction: Literal["down", "up"] = "down"
 
 
 class StationCamIn(BaseModel):
@@ -396,6 +400,8 @@ class StartObsIn(BaseModel):
     emb: str | None = Field(default=None, max_length=2000)
     """The face embedding (128 float32, base64) when a face was looked at in this frame."""
     quality: float | None = None
+    over: bool = False
+    """With a start line: the person at the mark has a foot over it."""
     crop: str | None = Field(default=None, max_length=400_000)
     """The face picture (aligned crop, JPEG, base64) with the embedding: kept as a template when
     this person is started (see start_obs)."""
@@ -1471,7 +1477,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
                 m = start_face_match(db, day, emb)     # more pictures while they wait at the line
                 if m.candidate_id == sl.entry_id:
                     keep_start_face(m, emb, body.quality, crop)
-        for act, entry_id in sl.observe(now, Look(body.present, match, body.hand)):
+        for act, entry_id in sl.observe(now, Look(body.present, match, body.hand, body.over)):
             e = db.get(Entry, entry_id)
             try:
                 if act == "line_up" and e.status != J.LINED_UP:

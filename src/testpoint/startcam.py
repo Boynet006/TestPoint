@@ -81,23 +81,32 @@ class ObsPoster(threading.Thread):
 class Analyst:
     """Pose and face on one frame: the person at the mark, their raised hand, their face."""
 
-    def __init__(self, device: str, face_every_s: float = 0.25) -> None:
+    def __init__(self, device: str, face_every_s: float = 0.25, line: float | None = None,
+                 direction: str = "down") -> None:
         from .api.faces import get_engine
         from .vision.pose import make_backend
         self.pose = make_backend("rtmlib", device=device, mode="balanced")
         self.faces = get_engine()
         self.face_every_s = face_every_s
         self._last_face = 0.0
+        self.line, self.direction = line, direction
+        """The start line (share of the picture's height), None without one; ``direction``: which
+        way the runners set off on the picture."""
 
     def look(self, frame: np.ndarray, now: float) -> dict:
         from .api.faces import FaceError
-        from .vision.gesture import at_the_mark, box, hand_raised, head_box
+        from .vision.gesture import at_the_mark, box, hand_raised, head_box, near_line, over_line
         h, w = frame.shape[:2]
-        p = at_the_mark(self.pose.detect(frame), h)
+        people = self.pose.detect(frame)
+        draw: dict = {"box": None, "hand": None, "face": None, "line": self.line, "over": False}
+        if self.line is not None:
+            people = [q for q in people if near_line(q, h, self.line, self.direction)]
+        p = at_the_mark(people, h)
         obs: dict = {"present": p is not None}
-        draw: dict = {"box": None, "hand": None, "face": None}
         if p is None:
             return {"obs": obs, "draw": draw}
+        if self.line is not None:
+            obs["over"] = draw["over"] = over_line(p, h, self.line, self.direction)
         draw["box"] = box(p)
         obs["hand"] = draw["hand"] = hand_raised(p)
         if now - self._last_face >= self.face_every_s:
@@ -122,6 +131,11 @@ def draw(img: np.ndarray, d: dict) -> None:
     """The person at the mark outlined (green while a hand is up), their face boxed."""
     if not d:
         return
+    if d.get("line") is not None:
+        # the start line: white, red while the runner has a foot over it
+        y = int(d["line"] * img.shape[0])
+        cv2.line(img, (0, y), (img.shape[1], y), (0, 0, 230) if d.get("over") else (240, 240, 240),
+                 max(3, img.shape[1] // 400))     # still visible once the picture is made smaller
     if d.get("box"):
         x0, y0, x1, y1 = (int(v) for v in d["box"])
         col = (80, 220, 80) if d.get("hand") else (0, 200, 255)
@@ -193,6 +207,10 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--realtime", action="store_true", help="play a video file at its own speed")
     p.add_argument("--loop", action="store_true", help="play a video file on repeat")
     p.add_argument("--evidence", default="data/evidence", help="evidence folder ('' = no videos of the starts)")
+    p.add_argument("--line", type=float, default=None, metavar="Y",
+                   help="a start line across the picture at this share of its height (0-1): the runner stands behind it")
+    p.add_argument("--direction", choices=["down", "up"], default="down",
+                   help="which way the runners set off on the picture (default down: towards the camera)")
     args = p.parse_args(argv)
 
     src = open_source(args.source, realtime=args.realtime, loop=args.loop, every_frame=True)
@@ -205,7 +223,7 @@ def main(argv: list[str] | None = None) -> None:
             from .vision.face_gpu import cuda_available
             device = "cuda" if cuda_available() else "cpu"
         try:
-            analyst = Analyst(device)
+            analyst = Analyst(device, line=args.line, direction=args.direction)
             poster = ObsPoster(args.app)
             poster.start()
             print(f"start cam: recognition on {device} (faces on {analyst.faces.device})", flush=True)

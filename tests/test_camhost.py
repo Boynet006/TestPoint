@@ -185,6 +185,10 @@ def test_start_line_ip_camera(svc):
     assert cmd[cmd.index("--app") + 1] == "http://127.0.0.1:8000" and "--realtime" not in cmd
     # its own process: the finish camera and the station keep running beside it
     assert c.get("/finish").json()["running"] is False and c.get("/startcam").json()["running"]
+    assert "--line" not in cmd                                 # no start line unless one is set
+    c.post("/startcam/start", json={"kind": "url", "source": url, "app_url": "http://localhost:8000", "line_y": 0.8, "direction": "up"})
+    cmd = FakeProc.last.cmd
+    assert cmd[cmd.index("--line") + 1] == "0.8" and cmd[cmd.index("--direction") + 1] == "up"
     assert c.post("/startcam/start", json={"kind": "url", "source": "file:///etc/passwd",
                                            "app_url": "http://127.0.0.1:8000"}).status_code == 400
     assert c.post("/startcam/stop").json()["running"] is False

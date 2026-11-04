@@ -137,6 +137,14 @@ class StartIn(SourceIn):
     direction: str = Field(default="down", pattern="^(down|up|any)$")
 
 
+class StartLineIn(SourceIn):
+    """The start-line camera: optionally a line on the floor that the runner stands behind."""
+    line_y: float | None = Field(default=None, ge=0.05, le=0.95)
+    """The start line across the picture, as a share of its height from the top; None: no line."""
+    direction: str = Field(default="down", pattern="^(down|up)$")
+    """Which way the runners set off on the picture: down (towards the camera) or up."""
+
+
 class StationIn(SourceIn):
     """The exercise-station engine: one camera watching side-by-side lanes."""
     tuning: dict[str, float] = {}
@@ -262,6 +270,8 @@ def finish_command(cfg: StartIn) -> list[str]:
 
 def start_command(cfg: SourceIn) -> list[str]:
     cmd = [sys.executable, "-m", "testpoint.startcam", "--source", cfg.source, "--app", app_address(cfg.app_url)]
+    if getattr(cfg, "line_y", None) is not None:
+        cmd += ["--line", str(round(cfg.line_y, 3)), "--direction", cfg.direction]
     if cfg.kind == "video":
         cmd.append("--realtime")
         if cfg.loop:
@@ -395,7 +405,7 @@ def create_service(log_dir: Path | None = None, runner=subprocess.Popen) -> Fast
         return startcam.status()
 
     @app.post("/startcam/start")
-    def startcam_start(body: SourceIn) -> dict:
+    def startcam_start(body: StartLineIn) -> dict:
         check_source(body)
         return started(startcam, start_command(body), body.model_dump(), body)
 

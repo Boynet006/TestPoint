@@ -931,6 +931,20 @@
         <button class="btn sm amber" type="button" id="ipCamGo" onclick="StartCam.start()" data-t="fc_start"></button>
         <button class="btn sm ghost hidden" type="button" id="ipCamStop" onclick="StartCam.stop()" data-t="fc_stop"></button>
       </div>
+      <details class="handtime fcsetup hidden" id="slSetupBox">
+        <summary><span data-t="sl_setup"></span><small data-t="sl_setup_hint"></small></summary>
+        <div class="settings" style="margin-top:8px">
+          <label for="slOn" data-t="sl_on"></label>
+          <select id="slOn" onchange="StartLineCfg.changed()"><option value="0" data-t="off"></option><option value="1" data-t="on"></option></select>
+          <span class="hint" data-t="sl_on_hint"></span>
+          <label for="slLineY" data-t="sl_line"></label>
+          <input id="slLineY" type="range" min="5" max="95" step="1" onchange="StartLineCfg.changed()">
+          <span class="hint" data-t="sl_line_hint"></span>
+          <label for="slDir" data-t="sl_dir"></label>
+          <select id="slDir" onchange="StartLineCfg.changed()"><option value="down" data-t="sl_dir_down"></option><option value="up" data-t="sl_dir_up"></option></select>
+          <span class="hint" data-t="sl_dir_hint"></span>
+        </div>
+      </details>
       <div class="viewer" id="viewer">
         <div class="p vidbar hidden" id="camBar"></div>
         <video id="camVideo" muted loop playsinline class="hidden"></video>
@@ -1663,7 +1677,7 @@ const I18N = {
     n_face_bib_disagree: "the bib read and the face disagree: the face looks like bib {bib}",
     call_timeout: "No hand raised: step onto the mark again",
     call_stepped_away: "The runner stepped away: step onto the mark again",
-    call_raise: "Raise a hand to start",
+    call_raise: "Raise a hand to start", call_behind_line: "Step back behind the line", call_false_start: "False start: over the line before GO. Step back behind the line", sl_setup: "Start line", sl_setup_hint: "a line on the floor the runner stands behind", sl_on: "Start line", sl_on_hint: "On: the runner must stand behind the line to start; over it before GO is a false start (the start is cancelled)", sl_line: "Line position", sl_line_hint: "The white line on the picture: put it on the floor where the runners' toes go. It turns red when someone is over it.", sl_dir: "Running direction", sl_dir_down: "Towards the camera (down the picture)", sl_dir_up: "Away from the camera (up the picture)", sl_dir_hint: "Which side of the line is the course",
     call_no_camera: "The start camera is not sending: check it below",
     call_step_up: "Step onto the mark and look at the camera",
     e_low_quality: "The photo is not good enough to recognise them by later (blurred, dark or too small): take another",
@@ -2072,7 +2086,7 @@ const I18N = {
     n_face_bib_disagree: "الرقم المقروء والوجه لا يتطابقان: الوجه يشبه الرقم {bib}",
     call_timeout: "لم تُرفع اليد: قف على العلامة مجدداً",
     call_stepped_away: "ابتعد العدّاء: قف على العلامة مجدداً",
-    call_raise: "ارفع يدك للبدء",
+    call_raise: "ارفع يدك للبدء", call_behind_line: "ارجع خلف الخط", call_false_start: "بداية خاطئة: تجاوز الخط قبل الانطلاق. ارجع خلف الخط", sl_setup: "خط البداية", sl_setup_hint: "خط على الأرض يقف العدّاء خلفه", sl_on: "خط البداية", sl_on_hint: "مفعّل: يجب أن يقف العدّاء خلف الخط ليبدأ؛ تجاوزه قبل الانطلاق بداية خاطئة (تُلغى البداية)", sl_line: "موضع الخط", sl_line_hint: "الخط الأبيض على الصورة: ضعه على الأرض حيث تكون أصابع قدمي العدّاء. يصبح أحمر عند تجاوزه.", sl_dir: "اتجاه الجري", sl_dir_down: "نحو الكاميرا (إلى أسفل الصورة)", sl_dir_up: "بعيداً عن الكاميرا (إلى أعلى الصورة)", sl_dir_hint: "أي جانب من الخط هو المسار",
     call_no_camera: "كاميرا البداية لا ترسل: تحقق منها أدناه",
     call_step_up: "قف على العلامة وانظر إلى الكاميرا",
     e_low_quality: "?????? ??? ????? ?????? ???? ?????? (??? ????? ?? ????? ?? ?????): ????? ???? ????",
@@ -2858,6 +2872,7 @@ const Cam = {
     const ip = this.relayed();
     const live = ip ? StartCam.live : this.kind === "webcam" ? !!this.stream : this.kind === "ipcam" ? false : !!this.fileName;
     const still = this.kind === "photo" || ip;   // shown in the <img>
+    try { StartLineCfg.show(); } catch { /* the page is still loading */ }
     $("camVideo").classList.toggle("hidden", !(live && !still));
     $("camImg").classList.toggle("hidden", !(live && still));
     $("camEmpty").classList.toggle("hidden", live);
@@ -3029,7 +3044,7 @@ const StartCam = {
     save(c.stopped, "");
     this.detach(); Cam.show();
     try {
-      const st = await api("POST", `${c.api}/start`, { ...pick, app_url: location.origin });
+      const st = await api("POST", `${c.api}/start`, { ...pick, app_url: location.origin, ...(role === "start" ? StartLineCfg.body() : {}) });
       this.buttons(st);
       await this.watch();
     } catch (e) { msg(c.box, "bad", err(e)); }
@@ -3853,6 +3868,24 @@ function camChoice(selId, inputId) {
 // ---- the start line run by its camera (IP camera at the start): recognised -> "raise your LEFT
 // hand" -> 3-2-1-GO. The camera process and the server decide (api/startline.py); this panel only
 // shows it, large enough to read from the mark.
+// The start line on the start camera's picture (Start line screen, under the camera's buttons):
+// kept on this device, sent with each start of the camera; a change restarts a running camera so
+// the line drawn on the picture is always the one in use.
+const StartLineCfg = {
+  pref() { try { return JSON.parse(load("startLine", "{}")) || {}; } catch { return {}; } },
+  show() {
+    const p = this.pref(), box = $("slSetupBox");
+    box.classList.toggle("hidden", role !== "start" || !Cam.relayed());
+    $("slOn").value = p.on ? "1" : "0"; $("slLineY").value = Math.round((p.y ?? 0.85) * 100); $("slDir").value = p.dir || "down";
+    $("slLineY").disabled = $("slDir").disabled = !p.on;
+  },
+  body() { const p = this.pref(); return p.on ? { line_y: p.y ?? 0.85, direction: p.dir || "down" } : {}; },
+  changed() {
+    save("startLine", JSON.stringify({ on: $("slOn").value === "1", y: +$("slLineY").value / 100, dir: $("slDir").value }));
+    this.show();
+    if (StartCam.live) { msg("sMsg", "warn", t("fc_line_applying")); StartCam.start(); }
+  },
+};
 const StartCall = {
   sig: "", busy: false,
   active: () => role === "start" && mode === "simple" && Cam.relayed() && StartCam.live,
@@ -3870,7 +3903,7 @@ const StartCall = {
     let cls = "", body = "";
     if (v.state === "raise_hand") {
       cls = "ask";
-      body = `<div><div class="c-who">${who}</div><div class="c-say">✋ ${esc(t("call_raise"))}</div></div>`;
+      body = `<div><div class="c-who">${who}</div><div class="c-say">${v.over ? esc(t("call_behind_line")) : `✋ ${esc(t("call_raise"))}`}</div></div>`;
     } else if (v.state === "countdown" || v.state === "started") {
       const left = (Date.parse(v.go_at) - serverNow()) / 1000, n = Math.ceil(left);
       cls = n <= 0 ? "go" : "ask";

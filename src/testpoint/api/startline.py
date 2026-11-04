@@ -37,6 +37,8 @@ class Look:
     match: tuple[int, bool, str | None] | None = None
     """(entry id, may start, reason when not) for a face recognised in this look, else None."""
     hand: str | None = None   # "left" / "right" / "both" raised, or None
+    over: bool = False
+    """With a start line on the camera: a foot over it (they must stand behind it)."""
 
 
 @dataclass
@@ -51,6 +53,7 @@ class StartLine:
     until: float = 0.0
     last_seen: float = 0.0
     last_look: float = 0.0
+    over: bool = False
     votes: deque = field(default_factory=lambda: deque(maxlen=VOTE_WINDOW))
     recent: dict = field(default_factory=dict)    # entry id -> ignored until
 
@@ -93,6 +96,7 @@ class StartLine:
         ("start", entry id) (its GO is now + countdown_s), ("cancel", entry id)."""
         acts = self.tick(now)
         self.last_look = now
+        self.over = look.present and look.over
         if look.present:
             self.last_seen = now
         self.recent = {k: v for k, v in self.recent.items() if v > now}
@@ -113,7 +117,7 @@ class StartLine:
             if now - self.last_seen > AWAY_S:
                 self._to("idle", now, reason="stepped_away")
                 return acts
-            if look.hand:   # either hand, or both: the runner is ready
+            if look.hand and not look.over:   # either hand, or both, from behind the line: ready
                 self.held_since = self.held_since if self.held_since is not None else now
                 if now - self.held_since >= HOLD_S:
                     entry_id = self.entry_id
@@ -127,6 +131,10 @@ class StartLine:
             entry_id = self.entry_id
             self._to("idle", now, reason="stepped_away")
             acts.append(("cancel", entry_id))
+        elif self.state == "countdown" and look.over and self.go_at is not None and now < self.go_at:
+            entry_id = self.entry_id            # over the line before GO: a false start
+            self._to("idle", now, reason="false_start")
+            acts.append(("cancel", entry_id))
         return acts
 
     def view(self, now: float) -> dict:
@@ -134,4 +142,5 @@ class StartLine:
         self.tick(now)
         return {"state": self.state, "entry_id": self.entry_id, 
                 "reason": self.reason, "since": self.since, "go_at": self.go_at,
-                "camera": now - self.last_look <= STALE_S, "present": now - self.last_seen <= 1.0}
+                "camera": now - self.last_look <= STALE_S, "present": now - self.last_seen <= 1.0,
+                "over": self.over and now - self.last_look <= 1.0}
