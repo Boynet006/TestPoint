@@ -185,7 +185,7 @@
   @keyframes stampIn { from { transform: translate(-50%, -50%) rotate(-12deg) scale(2.4); opacity: 0; } }
   @media (prefers-reduced-motion: reduce) { .idcard::after, .idcard .stamp { animation: none; } }
   .regcam { position: relative; aspect-ratio: 4/3; }
-  .camrow { gap: 8px; margin-bottom: 8px; flex-wrap: wrap; } .camrow select { flex: 1 1 200px; min-width: 0; } .camrow .btn { flex: 0 0 auto; }
+  .camrow { gap: 8px; margin-bottom: 8px; flex-wrap: wrap; } .camrow select { flex: 1 1 200px; min-width: 0; } .camrow .btn { flex: 0 0 auto; } .camlight { display: flex; align-items: center; gap: 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; flex: 1 1 100%; } .camlight input { flex: 1; accent-color: #d4a84b; } .camlight.hidden { display: none; }
   /* ---- settings: sections in a sidebar, one shown at a time; search across all; a save bar for unsaved changes */
   .settop { gap: 12px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
   .settop input[type=search] { flex: 1 1 240px; max-width: 420px; }
@@ -921,6 +921,9 @@
         <select id="deskCamSel" onchange="Cam.pickDevice(this.value)" data-tl="rd_cam_pick"></select>
         <button class="btn sm" type="button" onclick="Cam.use('webcam')" data-t="rd_cam_restart"></button>
         <button class="btn ghost sm" type="button" onclick="Cam.free()" data-tl="rd_cam_free_hint"><span data-t="rd_cam_free"></span></button>
+        <label class="camlight hidden" id="camLightBox" data-tl="cam_light_hint"><span data-t="cam_light"></span>
+          <input type="range" id="camLight" oninput="CamLight.set(this.value)">
+          <button class="btn sm ghost" type="button" id="camLightAuto" onclick="CamLight.auto(!CamLight.on)"></button></label>
       </div>
       <div class="row camrow hidden" id="ipCamRow">
         <select id="ipCamSel" onchange="camPick(this, 'ipCamUrl')" style="flex:1"></select>
@@ -1949,7 +1952,7 @@ const I18N = {
     cam_fell_back: "The chosen camera did not open: using {cam}.",
     cam_allow: "Allow the camera: the browser is asking at the top of the window.",
     cam_blocked: "The camera is blocked for this page. Click the camera icon at the right of the address bar, choose Allow, then press Restart camera.",
-    rd_cam_pick: "Camera", rd_cam_default: "Default camera", rd_cam_n: "Camera {n}", rd_cam_restart: "Restart camera", rd_cam_free: "Free the camera",
+    rd_cam_pick: "Camera", rd_cam_default: "Default camera", rd_cam_n: "Camera {n}", rd_cam_restart: "Restart camera", cam_light: "Brightness", cam_light_hint: "Auto: set by the face in the picture (sun or a dim room); moving the slider sets it by hand, kept for this webcam.", cam_light_auto: "Auto", cam_light_manual: "Manual", rd_cam_free: "Free the camera",
     rd_cam_free_hint: "Stops the desk camera and any camera service using a webcam, then starts this one",
     rd_cam_timeout: "The camera did not answer", rd_cam_gone: "That camera is not connected", rd_cam_try: "Pick another camera, Restart or Free the camera, or upload a photo.",
     rd_cam_freed: "Camera freed; starting it…", rd_face_taken: "This face is already saved as <b>{name}</b> ({id}). It is most likely the same person.",
@@ -2358,7 +2361,7 @@ const I18N = {
     cam_fell_back: "لم تُفتح الكاميرا المختارة: تُستخدم {cam}.",
     cam_allow: "اسمح بالكاميرا: المتصفح يطلب ذلك أعلى النافذة.",
     cam_blocked: "الكاميرا محظورة لهذه الصفحة. اضغط أيقونة الكاميرا يمين شريط العنوان، اختر السماح، ثم اضغط إعادة تشغيل الكاميرا.",
-    rd_cam_pick: "الكاميرا", rd_cam_default: "الكاميرا الافتراضية", rd_cam_n: "كاميرا {n}", rd_cam_restart: "إعادة تشغيل الكاميرا", rd_cam_free: "تحرير الكاميرا",
+    rd_cam_pick: "الكاميرا", rd_cam_default: "الكاميرا الافتراضية", rd_cam_n: "كاميرا {n}", rd_cam_restart: "إعادة تشغيل الكاميرا", cam_light: "السطوع", cam_light_hint: "تلقائي: يُضبط حسب الوجه في الصورة (شمس أو غرفة خافتة)؛ تحريك المؤشر يضبطه يدوياً ويُحفظ لهذه الكاميرا.", cam_light_auto: "تلقائي", cam_light_manual: "يدوي", rd_cam_free: "تحرير الكاميرا",
     rd_cam_free_hint: "يوقف كاميرا المكتب وأي خدمة كاميرا تستخدم كاميرا ويب، ثم يشغّل هذه",
     rd_cam_timeout: "لم تستجب الكاميرا", rd_cam_gone: "هذه الكاميرا غير متصلة", rd_cam_try: "اختر كاميرا أخرى، أو أعد التشغيل، أو حرّر الكاميرا، أو ارفع صورة.",
     rd_cam_freed: "حُررت الكاميرا؛ جارٍ تشغيلها…", rd_face_taken: "هذا الوجه محفوظ مسبقاً باسم <b>{name}</b> ({id}). غالباً هو الشخص نفسه.",
@@ -2650,7 +2653,108 @@ function renderWeigh() { if (S.rules) $("wRange").textContent = t("bmi_range", {
 async function cameraPermission() {   // "granted", "prompt" (the browser will ask), "denied", or "" when unknown
   try { return (await navigator.permissions.query({ name: "camera" })).state; } catch { return ""; }
 }
+// The webcam's light, when the webcam lets the page set it. Auto (the default): about once a
+// second the picture is measured and the exposure time changed (the sensor's own light: in the
+// sun brightness alone cannot bring back a washed-out picture), so the face (the box the face
+// check found, a few seconds old at most) is neither dark nor washed out; with no face, a picture
+// largely washed out is darkened and a dark one lightened. Moving the brightness slider sets it
+// by hand (the webcam's own exposure again), kept per webcam (by its name), here and in the enrol
+// window.
+const CamLight = {
+  track: null, on: true, face: null, timer: null, canvas: null, exp: null, base: null,
+  key: tr => "camLight:" + (tr.label || "default"),
+  apply(stream) {
+    const tr = stream && stream.getVideoTracks()[0], box = $("camLightBox"), input = $("camLight");
+    const caps = tr && tr.getCapabilities ? tr.getCapabilities() : {};
+    if (!caps.brightness) { if (box) box.classList.add("hidden"); return; }
+    const saved = Number(load(this.key(tr), ""));
+    this.on = !saved;
+    if (saved) tr.applyConstraints({ advanced: [{ brightness: saved }] }).catch(() => {});
+    if (!box || stream !== Cam.stream) return;      // the slider belongs to the desk camera
+    this.track = tr; this.caps = caps.brightness; this.exp = caps.exposureTime || null;
+    if (this.base == null) this.base = tr.getSettings().brightness;
+    Object.assign(input, { min: caps.brightness.min, max: caps.brightness.max, step: caps.brightness.step || 1 });
+    input.value = saved || tr.getSettings().brightness;
+    box.classList.remove("hidden");
+    this.auto(this.on);
+  },
+  set(v) {
+    const tr = this.track; if (!tr || tr.readyState !== "live") return;
+    tr.applyConstraints({ advanced: [{ brightness: Number(v) }] }).catch(() => {});
+    save(this.key(tr), String(v));
+    if (this.on) this.auto(false, true);
+  },
+  auto(on, keep) {
+    this.on = on;
+    $("camLightAuto").textContent = t(on ? "cam_light_auto" : "cam_light_manual");
+    $("camLightAuto").classList.toggle("on", on);
+    clearInterval(this.timer);
+    const tr = this.track;
+    if (on) {
+      if (tr) {
+        save(this.key(tr), "");
+        if (this.base != null) { tr.applyConstraints({ advanced: [{ brightness: this.base }] }).catch(() => {}); $("camLight").value = this.base; }
+      }
+      this.timer = setInterval(() => this.step(), 1000);
+    } else {
+      if (tr && this.exp) tr.applyConstraints({ advanced: [{ exposureMode: "continuous" }] }).catch(() => {});
+      if (!keep && tr) save(this.key(tr), String($("camLight").value));
+    }
+  },
+  seen(box, w, h) { if (box) this.face = { box, w, h, at: Date.now() }; },
+  // Mean brightness (0-255) of a part of the picture, and the share of washed-out pixels.
+  measure(video, x, y, w, h) {
+    const c = this.canvas || (this.canvas = document.createElement("canvas")), n = 48;
+    c.width = n; c.height = Math.max(1, Math.round(n * h / w));
+    const g = c.getContext("2d", { willReadFrequently: true });
+    g.drawImage(video, x, y, w, h, 0, 0, c.width, c.height);
+    const px = g.getImageData(0, 0, c.width, c.height).data;
+    let sum = 0, clipped = 0;
+    for (let i = 0; i < px.length; i += 4) {
+      const l = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+      sum += l; if (l > 245) clipped++;
+    }
+    const count = px.length / 4;
+    return { mean: sum / count, clipped: clipped / count };
+  },
+  step() {
+    const tr = this.track, video = $("camVideo");
+    if (!this.on || !tr || tr.readyState !== "live" || tr !== (Cam.stream && Cam.stream.getVideoTracks()[0])) return;
+    if (document.hidden || !video.videoWidth || enrolBusy) return;     // never during the 3 poses
+    const vw = video.videoWidth, vh = video.videoHeight;
+    let change = 0;
+    if (this.face && Date.now() - this.face.at < 4000) {
+      const k = vw / this.face.w, [x, y, w, h] = this.face.box.map(v => v * k);
+      const f = this.measure(video, Math.max(0, x), Math.max(0, y), Math.min(w, vw - x), Math.min(h, vh - y));
+      if (f.mean > 165 || f.clipped > 0.08) change = -Math.min(20, Math.max(4, (f.mean - 140) / 2));
+      else if (f.mean < 95) change = Math.min(20, Math.max(4, (120 - f.mean) / 2));
+    } else {
+      const a = this.measure(video, 0, 0, vw, vh);
+      if (a.clipped > 0.25 && a.mean > 150) change = -6;
+      else if (a.mean < 70) change = 6;
+    }
+    if (!change) return;
+    if (this.exp) {
+      // exposure time: in steps of about a third (the sensor's own light), from the camera's auto value
+      const now = Number(tr.getSettings().exposureTime) || this.exp.max / 8;
+      const v = Math.max(this.exp.min, Math.min(this.exp.max, now * (change > 0 ? 1.45 : 0.7)));
+      if (Math.abs(v - now) < (this.exp.step || 1)) return;
+      tr.applyConstraints({ advanced: [{ exposureMode: "manual", exposureTime: v }] }).catch(() => {});
+      return;
+    }
+    const now = Number(tr.getSettings().brightness ?? $("camLight").value);
+    const v = Math.round(Math.max(this.caps.min, Math.min(this.caps.max, now + change)));
+    if (v === now) return;
+    tr.applyConstraints({ advanced: [{ brightness: v }] }).catch(() => {});
+    $("camLight").value = v;
+  },
+};
 async function openCamera(want) {
+  const r = await openCameraOnce(want);
+  setTimeout(() => CamLight.apply(r.stream), 0);   // once the caller has kept the stream
+  return r;
+}
+async function openCameraOnce(want) {
   // While the browser asks the person to allow the camera there is no time limit: they have to answer.
   const asking = (await cameraPermission()) !== "granted";
   let pending = Promise.resolve();
@@ -3083,6 +3187,7 @@ async function apiImage(path, blob) {
 // Face box drawn over the picture, mapped from image pixels to the displayed (object-fit: contain) area.
 const mirrored = () => $("viewer").classList.contains("mirror");   // only this device's own webcam is shown as a mirror (not one through the camera service)
 function drawBox(box, w, h, label, ok) {
+  CamLight.seen(box, w, h);
   const cv = $("camBox"), vw = cv.clientWidth, vh = cv.clientHeight; cv.width = vw; cv.height = vh;
   const s = Math.min(vw / w, vh / h), ox = (vw - w * s) / 2, oy = (vh - h * s) / 2, g = cv.getContext("2d");
   const bx = mirrored() ? w - box[0] - box[2] : box[0];
