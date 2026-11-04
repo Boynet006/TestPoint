@@ -3252,6 +3252,11 @@ async function identifyNow(quiet) {
     if (seqAtStart !== wSeq || (quiet && wEntry)) { if (!quiet) msg("wMsg"); return; }   // someone else was checked in meanwhile
     if (r.entry) {
       if (wEntry && wEntry.id === r.entry.id) { if (!quiet) msg("wMsg"); return; }   // already weighing this person: no "Looking…" left behind
+      // Shown already (weighed, or done for the day) and still in front of the camera: the box
+      // follows them, the card and the table stay as they are (redone every check, they flashed).
+      if (quiet && wSource === "face" && wLast && wLast.id === r.entry.id && !$("wNeeds").classList.contains("hidden")) {
+        drawBox(r.box, f.w, f.h, `${cname(r.entry.candidate)} ${r.score.toFixed(2)}`, true); return;
+      }
       newCheckin(); wSource = "face"; wLast = r.entry;
       drawBox(r.box, f.w, f.h, `${cname(r.entry.candidate)} ${r.score.toFixed(2)}`, true);
       $("wWho").innerHTML = whoHtml(r.entry); offerEnrol(r.entry);
@@ -5388,10 +5393,13 @@ function showNeeds(entry) {
   const b = bandOf(entry);
   if (b) {
     const card = res => needsCard(entry, entry.standard.age, entry.standard.band, entry.standard.level, ["run", "pushup", "crunch"].map(x => [x, b[x === "run" ? "run_s" : x]]), res);
-    card(null);
-    // tested today (all or some): their results in the same table, beside what was needed
-    if (entry.run_time_s != null || RAN.includes(entry.status) || entry.status === "complete" || Object.keys(entry.events || {}).length)
-      api("GET", `/api/entries/${entry.id}/results`).then(r => { if (needsFor === entry.id) card(Object.fromEntries(r.tests.map(x => [x.test, x]))); }).catch(() => {});
+    // tested today (all or some): their results in the same table, beside what was needed; drawn
+    // once they are here (the table is not drawn twice, without and then with them)
+    if (entry.run_time_s != null || RAN.includes(entry.status) || entry.status === "complete" || Object.keys(entry.events || {}).length) {
+      needsFor = entry.id;
+      api("GET", `/api/entries/${entry.id}/results`).then(r => { if (needsFor === entry.id) card(Object.fromEntries(r.tests.map(x => [x.test, x]))); })
+        .catch(() => { if (needsFor === entry.id) card(null); });
+    } else card(null);
     return;
   }
   if (entry.status !== "expected" || needsFor === entry.id) return;   // weighed without a table: nothing to show
