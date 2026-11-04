@@ -3252,6 +3252,27 @@ function drawBox(box, w, h, label, ok) {
   g.fillText(label, ox + bx * s, Math.max(16, oy + box[1] * s - 6));
 }
 function clearBox() { const cv = $("camBox"); cv.getContext("2d").clearRect(0, 0, cv.width, cv.height); }
+// The camera picture's box takes the picture's own shape (16:9 for the IP cameras, 4:3 or 16:9 for a
+// webcam), so it fills the box with no bars above and below, as on the finish and station screens.
+// In "fit to the window" the box is at most the space the window leaves: as tall as the picture at
+// the full width, or that space when the picture would be taller (as the finish's picture).
+function fitViewer(force) {
+  const v = $("viewer"), el = Cam.el(), w = el.videoWidth || el.naturalWidth, h = el.videoHeight || el.naturalHeight;
+  const fit = document.body.classList.contains("fit"), on = !!(w && h) && $("camEmpty").classList.contains("hidden");
+  const key = on ? `${w}x${h} ${innerWidth}x${innerHeight} ${fit} ${role} ${mode}` : "";
+  if (key === v.dataset.fitKey && force !== true) return;
+  v.dataset.fitKey = key;
+  v.style.aspectRatio = v.style.height = v.style.flex = "";
+  if (!on) return;
+  if (!fit) { v.style.aspectRatio = `${w} / ${h}`; return; }
+  const room = v.clientHeight, full = v.clientWidth * h / w;   // the space left, as laid out now
+  if (full < room) { v.style.flex = "0 0 auto"; v.style.height = Math.round(full) + "px"; }
+}
+$("camVideo").addEventListener("loadedmetadata", fitViewer); $("camVideo").addEventListener("resize", fitViewer);
+$("camImg").addEventListener("load", fitViewer);
+addEventListener("resize", () => fitViewer(true));
+$("slSetupBox").addEventListener("toggle", () => fitViewer(true));   // the fold-out takes or gives back room
+setInterval(fitViewer, 500);     // a live stream's picture can change size without an event
 // The face box follows the face live, about 10 times a second: a quick look for the face only (no
 // recognition) on the server. Who it is comes from the last full check (every 1.5 s), shown for a
 // few seconds; a new face is boxed at once and named at the next check. Weigh-in, start line and
