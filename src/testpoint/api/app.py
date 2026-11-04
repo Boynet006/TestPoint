@@ -1409,6 +1409,8 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
             return None
         keep_start_face(m, emb, quality, crop)
         e = db.get(Entry, m.candidate_id)
+        if e.status in (J.ACCEPTED, J.LINED_UP) and not S.face_count(db, e.candidate_id, day):
+            return e.id, False, "no_photos_today"     # recognised by an earlier day's photos: back to the desk
         if e.status == J.LINED_UP:
             return e.id, True, None
         if e.status == J.RUNNING and e.run_started_at is not None and wall() - e.run_started_at.replace(tzinfo=timezone.utc).timestamp() < 60:

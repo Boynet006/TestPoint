@@ -292,3 +292,46 @@ def test_the_start_camera_keeps_several_pictures_taken_while_the_runner_waits(mo
         look(2.2, hand="right")
         assert c.get(f"/api/entries/{e}").json()["status"] == "running"
         assert len(c.get(f"/api/candidates/{cid}/faces").json()["faces"]) == 1 + 5   # at most 5 kept
+
+
+def test_the_start_line_sends_someone_without_todays_photos_back_to_the_desk(monkeypatch):
+    import base64
+    from datetime import timedelta
+
+    from fastapi.testclient import TestClient
+    from sqlalchemy.pool import StaticPool
+    from test_faces import A, FakeEngine
+
+    from testpoint.api import app as app_mod
+    from testpoint.api import models
+    from testpoint.api.app import create_app
+
+    real = models.create_engine
+    monkeypatch.setattr(models, "create_engine", lambda url, **kw: real(url, poolclass=StaticPool, **kw))
+    day = {"d": "2026-10-20"}
+    app = create_app(db_url="sqlite:///:memory:", web_dir="none", today=lambda: day["d"], face_engine=lambda: FakeEngine())
+    t0 = models.utcnow()
+    clock = {"t": t0}
+    monkeypatch.setattr(app_mod.S, "utcnow", lambda: clock["t"])
+    emb = base64.b64encode(np.asarray(A, np.float32).tobytes()).decode()
+    csv = b"external_id,name,bib,gender,dob\nC-1,Alpha,11,M,2000-01-01\n"
+    with TestClient(app) as c:
+        c.post("/api/entries/import", content=csv)
+        c.post(f"/api/entries/{c.get('/api/entries').json()[0]['id']}/face", content=b"face:A")
+        day["d"] = "2026-10-27"                                   # a week later: last week's photos only
+        c.post("/api/entries/import", content=csv)
+        e = c.get("/api/entries").json()[0]["id"]
+        c.post(f"/api/entries/{e}/weigh-in", json={"weight_kg": 70, "height_cm": 175, "accept": True})
+
+        def look(dt, **kw):
+            clock["t"] = t0 + timedelta(seconds=dt)
+            return c.post("/api/engine/start/obs", json={"present": True, **kw}).json()
+
+        look(0.0, emb=emb)
+        v = look(0.25, emb=emb)
+        assert v["state"] == "refused" and v["reason"] == "no_photos_today"
+        c.post(f"/api/entries/{e}/face", content=b"face:A")      # today's photo taken at the desk
+        for dt in (1, 2, 3, 4, 5, 6, 7, 8, 9):
+            look(dt)
+        look(10.0, emb=emb)
+        assert look(10.25, emb=emb)["state"] == "raise_hand"

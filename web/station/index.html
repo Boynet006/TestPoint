@@ -1836,7 +1836,7 @@ const I18N = {
     rules_hint: "Placeholder values until the official regulation arrives (docs/RULES.md).",
     s_expected: "expected", s_accepted: "accepted", s_rejected: "rejected at weigh-in", s_lined_up: "at the line", s_absent: "absent",
     s_running: "running", s_run_passed: "run passed", s_run_failed: "run failed", s_dnf: "DNF", s_complete: "complete",
-    e_not_on_todays_list: "Not on today's list", e_already_weighed: "Already weighed in today", weighed_next: "{name} is weighed in today ✓ · next: the run", e_not_weighed: "Not weighed in yet",
+    e_not_on_todays_list: "Not on today's list", e_already_weighed: "Already weighed in today", weighed_next: "{name} is weighed in today ✓ · next: the run", e_not_weighed: "Not weighed in yet", e_no_photos_today: "No face photos from today: go back to the weigh-in desk for them", photos_today: "Today's face photos: look at the camera",
     e_has_not_run: "Has not run yet", e_still_running: "Still running", e_rejected_at_weigh_in: "Rejected at weigh-in",
     e_missed_the_run: "Missed the run", e_run_not_passed: "Run not passed", e_run_not_finished: "Run not finished (DNF)",
     e_event_already_done: "Already done this exercise today", e_already_lined_up: "Already at the line",
@@ -2245,7 +2245,7 @@ const I18N = {
     rules_hint: "قيم مؤقتة حتى وصول اللائحة الرسمية.",
     s_expected: "متوقع", s_accepted: "مقبول", s_rejected: "مرفوض في الوزن", s_lined_up: "عند الخط", s_absent: "غائب",
     s_running: "يجري", s_run_passed: "اجتاز الجري", s_run_failed: "رسب في الجري", s_dnf: "لم يكمل", s_complete: "مكتمل",
-    e_not_on_todays_list: "غير موجود في قائمة اليوم", e_already_weighed: "تم وزنه اليوم", weighed_next: "{name} تم وزنه اليوم ✓ · التالي: الجري", e_not_weighed: "لم يُوزن بعد",
+    e_not_on_todays_list: "غير موجود في قائمة اليوم", e_already_weighed: "تم وزنه اليوم", weighed_next: "{name} تم وزنه اليوم ✓ · التالي: الجري", e_not_weighed: "لم يُوزن بعد", e_no_photos_today: "لا صور وجه من اليوم: ارجع إلى طاولة الوزن لالتقاطها", photos_today: "صور الوجه لليوم: انظر إلى الكاميرا",
     e_has_not_run: "لم يجرِ بعد", e_still_running: "ما زال يجري", e_rejected_at_weigh_in: "مرفوض في الوزن",
     e_missed_the_run: "فاته الجري", e_run_not_passed: "لم يجتز الجري", e_run_not_finished: "لم يكمل الجري",
     e_event_already_done: "أدى هذا التمرين اليوم", e_already_lined_up: "موجود عند الخط",
@@ -2589,11 +2589,19 @@ async function weighCheckin() {
     }
   }
 }
-// Fewer than 3 photos from today (a new test day: faces change, a beard, a haircut): offer the
-// camera capture, however they were checked in (typed in, or recognised by last time's photos).
+// Fewer than 3 photos from today (a new test day: faces change, a beard, a haircut): the camera
+// capture, however they were checked in (typed in, or recognised by last time's photos). With
+// the webcam it starts by itself; the start line refuses anyone without photos from today.
+let autoEnrolFor = null;
 function offerEnrol(e) {
-  $("wEnroll").classList.toggle("hidden", !(e && (e.faces || 0) < 3 && Cam.kind && (Cam.stream || Cam.fileName)));
+  const need = !!(e && (e.faces || 0) < 3 && Cam.kind && (Cam.stream || Cam.fileName));
+  $("wEnroll").classList.toggle("hidden", !need);
   $("wEnrollBtn").textContent = t(Cam.kind === "webcam" ? "enroll_cam3" : "enroll_cam");
+  if (!need || Cam.kind !== "webcam" || enrolBusy || autoEnrolFor === e.id) return;
+  autoEnrolFor = e.id;                            // once per person (the button stays for a retry)
+  const seq = wSeq;
+  msg("wMsg", "warn", t("photos_today"));
+  setTimeout(() => { if (seq === wSeq && !enrolBusy) enrollFromCamera(); }, 1500);
 }
 function setWeighForm(on) { $("wForm").style.opacity = on ? 1 : .35; $("wForm").style.pointerEvents = on ? "auto" : "none"; }
 function bmiPreview() {
