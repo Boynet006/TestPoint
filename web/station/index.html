@@ -582,6 +582,11 @@
   #stOne .callbox img { width: 72px; height: 90px; } #stOne .search { margin-top: 8px !important; } #stOne .hint { margin: 4px 0; }
   #scOnePic .scview { display: block; margin-top: 6px; } #scOnePic .camlive { margin: 0; } #scOnePic .camlive.hidden { display: none; }
   #scOnePic .camlive img { width: 100%; height: auto; max-width: 100%; max-height: none; display: block; }
+  /* One mat: the camera's source and buttons sit above the picture, as on the start line. */
+  #scOneCamTop #scCard { border: 0; background: none; box-shadow: none; padding: 0; margin: 4px 0 0; }
+  #scOneCamTop .scgrid { display: block; } #scOneCamTop #scViewHome { display: none; }
+  #scOneCamTop .scgrid > div:last-child > .row:first-child, #scOneCamTop #scWhat { display: none; }
+  #scOneCamTop .seg { margin-top: 0 !important; } #scOneCamTop .row { margin-top: 6px !important; }
   body.st-fit main { max-width: none; padding-block: 8px 0; }
   body.st-fit { overflow: hidden; }
   body.st-fit #stOne { height: calc(100vh - var(--st-top, 80px) - 10px); align-items: stretch; }
@@ -595,7 +600,6 @@
   body.st-fit #scOnePic .camlive.hidden { display: none; }
   body.st-fit #scOnePic .camlive img { height: 100%; max-height: 100%; object-fit: contain; }
   @media (max-width: 1100px) { #stOne, body.st-fit #stOne { display: block; height: auto; } #stOne > * { overflow: visible; margin-bottom: 12px; } body.st-fit #scOnePic { display: block; } body.st-fit #scOnePic .camlive img { height: auto; } body.st-fit { overflow: auto; } }
-  #scOneCam .scgrid { display: block; } #scOneCam #scViewHome { display: none; }
   .calbar { position: relative; height: 26px; margin: 12px 0 8px; background: var(--bg2); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
   .calbar i { position: absolute; inset-block: 0; inset-inline-start: 0; background: var(--amber); transition: width .1s linear; }
   .calbar b { position: absolute; inset-block: 0; width: 3px; }
@@ -1131,6 +1135,7 @@
     <div id="stOne" class="hidden">
       <div class="card stmain">
         <div class="row" style="align-items:center"><h2 style="margin:0" data-t="r_station"></h2><span class="spacer"></span><button class="btn ghost sm" style="flex:0 0 auto" id="xOneTune" onclick="LiveTune.toggle()" data-t="lt_button"></button><span id="xOneCam"></span></div>
+        <div id="scOneCamTop"></div>
         <div id="scOnePic"></div>
         <div id="scOneCall"></div>
         <div class="search" style="margin-top:10px"><input id="xQuery" data-tp="ph_bib" autocomplete="off" onkeydown="if(event.key==='Enter')StationCall.manual()"><button class="btn amber" onclick="StationCall.manual()" data-t="st_manual"></button><button class="btn ghost" style="flex:0 0 auto" onclick="StationCall.results()" data-t="r_results"></button></div>
@@ -1142,7 +1147,6 @@
           <p class="hint" data-t="st_waiting_hint"></p>
           <div class="scroll" style="max-height:130px"><table><tbody id="xWaitTable"></tbody></table></div>
         </div>
-        <div id="scOneCam"></div>
       </div>
     </div>
     <div class="bar" id="xBar">
@@ -4828,7 +4832,7 @@ function stationLayout(one) {
   applyFit();
   if (one) document.documentElement.style.setProperty("--st-top", `${Math.round($("v-station").getBoundingClientRect().top)}px`);
   $("scTune").classList.add("hidden");   // one mat: the Tune button is in the station's own header
-  if (one) { put("xCall", $("scOneCall")); put("scView", $("scOnePic")); put("scCard", $("scOneCam")); put("xCam", $("xOneCam")); }
+  if (one) { put("xCall", $("scOneCall")); put("scView", $("scOnePic")); put("scCard", $("scOneCamTop")); put("xCam", $("xOneCam")); }
   else {
     if ($("xCall").parentElement !== $("v-station")) $("v-station").insertBefore($("xCall"), $("stBody"));
     put("scView", $("scViewHome"), true); put("scCard", $("stBody"), true); put("xCam", $("xBar"));
