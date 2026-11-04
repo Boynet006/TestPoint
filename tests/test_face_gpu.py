@@ -24,6 +24,17 @@ def test_tiles_cover_the_picture_with_overlap():
     assert s[0] == 0 and s[-1] == 1280 - 640 and all(b - a <= 640 * 0.75 for a, b in pairwise(s))
 
 
+def test_faces_found_in_a_tile_keep_their_size():
+    """A face found in a tile at (tx, ty) of a copy scaled by s: the corner and the landmarks move, the
+    width and height only scale (adding the tile's origin made a 47-pixel face 721 pixels wide)."""
+    row = np.array([[10, 20, 47, 61, 12, 30, 40, 30, 25, 45, 15, 55, 38, 55, 0.9]], np.float32)
+    face_gpu._place(row, 640, 320, 0.5)
+    assert row[0, 0] == (10 + 640) / 0.5 and row[0, 1] == (20 + 320) / 0.5
+    assert row[0, 2] == 47 / 0.5 and row[0, 3] == 61 / 0.5
+    assert row[0, 4] == (12 + 640) / 0.5 and row[0, 5] == (30 + 320) / 0.5
+    assert row[0, 14] == pytest.approx(0.9)
+
+
 @needs_gpu
 def test_no_face_in_an_empty_picture():
     from testpoint.api.faces import FaceEngine

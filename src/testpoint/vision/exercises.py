@@ -193,6 +193,11 @@ class CrunchRules:
     max_lying_deg: float = 40.0
     """Absolute torso elevation above which the candidate is not lying (sitting, getting
     up): never the rest position. Lying measures 0 from the side, up to 33 from a 3/4 view."""
+    max_leg_drop: float = 0.6
+    """How far the ankles may be below the hip, in torso lengths, for the person to be lying.
+    Lying with the knees up (and at the top of a crunch) the feet are level with the hip: within
+    0.1; standing, or bent over to pick up the mat, the legs hang below it: 0.9 and more
+    (2026-11-04, station camera). Such a frame is not measured: bending over is not a crunch."""
     knee_min_deg: float = 20.0
     knee_max_deg: float = 135.0
     """Knee angle must stay within this range (legs bent, feet on the floor). The fault
@@ -236,6 +241,13 @@ class CrunchAnalyzer:
         torso = elevation_deg(person.point(side["hip"]), person.point(side["shoulder"]))
         faults: list[str] = []
         debug = {"torso_deg": torso}
+        feet = person.best_side("hip", "ankle", min_conf=self.rules.min_conf)
+        if feet is not None:
+            length = distance(person.point(side["shoulder"]), person.point(side["hip"]))
+            drop = float(person.point(feet["ankle"])[1] - person.point(feet["hip"])[1]) / max(length, 1.0)
+            debug["leg_drop"] = drop
+            if drop > self.rules.max_leg_drop:
+                return FrameMetrics(metric=None, debug=debug)     # standing or bent over: not lying
 
         leg_side = person.best_side("hip", "knee", "ankle", min_conf=self.rules.min_conf)
         if leg_side is not None:
@@ -270,6 +282,7 @@ TUNABLE: dict[str, dict[str, tuple[float, float, float]]] = {
     "crunch": {
         "up_torso_deg": (3, 60, 0.5), "down_torso_deg": (1, 50, 0.5), "knee_min_deg": (0, 90, 1),
         "knee_max_deg": (90, 180, 1), "max_lying_deg": (20, 70, 1), "min_rep_s": (0.1, 2.0, 0.1),
+        "max_leg_drop": (0.2, 2.0, 0.05),
         "fault_min_s": (0.0, 1.0, 0.05), "auto_share": (0.0, 0.6, 0.05),
     },
 }

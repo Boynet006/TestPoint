@@ -57,6 +57,16 @@ def test_crunch_lying_then_up():
     assert a.analyze(up).faults == []
 
 
+def test_standing_bent_over_is_not_a_crunch():
+    # picking up the mat after the test: the torso near horizontal, but the legs hang below the hip
+    bent = person_from({
+        K.R_HIP: (200, 200), K.R_SHOULDER: (100, 215),
+        K.R_KNEE: (205, 280), K.R_ANKLE: (210, 360),
+    })
+    m = CrunchAnalyzer().analyze(bent)
+    assert m.metric is None and m.debug["leg_drop"] > 1
+
+
 def test_crunch_with_straight_legs_is_faulted():
     up = person_from({
         K.R_HIP: (200, 300), K.R_SHOULDER: (130, 230),

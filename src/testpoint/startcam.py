@@ -109,6 +109,8 @@ class Analyst:
                     f = self.faces.largest_face(frame[y0:y1, x0:x1])
                     obs["emb"] = base64.b64encode(np.asarray(f.embedding, np.float32).tobytes()).decode()
                     obs["quality"] = f.quality
+                    if f.crop_jpeg:
+                        obs["crop"] = base64.b64encode(f.crop_jpeg).decode()
                     fx, fy, fw, fh = f.box
                     draw["face"] = (x0 + fx, y0 + fy, x0 + fx + fw, y0 + fy + fh)
                 except FaceError:
@@ -132,9 +134,10 @@ def draw(img: np.ndarray, d: dict) -> None:
 
 
 class StartClips:
-    """A short video of every start: from a few seconds before the 3-2-1 until just after GO, for
-    checking a start later. Files go to ``<evidence>/start/``. Pictures are kept small: the ring
-    holds several seconds of them in memory."""
+    """A short video of every start: from a few seconds before the runner was recognised at the
+    line (the raised hand, the 3-2-1 when there is one) until just after GO, for checking a start
+    later. Files go to ``<evidence>/start/``. Pictures are kept small: the ring holds several
+    seconds of them in memory."""
 
     AFTER_S = 3.0
     BEFORE_S = 4.0
@@ -145,6 +148,8 @@ class StartClips:
         self.entry: int | None = None
         self.until: float | None = None
         self.saved = 0
+        self.clipped: int | None = None
+        """The runner whose start was just saved: the screen still says "started" for a while."""
 
     def push(self, frame: np.ndarray, now: float) -> None:
         h, w = frame.shape[:2]
@@ -155,17 +160,24 @@ class StartClips:
             stamp = time.strftime("%Y%m%d-%H%M%S")
             self.evidence.clip_at("start", f"{stamp}-entry{self.entry}", self.began - self.BEFORE_S, now)
             self.saved += 1
+            self.clipped = self.entry
             self.began = self.until = None
 
     def state(self, reply: dict, now: float) -> None:
-        """The app's answer: a countdown begins the clip, the start ends it soon after."""
-        state = reply.get("state")
-        if state == "countdown" and self.began is None:
-            self.began, self.entry = now, reply.get("entry_id")
-        elif state == "started" and self.began is not None and self.until is None:
+        """The app's answer: someone recognised at the line (asked for the hand, or the 3-2-1)
+        begins the clip, the start ends it soon after. Without a countdown (GO as soon as the hand
+        is up) the screen goes straight from the hand to "started"."""
+        state, entry = reply.get("state"), reply.get("entry_id")
+        if state in ("raise_hand", "countdown") and self.began is None:
+            self.began, self.entry, self.clipped = now, entry, None
+        elif state == "started" and self.until is None and entry != self.clipped:
+            if self.began is None:
+                self.began, self.entry = now, entry
             self.until = now + self.AFTER_S
-        elif state == "idle" and self.until is None:
-            self.began = None           # the countdown was cancelled: nothing to keep
+        elif state in ("idle", "refused") and self.until is None:
+            self.began = None           # they left, or the start was cancelled: nothing to keep
+            if state == "idle":
+                self.clipped = None
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -173,7 +185,7 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--source", required=True, help="webcam index, video file or rtsp:// address")
     p.add_argument("--app", required=True, help="station app address, e.g. http://127.0.0.1:8000")
     p.add_argument("--station", default=STATION, help="screen this camera shows on (default start)")
-    p.add_argument("--fps", type=float, default=10.0, help="pictures sent to the screen a second (default 10)")
+    p.add_argument("--fps", type=float, default=25.0, help="pictures sent to the screen a second, at most the camera's own rate (default 25)")
     p.add_argument("--analyse-fps", type=float, default=12.0, help="frames looked at a second (default 12)")
     p.add_argument("--max-width", type=int, default=1920, help="widest picture sent (default 1920)")
     p.add_argument("--device", default="auto", help="cuda, cpu or auto (default)")
@@ -203,7 +215,8 @@ def main(argv: list[str] | None = None) -> None:
     if poster is not None and args.evidence:
         from .evidence import EvidenceWriter
         from .vision.lanes import whole_frame
-        clips = StartClips(EvidenceWriter(args.evidence, [whole_frame("1")], fps=args.analyse_fps, keep_s=10.0, pad_s=0.0))
+        # the ring covers the wait for the hand (up to 15 s) and the seconds before
+        clips = StartClips(EvidenceWriter(args.evidence, [whole_frame("1")], fps=args.analyse_fps, keep_s=25.0, pad_s=0.0))
     print(f"start cam: source {redact_url(args.source)}  app {args.app}  station {args.station}", flush=True)
     frames, t0, last_look, state = 0, time.monotonic(), 0.0, {}
     try:

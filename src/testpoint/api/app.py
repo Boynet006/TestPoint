@@ -20,6 +20,7 @@ from collections.abc import Iterator
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Annotated, Literal
 from zoneinfo import ZoneInfo
 
@@ -395,6 +396,9 @@ class StartObsIn(BaseModel):
     emb: str | None = Field(default=None, max_length=2000)
     """The face embedding (128 float32, base64) when a face was looked at in this frame."""
     quality: float | None = None
+    crop: str | None = Field(default=None, max_length=400_000)
+    """The face picture (aligned crop, JPEG, base64) with the embedding: kept as a template when
+    this person is started (see start_obs)."""
 
 
 FRAME_STATION = re.compile(r"[a-z][a-z0-9_-]{0,23}")
@@ -454,6 +458,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     # The engines' live pictures (src/testpoint/preview.py): newest JPEG per station.
     _last_frame: dict[str, tuple[float, bytes]] = {}
     _frame_waiters: dict[str, asyncio.Event] = {}   # wakes the open streams when a new picture comes
+    _streams: set[str] = set()                      # the live streams open now, by the key the page gave
     _watchers: dict[str, int] = {}                  # open live streams per camera: nobody watching, the camera sends 1 a second
     _frame_times: dict[str, deque] = {}             # arrival times of the latest pictures, for the picture rate
 
@@ -617,13 +622,16 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     def entries(status: str | None = None, db: Session = Depends(get_db),
                 day: Day = Depends(get_day)) -> list[dict]:
         rows = S.list_entries(db, day, status)
-        counts = dict(db.execute(select(FaceTemplate.candidate_id, func.count())
-                                 .group_by(FaceTemplate.candidate_id)).all())
+        counts = dict(db.execute(select(FaceTemplate.candidate_id, func.count()).where(
+            FaceTemplate.day_id == day.id, FaceTemplate.source.not_in(S.LEARNT) | FaceTemplate.source.is_(None),
+            FaceTemplate.created_at >= S.utcnow() - S.face_window(db))
+            .group_by(FaceTemplate.candidate_id)).all())
         return [entry_out(e, day, counts.get(e.candidate_id, 0)) for e in rows]
 
     @app.get("/api/entries/{entry_id}")
     def entry(entry_id: int, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
-        return entry_out(S.get_entry(db, day, entry_id), day)
+        e = S.get_entry(db, day, entry_id)
+        return entry_out(e, day, S.face_count(db, e.candidate_id, day))
 
     @app.get("/api/run/crossings")
     def crossings(db: Session = Depends(get_db), day: Day = Depends(get_day)) -> list[dict]:
@@ -699,15 +707,15 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     @app.post("/api/candidates/{candidate_id}/face")
     async def register_face(candidate_id: int, request: Request, db: Session = Depends(get_db),
                             day: Day = Depends(get_day)) -> dict:
-        c = S.get_candidate(db, candidate_id)
-        return {"faces": S.enroll_face(db, day, None, await request.body(), engine(), candidate=c)}
+        c, rep = S.get_candidate(db, candidate_id), {}
+        return {"faces": S.enroll_face(db, day, None, await request.body(), engine(), candidate=c, report=rep)} | rep
 
     @app.post("/api/candidates/{candidate_id}/face/burst")
     def register_face_burst(candidate_id: int, body: BurstIn, db: Session = Depends(get_db),
                             day: Day = Depends(get_day)) -> dict:
         """Several frames of one pose: the sharpest, best-lit one is kept (low_quality if none is good)."""
-        c = S.get_candidate(db, candidate_id)
-        return {"faces": S.enroll_face(db, day, None, burst_frames(body), engine(), candidate=c)}
+        c, rep = S.get_candidate(db, candidate_id), {}
+        return {"faces": S.enroll_face(db, day, None, burst_frames(body), engine(), candidate=c, report=rep)} | rep
 
     @app.delete("/api/candidates/{candidate_id}/face", status_code=204, dependencies=[Depends(admin)])
     def register_face_remove(candidate_id: int, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> None:
@@ -818,13 +826,15 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     async def face_enroll(entry_id: int, request: Request, db: Session = Depends(get_db),
                           day: Day = Depends(get_day)) -> dict:
         data = await request.body()
-        return {"faces": S.enroll_face(db, day, S.get_entry(db, day, entry_id), data, engine())}
+        rep: dict = {}
+        return {"faces": S.enroll_face(db, day, S.get_entry(db, day, entry_id), data, engine(), report=rep)} | rep
 
     @app.post("/api/entries/{entry_id}/face/burst")
     def face_enroll_burst(entry_id: int, body: BurstIn, db: Session = Depends(get_db),
                           day: Day = Depends(get_day)) -> dict:
         """Several frames of one pose: the sharpest, best-lit one is kept (low_quality if none is good)."""
-        return {"faces": S.enroll_face(db, day, S.get_entry(db, day, entry_id), burst_frames(body), engine())}
+        rep: dict = {}
+        return {"faces": S.enroll_face(db, day, S.get_entry(db, day, entry_id), burst_frames(body), engine(), report=rep)} | rep
 
     @app.delete("/api/entries/{entry_id}/face", status_code=204, dependencies=[Depends(admin)])
     def face_remove(entry_id: int, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> None:
@@ -857,7 +867,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
             raise S.ServiceError("unknown_station", f"unknown station {station!r}", 400)
         r = S.identify(db, day, await request.body(), engine(), station, learn=learn)
         if r["entry"] is not None:
-            r["entry"] = entry_out(r["entry"], day, S.face_count(db, r["entry"].candidate_id))
+            r["entry"] = entry_out(r["entry"], day, S.face_count(db, r["entry"].candidate_id, day))
         return r
 
     # ------------------------------------------------------------------ weigh-in
@@ -871,7 +881,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     def entry_results(entry_id: int, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
         """The results card: each test, its grade against the required level, the verdict."""
         e = S.get_entry(db, day, entry_id)
-        return S.results_for(e) | {"entry": entry_out(e, day, S.face_count(db, e.candidate_id))}
+        return S.results_for(e) | {"entry": entry_out(e, day, S.face_count(db, e.candidate_id, day))}
 
     @app.post("/api/entries/{entry_id}/standard")
     def standard(entry_id: int, body: StandardIn, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
@@ -903,7 +913,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
                        day: Day = Depends(get_day)) -> dict:
         e = S.edit_candidate(db, day, S.rules_for(db, day, rules), S.get_entry(db, day, entry_id),
                              body.model_dump(exclude_unset=True))
-        return entry_out(e, day, S.face_count(db, e.candidate_id))
+        return entry_out(e, day, S.face_count(db, e.candidate_id, day))
 
     @app.delete("/api/entries/{entry_id}", status_code=204, dependencies=[Depends(admin)])
     def entry_remove(entry_id: int, delete_results: bool = False, forget: bool = False,
@@ -1081,6 +1091,12 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
                      "live": now - seen[0] <= FRAME_STALE_S, "player": player(st)}
                 for st, seen in _last_frame.items()}
 
+    @app.get("/api/engine/stream-alive")
+    def engine_stream_alive(key: str) -> dict:
+        """Is the page's live stream (by the key in its address) still open? An app restart ends every
+        stream while the picture on the page simply stays: the page asks, and opens a new one."""
+        return {"alive": key in _streams}
+
     @app.get("/api/engine/frame/{station}.jpg")
     def engine_frame_jpg(station: str) -> Response:
         """The station camera's latest annotated picture; 404 when no engine sent one lately."""
@@ -1097,13 +1113,18 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         if not FRAME_STATION.fullmatch(station):
             raise S.ServiceError("unknown_station", f"bad station name {station!r}", 400)
 
+        key = request.query_params.get("t")
+
         async def frames():
             _watchers[station] = _watchers.get(station, 0) + 1
+            if key:
+                _streams.add(key)
             try:
                 async for part in pictures():
                     yield part
             finally:
                 _watchers[station] = max(0, _watchers.get(station, 1) - 1)
+                _streams.discard(key)
 
         async def pictures():
             last = None
@@ -1365,16 +1386,32 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
                 sl.reset(wall())
         return sl
 
-    def start_match(db: Session, day: Day, emb: np.ndarray) -> tuple[int, bool, str | None] | None:
-        gallery: dict[int, list[np.ndarray]] = {}
-        for entry_id, t in db.execute(select(Entry.id, FaceTemplate.embedding).join(
-                FaceTemplate, FaceTemplate.candidate_id == Entry.candidate_id).where(Entry.day_id == day.id)).all():
-            gallery.setdefault(entry_id, []).append(np.frombuffer(t, np.float32))
+    # The faces the start camera saw of each recognised runner while they stood at the line
+    # (score, embedding, quality, crop, runner-up), the best few: kept as templates once they are
+    # started (learn_start_face). Nobody poses for them.
+    _start_faces: dict[int, list[tuple]] = {}
+
+    def start_face_match(db: Session, day: Day, emb: np.ndarray):
         threshold, margin = S.FACE_MATCH.get(S.get_settings(db)["face_match"], S.FACE_MATCH["normal"])
-        m = S.face_match(emb, gallery, threshold=threshold, margin=margin)
+        return S.face_match(emb, S.day_gallery(db, day), threshold=threshold, margin=margin)
+
+    def keep_start_face(m, emb: np.ndarray, quality: float | None, crop: bytes | None) -> None:
+        if not crop or m.candidate_id is None:
+            return
+        seen = _start_faces.setdefault(m.candidate_id, [])
+        seen.append((m.score, emb, quality, crop, m.runner_up))
+        seen.sort(key=lambda s: -s[0])
+        del seen[S.MAX_START * 3:]           # a few more than kept: near-copies are skipped
+
+    def start_match(db: Session, day: Day, emb: np.ndarray, quality: float | None = None,
+                    crop: bytes | None = None) -> tuple[int, bool, str | None] | None:
+        m = start_face_match(db, day, emb)
         if m.candidate_id is None:
             return None
+        keep_start_face(m, emb, quality, crop)
         e = db.get(Entry, m.candidate_id)
+        if e.status in (J.ACCEPTED, J.LINED_UP) and not S.face_count(db, e.candidate_id, day, fresh=False):
+            return e.id, False, "no_photos_today"     # recognised by an earlier day's photos: back to the desk
         if e.status == J.LINED_UP:
             return e.id, True, None
         if e.status == J.RUNNING and e.run_started_at is not None and wall() - e.run_started_at.replace(tzinfo=timezone.utc).timestamp() < 60:
@@ -1382,11 +1419,28 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         g = S.gate_for(e, day, "lineup")
         return e.id, g.ok, g.reason or None
 
+    def learn_start_face(db: Session, day: Day, e: Entry) -> None:
+        """The runner was recognised, raised the hand and was started: their face as the start
+        camera saw it becomes a few templates, for today. The finish camera is the same kind of
+        camera (the same light, often infrared, the face small): a desk photo alone matches it
+        poorly, these well."""
+        learnt = 0
+        for score, emb, quality, crop, runner_up in _start_faces.pop(e.id, []):
+            face = SimpleNamespace(embedding=emb, quality=quality, crop_jpeg=crop, yaw=None)
+            if S.adapt_template(db, day, e, face, score, runner_up, min_score=S.ADAPT_START_SCORE,
+                                min_quality=S.ADAPT_START_QUALITY, source="start", limit=S.MAX_START):
+                learnt += 1
+                db.flush()
+                if learnt == S.MAX_START:
+                    break
+        if learnt:
+            db.commit()
+
     def startline_out(db: Session, day: Day, sl: StartLine) -> dict:
         v = sl.view(wall())
         e = db.get(Entry, v["entry_id"]) if v["entry_id"] else None
         v["entry"] = ({"id": e.id, "bib": e.candidate.bib, "name": e.candidate.name, "name_ar": e.candidate.name_ar,
-                       "faces": S.face_count(db, e.candidate_id), "verdict": S.verdict(e), "status": e.status} if e else None)
+                       "faces": S.face_count(db, e.candidate_id, day), "verdict": S.verdict(e), "status": e.status} if e else None)
         if e is not None and v["state"] in ("countdown", "started") and e.run_started_at is not None:
             v["go_at"] = iso(e.run_started_at)
         else:
@@ -1400,13 +1454,23 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         sl = start_line(db, day)
         now = wall()
         match = None
-        if body.emb and sl.state == "idle":
+        if body.emb:
             try:
                 emb = np.frombuffer(base64.b64decode(body.emb, validate=True), np.float32)
             except ValueError:
                 raise S.ServiceError("bad_input", "emb: not base64", 422) from None
-            if emb.shape == (128,):
-                match = start_match(db, day, emb)
+            crop = None
+            if body.crop:
+                try:
+                    crop = base64.b64decode(body.crop, validate=True)
+                except ValueError:
+                    crop = None
+            if emb.shape == (128,) and sl.state == "idle":
+                match = start_match(db, day, emb, body.quality, crop)
+            elif emb.shape == (128,) and sl.state in ("raise_hand", "countdown") and sl.entry_id:
+                m = start_face_match(db, day, emb)     # more pictures while they wait at the line
+                if m.candidate_id == sl.entry_id:
+                    keep_start_face(m, emb, body.quality, crop)
         for act, entry_id in sl.observe(now, Look(body.present, match, body.hand)):
             e = db.get(Entry, entry_id)
             try:
@@ -1414,6 +1478,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
                     S.line_up(db, day, e, by="face")
                 elif act == "start":
                     S.start_runner(db, day, S.rules_for(db, day, rules), e, countdown_s=round(sl.countdown_s), by="camera")
+                    learn_start_face(db, day, e)
                 elif act == "cancel" and e.status == J.RUNNING:
                     S.cancel_start(db, day, e)
             except S.ServiceError as err:          # the examiner did something else meanwhile
@@ -1473,10 +1538,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         return f
 
     def flow_match(db: Session, day: Day, emb: np.ndarray) -> tuple[int, str | None, str | None] | None:
-        gallery: dict[int, list[np.ndarray]] = {}
-        for entry_id, t in db.execute(select(Entry.id, FaceTemplate.embedding).join(
-                FaceTemplate, FaceTemplate.candidate_id == Entry.candidate_id).where(Entry.day_id == day.id)).all():
-            gallery.setdefault(entry_id, []).append(np.frombuffer(t, np.float32))
+        gallery = S.day_gallery(db, day)
         threshold, margin = S.FACE_MATCH.get(S.get_settings(db)["face_match"], S.FACE_MATCH["normal"])
         m = S.face_match(emb, gallery, threshold=threshold, margin=margin)
         if m.candidate_id is None:
@@ -1550,7 +1612,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         v = flow.view(wall())
         e = db.get(Entry, v["entry_id"]) if v["entry_id"] else None
         v["entry"] = ({"id": e.id, "bib": e.candidate.bib, "name": e.candidate.name, "name_ar": e.candidate.name_ar,
-                       "faces": S.face_count(db, e.candidate_id), "done": sorted(S.done_events(e)), "status": e.status} if e else None)
+                       "faces": S.face_count(db, e.candidate_id, day), "done": sorted(S.done_events(e)), "status": e.status} if e else None)
         a = db.get(Attempt, v["attempt_id"]) if v["attempt_id"] else None
         v["result"] = ({"count": a.count, "passed": a.passed, "grade": a.grade, "status": a.status} if a and a.status == "finished" else None)
         seen = _last_report.get(S.EXERCISE_STATION)

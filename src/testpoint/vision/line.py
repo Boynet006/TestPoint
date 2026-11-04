@@ -72,6 +72,11 @@ class FinishLine:
     picture), and MIN_TRAVEL is how far they must have moved: someone sitting or shifting near the
     line (their box edge wobbling across it) is not a runner crossing."""
     MIN_TRAVEL = 0.06
+    MAX_STEP = 0.12
+    """The most a person's feet move from one frame to the next (share of the picture). Someone
+    walking or running moves 0.01-0.04; a box that jumps further was not one person moving: sitting
+    down into a chair near the camera merges person and chair, and the box's bottom leaps from mid-
+    picture to the bottom edge (0.49 -> 0.96 on the finish camera). That is no crossing."""
 
     def check(self, tracks: list[Track], w: int, h: int) -> list[CrossEvent]:
         """Crossings completed in this frame, one per track at most, each track once."""
@@ -86,6 +91,8 @@ class FinishLine:
                 continue
             if not self._direction_ok(d0, d1):
                 continue
+            if abs(d1 - d0) > self.MAX_STEP:
+                continue                 # a jump, not a step (see MAX_STEP); a real crossing can still follow
             past = [self.signed_distance(*b.feet, w, h) for _t, b in tr.history[:-1]]
             before = [d for d in past if (d > 0) == (d0 > 0)]
             if not before or max(abs(d) for d in before) < self.MIN_APPROACH:

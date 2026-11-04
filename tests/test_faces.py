@@ -245,7 +245,8 @@ def test_very_sure_matches_at_stations_add_a_template_in_the_venue_light(client)
     assert not client.post("/api/face/identify?station=weigh", content=b"face:A:x:venue:sharp").json().get("adapted")
     # at the start line: a sure match that looks different from every template is kept
     r = client.post("/api/face/identify?station=lineup", content=b"face:A:x:venue:sharp").json()
-    assert r["entry"]["id"] == i["11"] and r["adapted"] is True and r["entry"]["faces"] == 2
+    assert r["entry"]["id"] == i["11"] and r["adapted"] is True
+    assert r["entry"]["faces"] == 1                     # the count is of today's registration photos
     # the same look again adds nothing; a poor picture never does
     assert client.post("/api/face/identify?station=lineup", content=b"face:A:x:venue:sharp").json()["adapted"] is False
     assert client.post("/api/face/identify?station=lineup", content=b"face:A:x:venue:blurry").json()["adapted"] is False
@@ -293,3 +294,87 @@ def test_finish_face_match_from_settings():
     from testpoint.api import service as S
     assert S.finish_face_match(1, 0.4) == (0.4, S.FACE_MATCH["normal"][1])
     assert S.finish_face_match(30, 0.33)[0] == 0.33 and S.finish_face_match(30, 0.0) == S.FACE_MATCH["strict"]
+
+
+def test_a_face_missed_at_full_size_is_looked_for_in_smaller_copies():
+    """A soft face of 70-100 px (a camera's head crop at night) is found only in a halved copy; the
+    face comes back in the picture's own pixels."""
+    from testpoint.api.faces import FaceEngine
+
+    eng = FaceEngine.__new__(FaceEngine)
+    seen = []
+
+    def once(img):
+        seen.append(img.shape[1])
+        if img.shape[1] > 150:
+            return np.zeros((0, 15), np.float32)
+        return np.array([[10, 12, 40, 50] + [0] * 10 + [0.9]], np.float32)
+
+    eng._detect_once = once
+    faces = eng.detect(np.zeros((240, 240, 3), np.uint8))
+    assert seen == [240, 120] and faces[0, :4].tolist() == [20, 24, 80, 100]
+
+
+def test_each_test_day_uses_that_days_photos_and_checks_them_against_the_last_visit(monkeypatch):
+    """Faces change between test days (a beard, a haircut) and so does the light: on a new day
+    the person is recognised by the old photos only until today's are taken. Today's are checked
+    against the last visit's: someone else is flagged."""
+    from fastapi.testclient import TestClient
+    from sqlalchemy.pool import StaticPool
+
+    from testpoint.api.app import create_app
+
+    real = models.create_engine
+    monkeypatch.setattr(models, "create_engine", lambda url, **kw: real(url, poolclass=StaticPool, **kw))
+    day = {"d": "2026-10-20"}
+    app = create_app(db_url="sqlite:///:memory:", web_dir="none", today=lambda: day["d"], face_engine=lambda: FakeEngine())
+    with TestClient(app) as c:
+        c.post("/api/entries/import", content=CSV.encode())
+        i = ids(c)
+        assert c.post(f"/api/entries/{i['11']}/face", content=b"face:A:straight").json() == {"faces": 1}
+        c.post(f"/api/entries/{i['11']}/face", content=b"face:A:left")
+        c.post(f"/api/entries/{i['12']}/face", content=b"face:B")
+
+        day["d"] = "2026-10-27"                                          # a week later
+        c.post("/api/entries/import", content=CSV.encode())
+        i = ids(c)
+        assert next(e for e in c.get("/api/entries").json() if e["id"] == i["11"])["faces"] == 0   # asks for new ones
+        r = c.post("/api/face/identify?station=weigh", content=b"face:A").json()
+        assert r["entry"]["id"] == i["11"]                               # still found by last week's
+        # today's photos: the same person, and the last visit's frontal photo is all that stays
+        r = c.post(f"/api/entries/{i['11']}/face", content=b"face:A:straight:venue").json()
+        assert r["faces"] == 1 and r["last_visit"]["differs"] is False
+        cid = c.get(f"/api/entries/{i['11']}").json()["candidate"]["id"]
+        assert len(c.get(f"/api/candidates/{cid}/faces").json()["faces"]) == 2
+        # someone else sitting for Bravo: flagged (and in the audit log)
+        r = c.post(f"/api/entries/{i['12']}/face", content=b"face:C").json()
+        assert r["last_visit"]["differs"] is True
+        # today only today's photo counts for Bravo: the real Bravo is no longer matched to them
+        r = c.post("/api/face/identify?station=weigh", content=b"face:B").json()
+        assert r["entry"] is None or r["entry"]["id"] != i["12"]
+
+
+def test_photos_are_taken_again_later_the_same_day(client, monkeypatch):
+    """Morning, then the afternoon (or after dark): the light changed. After face_fresh_min the
+    desk is asked for new photos; then only the newest set counts, checked against the morning's."""
+    from datetime import timedelta
+
+    from testpoint.api import service as S
+
+    i = ids(client)
+    morning = S.utcnow()
+    client.post(f"/api/entries/{i['11']}/face", content=b"face:A:straight")
+    faces = lambda: next(e for e in client.get("/api/entries").json() if e["id"] == i["11"])["faces"]
+    assert faces() == 1
+    monkeypatch.setattr(S, "utcnow", lambda: morning + timedelta(hours=3))
+    assert faces() == 0                                                       # ask again
+    assert client.post("/api/face/identify?station=weigh", content=b"face:A").json()["entry"]["id"] == i["11"]
+    r = client.post(f"/api/entries/{i['11']}/face", content=b"face:A:straight:venue").json()
+    assert r["faces"] == 1 and r["last_visit"]["differs"] is False          # the same person as this morning
+    cid = client.get(f"/api/entries/{i['11']}").json()["candidate"]["id"]
+    assert len(client.get(f"/api/candidates/{cid}/faces").json()["faces"]) == 2   # the new one, and the morning's for the check
+    # someone else sitting for Bravo in the afternoon is flagged too
+    monkeypatch.setattr(S, "utcnow", lambda: morning)
+    client.post(f"/api/entries/{i['12']}/face", content=b"face:B")
+    monkeypatch.setattr(S, "utcnow", lambda: morning + timedelta(hours=3))
+    assert client.post(f"/api/entries/{i['12']}/face", content=b"face:C").json()["last_visit"]["differs"] is True

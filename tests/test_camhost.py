@@ -177,7 +177,9 @@ def test_start_line_ip_camera(svc):
     c, _ = svc
     url = "rtsp://admin:pw@192.168.250.241:554/Streaming/Channels/101"
     r = c.post("/startcam/start", json={"kind": "url", "source": url, "app_url": "http://localhost:8000"}).json()
-    assert r["running"] and r["config"]["source"] == url
+    # the camera gets the password; the status never shows it
+    assert r["running"] and r["config"]["source"] == "rtsp://admin:***@192.168.250.241:554/Streaming/Channels/101"
+    assert "pw@" not in c.get("/startcam").text
     cmd = FakeProc.last.cmd
     assert cmd[1:3] == ["-m", "testpoint.startcam"] and cmd[cmd.index("--source") + 1] == url
     assert cmd[cmd.index("--app") + 1] == "http://127.0.0.1:8000" and "--realtime" not in cmd

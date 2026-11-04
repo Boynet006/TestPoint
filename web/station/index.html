@@ -185,7 +185,7 @@
   @keyframes stampIn { from { transform: translate(-50%, -50%) rotate(-12deg) scale(2.4); opacity: 0; } }
   @media (prefers-reduced-motion: reduce) { .idcard::after, .idcard .stamp { animation: none; } }
   .regcam { position: relative; aspect-ratio: 4/3; }
-  .camrow { gap: 8px; margin-bottom: 8px; flex-wrap: wrap; } .camrow select { flex: 1 1 200px; min-width: 0; } .camrow .btn { flex: 0 0 auto; }
+  .camrow { gap: 8px; margin-bottom: 8px; flex-wrap: wrap; } .camrow select { flex: 1 1 200px; min-width: 0; } .camrow .btn { flex: 0 0 auto; } .camlight { display: flex; align-items: center; gap: 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; flex: 1 1 100%; } .camlight input { flex: 1; accent-color: #d4a84b; } .camlight.hidden { display: none; }
   /* ---- settings: sections in a sidebar, one shown at a time; search across all; a save bar for unsaved changes */
   .settop { gap: 12px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
   .settop input[type=search] { flex: 1 1 240px; max-width: 420px; }
@@ -486,6 +486,7 @@
   .grades td { font-size: 22px; font-weight: 700; }
   .grades .need { background: color-mix(in srgb, var(--go) 14%, transparent); color: var(--go); }
   .grades th small { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }
+  .grades .got { border-inline-start: 2px solid var(--line); color: var(--ink, inherit); white-space: nowrap; }
   .rcgrid { display: grid; grid-template-columns: minmax(220px, 300px) 1fr; gap: 16px; margin-top: 10px; }
   @media (max-width: 900px) { .rcgrid { grid-template-columns: 1fr; } }
   .rclist { max-height: 70vh; overflow: auto; border: 1px solid var(--line); background: var(--bg2); }
@@ -582,6 +583,11 @@
   #stOne .callbox img { width: 72px; height: 90px; } #stOne .search { margin-top: 8px !important; } #stOne .hint { margin: 4px 0; }
   #scOnePic .scview { display: block; margin-top: 6px; } #scOnePic .camlive { margin: 0; } #scOnePic .camlive.hidden { display: none; }
   #scOnePic .camlive img { width: 100%; height: auto; max-width: 100%; max-height: none; display: block; }
+  /* One mat: the camera's source and buttons sit above the picture, as on the start line. */
+  #scOneCamTop #scCard { border: 0; background: none; box-shadow: none; padding: 0; margin: 4px 0 0; }
+  #scOneCamTop .scgrid { display: block; } #scOneCamTop #scViewHome { display: none; }
+  #scOneCamTop .scgrid > div:last-child > .row:first-child, #scOneCamTop #scWhat { display: none; }
+  #scOneCamTop .seg { margin-top: 0 !important; } #scOneCamTop .row { margin-top: 6px !important; }
   body.st-fit main { max-width: none; padding-block: 8px 0; }
   body.st-fit { overflow: hidden; }
   body.st-fit #stOne { height: calc(100vh - var(--st-top, 80px) - 10px); align-items: stretch; }
@@ -595,7 +601,6 @@
   body.st-fit #scOnePic .camlive.hidden { display: none; }
   body.st-fit #scOnePic .camlive img { height: 100%; max-height: 100%; object-fit: contain; }
   @media (max-width: 1100px) { #stOne, body.st-fit #stOne { display: block; height: auto; } #stOne > * { overflow: visible; margin-bottom: 12px; } body.st-fit #scOnePic { display: block; } body.st-fit #scOnePic .camlive img { height: auto; } body.st-fit { overflow: auto; } }
-  #scOneCam .scgrid { display: block; } #scOneCam #scViewHome { display: none; }
   .calbar { position: relative; height: 26px; margin: 12px 0 8px; background: var(--bg2); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
   .calbar i { position: absolute; inset-block: 0; inset-inline-start: 0; background: var(--amber); transition: width .1s linear; }
   .calbar b { position: absolute; inset-block: 0; width: 3px; }
@@ -917,6 +922,9 @@
         <select id="deskCamSel" onchange="Cam.pickDevice(this.value)" data-tl="rd_cam_pick"></select>
         <button class="btn sm" type="button" onclick="Cam.use('webcam')" data-t="rd_cam_restart"></button>
         <button class="btn ghost sm" type="button" onclick="Cam.free()" data-tl="rd_cam_free_hint"><span data-t="rd_cam_free"></span></button>
+        <label class="camlight hidden" id="camLightBox" data-tl="cam_light_hint"><span data-t="cam_light"></span>
+          <input type="range" id="camLight" oninput="CamLight.set(this.value)">
+          <button class="btn sm ghost" type="button" id="camLightAuto" onclick="CamLight.auto(!CamLight.on)"></button></label>
       </div>
       <div class="row camrow hidden" id="ipCamRow">
         <select id="ipCamSel" onchange="camPick(this, 'ipCamUrl')" style="flex:1"></select>
@@ -1131,6 +1139,7 @@
     <div id="stOne" class="hidden">
       <div class="card stmain">
         <div class="row" style="align-items:center"><h2 style="margin:0" data-t="r_station"></h2><span class="spacer"></span><button class="btn ghost sm" style="flex:0 0 auto" id="xOneTune" onclick="LiveTune.toggle()" data-t="lt_button"></button><span id="xOneCam"></span></div>
+        <div id="scOneCamTop"></div>
         <div id="scOnePic"></div>
         <div id="scOneCall"></div>
         <div class="search" style="margin-top:10px"><input id="xQuery" data-tp="ph_bib" autocomplete="off" onkeydown="if(event.key==='Enter')StationCall.manual()"><button class="btn amber" onclick="StationCall.manual()" data-t="st_manual"></button><button class="btn ghost" style="flex:0 0 auto" onclick="StationCall.results()" data-t="r_results"></button></div>
@@ -1142,7 +1151,6 @@
           <p class="hint" data-t="st_waiting_hint"></p>
           <div class="scroll" style="max-height:130px"><table><tbody id="xWaitTable"></tbody></table></div>
         </div>
-        <div id="scOneCam"></div>
       </div>
     </div>
     <div class="bar" id="xBar">
@@ -1335,6 +1343,9 @@
         <label for="setFaceReq" data-t="set_face_req"></label>
         <select id="setFaceReq"><option value="0" data-t="off"></option><option value="1" data-t="on"></option></select>
         <span class="hint" data-t="set_face_req_hint"></span>
+        <label for="setFaceFresh" data-t="set_face_fresh"></label>
+        <select id="setFaceFresh"><option value="60" data-t="h_1"></option><option value="120" data-t="h_2"></option><option value="240" data-t="h_4"></option><option value="0" data-t="whole_day"></option></select>
+        <span class="hint" data-t="set_face_fresh_hint"></span>
       </div>
     </div>
     <div class="card setpanel" data-p="run" data-scope="station">
@@ -1615,7 +1626,7 @@ const I18N = {
     cs_one: "Keep at least one camera choice on each screen.", cs_na: "This screen cannot use this source",
     ipc_hint: "The IP cameras' addresses, saved on the station PC: rtsp://user:password@ip:554/Streaming/Channels/101. Screens never see the password; a camera screen whose IP camera box is left empty uses the address saved here. Type a dash (-) to remove one.",
     sec_ipcams: "Cameras", sec_cameras: "Cameras", sec_camera_bg: "Camera background", ipc_title: "IP camera addresses",
-    rc_run: "3.2 km run",
+    rc_run: "3.2 km run", today_col: "Today",
     rc_pending: "to do",
     rc_pending_all: "NOT FINISHED YET",
     rc_fail: "FAIL",
@@ -1832,7 +1843,7 @@ const I18N = {
     rules_hint: "Placeholder values until the official regulation arrives (docs/RULES.md).",
     s_expected: "expected", s_accepted: "accepted", s_rejected: "rejected at weigh-in", s_lined_up: "at the line", s_absent: "absent",
     s_running: "running", s_run_passed: "run passed", s_run_failed: "run failed", s_dnf: "DNF", s_complete: "complete",
-    e_not_on_todays_list: "Not on today's list", e_already_weighed: "Already weighed in today", weighed_next: "{name} is weighed in today ✓ · next: the run", e_not_weighed: "Not weighed in yet",
+    e_not_on_todays_list: "Not on today's list", e_already_weighed: "Already weighed in today", weighed_next: "{name} is weighed in today ✓ · next: the run", e_not_weighed: "Not weighed in yet", e_no_photos_today: "No face photos from today: go back to the weigh-in desk for them", photos_today: "New face photos: look at the camera",
     e_has_not_run: "Has not run yet", e_still_running: "Still running", e_rejected_at_weigh_in: "Rejected at weigh-in",
     e_missed_the_run: "Missed the run", e_run_not_passed: "Run not passed", e_run_not_finished: "Run not finished (DNF)",
     e_event_already_done: "Already done this exercise today", e_already_lined_up: "Already at the line",
@@ -1854,13 +1865,13 @@ const I18N = {
     give_bib: "{name} is on today's list. Give bib {bib}.",
     known_title: "Returning candidate", known_add: "Add to today's list and weigh in",
     known_hint: "This face is on file from an earlier day but the person is not on today's list.",
-    known_msg: "{name} is on file but not on today's list", register_need_camera: "Turn the camera on first: the face is captured right after saving.", enrolled: "Face saved ({n} on file).",
+    known_msg: "{name} is on file but not on today's list", register_need_camera: "Turn the camera on first: the face is captured right after saving.", enrolled: "Face saved ({n} today).", lv_differs: "Check their ID: this face does not look like the photo from their last test day (match {score}).",
     pose_straight: "Look straight at the camera", pose_left: "Turn your head a little to the left", pose_right: "Turn your head a little to the right",
     pose_hold: "Hold still…", pose_saved: "Saved {k}/{n}",
     guide_straight: "Look straight at the camera", guide_left: "Turn your head to your left", guide_right: "Turn your head to your right",
     guide_more_left: "A little more to your left", guide_more_right: "A little more to your right",
     guide_no_face: "Put your face in the oval", guide_one_face: "Only one person in front of the camera", guide_closer: "Come closer to the camera", face: "Face", no_face_short: "no face",
-    no_face: "no face", enroll: "Enrol photo", removed: "Face removed.",
+    no_face: "new photos needed", enroll: "Enrol photo", removed: "Face removed.",
     e_no_face: "No face in the picture", e_multiple_faces: "More than one face: use a picture of one person", e_face_too_small: "Face too small: move closer",
     e_bad_image: "That file is not a picture", e_face_unavailable: "Face recognition is not available on this server", e_face_not_recognised: "Face not recognised",
     e_nobody_enrolled: "Nobody on today's list has a face enrolled yet", e_no_face_enrolled: "No face enrolled",
@@ -1878,7 +1889,7 @@ const I18N = {
     close_blocked: "{n} crossing(s) to review at the finish line first", open_finish: "Open the finish line",
     void_wave: "Void wave (admin)", sure_void: "Take this wave back? Press again", wave_voided: "Wave voided: {n} back to waiting.",
     clear_line: "Clear the line", sure_clear_line: "Everyone back to waiting? Press again", line_cleared: "Line cleared: {n} back to waiting.",
-    set_cancel_win: "Cancel a start without the PIN", min_2: "2 minutes", min_5: "5 minutes", min_10: "10 minutes", min_30: "30 minutes", until_first_finisher: "Until the first finisher",
+    set_face_fresh: "New face photos after", set_face_fresh_hint: "Photos older than this are taken again at the weigh-in (the light changes during the day), and pictures learnt at the cameras stop being used", h_1: "1 hour", h_2: "2 hours", h_4: "4 hours", whole_day: "The whole day", set_cancel_win: "Cancel a start without the PIN", min_2: "2 minutes", min_5: "5 minutes", min_10: "10 minutes", min_30: "30 minutes", until_first_finisher: "Until the first finisher",
     set_cancel_win_hint: "After this, Cancel start stays but needs the admin PIN. Once a runner of the wave finishes it cannot be cancelled.",
     start_cancelled: "Start cancelled. Runners are back at the line.", wrong_bib: "Wrong bib",
     unassigned: "Crossing moved back to the review queue; assign the right runner.", discard: "Discard", discarded: "Crossing discarded.",
@@ -1945,7 +1956,7 @@ const I18N = {
     cam_fell_back: "The chosen camera did not open: using {cam}.",
     cam_allow: "Allow the camera: the browser is asking at the top of the window.",
     cam_blocked: "The camera is blocked for this page. Click the camera icon at the right of the address bar, choose Allow, then press Restart camera.",
-    rd_cam_pick: "Camera", rd_cam_default: "Default camera", rd_cam_n: "Camera {n}", rd_cam_restart: "Restart camera", rd_cam_free: "Free the camera",
+    rd_cam_pick: "Camera", rd_cam_default: "Default camera", rd_cam_n: "Camera {n}", rd_cam_restart: "Restart camera", cam_light: "Brightness", cam_light_hint: "Auto: set by the face in the picture (sun or a dim room); moving the slider sets it by hand, kept for this webcam.", cam_light_auto: "Auto", cam_light_manual: "Manual", rd_cam_free: "Free the camera",
     rd_cam_free_hint: "Stops the desk camera and any camera service using a webcam, then starts this one",
     rd_cam_timeout: "The camera did not answer", rd_cam_gone: "That camera is not connected", rd_cam_try: "Pick another camera, Restart or Free the camera, or upload a photo.",
     rd_cam_freed: "Camera freed; starting it…", rd_face_taken: "This face is already saved as <b>{name}</b> ({id}). It is most likely the same person.",
@@ -2024,7 +2035,7 @@ const I18N = {
     cs_one: "أبقِ خياراً واحداً للكاميرا على الأقل في كل شاشة.", cs_na: "هذه الشاشة لا تستخدم هذا المصدر",
     ipc_hint: "عناوين كاميرات IP محفوظة على جهاز المحطة: rtsp://user:password@ip:554/Streaming/Channels/101. لا تظهر كلمة المرور على أي شاشة؛ وإذا تُرك حقل كاميرا IP فارغاً تُستخدم العنوان المحفوظ هنا. اكتب (-) لحذف عنوان.",
     sec_ipcams: "الكاميرات", sec_cameras: "الكاميرات", sec_camera_bg: "خلفية الكاميرا", ipc_title: "عناوين كاميرات IP",
-    rc_run: "جري 3.2 كم",
+    rc_run: "جري 3.2 كم", today_col: "اليوم",
     rc_pending: "متبقٍ",
     rc_pending_all: "لم يكتمل بعد",
     rc_fail: "راسب",
@@ -2241,7 +2252,7 @@ const I18N = {
     rules_hint: "قيم مؤقتة حتى وصول اللائحة الرسمية.",
     s_expected: "متوقع", s_accepted: "مقبول", s_rejected: "مرفوض في الوزن", s_lined_up: "عند الخط", s_absent: "غائب",
     s_running: "يجري", s_run_passed: "اجتاز الجري", s_run_failed: "رسب في الجري", s_dnf: "لم يكمل", s_complete: "مكتمل",
-    e_not_on_todays_list: "غير موجود في قائمة اليوم", e_already_weighed: "تم وزنه اليوم", weighed_next: "{name} تم وزنه اليوم ✓ · التالي: الجري", e_not_weighed: "لم يُوزن بعد",
+    e_not_on_todays_list: "غير موجود في قائمة اليوم", e_already_weighed: "تم وزنه اليوم", weighed_next: "{name} تم وزنه اليوم ✓ · التالي: الجري", e_not_weighed: "لم يُوزن بعد", e_no_photos_today: "لا صور وجه من اليوم: ارجع إلى طاولة الوزن لالتقاطها", photos_today: "صور وجه جديدة: انظر إلى الكاميرا",
     e_has_not_run: "لم يجرِ بعد", e_still_running: "ما زال يجري", e_rejected_at_weigh_in: "مرفوض في الوزن",
     e_missed_the_run: "فاته الجري", e_run_not_passed: "لم يجتز الجري", e_run_not_finished: "لم يكمل الجري",
     e_event_already_done: "أدى هذا التمرين اليوم", e_already_lined_up: "موجود عند الخط",
@@ -2263,13 +2274,13 @@ const I18N = {
     give_bib: "أُضيف {name} إلى قائمة اليوم. سلّمه الرقم {bib}.",
     known_title: "متقدم سابق", known_add: "إضافة إلى قائمة اليوم والوزن",
     known_hint: "هذا الوجه مسجل من يوم سابق لكن الشخص غير موجود في قائمة اليوم.",
-    known_msg: "{name} مسجل لكنه غير موجود في قائمة اليوم", register_need_camera: "شغّل الكاميرا أولاً: يُلتقط الوجه مباشرة بعد الحفظ.", enrolled: "تم حفظ الوجه ({n} محفوظة).",
+    known_msg: "{name} مسجل لكنه غير موجود في قائمة اليوم", register_need_camera: "شغّل الكاميرا أولاً: يُلتقط الوجه مباشرة بعد الحفظ.", enrolled: "تم حفظ الوجه ({n} اليوم).", lv_differs: "تحقق من الهوية: هذا الوجه لا يشبه صورة آخر يوم اختبار (التطابق {score}).",
     pose_straight: "انظر إلى الكاميرا مباشرة", pose_left: "أدر رأسك قليلاً إلى اليسار", pose_right: "أدر رأسك قليلاً إلى اليمين",
     pose_hold: "اثبت…", pose_saved: "تم حفظ {k}/{n}",
     guide_straight: "انظر إلى الكاميرا مباشرة", guide_left: "أدر رأسك إلى يسارك", guide_right: "أدر رأسك إلى يمينك",
     guide_more_left: "أكثر قليلاً إلى يسارك", guide_more_right: "أكثر قليلاً إلى يمينك",
     guide_no_face: "ضع وجهك داخل الإطار", guide_one_face: "شخص واحد فقط أمام الكاميرا", guide_closer: "اقترب من الكاميرا", face: "الوجه", no_face_short: "لا وجه",
-    no_face: "لا وجه", enroll: "تسجيل صورة", removed: "تم حذف الوجه.",
+    no_face: "يلزم صور جديدة", enroll: "تسجيل صورة", removed: "تم حذف الوجه.",
     e_no_face: "لا يوجد وجه في الصورة", e_multiple_faces: "أكثر من وجه: استخدم صورة لشخص واحد", e_face_too_small: "الوجه صغير جداً: اقترب",
     e_bad_image: "الملف ليس صورة", e_face_unavailable: "التعرف على الوجه غير متاح على هذا الخادم", e_face_not_recognised: "لم يتم التعرف على الوجه",
     e_nobody_enrolled: "لا أحد في قائمة اليوم لديه وجه مسجل بعد", e_no_face_enrolled: "لا يوجد وجه مسجل",
@@ -2287,7 +2298,7 @@ const I18N = {
     close_blocked: "{n} عبور للمراجعة عند خط النهاية أولاً", open_finish: "فتح خط النهاية",
     void_wave: "إلغاء الموجة (مسؤول)", sure_void: "إلغاء هذه الموجة؟ اضغط مرة أخرى", wave_voided: "أُلغيت الموجة: عاد {n} إلى الانتظار.",
     clear_line: "إخلاء الخط", sure_clear_line: "إعادة الجميع إلى الانتظار؟ اضغط مرة أخرى", line_cleared: "أُخلي الخط: عاد {n} إلى الانتظار.",
-    set_cancel_win: "إلغاء الانطلاق دون رمز", min_2: "دقيقتان", min_5: "5 دقائق", min_10: "10 دقائق", min_30: "30 دقيقة", until_first_finisher: "حتى وصول أول عدّاء",
+    set_face_fresh: "صور وجه جديدة بعد", set_face_fresh_hint: "الصور الأقدم من ذلك تُلتقط من جديد عند الوزن (الإضاءة تتغير خلال اليوم)، ويتوقف استخدام الصور المتعلَّمة من الكاميرات", h_1: "ساعة", h_2: "ساعتان", h_4: "4 ساعات", whole_day: "اليوم كله", set_cancel_win: "إلغاء الانطلاق دون رمز", min_2: "دقيقتان", min_5: "5 دقائق", min_10: "10 دقائق", min_30: "30 دقيقة", until_first_finisher: "حتى وصول أول عدّاء",
     set_cancel_win_hint: "بعدها يبقى زر الإلغاء لكنه يطلب رمز المسؤول. بعد وصول أي عدّاء من الموجة لا يمكن الإلغاء.",
     start_cancelled: "أُلغي الانطلاق. العداؤون عادوا إلى الخط.", wrong_bib: "رقم خاطئ",
     unassigned: "أُعيد العبور إلى قائمة المراجعة؛ عيّن العدّاء الصحيح.", discard: "حذف", discarded: "حُذف العبور.",
@@ -2354,7 +2365,7 @@ const I18N = {
     cam_fell_back: "لم تُفتح الكاميرا المختارة: تُستخدم {cam}.",
     cam_allow: "اسمح بالكاميرا: المتصفح يطلب ذلك أعلى النافذة.",
     cam_blocked: "الكاميرا محظورة لهذه الصفحة. اضغط أيقونة الكاميرا يمين شريط العنوان، اختر السماح، ثم اضغط إعادة تشغيل الكاميرا.",
-    rd_cam_pick: "الكاميرا", rd_cam_default: "الكاميرا الافتراضية", rd_cam_n: "كاميرا {n}", rd_cam_restart: "إعادة تشغيل الكاميرا", rd_cam_free: "تحرير الكاميرا",
+    rd_cam_pick: "الكاميرا", rd_cam_default: "الكاميرا الافتراضية", rd_cam_n: "كاميرا {n}", rd_cam_restart: "إعادة تشغيل الكاميرا", cam_light: "السطوع", cam_light_hint: "تلقائي: يُضبط حسب الوجه في الصورة (شمس أو غرفة خافتة)؛ تحريك المؤشر يضبطه يدوياً ويُحفظ لهذه الكاميرا.", cam_light_auto: "تلقائي", cam_light_manual: "يدوي", rd_cam_free: "تحرير الكاميرا",
     rd_cam_free_hint: "يوقف كاميرا المكتب وأي خدمة كاميرا تستخدم كاميرا ويب، ثم يشغّل هذه",
     rd_cam_timeout: "لم تستجب الكاميرا", rd_cam_gone: "هذه الكاميرا غير متصلة", rd_cam_try: "اختر كاميرا أخرى، أو أعد التشغيل، أو حرّر الكاميرا، أو ارفع صورة.",
     rd_cam_freed: "حُررت الكاميرا؛ جارٍ تشغيلها…", rd_face_taken: "هذا الوجه محفوظ مسبقاً باسم <b>{name}</b> ({id}). غالباً هو الشخص نفسه.",
@@ -2570,10 +2581,7 @@ async function weighCheckin() {
     const r = await api("POST", "/api/checkin", { station: "weigh", query: q });
     if (seq !== wSeq) return;
     $("wWho").innerHTML = whoHtml(r.entry); wLast = r.entry;
-    // Typed in by bib: offer to save the face on screen, so next time the camera recognises them.
-    const known = S.entries.find(e => e.id === r.entry.id);
-    $("wEnroll").classList.toggle("hidden", !(known && (known.faces || 0) < 3 && Cam.kind && (Cam.stream || Cam.fileName)));
-    $("wEnrollBtn").textContent = t(Cam.kind === "webcam" ? "enroll_cam3" : "enroll_cam");
+    offerEnrol(S.entries.find(e => e.id === r.entry.id) || r.entry);
     if (r.allowed) startWeigh(r.entry);
     else { msg("wMsg", "bad", t("e_" + r.reason)); showNeeds(r.entry); }
   } catch (e) {
@@ -2587,6 +2595,20 @@ async function weighCheckin() {
       }).catch(() => { if (seq === wSeq) offerRegister(q); });
     }
   }
+}
+// Fewer than 3 recent photos (a new test day, or hours later the same day: faces and light
+// change): the camera capture, however they were checked in (typed in, or recognised by last time's photos). With
+// the webcam it starts by itself; the start line refuses anyone without photos from today.
+let autoEnrolFor = null;
+function offerEnrol(e) {
+  const need = !!(e && (e.faces || 0) < 3 && Cam.kind && (Cam.stream || Cam.fileName));
+  $("wEnroll").classList.toggle("hidden", !need);
+  $("wEnrollBtn").textContent = t(Cam.kind === "webcam" ? "enroll_cam3" : "enroll_cam");
+  if (!need || Cam.kind !== "webcam" || enrolBusy || autoEnrolFor === e.id) return;
+  autoEnrolFor = e.id;                            // once per person (the button stays for a retry)
+  const seq = wSeq;
+  msg("wMsg", "warn", t("photos_today"));
+  setTimeout(() => { if (seq === wSeq && !enrolBusy) enrollFromCamera(); }, 1500);
 }
 function setWeighForm(on) { $("wForm").style.opacity = on ? 1 : .35; $("wForm").style.pointerEvents = on ? "auto" : "none"; }
 function bmiPreview() {
@@ -2635,7 +2657,140 @@ function renderWeigh() { if (S.rules) $("wRange").textContent = t("bmi_range", {
 async function cameraPermission() {   // "granted", "prompt" (the browser will ask), "denied", or "" when unknown
   try { return (await navigator.permissions.query({ name: "camera" })).state; } catch { return ""; }
 }
+// The webcam's light, when the webcam lets the page set it. Auto (the default): about once a
+// second the picture is measured and the exposure time changed (the sensor's own light: in the
+// sun brightness alone cannot bring back a washed-out picture), so the face (the box the face
+// check found, a few seconds old at most) is neither dark nor washed out; with no face, a picture
+// largely washed out is darkened and a dark one lightened. Moving the brightness slider sets it
+// by hand (the webcam's own exposure again), kept per webcam (by its name), here and in the enrol
+// window.
+const CamLight = {
+  track: null, on: true, face: null, timer: null, canvas: null, exp: null, base: null,
+  key: tr => "camLight:" + (tr.label || "default"),
+  apply(stream) {
+    const tr = stream && stream.getVideoTracks()[0], box = $("camLightBox"), input = $("camLight");
+    const caps = tr && tr.getCapabilities ? tr.getCapabilities() : {};
+    if (!caps.brightness) { if (box) box.classList.add("hidden"); return; }
+    const saved = Number(load(this.key(tr), ""));
+    this.on = !saved; this.exp = caps.exposureTime || null; this.caps = caps.brightness;
+    if (saved) tr.applyConstraints({ advanced: [this.manual(saved)] }).catch(() => {});
+    if (!box || stream !== Cam.stream) return;      // the slider belongs to the desk camera
+    this.track = tr; this.caps = caps.brightness; this.exp = caps.exposureTime || null;
+    if (this.base == null) this.base = tr.getSettings().brightness;
+    Object.assign(input, { min: caps.brightness.min, max: caps.brightness.max, step: caps.brightness.step || 1 });
+    input.value = saved || (this.exp ? this.level(tr.getSettings().exposureTime) : tr.getSettings().brightness);
+    box.classList.remove("hidden");
+    this.auto(this.on);
+  },
+  set(v) {
+    const tr = this.track; if (!tr || tr.readyState !== "live") return;
+    save(this.key(tr), String(v));
+    if (this.on) this.auto(false, true);
+    this.want = Number(v);
+    if (this.busy) return;                 // the newest value goes once the camera took the last
+    this.busy = true;
+    const go = async () => {
+      while (this.want != null) {
+        const w = this.want; this.want = null;
+        await tr.applyConstraints({ advanced: [this.manual(w)] }).catch(() => {});
+      }
+      this.busy = false;
+    };
+    go();
+  },
+  // The slider position for an exposure time (the inverse of manual): it follows Auto, so taking
+  // the slider over starts from the light on screen.
+  level(et) {
+    if (!this.exp || !et) return this.caps.min;
+    const lo = Math.log(this.exp.min), hi = Math.log(Math.min(this.exp.max, 2500));
+    const k = Math.max(0, Math.min(1, (Math.log(et) - lo) / (hi - lo)));
+    return Math.round(this.caps.min + k * (this.caps.max - this.caps.min));
+  },
+  // A slider position as the camera's settings: with an exposure time, the slider's range maps onto
+  // it (on a log scale: each step about as visible in the dark as in daylight), brightness stays put.
+  manual(v) {
+    if (!this.exp) return { brightness: v };
+    const k = (v - this.caps.min) / Math.max(1, this.caps.max - this.caps.min);
+    const lo = Math.log(this.exp.min), hi = Math.log(Math.min(this.exp.max, 2500));
+    return { exposureMode: "manual", exposureTime: Math.exp(lo + k * (hi - lo)) };
+  },
+  auto(on, keep) {
+    this.on = on;
+    $("camLightAuto").textContent = t(on ? "cam_light_auto" : "cam_light_manual");
+    $("camLightAuto").classList.toggle("on", on);
+    clearInterval(this.timer);
+    const tr = this.track;
+    if (on) {
+      if (tr) {
+        save(this.key(tr), "");
+        if (this.base != null) { tr.applyConstraints({ advanced: [{ brightness: this.base }] }).catch(() => {}); $("camLight").value = this.base; }
+      }
+      this.timer = setInterval(() => this.step(), 1000);
+    } else if (!keep && tr) {
+      save(this.key(tr), String($("camLight").value));
+      tr.applyConstraints({ advanced: [this.manual(Number($("camLight").value))] }).catch(() => {});
+    }
+  },
+  seen(box, w, h) { if (box) this.face = { box, w, h, at: Date.now() }; },
+  // Mean brightness (0-255) of a part of the picture, and the share of washed-out pixels.
+  measure(video, x, y, w, h) {
+    const c = this.canvas || (this.canvas = document.createElement("canvas")), n = 48;
+    c.width = n; c.height = Math.max(1, Math.round(n * h / w));
+    const g = c.getContext("2d", { willReadFrequently: true });
+    g.drawImage(video, x, y, w, h, 0, 0, c.width, c.height);
+    const px = g.getImageData(0, 0, c.width, c.height).data;
+    let sum = 0, clipped = 0;
+    for (let i = 0; i < px.length; i += 4) {
+      const l = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+      sum += l; if (l > 245) clipped++;
+    }
+    const count = px.length / 4;
+    return { mean: sum / count, clipped: clipped / count };
+  },
+  step() {
+    const tr = this.track, video = $("camVideo");
+    if (!this.on || !tr || tr.readyState !== "live" || tr !== (Cam.stream && Cam.stream.getVideoTracks()[0])) return;
+    if (document.hidden || !video.videoWidth || enrolBusy) return;     // never during the 3 poses
+    const vw = video.videoWidth, vh = video.videoHeight;
+    let change = 0;
+    if (this.face && Date.now() - this.face.at < 4000) {
+      const k = vw / this.face.w, [x, y, w, h] = this.face.box.map(v => v * k);
+      const f = this.measure(video, Math.max(0, x), Math.max(0, y), Math.min(w, vw - x), Math.min(h, vh - y));
+      if (f.mean > 165 || f.clipped > 0.08) change = -Math.min(20, Math.max(4, (f.mean - 140) / 2));
+      else if (f.mean < 95) change = Math.min(20, Math.max(4, (120 - f.mean) / 2));
+    } else {
+      const a = this.measure(video, 0, 0, vw, vh);
+      if (a.clipped > 0.25 && a.mean > 150) change = -6;
+      else if (a.mean < 70) change = 6;
+    }
+    if (!change) return;
+    if (this.exp) {
+      // exposure time: in steps of about a third (the sensor's own light), from the camera's auto value
+      // Some webcams only take doublings (19.5, 39, 78 ... 2500): a smaller step snaps back to
+      // the same time, so when it did not move, the next try is a whole doubling.
+      const now = Number(tr.getSettings().exposureTime) || this.exp.max / 8;
+      const stuck = this.lastTry && this.lastTry.from === now && this.lastTry.up === change > 0;
+      const k = change > 0 ? (stuck ? 2 : 1.45) : (stuck ? 0.5 : 0.7);
+      const v = Math.max(this.exp.min, Math.min(this.exp.max, now * k));
+      if (Math.abs(v - now) < (this.exp.step || 1)) return;
+      this.lastTry = { from: now, up: change > 0 };
+      tr.applyConstraints({ advanced: [{ exposureMode: "manual", exposureTime: v }] }).catch(() => {});
+      $("camLight").value = this.level(v);
+      return;
+    }
+    const now = Number(tr.getSettings().brightness ?? $("camLight").value);
+    const v = Math.round(Math.max(this.caps.min, Math.min(this.caps.max, now + change)));
+    if (v === now) return;
+    tr.applyConstraints({ advanced: [{ brightness: v }] }).catch(() => {});
+    $("camLight").value = v;
+  },
+};
 async function openCamera(want) {
+  const r = await openCameraOnce(want);
+  setTimeout(() => CamLight.apply(r.stream), 0);   // once the caller has kept the stream
+  return r;
+}
+async function openCameraOnce(want) {
   // While the browser asks the person to allow the camera there is no time limit: they have to answer.
   const asking = (await cameraPermission()) !== "granted";
   let pending = Promise.resolve();
@@ -2856,7 +3011,9 @@ const StartCam = {
           Cam.kind === "webcam" ? Cam.use("webcam") : this.attach();
         }, 3000); };
         img.src = `/api/engine/stream/${c.station}?t=${Date.now()}`;
-        this.live = true; msg(c.box); Cam.show(); return;
+        this.live = true; msg(c.box); Cam.show();
+        this.keepAlive(img, c.station, mine);
+        return;
       }
       if (i % 5 === 4) {   // did the camera program stop (wrong address or password)?
         const st = await api("GET", c.api).catch(() => null);
@@ -2889,8 +3046,19 @@ const StartCam = {
     this.svcWebcam = false;
     api("POST", "/api/startcam/stop").catch(() => {});
   },
+  // The stream ends when the app restarts, but the last picture stays on the page: check every few
+  // seconds that it is still open, and open a new one when it is not (no refresh needed).
+  keepAlive(img, station, mine) {
+    clearInterval(this.alive);
+    this.alive = setInterval(async () => {
+      if (!(this.live && Cam.relayed() && role === mine) || document.hidden) return;
+      const key = new URL(img.src, location.href).searchParams.get("t");
+      const r = await api("GET", `/api/engine/stream-alive?key=${encodeURIComponent(key)}`).catch(() => null);
+      if (r && !r.alive && this.live) img.src = `/api/engine/stream/${station}?t=${Date.now()}`;
+    }, 3000);
+  },
   detach() {
-    clearTimeout(this.retry);
+    clearTimeout(this.retry); clearInterval(this.alive);
     if (!this.live) return;
     this.live = false;
     const img = $("camImg"); img.onerror = null; img.removeAttribute("src"); clearBox();
@@ -3055,6 +3223,8 @@ async function apiImage(path, blob) {
 // Face box drawn over the picture, mapped from image pixels to the displayed (object-fit: contain) area.
 const mirrored = () => $("viewer").classList.contains("mirror");   // only this device's own webcam is shown as a mirror (not one through the camera service)
 function drawBox(box, w, h, label, ok) {
+  CamLight.seen(box, w, h);
+  if (!FaceTrack.drawing) FaceTrack.named(label, ok);   // who it is, from the full check
   const cv = $("camBox"), vw = cv.clientWidth, vh = cv.clientHeight; cv.width = vw; cv.height = vh;
   const s = Math.min(vw / w, vh / h), ox = (vw - w * s) / 2, oy = (vh - h * s) / 2, g = cv.getContext("2d");
   const bx = mirrored() ? w - box[0] - box[2] : box[0];
@@ -3064,12 +3234,39 @@ function drawBox(box, w, h, label, ok) {
   g.fillText(label, ox + bx * s, Math.max(16, oy + box[1] * s - 6));
 }
 function clearBox() { const cv = $("camBox"); cv.getContext("2d").clearRect(0, 0, cv.width, cv.height); }
+// The face box follows the face live, about 10 times a second: a quick look for the face only (no
+// recognition) on the server. Who it is comes from the last full check (every 1.5 s), shown for a
+// few seconds; a new face is boxed at once and named at the next check. Weigh-in, start line and
+// results, from this device's webcam or an IP camera's relayed picture (read from the picture on
+// screen, small); not where the camera service draws its own boxes on the picture (the start
+// line's camera, the finish, the station).
+const FaceTrack = {
+  busy: false, drawing: false, label: "", ok: false, at: 0,
+  named(label, ok) { this.label = label; this.ok = ok; this.at = Date.now(); },
+  async tick() {
+    if (this.busy || !["weigh", "results", "start"].includes(role) || mode !== "simple" || settingsOpen || enrolBusy || document.hidden) return;
+    if (role === "start" && Cam.relayed()) return;           // the start camera boxes the face itself
+    const el = Cam.el(), w = el.videoWidth || el.naturalWidth;
+    if (!["webcam", "ipcam", "video"].includes(Cam.kind) || !w || (Cam.kind === "webcam" && !Cam.relayed() && !Cam.stream)) return;
+    this.busy = true;
+    try {
+      const r = await apiImage("/api/face/pose", await grabFrame(el, 480, 0.6));
+      if (enrolBusy) return;                              // the 3 poses draw their own guide
+      if (!r.face) { clearBox(); return; }
+      const fresh = Date.now() - this.at < 4000;
+      this.drawing = true;
+      drawBox(r.box, r.w, r.h, fresh ? this.label : "", fresh && this.ok);
+    } catch { /* the next look */ }
+    finally { this.drawing = false; this.busy = false; }
+  },
+};
+setInterval(() => FaceTrack.tick(), 100);
 
 let autoId = false, autoTimer = null, idBusy = false;
 function toggleAuto() { autoId = !autoId; $("autoBtn").textContent = autoId ? t("auto_on") : t("auto_off"); $("autoBtn").classList.toggle("on", autoId);
   clearInterval(autoTimer); if (autoId) autoTimer = setInterval(() => { if (mode !== "simple" || settingsOpen) return;
     if (role === "start") { if (!startingNow() && !StartCall.active()) identifyNow(true); return; }
-    if (role === "results") { if (!ResultsCard.isOpen()) identifyNow(true); return; }
+    if (role === "results") return;      // its own, faster loop (resultsLoop)
     if (!wEntry && wSource !== "typed" && !enrolBusy && $("wNew").classList.contains("hidden") && role === "weigh") identifyNow(true); }, 1500); }
 async function identifyNow(quiet) {
   if (role === "start") return lineIdentify(quiet);
@@ -3081,13 +3278,18 @@ async function identifyNow(quiet) {
     if (!quiet) msg("wMsg", "warn", t("identifying"));
     const r = await apiImage("/api/face/identify?station=weigh", f.blob);
     if (seqAtStart !== wSeq || (quiet && wEntry)) { if (!quiet) msg("wMsg"); return; }   // someone else was checked in meanwhile
-    if (r.entry && r.entry.status === "complete") { ResultsCard.show(r.entry.id); return; }   // all done: their results
     if (r.entry) {
       if (wEntry && wEntry.id === r.entry.id) { if (!quiet) msg("wMsg"); return; }   // already weighing this person: no "Looking…" left behind
-      newCheckin(); wSource = "face";
+      // Shown already (weighed, or done for the day) and still in front of the camera: the box
+      // follows them, the card and the table stay as they are (redone every check, they flashed).
+      if (quiet && wSource === "face" && wLast && wLast.id === r.entry.id && !$("wNeeds").classList.contains("hidden")) {
+        drawBox(r.box, f.w, f.h, `${cname(r.entry.candidate)} ${r.score.toFixed(2)}`, true); return;
+      }
+      newCheckin(); wSource = "face"; wLast = r.entry;
       drawBox(r.box, f.w, f.h, `${cname(r.entry.candidate)} ${r.score.toFixed(2)}`, true);
-      $("wWho").innerHTML = whoHtml(r.entry);
+      $("wWho").innerHTML = whoHtml(r.entry); offerEnrol(r.entry);
       if (r.allowed) { msg("wMsg", "ok", t("recognised", { name: cname(r.entry.candidate), score: r.score.toFixed(2) })); startWeigh(r.entry); }
+      else if (r.entry.status === "complete") { msg("wMsg", "ok", `${cname(r.entry.candidate)}: ${t("st_all_done")}`); showNeeds(r.entry); }   // their results below
       else if (r.reason === "already_weighed") { msg("wMsg", "ok", t("weighed_next", { name: cname(r.entry.candidate) })); showNeeds(r.entry); }   // done here, not an error
       else { msg("wMsg", "bad", `${cname(r.entry.candidate)}: ${t("e_" + r.reason)}`); showNeeds(r.entry); }
     } else {
@@ -3123,8 +3325,8 @@ const POSE_HOLD = 3, POSE_TIMEOUT_MS = 12000;
 // The weigh-in desk and the enrol window in the list use the same code.
 const deskView = seq => ({ video: $("camVideo"), canvas: $("camBox"), alive: () => seq === wSeq });
 
-function grabFrame(video, maxW, quality) {
-  const w = video.videoWidth, h = video.videoHeight; if (!w || !h) throw { code: "no_frame" };
+function grabFrame(video, maxW, quality) {   // a <video>, or an <img> (a relayed camera's live picture)
+  const w = video.videoWidth || video.naturalWidth, h = video.videoHeight || video.naturalHeight; if (!w || !h) throw { code: "no_frame" };
   const s = Math.min(1, maxW / w), c = document.createElement("canvas"); c.width = Math.round(w * s); c.height = Math.round(h * s);
   c.getContext("2d").drawImage(video, 0, 0, c.width, c.height);
   return new Promise(r => c.toBlob(r, "image/jpeg", quality));
@@ -3209,21 +3411,29 @@ async function capturePose(view, entryId, step) {
   }
 }
 
-// All three poses. onStep(k) after each saved pose. Returns { ok, faces } (ok false if stopped).
+// After a face is saved: "saved", or a warning when today's photo does not look like the one from
+// the person's last test day (someone else sitting for them?).
+function enrolledMsg(r) {
+  return r.last_visit && r.last_visit.differs
+    ? ["bad", `${t("enrolled", { n: r.faces })} ${t("lv_differs", { score: r.last_visit.score.toFixed(2) })}`]
+    : ["ok", t("enrolled", { n: r.faces })];
+}
+
+// All three poses. onStep(k) after each saved pose. Returns { ok, faces, last_visit } (ok false if stopped).
 async function guidedEnrol(view, entryId, onStep) {
-  let faces = 0;
+  let faces = 0, lastVisit = null;
   Sound.unlock();   // started by a tap: the browser lets the page play the capture sounds
   for (let i = 0; i < POSES.length; i++) {
     if (onStep) onStep(i, false);
     const r = await capturePose(view, entryId, i);
     if (!r) return { ok: false };
-    faces = r.faces;
+    faces = r.faces; lastVisit = r.last_visit && r.last_visit.differs ? r.last_visit : lastVisit || r.last_visit || null;
     if (i < POSES.length - 1) Sound.shutter(); else { Sound.shutter(); setTimeout(() => Sound.done(), 250); }   // heard, not only seen
     drawGuide(view, Math.min(i + 1, POSES.length - 1), i + 1, "hold", t("pose_saved", { k: i + 1, n: POSES.length }));
     if (onStep) onStep(i, true);
     await new Promise(r => setTimeout(r, 500));
   }
-  return { ok: true, faces };
+  return { ok: true, faces, last_visit: lastVisit };
 }
 let enrolBusy = false;
 async function enrollFromCamera() {
@@ -3234,13 +3444,13 @@ async function enrollFromCamera() {
   try {
     if (Cam.kind !== "webcam") {
       const f = await Cam.frame(); const r = await apiImage(`/api/entries/${e.id}/face`, f.blob); Sound.shutter();
-      msg("wMsg", "ok", t("enrolled", { n: r.faces })); $("wEnroll").classList.add("hidden"); refresh(); return { ok: true, faces: r.faces };
+      msg("wMsg", ...enrolledMsg(r)); $("wEnroll").classList.add("hidden"); refresh(); return { ok: true, faces: r.faces };
     }
     tag.textContent = "";
     const r = await guidedEnrol(deskView(seq), e.id, (i, saved) => { if (!saved) msg("wMsg", "warn", `${i + 1}/${POSES.length} · ${t("pose_" + POSES[i])}`); });
     if (!r.ok) return r;                                         // someone else was checked in meanwhile
     clearBox();
-    msg("wMsg", "ok", t("enrolled", { n: r.faces })); $("wEnroll").classList.add("hidden"); refresh();
+    msg("wMsg", ...enrolledMsg(r)); $("wEnroll").classList.add("hidden"); refresh();
     return r;
   } catch (x) { clearBox(); msg("wMsg", "bad", err(x)); return { ok: false, error: x }; }
   finally { enrolBusy = false; $("wEnrollBtn").disabled = false; Cam.show(); }
@@ -3261,8 +3471,9 @@ const EnrolDlg = {
     try {
       const r = await guidedEnrol(view, person ? `/api/candidates/${id}/face` : id, (i, saved) => { if (!saved) msg("enrolMsg", "warn", `${i + 1}/${POSES.length} · ${t("pose_" + POSES[i])}`); });
       if (r.ok) {
-        msg(person ? "rgMsg" : "aMsg", "ok", `${cname(person || e.candidate)}: ${t("enrolled", { n: r.faces })}`);
-        refresh(); if (person) Register.changed(id); setTimeout(() => this.close(), 700);
+        const [kind, text] = enrolledMsg(r);
+        msg(person ? "rgMsg" : "aMsg", kind, `${cname(person || e.candidate)}: ${text}`);
+        refresh(); if (person) Register.changed(id); setTimeout(() => this.close(), kind === "ok" ? 700 : 0);
       }
     } catch (x) { if (run === this.run) msg("enrolMsg", "bad", err(x)); }
   },
@@ -4828,7 +5039,7 @@ function stationLayout(one) {
   applyFit();
   if (one) document.documentElement.style.setProperty("--st-top", `${Math.round($("v-station").getBoundingClientRect().top)}px`);
   $("scTune").classList.add("hidden");   // one mat: the Tune button is in the station's own header
-  if (one) { put("xCall", $("scOneCall")); put("scView", $("scOnePic")); put("scCard", $("scOneCam")); put("xCam", $("xOneCam")); }
+  if (one) { put("xCall", $("scOneCall")); put("scView", $("scOnePic")); put("scCard", $("scOneCamTop")); put("xCam", $("xOneCam")); }
   else {
     if ($("xCall").parentElement !== $("v-station")) $("v-station").insertBefore($("xCall"), $("stBody"));
     put("scView", $("scViewHome"), true); put("scCard", $("stBody"), true); put("xCam", $("xBar"));
@@ -4933,13 +5144,16 @@ const StationCall = {
     if (sig !== this.sig) { box.className = "callbox " + cls; box.querySelector(".cb-main").innerHTML = html; this.sig = sig; }
     if (acts !== this.acts) { box.querySelector(".cb-acts").innerHTML = acts; this.acts = acts; }
     Choose.show(v.state === "choose" ? v : null);
-    // while someone chooses, the cursor is asked for more often, so it follows the hand
-    if (v.state === "choose" && !this.fast) this.fast = setInterval(() => this.poll(), 80);
-    if (v.state !== "choose" && this.fast) { clearInterval(this.fast); this.fast = null; }
+    // while someone chooses, the cursor is asked for more often, so it follows the hand; during a
+    // test the count, so a rep shows as soon as the engine sends it (it does at once)
+    const every = v.state === "choose" ? 80 : v.state === "testing" ? 100 : 0;
+    if (every !== this.every) {
+      clearInterval(this.fast); this.fast = every ? setInterval(() => this.poll(), every) : null; this.every = every;
+    }
     if (v.state !== this.last) {
       if (v.state === "position" || v.state === "choose") Sound.chime();
       if (v.state === "testing") Signal.start();
-      if (v.state === "done") { Signal.end(); refresh(); if (e && e.done && e.done.length >= 2) setTimeout(() => ResultsCard.show(e.id), 4000); }
+      if (v.state === "done") { Signal.end(); refresh(); if (e && e.done && e.done.length >= 2) setTimeout(() => ResultsCard.show(e.id), 800); }
     }
     this.last = v.state;
   },
@@ -5102,6 +5316,8 @@ const ResultsCard = {
     });
   },
 };
+// The results screen: someone walks up and looks for their card, so the camera looks every 0.6 s.
+setInterval(() => { if (role === "results" && autoId && mode === "simple" && !settingsOpen && !ResultsCard.isOpen()) identifyNow(true); }, 600);
 async function resultsIdentify(quiet) {
   if (idBusy) return; idBusy = true;
   try {
@@ -5191,19 +5407,29 @@ const EditDlg = {
 
 // ---- "What you need": the person's row of the pass table, at the desk where they can read it.
 let needsFor = null;
-function needsCard(entry, age, band, level, rows) {
+function needsCard(entry, age, band, level, rows, res) {
   needsFor = entry ? entry.id : null;
   // Name and age large; the date of birth next to the age so a wrong record is caught at the desk.
   const c = entry.candidate, unit = $("wUnit") && wEntry && wEntry.id === entry.id ? $("wUnit").value : c.unit;
   const dob = c.dob || ($("wDob") && $("wDob").value) || "";
   setHTML("wNeedsBody", `<div class="needs-who"><b>${esc(cname(c))}</b><span class="age">${t("age_n", { age })}</span><span class="spacer"></span><button class="btn ghost sm" onclick="EditDlg.open(${entry.id})">${t("edit_details")}</button></div>`
     + `<div class="needs-sub">${dob ? `${t("born")} ${esc(fmtDate(dob))} · ` : ""}${t("band_n", { band: band.replace("-", "–") })}${unit ? ` · ${t("unit_" + unit)}` : ""} · <b>${t("std_needs", { level })}</b></div>`
-    + gradeTable(rows, level) + `<p class="hint" style="margin:8px 0 0">${t("needs_note")}</p>`);
+    + gradeTable(rows, level, res) + `<p class="hint" style="margin:8px 0 0">${t("needs_note")}</p>`);
   $("wNeeds").classList.remove("hidden");
 }
 function showNeeds(entry) {
   const b = bandOf(entry);
-  if (b) { needsCard(entry, entry.standard.age, entry.standard.band, entry.standard.level, ["run", "pushup", "crunch"].map(x => [x, b[x === "run" ? "run_s" : x]])); return; }
+  if (b) {
+    const card = res => needsCard(entry, entry.standard.age, entry.standard.band, entry.standard.level, ["run", "pushup", "crunch"].map(x => [x, b[x === "run" ? "run_s" : x]]), res);
+    // tested today (all or some): their results in the same table, beside what was needed; drawn
+    // once they are here (the table is not drawn twice, without and then with them)
+    if (entry.run_time_s != null || RAN.includes(entry.status) || entry.status === "complete" || Object.keys(entry.events || {}).length) {
+      needsFor = entry.id;
+      api("GET", `/api/entries/${entry.id}/results`).then(r => { if (needsFor === entry.id) card(Object.fromEntries(r.tests.map(x => [x.test, x]))); })
+        .catch(() => { if (needsFor === entry.id) card(null); });
+    } else card(null);
+    return;
+  }
   if (entry.status !== "expected" || needsFor === entry.id) return;   // weighed without a table: nothing to show
   api("POST", `/api/entries/${entry.id}/standard`, { unit: entry.candidate.unit }).then(r => {
     if (r.needs) needsCard(entry, r.age, r.band, r.level, ["run", "pushup", "crunch"].map(x => [x, GRADES.map(g => r.needs[x][String(g)])]));
@@ -5256,10 +5482,17 @@ function dateFields() {
 }
 dateFields();
 // What each grade needs, one row per test; the column this person must reach is marked.
-function gradeTable(rows, level) {
-  const head = `<tr><th></th>${GRADES.map(g => `<th class="${g === level ? "need" : ""}">${g}%${g === level ? ` <small>${t("required")}</small>` : ""}</th>`).join("")}</tr>`;
+// ``res``: today's results by test (/api/entries/{id}/results), shown in a last column with a mark.
+function gradeTable(rows, level, res) {
+  const head = `<tr><th></th>${GRADES.map(g => `<th class="${g === level ? "need" : ""}">${g}%${g === level ? ` <small>${t("required")}</small>` : ""}</th>`).join("")}${res ? `<th>${t("today_col")}</th>` : ""}</tr>`;
+  const got = test => {
+    const x = res && res[test]; if (!x) return "";
+    const v = x.test === "run" ? (x.dnf ? "DNF" : x.value != null ? mmss(x.value) : "—") : (x.value ?? "—");
+    const mark = x.passed === true ? `<span style="color:var(--go)">✓</span>` : x.passed === false ? `<span style="color:var(--bad)">✗</span>` : "";
+    return `<td class="got">${esc(String(v))} ${mark}</td>`;
+  };
   const body = rows.map(([test, vals]) => `<tr><th>${t(test)} <small>${test === "run" ? "≤" : "≥"}</small></th>${vals.map((v, i) =>
-    `<td class="${GRADES[i] === level ? "need" : ""}">${test === "run" || test === "run_s" ? mmss0(v) : v}</td>`).join("")}</tr>`).join("");
+    `<td class="${GRADES[i] === level ? "need" : ""}">${test === "run" || test === "run_s" ? mmss0(v) : v}</td>`).join("")}${res ? got(test) : ""}</tr>`).join("");
   return `<table class="grades">${head}${body}</table>`;
 }
 const verdictPill = v => v ? `<span class="pill ${v === "pass" ? "ok" : v === "fail" ? "bad" : ""}">${t("v_" + v)}</span>` : "—";
@@ -5709,8 +5942,12 @@ const CamLive = {
         this.misses = 0; box.classList.remove("hidden");
         // (re)start the stream when there is none, or it ended (the server ends it when the camera pauses)
         if (!this.streaming || this.streaming.ended) {
-          this.streaming = { el: tg.el, station: tg.station };
-          img.src = `/api/engine/stream/${tg.station}?t=${Date.now()}`; BgFx.refresh();
+          this.streaming = { el: tg.el, station: tg.station, key: String(Date.now()), at: Date.now() };
+          img.src = `/api/engine/stream/${tg.station}?t=${this.streaming.key}`; BgFx.refresh();
+        } else if (Date.now() - this.streaming.at > 3000 && Date.now() - (this.streaming.checked || 0) > 3000) {
+          // the app restarted: the stream is gone though the picture stays (see StartCam.keepAlive)
+          const s = this.streaming; s.checked = Date.now();
+          api("GET", `/api/engine/stream-alive?key=${s.key}`).then(a => { if (a && !a.alive) s.ended = true; }).catch(() => {});
         }
       } else {
         if (this.streaming) this.streaming.ended = true;
@@ -5722,7 +5959,7 @@ const CamLive = {
 
 /* ============================== settings ============================== */
 // Station settings from the server (shared by every device); see service.SETTINGS.
-const SETTING_DEFAULTS = { auto_identify: true, camera_background: "off", camera_bg_places: ["weigh", "start", "photo"], backdrop_color: "#8a949e", background_image: null, face_match: "normal", face_required: false, walk_ins: true, default_gender: "M", default_unit: "combat",
+const SETTING_DEFAULTS = { auto_identify: true, camera_background: "off", camera_bg_places: ["weigh", "start", "photo"], backdrop_color: "#8a949e", background_image: null, face_match: "normal", face_required: false, face_fresh_min: 120, walk_ins: true, default_gender: "M", default_unit: "combat",
                            bib_start: 1, lanes: 3, start_countdown_s: 3, cancel_window_s: 120, finish_face_threshold: 0, site_name: "", default_language: "en", theme: "night", admin_pin_set: false };
 const setting = k => (S.settings && k in S.settings ? S.settings[k] : SETTING_DEFAULTS[k]);
 function applySettings(first) {
@@ -6019,7 +6256,7 @@ const Evidence = {
   },
 };
 const SET_FIELDS = {   // input id -> [setting, read, write]
-  setAuto: ["auto_identify", v => v === "1", v => (v ? "1" : "0")], setBg: ["camera_background"], setMatch: ["face_match"], setFaceReq: ["face_required", v => v === "1", v => (v ? "1" : "0")],
+  setAuto: ["auto_identify", v => v === "1", v => (v ? "1" : "0")], setBg: ["camera_background"], setMatch: ["face_match"], setFaceReq: ["face_required", v => v === "1", v => (v ? "1" : "0")], setFaceFresh: ["face_fresh_min", v => parseInt(v, 10), String],
   setChooseFirst: ["station_choose_first", v => v === "1", v => (v ? "1" : "0")], setFcSetup: ["finish_setup_shown", v => v === "1", v => (v ? "1" : "0")], setWalk: ["walk_ins", v => v === "1", v => (v ? "1" : "0")], setGender: ["default_gender"], setUnit: ["default_unit"], setBib: ["bib_start", v => parseInt(v, 10)],
   setLanes: ["lanes", v => parseInt(v, 10), String], setStopAfter: ["station_stop_after_s", v => parseInt(v, 10) || 0, String],
   setCountdown: ["start_countdown_s", v => parseInt(v, 10), String], setCancelWin: ["cancel_window_s", v => parseInt(v, 10), String], setFinishFace: ["finish_face_threshold", v => parseFloat(v) || 0, v => String(+v || 0)], setSite: ["site_name", v => v.trim()], setCamSrc: ["camera_sources", v => JSON.parse(v || "{}"), o => JSON.stringify(o || {})], setEvKeep: ["evidence_keep_days", v => parseInt(v, 10), String],

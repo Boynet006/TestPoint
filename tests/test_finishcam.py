@@ -88,6 +88,28 @@ def test_someone_sitting_or_shifting_on_the_line_is_not_a_crossing():
         assert line.check(tr.tracks, 1000, 1000) == []
 
 
+def test_sitting_down_near_the_camera_is_not_a_crossing():
+    """Sitting into a chair by the camera: person and chair become one box, whose bottom leaps from
+    mid-picture to the bottom edge in one frame (seen on the finish camera, 0.49 -> 0.96)."""
+    line = FinishLine((0, 0.85, 1, 0.85), "down")
+    tr = IoUTracker()
+    events = []
+    for i, y in enumerate((440, 470, 480, 500, 490, 960)):
+        tr.update([Box(100, y - 300, 240, y)], i * 0.1)
+        events += line.check(tr.tracks, 1000, 1000)
+    assert events == []
+
+
+def test_walking_up_to_the_line_still_crosses():
+    line = FinishLine((0, 0.85, 1, 0.85), "down")
+    tr = IoUTracker()
+    events = []
+    for i, y in enumerate(range(700, 900, 20)):          # 0.02 of the picture a frame
+        tr.update([Box(400, y - 600, 620, y)], i * 0.1)
+        events += line.check(tr.tracks, 1000, 1000)
+    assert len(events) == 1
+
+
 def test_vertical_line_directions():
     line = FinishLine((0.5, 0, 0.5, 1), "right")
     tr = IoUTracker()

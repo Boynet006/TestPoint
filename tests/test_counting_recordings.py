@@ -164,3 +164,21 @@ def test_a_video_of_every_start_and_none_of_a_cancelled_one(tmp_path):
     ev.close()
     files = list((tmp_path / "start").glob("*.mp4"))
     assert clips.saved == 1 and len(files) == 1 and files[0].name.endswith("-entry7.mp4")
+
+
+def test_a_start_without_a_countdown_is_recorded_too(tmp_path):
+    # no 3-2-1 (the default): recognised, the hand, GO; one clip, not one for every "started"
+    from testpoint.evidence import EvidenceWriter
+    from testpoint.startcam import StartClips
+    from testpoint.vision.lanes import whole_frame
+
+    ev = EvidenceWriter(tmp_path, [whole_frame("1")], fps=10, keep_s=30.0, pad_s=0.0, day="d")
+    clips = StartClips(ev, width=64)
+    frame = np.zeros((96, 128, 3), np.uint8)
+    states = ["idle"] * 10 + ["raise_hand"] * 20 + ["started"] * 80 + ["idle"] * 5
+    for i, state in enumerate(states):
+        clips.state({"state": state, "entry_id": 3 if state != "idle" else None}, i * 0.1)
+        clips.push(frame, i * 0.1)
+    ev.close()
+    files = list((tmp_path / "start").glob("*.mp4"))
+    assert clips.saved == 1 and len(files) == 1 and files[0].name.endswith("-entry3.mp4")
