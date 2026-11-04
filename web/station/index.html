@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TestPoint Station</title>
 <script>try { document.documentElement.dataset.theme = localStorage.getItem("tp.theme") || localStorage.getItem("tp.stationTheme") || "night"; } catch {}</script>
-<link href="fonts.css" rel="stylesheet"><!-- saved locally: the station works without the internet -->
+<link rel="icon" href="icon.png"><link href="fonts.css" rel="stylesheet"><!-- saved locally: the station works without the internet -->
 <style>
   :root {
     --bg: #10161d; --bg2: #161e27; --panel: #1b252f; --line: #2a3745;
@@ -4058,6 +4058,10 @@ const FinishCam = {
     this.polled = Date.now();
     try { this.st = await api("GET", "/api/finishcam"); } catch { this.st = { available: false, running: false }; }
     if (this.st.available && !this.src) this.sources(false);
+    // opened with its IP camera not running (the PC just started): it starts by itself, with this
+    // screen's line, as the start line's does, unless the examiner stopped it here
+    if (!this.autoTried && role === "finish" && this.st.available && !this.st.running && !this.busy
+        && this.pref.kind === "url" && !load("fcStopped", "") && $("fcCamSel").value) { this.autoTried = true; this.start(); }
     this.render();
   },
   render() {
@@ -4103,6 +4107,7 @@ const FinishCam = {
     if (k === "url") ({ kind: k, source } = camChoice("fcCamSel", "fcUrlIn"));
     if (source === "") { msg("fcMsg", "bad", t("fc_pick_source")); return; }
     if (k !== "saved") Object.assign(this.pref, { [k]: source }); Object.assign(this.pref, { line: +$("fcLineY").value, dir: $("fcDir").value }); this.save();
+    save("fcStopped", "");
     this.busy = true; this.render();
     try {
       this.st = { available: true, ...(await api("POST", "/api/finishcam/start", { kind: k, source, line_y: $("fcLineY").value / 100, direction: $("fcDir").value, app_url: location.origin, loop: k === "video" && this.pref.loop !== false })) };
@@ -4111,6 +4116,7 @@ const FinishCam = {
     finally { this.busy = false; this.render(); }
   },
   async stop() {
+    save("fcStopped", "1");          // stopped here on purpose: not started again by itself
     this.busy = true; this.render();
     try { this.st = { available: true, ...(await api("POST", "/api/finishcam/stop")) }; msg("fcMsg", "ok", t("fc_stopped")); }
     catch (e) { msg("fcMsg", "bad", err(e)); }
@@ -4242,7 +4248,16 @@ const StationCam = {
     // first visit: open the card when no camera runs, so the examiner sees how to start one
     if (this.open === null) { this.open = !this.st.running; $("scCard").classList.toggle("hidden", !this.open); }
     this.autoRestart();
+    this.autoStart();
     this.render();
+  },
+  // Opened with its IP camera not running (the PC was just started, from the desktop icon): it
+  // starts by itself, as the start line's does, unless the examiner stopped it here.
+  autoStart() {
+    const st = this.st;
+    if (this.autoTried || role !== "station" || !st || !st.available || st.running || this.busy) return;
+    if (this.pref.kind !== "url" || load("scStopped", "") || !$("scCamSel").value) return;
+    this.autoTried = true; this.start();
   },
   // One mat: the engine follows the person checked in ("auto"); several: the exercise on this page.
   exercise() { return oneMat() ? "auto" : event; },
@@ -4297,6 +4312,7 @@ const StationCam = {
     }
     if (use.source === "" || use.source == null) { msg("scMsg", "bad", t("fc_pick_source")); return; }
     if (!auto) { Object.assign(this.pref, { [k]: source }, k === "video" ? { ["video_" + event]: source } : {}); this.save(); }
+    save("scStopped", "");
     this.busy = true; this.render();
     try {
       this.st = { available: true, ...(await api("POST", "/api/stationcam/start", { ...use, exercise: this.exercise(), lanes: lanes.length, dividers: this.dividers(), app_url: location.origin, loop: use.kind === "video" && this.pref.loop !== false })) };
@@ -4307,6 +4323,7 @@ const StationCam = {
     finally { this.busy = false; this.render(); }
   },
   async stop() {
+    save("scStopped", "1");          // stopped here on purpose: not started again by itself
     this.busy = true; this.render();
     try { this.st = { available: true, ...(await api("POST", "/api/stationcam/stop")) }; msg("scMsg", "ok", t("sc_stopped")); }
     catch (e) { msg("scMsg", "bad", err(e)); }
