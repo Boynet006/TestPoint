@@ -2574,10 +2574,7 @@ async function weighCheckin() {
     const r = await api("POST", "/api/checkin", { station: "weigh", query: q });
     if (seq !== wSeq) return;
     $("wWho").innerHTML = whoHtml(r.entry); wLast = r.entry;
-    // Typed in by bib: offer to save the face on screen, so next time the camera recognises them.
-    const known = S.entries.find(e => e.id === r.entry.id);
-    $("wEnroll").classList.toggle("hidden", !(known && (known.faces || 0) < 3 && Cam.kind && (Cam.stream || Cam.fileName)));
-    $("wEnrollBtn").textContent = t(Cam.kind === "webcam" ? "enroll_cam3" : "enroll_cam");
+    offerEnrol(S.entries.find(e => e.id === r.entry.id) || r.entry);
     if (r.allowed) startWeigh(r.entry);
     else { msg("wMsg", "bad", t("e_" + r.reason)); showNeeds(r.entry); }
   } catch (e) {
@@ -2591,6 +2588,12 @@ async function weighCheckin() {
       }).catch(() => { if (seq === wSeq) offerRegister(q); });
     }
   }
+}
+// Fewer than 3 photos from today (a new test day: faces change, a beard, a haircut): offer the
+// camera capture, however they were checked in (typed in, or recognised by last time's photos).
+function offerEnrol(e) {
+  $("wEnroll").classList.toggle("hidden", !(e && (e.faces || 0) < 3 && Cam.kind && (Cam.stream || Cam.fileName)));
+  $("wEnrollBtn").textContent = t(Cam.kind === "webcam" ? "enroll_cam3" : "enroll_cam");
 }
 function setWeighForm(on) { $("wForm").style.opacity = on ? 1 : .35; $("wForm").style.pointerEvents = on ? "auto" : "none"; }
 function bmiPreview() {
@@ -3101,9 +3104,9 @@ async function identifyNow(quiet) {
     if (r.entry && r.entry.status === "complete") { ResultsCard.show(r.entry.id); return; }   // all done: their results
     if (r.entry) {
       if (wEntry && wEntry.id === r.entry.id) { if (!quiet) msg("wMsg"); return; }   // already weighing this person: no "Looking…" left behind
-      newCheckin(); wSource = "face";
+      newCheckin(); wSource = "face"; wLast = r.entry;
       drawBox(r.box, f.w, f.h, `${cname(r.entry.candidate)} ${r.score.toFixed(2)}`, true);
-      $("wWho").innerHTML = whoHtml(r.entry);
+      $("wWho").innerHTML = whoHtml(r.entry); offerEnrol(r.entry);
       if (r.allowed) { msg("wMsg", "ok", t("recognised", { name: cname(r.entry.candidate), score: r.score.toFixed(2) })); startWeigh(r.entry); }
       else if (r.reason === "already_weighed") { msg("wMsg", "ok", t("weighed_next", { name: cname(r.entry.candidate) })); showNeeds(r.entry); }   // done here, not an error
       else { msg("wMsg", "bad", `${cname(r.entry.candidate)}: ${t("e_" + r.reason)}`); showNeeds(r.entry); }
