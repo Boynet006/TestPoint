@@ -2671,21 +2671,47 @@ const CamLight = {
     const caps = tr && tr.getCapabilities ? tr.getCapabilities() : {};
     if (!caps.brightness) { if (box) box.classList.add("hidden"); return; }
     const saved = Number(load(this.key(tr), ""));
-    this.on = !saved;
-    if (saved) tr.applyConstraints({ advanced: [{ brightness: saved }] }).catch(() => {});
+    this.on = !saved; this.exp = caps.exposureTime || null; this.caps = caps.brightness;
+    if (saved) tr.applyConstraints({ advanced: [this.manual(saved)] }).catch(() => {});
     if (!box || stream !== Cam.stream) return;      // the slider belongs to the desk camera
     this.track = tr; this.caps = caps.brightness; this.exp = caps.exposureTime || null;
     if (this.base == null) this.base = tr.getSettings().brightness;
     Object.assign(input, { min: caps.brightness.min, max: caps.brightness.max, step: caps.brightness.step || 1 });
-    input.value = saved || tr.getSettings().brightness;
+    input.value = saved || (this.exp ? this.level(tr.getSettings().exposureTime) : tr.getSettings().brightness);
     box.classList.remove("hidden");
     this.auto(this.on);
   },
   set(v) {
     const tr = this.track; if (!tr || tr.readyState !== "live") return;
-    tr.applyConstraints({ advanced: [{ brightness: Number(v) }] }).catch(() => {});
     save(this.key(tr), String(v));
     if (this.on) this.auto(false, true);
+    this.want = Number(v);
+    if (this.busy) return;                 // the newest value goes once the camera took the last
+    this.busy = true;
+    const go = async () => {
+      while (this.want != null) {
+        const w = this.want; this.want = null;
+        await tr.applyConstraints({ advanced: [this.manual(w)] }).catch(() => {});
+      }
+      this.busy = false;
+    };
+    go();
+  },
+  // The slider position for an exposure time (the inverse of manual): it follows Auto, so taking
+  // the slider over starts from the light on screen.
+  level(et) {
+    if (!this.exp || !et) return this.caps.min;
+    const lo = Math.log(this.exp.min), hi = Math.log(Math.min(this.exp.max, 2500));
+    const k = Math.max(0, Math.min(1, (Math.log(et) - lo) / (hi - lo)));
+    return Math.round(this.caps.min + k * (this.caps.max - this.caps.min));
+  },
+  // A slider position as the camera's settings: with an exposure time, the slider's range maps onto
+  // it (on a log scale: each step about as visible in the dark as in daylight), brightness stays put.
+  manual(v) {
+    if (!this.exp) return { brightness: v };
+    const k = (v - this.caps.min) / Math.max(1, this.caps.max - this.caps.min);
+    const lo = Math.log(this.exp.min), hi = Math.log(Math.min(this.exp.max, 2500));
+    return { exposureMode: "manual", exposureTime: Math.exp(lo + k * (hi - lo)) };
   },
   auto(on, keep) {
     this.on = on;
@@ -2699,9 +2725,9 @@ const CamLight = {
         if (this.base != null) { tr.applyConstraints({ advanced: [{ brightness: this.base }] }).catch(() => {}); $("camLight").value = this.base; }
       }
       this.timer = setInterval(() => this.step(), 1000);
-    } else {
-      if (tr && this.exp) tr.applyConstraints({ advanced: [{ exposureMode: "continuous" }] }).catch(() => {});
-      if (!keep && tr) save(this.key(tr), String($("camLight").value));
+    } else if (!keep && tr) {
+      save(this.key(tr), String($("camLight").value));
+      tr.applyConstraints({ advanced: [this.manual(Number($("camLight").value))] }).catch(() => {});
     }
   },
   seen(box, w, h) { if (box) this.face = { box, w, h, at: Date.now() }; },
@@ -2743,6 +2769,7 @@ const CamLight = {
       const v = Math.max(this.exp.min, Math.min(this.exp.max, now * (change > 0 ? 1.45 : 0.7)));
       if (Math.abs(v - now) < (this.exp.step || 1)) return;
       tr.applyConstraints({ advanced: [{ exposureMode: "manual", exposureTime: v }] }).catch(() => {});
+      $("camLight").value = this.level(v);
       return;
     }
     const now = Number(tr.getSettings().brightness ?? $("camLight").value);
@@ -3205,7 +3232,7 @@ let autoId = false, autoTimer = null, idBusy = false;
 function toggleAuto() { autoId = !autoId; $("autoBtn").textContent = autoId ? t("auto_on") : t("auto_off"); $("autoBtn").classList.toggle("on", autoId);
   clearInterval(autoTimer); if (autoId) autoTimer = setInterval(() => { if (mode !== "simple" || settingsOpen) return;
     if (role === "start") { if (!startingNow() && !StartCall.active()) identifyNow(true); return; }
-    if (role === "results") { if (!ResultsCard.isOpen()) identifyNow(true); return; }
+    if (role === "results") return;      // its own, faster loop (resultsLoop)
     if (!wEntry && wSource !== "typed" && !enrolBusy && $("wNew").classList.contains("hidden") && role === "weigh") identifyNow(true); }, 1500); }
 async function identifyNow(quiet) {
   if (role === "start") return lineIdentify(quiet);
@@ -5078,13 +5105,16 @@ const StationCall = {
     if (sig !== this.sig) { box.className = "callbox " + cls; box.querySelector(".cb-main").innerHTML = html; this.sig = sig; }
     if (acts !== this.acts) { box.querySelector(".cb-acts").innerHTML = acts; this.acts = acts; }
     Choose.show(v.state === "choose" ? v : null);
-    // while someone chooses, the cursor is asked for more often, so it follows the hand
-    if (v.state === "choose" && !this.fast) this.fast = setInterval(() => this.poll(), 80);
-    if (v.state !== "choose" && this.fast) { clearInterval(this.fast); this.fast = null; }
+    // while someone chooses, the cursor is asked for more often, so it follows the hand; during a
+    // test the count, so a rep shows as soon as the engine sends it (it does at once)
+    const every = v.state === "choose" ? 80 : v.state === "testing" ? 100 : 0;
+    if (every !== this.every) {
+      clearInterval(this.fast); this.fast = every ? setInterval(() => this.poll(), every) : null; this.every = every;
+    }
     if (v.state !== this.last) {
       if (v.state === "position" || v.state === "choose") Sound.chime();
       if (v.state === "testing") Signal.start();
-      if (v.state === "done") { Signal.end(); refresh(); if (e && e.done && e.done.length >= 2) setTimeout(() => ResultsCard.show(e.id), 4000); }
+      if (v.state === "done") { Signal.end(); refresh(); if (e && e.done && e.done.length >= 2) setTimeout(() => ResultsCard.show(e.id), 800); }
     }
     this.last = v.state;
   },
@@ -5247,6 +5277,8 @@ const ResultsCard = {
     });
   },
 };
+// The results screen: someone walks up and looks for their card, so the camera looks every 0.6 s.
+setInterval(() => { if (role === "results" && autoId && mode === "simple" && !settingsOpen && !ResultsCard.isOpen()) identifyNow(true); }, 600);
 async function resultsIdentify(quiet) {
   if (idBusy) return; idBusy = true;
   try {

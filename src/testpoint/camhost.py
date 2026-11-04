@@ -228,7 +228,11 @@ class CamProcess:
         if self.log.exists():
             lines = [clean(ln) for ln in self.log.read_text(encoding="utf-8", errors="replace").splitlines()]
             tail = [ln for ln in lines if ln and ":onnxruntime:" not in ln and not ln.startswith("onnxruntime::")][-6:]   # GPU-library chatter
-        return {"running": running, "config": self.config, "since": self.since,
+        config = self.config
+        if isinstance(config, dict) and isinstance(config.get("source"), str):
+            # the camera's password never leaves the process (as in vision.sources.redact_url)
+            config = config | {"source": re.sub(r"(://[^/@:]+:)[^@/]*@", r"\1***@", config["source"])}
+        return {"running": running, "config": config, "since": self.since,
                 "exit_code": None if p is None or running else p.poll(), "log": tail,
                 **({"freed_by": self.freed_by} if self.freed_by and not running else {})}
 
