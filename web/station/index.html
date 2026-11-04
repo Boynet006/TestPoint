@@ -539,7 +539,21 @@
   .camsel { display: flex; gap: 8px; flex: 1; min-width: 0; } .camsel select { flex: 1; min-width: 0; } .camsel input { flex: 2; min-width: 0; }
   /* the results card: pass / fail and every test, large, closes by itself */
   .rcard { max-width: 760px; width: 92vw; padding: 0; }
-  .rcard .rc-head { display: grid; grid-template-columns: auto 1fr; gap: 18px; align-items: center; padding: 22px 24px; border-bottom: 1px solid var(--line); }
+  .rcard .rc-head { display: grid; grid-template-columns: auto 1fr auto; gap: 18px; align-items: center; padding: 22px 24px; border-bottom: 1px solid var(--line); }
+  /* the overall score: a ring that fills to it, the number large inside, a tick at the level needed */
+  .rcard .rc-ring { position: relative; width: 190px; height: 190px; }
+  .rcard .rc-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .rcard .rc-ring .trk { fill: none; stroke: var(--line); stroke-width: 14; }
+  .rcard .rc-ring .arc { fill: none; stroke-width: 14; stroke-linecap: round; transition: stroke-dashoffset 1.1s cubic-bezier(.2,.8,.2,1); }
+  .rcard .rc-ring .tick { stroke: var(--text, #f1e8d7); stroke-width: 4; }
+  .rcard .rc-ring .mid { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
+  .rcard .rc-ring .num { font-family: var(--cond); font-size: 64px; font-weight: 800; line-height: .9; }
+  .rcard .rc-ring .num small { font-size: 28px; }
+  .rcard .rc-ring .lbl { font-family: var(--cond); font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
+  .rcard .rc-ring.pass .arc, .rcard .rc-ring.pass .num { stroke: var(--go); color: var(--go); }
+  .rcard .rc-ring.fail .arc, .rcard .rc-ring.fail .num { stroke: var(--bad); color: var(--bad); }
+  .rcard .rc-ring.pending .arc, .rcard .rc-ring.pending .num { stroke: var(--amber); color: var(--amber); }
+  @media (max-width: 640px) { .rcard .rc-head { grid-template-columns: auto 1fr; } .rcard .rc-ring { grid-column: 1 / -1; justify-self: center; } }
   .rcard .rc-head img { width: 110px; height: 138px; object-fit: cover; border-radius: 6px; background: var(--bg); }
   .rcard .rc-name { font-family: var(--cond); font-size: 30px; font-weight: 700; }
   .rcard .rc-verdict { font-family: var(--cond); font-size: 64px; font-weight: 800; line-height: 1; margin-top: 6px; }
@@ -5405,12 +5419,25 @@ const ResultsCard = {
     const mark = x => x.passed === true ? `<span style="color:var(--go)">✓ ${esc(shown(x))}</span>` : x.passed === false ? `<span style="color:var(--bad)">✗ ${esc(shown(x))}</span>` : `<span class="hint">${esc(t("rc_pending"))}</span>`;
     $("rcBody").innerHTML = `<div class="rc-head">${e.faces ? `<img src="/api/entries/${e.id}/face.jpg" alt="">` : "<span></span>"}`
       + `<div><div class="rc-name">${esc(c.bib ?? "")} · ${esc(cname(c))}</div><div class="hint">${r.level ? esc(t("std_needs", { level: r.level })) : ""}</div>`
-      + `<div class="rc-verdict ${v === "pass" ? "pass" : v === "fail" ? "fail" : "pending"}">${esc(t("rc_" + (["pass", "fail"].includes(v) ? v : "pending_all")))}</div>`
-      + `${r.overall_percent != null ? `<div class="rc-name">${esc(t("rc_overall"))} ${pct(r.overall_percent)}</div>` : ""}</div></div>`
+      + `<div class="rc-verdict ${v === "pass" ? "pass" : v === "fail" ? "fail" : "pending"}">${esc(t("rc_" + (["pass", "fail"].includes(v) ? v : "pending_all")))}</div></div>`
+      + this.ring(r.overall_percent, r.level, v) + `</div>`
       + `<table>${r.tests.map(x => `<tr><td>${esc(t(x.test === "run" ? "rc_run" : x.test))}</td><td class="v">${esc(String(val(x)))}</td><td style="text-align:end">${mark(x)}</td>${redoable ? `<td style="text-align:end">${x.attempt_id ? `<button class="btn ghost sm" onclick="ResultsCard.redo(${x.attempt_id}, ${e.id}, this)">${esc(t("st_redo"))}</button>` : ""}</td>` : ""}</tr>`).join("")}</table>`;
     $("resultsDlg").showModal();
     if (v === "pass") Sound.done?.(); 
     clearTimeout(this.timer); this.timer = setTimeout(() => this.close(), ms);
+  },
+  // The overall score, the headline of the card: a ring filling to it (green pass, red fail), the
+  // number large inside, and a tick on the ring at the level the person needed.
+  ring(p, level, v) {
+    if (p == null) return "<span></span>";
+    const C = 2 * Math.PI * 80, cls = v === "pass" ? "pass" : v === "fail" ? "fail" : "pending";
+    const at = a => { const r = a / 100 * 2 * Math.PI; return [100 + 72 * Math.cos(r), 100 + 72 * Math.sin(r), 100 + 95 * Math.cos(r), 100 + 95 * Math.sin(r)]; };
+    const tick = level ? (([x1, y1, x2, y2]) => `<line class="tick" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`)(at(level)) : "";
+    const whole = Math.round(p * 10) / 10, [n, d] = String(whole).split(".");
+    setTimeout(() => { const a = document.querySelector("#rcBody .rc-ring .arc"); if (a) a.style.strokeDashoffset = C * (1 - Math.min(100, p) / 100); }, 60);
+    return `<div class="rc-ring ${cls}" title="${esc(t("rc_overall"))}"><svg viewBox="0 0 200 200"><circle class="trk" cx="100" cy="100" r="80"/>`
+      + `<circle class="arc" cx="100" cy="100" r="80" stroke-dasharray="${C}" stroke-dashoffset="${C}"/>${tick}</svg>`
+      + `<div class="mid"><div class="num">${n}<small>${d ? "." + d : ""}%</small></div><div class="lbl">${esc(t("rc_overall"))}</div></div></div>`;
   },
   close() { clearTimeout(this.timer); if (this.isOpen()) $("resultsDlg").close(); },
   redo(id, entryId, btn) {
