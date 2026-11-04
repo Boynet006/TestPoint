@@ -8,8 +8,10 @@
 
 A test ends when the time is up, or earlier when the person cannot go on (as in an official
 fitness test, the count so far stands): the examiner presses End test, the person leaves the mat
-for LEFT_MAT_S, or, after their first rep, no rep has been counted for ``idle_s`` while they are out of
-the start position (kneeling, sitting, standing; resting in it is allowed) (a setting; 0 = only the time).
+for LEFT_MAT_S, they leave the exercise's posture (stand up, sit up and stay up, kneel: the only
+rest allowed is the start position, arms straight or lying back) for ``out_s`` (a setting; the
+screen warns meanwhile), or, after their first rep, no rep has been counted for ``idle_s`` while
+they are out of the start position (a setting; 0 = only the time).
 
 Push-ups first, crunches when they come back (after a break, others testing meanwhile); or, with
 both still to do and the setting on, the person chooses which first: a raised hand moves a cursor
@@ -59,6 +61,8 @@ class StationLook:
     """Where a raised hand points on the screen (0..1 each), for choosing the first test."""
     ready_ex: str | None = None
     """The exercise whose start position the person holds now (the one the camera watches)."""
+    out: bool = False
+    """Seen, but not in the exercise's posture: standing, sitting up, kneeling."""
 
 
 @dataclass
@@ -67,6 +71,8 @@ class StationFlow:
     time_s: float = 120.0
     idle_s: float = 0.0
     """No rep for this long during the test: it ends (the person stopped). 0 = off."""
+    out_s: float = 0.0
+    """Out of the exercise's posture this long during the test: it ends. 0 = off."""
     state: str = "idle"
     entry_id: int | None = None
     event: str | None = None
@@ -81,8 +87,9 @@ class StationFlow:
     votes: deque = field(default_factory=lambda: deque(maxlen=VOTE_WINDOW))
     recent: dict = field(default_factory=dict)
     ended: str | None = None
-    """Why the last test ended before its time: "examiner", "left_mat" or "no_reps"."""
+    """Why the last test ended before its time: "examiner", "left_mat", "left_position" or "no_reps"."""
     last_count: int = -1
+    out_since: float | None = None
     last_rep_at: float = 0.0
     off_since: float | None = None
     hand: tuple[float, float] | None = None
@@ -96,7 +103,7 @@ class StationFlow:
             self.entry_id = self.event = self.go_at = self.attempt_id = self.ended = None
             self.votes.clear()
         if state == "testing":
-            self.ended, self.last_count, self.off_since = None, -1, None
+            self.ended, self.last_count, self.off_since, self.out_since = None, -1, None, None
             self.last_rep_at = kw.get("go_at", now)
         for k, v in kw.items():
             setattr(self, k, v)
@@ -136,7 +143,7 @@ class StationFlow:
     def hold(self, now: float) -> None:
         """The picture is a paused test video: a pause is not the person stopping."""
         if self.state == "testing":
-            self.last_rep_at, self.off_since = now, None
+            self.last_rep_at, self.off_since, self.out_since = now, None, None
 
     def end_now(self, now: float, why: str = "examiner") -> list[tuple]:
         """End the test being done with the count so far (the person cannot go on)."""
@@ -212,6 +219,11 @@ class StationFlow:
                 self.last_rep_at = now
             if self.off_since is not None and now - self.off_since >= LEFT_MAT_S:
                 return acts + self._finish(now, "left_mat")
+            # left the exercise (stood up, sat up and stayed up, kneeling): a short grace for the
+            # pose's jitter and a slip; then the test is over with the count so far
+            self.out_since = (self.out_since if self.out_since is not None else now) if look.present and look.out else None
+            if self.out_s > 0 and self.out_since is not None and now - self.out_since >= self.out_s:
+                return acts + self._finish(now, "left_position")
             # "stopped": no rep for idle_s after doing some; before the first rep (getting down on
             # the mat, a slow start) only the time, the examiner or leaving the mat ends the test
             if self.idle_s > 0 and self.last_count > 0 and now - self.last_rep_at >= self.idle_s:
@@ -248,6 +260,9 @@ class StationFlow:
         self.tick(now)
         return {"state": self.state, "entry_id": self.entry_id, "event": self.event, "reason": self.reason, "ended": self.ended,
                 "idle_s": self.idle_s, "last_rep_at": self.last_rep_at if self.state == "testing" else None,
+                # out of the exercise's posture: seconds before the test ends (the screen warns)
+                "out_left": (round(max(0.0, self.out_s - (now - self.out_since)), 1)
+                             if self.state == "testing" and self.out_s > 0 and self.out_since is not None else None),
                 "attempt_id": self.attempt_id, "go_at": self.go_at, "since": self.since,
                 "ends_at": (self.go_at + self.time_s) if self.go_at is not None and self.state in ("testing", "done") else None,
                 "ready": self.ready_since is not None, "camera": now - self.last_look <= STALE_S,

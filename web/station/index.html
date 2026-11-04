@@ -1394,6 +1394,9 @@
         <label for="setLanes" data-t="set_lanes"></label>
         <select id="setLanes"><option>1</option><option>2</option><option>3</option><option>4</option></select>
         <span class="hint" data-t="set_lanes_hint"></span>
+        <label for="setOutS" data-t="set_out_s"></label>
+        <select id="setOutS"><option value="0" data-t="out_off"></option><option value="2" data-t="out_2"></option><option value="3" data-t="out_3"></option><option value="5" data-t="out_5"></option></select>
+        <span class="hint" data-t="set_out_s_hint"></span>
         <label for="setStopAfter" data-t="set_stop_after"></label>
         <select id="setStopAfter"><option value="0" data-t="stop_off"></option><option value="10" data-t="stop_10"></option><option value="15" data-t="stop_15"></option><option value="20" data-t="stop_20"></option><option value="30" data-t="stop_30"></option><option value="60" data-t="stop_60"></option></select>
         <span class="hint" data-t="set_stop_after_hint"></span>
@@ -1654,7 +1657,7 @@ const I18N = {
     st_reset: "Reset",
     st_end: "End test", st_end_sure: "End it? Press again", st_end_hint: "The person cannot go on: the test ends now and the count so far is their result.",
     st_cancel: "Cancel", st_cancel_sure: "Cancel? Press again", st_cancel_hint: "Not scored: the test is thrown away and they do it again.",
-    st_ended_examiner: "Ended by the examiner before the time.", st_ended_left_mat: "Ended: they left the mat.", st_ended_no_reps: "Ended: no more reps.",
+    st_ended_examiner: "Ended by the examiner before the time.", st_ended_left_mat: "Ended: they left the mat.", st_ended_no_reps: "Ended: no more reps.", st_ended_left_position: "Ended: they left the exercise position (stood up, sat up or knelt).", st_back_in_position: "Back into position! The test ends in {n} s", set_out_s: "End the test when out of position for", set_out_s_hint: "One-mat station: standing up, sitting up and staying up, or kneeling ends the test with the count so far (the only rest allowed is the start position: arms straight, or lying back). The screen warns meanwhile.", out_off: "Off (only the time, no reps, leaving the mat)", out_2: "2 seconds", out_3: "3 seconds", out_5: "5 seconds",
     st_ends_in: "No rep: the test ends in {n} s", set_stop_after: "End the test after no rep for", set_stop_after_hint: "One-mat station: when the person stops (after their first rep, no rep this long while out of the start position; resting in it is allowed), the test ends with the count so far. Leaving the mat for 5 s also ends it. A paused test video does not count.",
     stop_off: "Never (only the time)", stop_10: "10 s", stop_15: "15 s", stop_20: "20 s", stop_30: "30 s", stop_60: "1 minute",
     cal_title: "Auto-calibration, live", cal_sliders: "Adjust", cal_off: "Off", cal_learning: "Learning {n}/{m}", cal_done: "Calibrated", cal_nobody: "Nobody measured yet",
@@ -2063,7 +2066,7 @@ const I18N = {
     st_reset: "إعادة",
     st_end: "إنهاء الاختبار", st_end_sure: "إنهاء؟ اضغط مرة أخرى", st_end_hint: "لا يستطيع المتابعة: ينتهي الاختبار الآن ويُحتسب العدد حتى الآن نتيجةً له.",
     st_cancel: "إلغاء", st_cancel_sure: "إلغاء؟ اضغط مرة أخرى", st_cancel_hint: "لا يُحتسب: يُلغى الاختبار ويُعيده.",
-    st_ended_examiner: "أنهاه الفاحص قبل الوقت.", st_ended_left_mat: "انتهى: غادر البساط.", st_ended_no_reps: "انتهى: توقف عن التكرار.",
+    st_ended_examiner: "أنهاه الفاحص قبل الوقت.", st_ended_left_mat: "انتهى: غادر البساط.", st_ended_no_reps: "انتهى: توقف عن التكرار.", st_ended_left_position: "انتهى: خرج من وضعية التمرين (وقف أو جلس أو جثا).", st_back_in_position: "عُد إلى الوضعية! ينتهي الاختبار خلال {n} ث", set_out_s: "إنهاء الاختبار عند الخروج من الوضعية لمدة", set_out_s_hint: "محطة البساط الواحد: الوقوف، أو الجلوس والبقاء جالساً، أو الجثو ينهي الاختبار بالعدد حتى الآن (الراحة المسموحة فقط في وضعية البداية: الذراعان مستقيمتان أو الاستلقاء). تظهر الشاشة تحذيراً خلال ذلك.", out_off: "متوقف (الوقت، عدم التكرار، مغادرة البساط فقط)", out_2: "ثانيتان", out_3: "3 ثوانٍ", out_5: "5 ثوانٍ",
     st_ends_in: "لا تكرار: ينتهي الاختبار خلال {n} ث", set_stop_after: "إنهاء الاختبار بعد عدم التكرار لمدة", set_stop_after_hint: "محطة البساط الواحد: عندما يتوقف الشخص (بعد أول تكرار، لا تكرار طوال هذه المدة وهو خارج وضعية البداية؛ الراحة فيها مسموحة) ينتهي الاختبار بالعدد حتى الآن. مغادرة البساط 5 ث تنهيه أيضاً. لا يُحتسب إيقاف فيديو الاختبار مؤقتاً.",
     stop_off: "أبداً (الوقت فقط)", stop_10: "10 ث", stop_15: "15 ث", stop_20: "20 ث", stop_30: "30 ث", stop_60: "دقيقة",
     cal_title: "المعايرة التلقائية مباشرة", cal_sliders: "الضبط", cal_off: "متوقفة", cal_learning: "تتعلم {n}/{m}", cal_done: "تمت المعايرة", cal_nobody: "لم يُقَس أحد بعد",
@@ -5207,7 +5210,8 @@ const StationCall = {
       const left = Math.max(0, (Date.parse(v.ends_at) - serverNow()) / 1000), live = v.live || {};
       cls = "go";
       const still = v.idle_s && v.last_rep_at ? Math.ceil(v.idle_s - (serverNow() - Date.parse(v.last_rep_at)) / 1000) : null;
-      const stop = still != null && still <= Math.min(10, v.idle_s / 2) && still > 0 ? `<div class="hint c-stop">${esc(t("st_ends_in", { n: still }))}</div>` : "";
+      const stop = v.out_left != null ? `<div class="c-say c-stop" style="color:var(--stop)">${esc(t("st_back_in_position", { n: Math.ceil(v.out_left) }))}</div>`
+        : still != null && still <= Math.min(10, v.idle_s / 2) && still > 0 ? `<div class="hint c-stop">${esc(t("st_ends_in", { n: still }))}</div>` : "";
       body = `<div><div class="c-who">${who} · ${esc(ex)}</div><div class="c-big"><div><div class="c-num">${live.count ?? 0}</div><div class="c-label">${esc(t("st_reps"))}</div></div><div><div class="c-time${left <= 10 ? " low" : ""}">${mmss(left)}</div><div class="c-label">${esc(t("st_time_left"))}</div></div></div>${(live.faults || []).length ? `<div class="hint">${esc(live.faults.map(f => t("f_" + f)).join(" · "))}</div>` : ""}${stop}</div>`;
     } else if (v.state === "done") {
       const r = v.result || {};
@@ -6347,7 +6351,7 @@ const Evidence = {
 const SET_FIELDS = {   // input id -> [setting, read, write]
   setAuto: ["auto_identify", v => v === "1", v => (v ? "1" : "0")], setBg: ["camera_background"], setMatch: ["face_match"], setFaceReq: ["face_required", v => v === "1", v => (v ? "1" : "0")], setFaceFresh: ["face_fresh_min", v => parseInt(v, 10), String],
   setChooseFirst: ["station_choose_first", v => v === "1", v => (v ? "1" : "0")], setFcSetup: ["finish_setup_shown", v => v === "1", v => (v ? "1" : "0")], setWalk: ["walk_ins", v => v === "1", v => (v ? "1" : "0")], setGender: ["default_gender"], setUnit: ["default_unit"], setBib: ["bib_start", v => parseInt(v, 10)],
-  setLanes: ["lanes", v => parseInt(v, 10), String], setStopAfter: ["station_stop_after_s", v => parseInt(v, 10) || 0, String],
+  setLanes: ["lanes", v => parseInt(v, 10), String], setStopAfter: ["station_stop_after_s", v => parseInt(v, 10) || 0, String], setOutS: ["station_out_s", v => parseInt(v, 10) || 0, String],
   setCountdown: ["start_countdown_s", v => parseInt(v, 10), String], setCancelWin: ["cancel_window_s", v => parseInt(v, 10), String], setFinishFace: ["finish_face_threshold", v => parseFloat(v) || 0, v => String(+v || 0)], setSite: ["site_name", v => v.trim()], setCamSrc: ["camera_sources", v => JSON.parse(v || "{}"), o => JSON.stringify(o || {})], setEvKeep: ["evidence_keep_days", v => parseInt(v, 10), String],
   setEvMax: ["evidence_max_gb", v => Math.max(0, parseFloat(v) || 0), v => String(+v || 0)], setEvFree: ["evidence_min_free_gb", v => Math.max(0, parseFloat(v) || 0), v => String(+v || 0)],
   setEvHeld: ["evidence_held_days", v => (v ? v.split(",") : []), a => (a || []).slice().sort().join(",")], setTuning: ["count_tuning", v => JSON.parse(v || "{}"), o => JSON.stringify(o || {})], setTroubleRun: ["trouble_run_cutoff_s", v => parseInt(v, 10) || 0, String], setBgPlaces: ["camera_bg_places", v => (v ? v.split(",") : []), a => (a || []).join(",")], setLang: ["default_language"], setTheme: ["theme"],

@@ -242,7 +242,9 @@ SETTINGS: dict[str, object] = {
     "bib_start": 1,              # first number for automatically assigned bibs
     # exercise station
     "lanes": 3,                  # lanes per exercise station (must match the engine's --lanes)
-    "station_stop_after_s": 20,  # one-mat station: no rep for this long ends the test (the person stopped); 0 = off
+    "station_stop_after_s": 20,
+    "station_out_s": 3,          # one-mat station: out of the exercise's posture (standing, sitting up, kneeling) this
+                                 # long during the test ends it with the count so far; 0 = off  # one-mat station: no rep for this long ends the test (the person stopped); 0 = off
     # run start
     "start_countdown_s": 0,      # a 3-2-1 before GO (start line and station); 0: GO as soon as they are ready, the clock and the count start there
     "cancel_window_s": 120,      # a start can be cancelled without the admin PIN this long; 0 = until the first finisher

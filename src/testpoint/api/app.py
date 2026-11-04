@@ -147,6 +147,7 @@ class SettingsIn(BaseModel):
     trouble_run_cutoff_s: int | None = Field(default=None, ge=0, le=3600)
     count_tuning: dict[str, dict[str, float]] | None = None
     station_stop_after_s: int | None = Field(default=None, ge=0, le=120)
+    station_out_s: int | None = Field(default=None, ge=0, le=30)
     evidence_keep_days: int | None = Field(default=None, ge=0, le=3650)
     evidence_max_gb: float | None = Field(default=None, ge=0, le=100000)
     evidence_min_free_gb: float | None = Field(default=None, ge=0, le=10000)
@@ -346,6 +347,8 @@ class EngineLaneIn(BaseModel):
     # posture, and the face of the person on the mat while nobody is being tested
     exercise: str | None = None
     ready: bool = False
+    out: bool = False
+    """Seen, but not in the exercise's posture (standing, sitting up, kneeling)."""
     face: str | None = Field(default=None, max_length=2000)
     hand: list[float] | None = Field(default=None, min_length=2, max_length=2)
     """Where a raised hand points on the screen (0..1 each): choosing the first test."""
@@ -1543,6 +1546,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
             adopt_running(db, day, f)
         st = S.get_settings(db)
         f.idle_s = float(st["station_stop_after_s"])    # a change applies to the next check
+        f.out_s = float(st["station_out_s"])
         f.countdown_s = float(st["start_countdown_s"])
         if f.attempt_id is not None and f.state == "testing":
             a = db.get(Attempt, f.attempt_id)
@@ -1615,7 +1619,8 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
             flow.hold(wall())
         hand = (lane.hand[0], lane.hand[1]) if lane.hand else None
         ready_ex = lane.exercise if lane.ready and flow.state == "choose" else None
-        flow_act(db, day, flow, flow.observe(wall(), StationLook(lane.person, match, ready, lane.count if counting else None, hand, ready_ex)))
+        out = lane.out and lane.exercise is not None and lane.exercise == flow.watching
+        flow_act(db, day, flow, flow.observe(wall(), StationLook(lane.person, match, ready, lane.count if counting else None, hand, ready_ex, out)))
 
     @app.get("/api/stationflow")
     def stationflow_view(db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:

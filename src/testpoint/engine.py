@@ -65,6 +65,9 @@ class LaneState:
     """The exercise being watched (the combined station switches it per person)."""
     ready: bool = False
     """The person holds the exercise's start posture (rest position, no fault)."""
+    out: bool = False
+    """The person is seen but not in the exercise at all: standing, sitting up, kneeling (the
+    counter does not measure such a frame: vision.exercises)."""
     face: str | None = None
     """The face embedding (base64) of the person on the mat, while nobody is being tested; sent once."""
     hand: tuple[float, float] | None = None
@@ -136,6 +139,7 @@ class Reporter:
                 # in the start position: the counter's own judgement (it reads the body as calibrated;
                 # the raw thresholds alone do not match until it has learned from a few reps)
                 lane.ready = bool(r.person is not None and r.phase == Phase.REST and not r.metrics.faults)
+                lane.out = bool(r.person is not None and r.metrics.metric is None)
                 lane.hand = pointer(r.person, size) if size and isinstance(r.person, Person) and lane.exercise else None
                 if r.event is not None:
                     ev = {"index": r.event.index, "valid": r.event.valid,
@@ -159,7 +163,7 @@ class Reporter:
                            "pending_faults": lane.pending_faults,
                            "work_seconds": lane.work_seconds, "depth": lane.depth, "events": list(lane.events),
                            **({"calib": lane.calib} if lane.calib else {}),
-                           **({"exercise": lane.exercise, "ready": lane.ready} if lane.exercise else {}),
+                           **({"exercise": lane.exercise, "ready": lane.ready, "out": lane.out} if lane.exercise else {}),
                            **({"face": lane.face} if lane.face else {}),
                            **({"hand": list(lane.hand)} if lane.hand else {})}
                     for name, lane in self.lanes.items()

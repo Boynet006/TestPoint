@@ -211,6 +211,27 @@ def test_no_rep_yet_is_not_stopping():
 
 
 
+def test_standing_up_during_the_test_ends_it_with_the_count_so_far():
+    f = StationFlow(countdown_s=3.0, time_s=120.0, idle_s=20.0, out_s=3.0)
+    under_way(f)
+    f.observe(30.0, StationLook(True, count=20))
+    # a slip out of position (the pose's jitter, a wobble) and back: the test goes on
+    assert f.observe(31.0, StationLook(True, count=20, out=True)) == []
+    assert f.view(32.0)["out_left"] == 2.0                          # the screen warns
+    assert f.observe(32.5, StationLook(True, count=20)) == []
+    assert f.view(32.6)["out_left"] is None
+    # stood up and stayed up: over after out_s, with the 20 reps
+    f.observe(40.0, StationLook(True, count=20, out=True))
+    assert f.observe(42.0, StationLook(True, count=20, out=True)) == []
+    assert f.observe(43.0, StationLook(True, count=20, out=True)) == [("finish", 55, "left_position")]
+    assert f.state == "done" and f.view(43.5)["ended"] == "left_position"
+    # off (0): only the other rules end it
+    off = StationFlow(countdown_s=3.0, time_s=120.0, out_s=0.0)
+    under_way(off)
+    assert off.observe(20.0, StationLook(True, count=5, out=True)) == []
+    assert off.observe(40.0, StationLook(True, count=5, out=True)) == []
+
+
 def test_resting_in_the_start_position_is_not_stopping():
     f = StationFlow(countdown_s=3.0, time_s=120.0, idle_s=20.0)
     under_way(f)
