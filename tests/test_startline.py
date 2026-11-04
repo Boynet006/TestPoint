@@ -250,3 +250,45 @@ def test_a_runner_started_by_the_camera_leaves_their_start_line_face_as_a_templa
         assert c.get(f"/api/entries/{e}").json()["status"] == "running"
         faces = c.get(f"/api/candidates/{cid}/faces").json()["faces"]
         assert len(faces) == 2
+        assert c.get(f"/api/entries/{e}").json()["faces"] == 1     # the count: today's registration photos
+
+
+def test_the_start_camera_keeps_several_pictures_taken_while_the_runner_waits(monkeypatch):
+    import base64
+    from datetime import timedelta
+
+    from fastapi.testclient import TestClient
+    from sqlalchemy.pool import StaticPool
+    from test_faces import A, FakeEngine, vec
+
+    from testpoint.api import app as app_mod
+    from testpoint.api import models
+    from testpoint.api.app import create_app
+
+    real = models.create_engine
+    monkeypatch.setattr(models, "create_engine", lambda url, **kw: real(url, poolclass=StaticPool, **kw))
+    app = create_app(db_url="sqlite:///:memory:", web_dir="none", today=lambda: "2026-10-20", face_engine=lambda: FakeEngine())
+    t0 = models.utcnow()
+    clock = {"t": t0}
+    monkeypatch.setattr(app_mod.S, "utcnow", lambda: clock["t"])
+    pic = lambda seed: base64.b64encode(np.asarray(vec(seed, 0.8, A), np.float32).tobytes()).decode()
+    crop = base64.b64encode(b"\xff\xd8start").decode()
+    with TestClient(app) as c:
+        c.post("/api/entries/import", content=b"external_id,name,bib,gender,dob\nC-1,Alpha,11,M,2000-01-01\n")
+        e = c.get("/api/entries").json()[0]["id"]
+        cid = c.get(f"/api/entries/{e}").json()["candidate"]["id"]
+        c.post(f"/api/entries/{e}/face", content=b"face:A")
+        c.post(f"/api/entries/{e}/weigh-in", json={"weight_kg": 70, "height_cm": 175, "accept": True})
+
+        def look(dt, **kw):
+            clock["t"] = t0 + timedelta(seconds=dt)
+            return c.post("/api/engine/start/obs", json={"present": True, **kw}).json()
+
+        look(0.0, emb=pic(1), quality=0.5, crop=crop)
+        assert look(0.2, emb=pic(2), quality=0.5, crop=crop)["state"] == "raise_hand"
+        for k, dt in enumerate((0.4, 0.6, 0.8, 1.0, 1.2, 1.4)):          # waiting, looking around
+            look(dt, emb=pic(10 + k), quality=0.5, crop=crop)
+        look(1.6, hand="right")
+        look(2.2, hand="right")
+        assert c.get(f"/api/entries/{e}").json()["status"] == "running"
+        assert len(c.get(f"/api/candidates/{cid}/faces").json()["faces"]) == 1 + 5   # at most 5 kept

@@ -1858,13 +1858,13 @@ const I18N = {
     give_bib: "{name} is on today's list. Give bib {bib}.",
     known_title: "Returning candidate", known_add: "Add to today's list and weigh in",
     known_hint: "This face is on file from an earlier day but the person is not on today's list.",
-    known_msg: "{name} is on file but not on today's list", register_need_camera: "Turn the camera on first: the face is captured right after saving.", enrolled: "Face saved ({n} on file).",
+    known_msg: "{name} is on file but not on today's list", register_need_camera: "Turn the camera on first: the face is captured right after saving.", enrolled: "Face saved ({n} today).", lv_differs: "Check their ID: this face does not look like the photo from their last test day (match {score}).",
     pose_straight: "Look straight at the camera", pose_left: "Turn your head a little to the left", pose_right: "Turn your head a little to the right",
     pose_hold: "Hold still…", pose_saved: "Saved {k}/{n}",
     guide_straight: "Look straight at the camera", guide_left: "Turn your head to your left", guide_right: "Turn your head to your right",
     guide_more_left: "A little more to your left", guide_more_right: "A little more to your right",
     guide_no_face: "Put your face in the oval", guide_one_face: "Only one person in front of the camera", guide_closer: "Come closer to the camera", face: "Face", no_face_short: "no face",
-    no_face: "no face", enroll: "Enrol photo", removed: "Face removed.",
+    no_face: "no face today", enroll: "Enrol photo", removed: "Face removed.",
     e_no_face: "No face in the picture", e_multiple_faces: "More than one face: use a picture of one person", e_face_too_small: "Face too small: move closer",
     e_bad_image: "That file is not a picture", e_face_unavailable: "Face recognition is not available on this server", e_face_not_recognised: "Face not recognised",
     e_nobody_enrolled: "Nobody on today's list has a face enrolled yet", e_no_face_enrolled: "No face enrolled",
@@ -2267,13 +2267,13 @@ const I18N = {
     give_bib: "أُضيف {name} إلى قائمة اليوم. سلّمه الرقم {bib}.",
     known_title: "متقدم سابق", known_add: "إضافة إلى قائمة اليوم والوزن",
     known_hint: "هذا الوجه مسجل من يوم سابق لكن الشخص غير موجود في قائمة اليوم.",
-    known_msg: "{name} مسجل لكنه غير موجود في قائمة اليوم", register_need_camera: "شغّل الكاميرا أولاً: يُلتقط الوجه مباشرة بعد الحفظ.", enrolled: "تم حفظ الوجه ({n} محفوظة).",
+    known_msg: "{name} مسجل لكنه غير موجود في قائمة اليوم", register_need_camera: "شغّل الكاميرا أولاً: يُلتقط الوجه مباشرة بعد الحفظ.", enrolled: "تم حفظ الوجه ({n} اليوم).", lv_differs: "تحقق من الهوية: هذا الوجه لا يشبه صورة آخر يوم اختبار (التطابق {score}).",
     pose_straight: "انظر إلى الكاميرا مباشرة", pose_left: "أدر رأسك قليلاً إلى اليسار", pose_right: "أدر رأسك قليلاً إلى اليمين",
     pose_hold: "اثبت…", pose_saved: "تم حفظ {k}/{n}",
     guide_straight: "انظر إلى الكاميرا مباشرة", guide_left: "أدر رأسك إلى يسارك", guide_right: "أدر رأسك إلى يمينك",
     guide_more_left: "أكثر قليلاً إلى يسارك", guide_more_right: "أكثر قليلاً إلى يمينك",
     guide_no_face: "ضع وجهك داخل الإطار", guide_one_face: "شخص واحد فقط أمام الكاميرا", guide_closer: "اقترب من الكاميرا", face: "الوجه", no_face_short: "لا وجه",
-    no_face: "لا وجه", enroll: "تسجيل صورة", removed: "تم حذف الوجه.",
+    no_face: "لا وجه اليوم", enroll: "تسجيل صورة", removed: "تم حذف الوجه.",
     e_no_face: "لا يوجد وجه في الصورة", e_multiple_faces: "أكثر من وجه: استخدم صورة لشخص واحد", e_face_too_small: "الوجه صغير جداً: اقترب",
     e_bad_image: "الملف ليس صورة", e_face_unavailable: "التعرف على الوجه غير متاح على هذا الخادم", e_face_not_recognised: "لم يتم التعرف على الوجه",
     e_nobody_enrolled: "لا أحد في قائمة اليوم لديه وجه مسجل بعد", e_no_face_enrolled: "لا يوجد وجه مسجل",
@@ -3226,21 +3226,29 @@ async function capturePose(view, entryId, step) {
   }
 }
 
-// All three poses. onStep(k) after each saved pose. Returns { ok, faces } (ok false if stopped).
+// After a face is saved: "saved", or a warning when today's photo does not look like the one from
+// the person's last test day (someone else sitting for them?).
+function enrolledMsg(r) {
+  return r.last_visit && r.last_visit.differs
+    ? ["bad", `${t("enrolled", { n: r.faces })} ${t("lv_differs", { score: r.last_visit.score.toFixed(2) })}`]
+    : ["ok", t("enrolled", { n: r.faces })];
+}
+
+// All three poses. onStep(k) after each saved pose. Returns { ok, faces, last_visit } (ok false if stopped).
 async function guidedEnrol(view, entryId, onStep) {
-  let faces = 0;
+  let faces = 0, lastVisit = null;
   Sound.unlock();   // started by a tap: the browser lets the page play the capture sounds
   for (let i = 0; i < POSES.length; i++) {
     if (onStep) onStep(i, false);
     const r = await capturePose(view, entryId, i);
     if (!r) return { ok: false };
-    faces = r.faces;
+    faces = r.faces; lastVisit = r.last_visit && r.last_visit.differs ? r.last_visit : lastVisit || r.last_visit || null;
     if (i < POSES.length - 1) Sound.shutter(); else { Sound.shutter(); setTimeout(() => Sound.done(), 250); }   // heard, not only seen
     drawGuide(view, Math.min(i + 1, POSES.length - 1), i + 1, "hold", t("pose_saved", { k: i + 1, n: POSES.length }));
     if (onStep) onStep(i, true);
     await new Promise(r => setTimeout(r, 500));
   }
-  return { ok: true, faces };
+  return { ok: true, faces, last_visit: lastVisit };
 }
 let enrolBusy = false;
 async function enrollFromCamera() {
@@ -3251,13 +3259,13 @@ async function enrollFromCamera() {
   try {
     if (Cam.kind !== "webcam") {
       const f = await Cam.frame(); const r = await apiImage(`/api/entries/${e.id}/face`, f.blob); Sound.shutter();
-      msg("wMsg", "ok", t("enrolled", { n: r.faces })); $("wEnroll").classList.add("hidden"); refresh(); return { ok: true, faces: r.faces };
+      msg("wMsg", ...enrolledMsg(r)); $("wEnroll").classList.add("hidden"); refresh(); return { ok: true, faces: r.faces };
     }
     tag.textContent = "";
     const r = await guidedEnrol(deskView(seq), e.id, (i, saved) => { if (!saved) msg("wMsg", "warn", `${i + 1}/${POSES.length} · ${t("pose_" + POSES[i])}`); });
     if (!r.ok) return r;                                         // someone else was checked in meanwhile
     clearBox();
-    msg("wMsg", "ok", t("enrolled", { n: r.faces })); $("wEnroll").classList.add("hidden"); refresh();
+    msg("wMsg", ...enrolledMsg(r)); $("wEnroll").classList.add("hidden"); refresh();
     return r;
   } catch (x) { clearBox(); msg("wMsg", "bad", err(x)); return { ok: false, error: x }; }
   finally { enrolBusy = false; $("wEnrollBtn").disabled = false; Cam.show(); }
@@ -3278,8 +3286,9 @@ const EnrolDlg = {
     try {
       const r = await guidedEnrol(view, person ? `/api/candidates/${id}/face` : id, (i, saved) => { if (!saved) msg("enrolMsg", "warn", `${i + 1}/${POSES.length} · ${t("pose_" + POSES[i])}`); });
       if (r.ok) {
-        msg(person ? "rgMsg" : "aMsg", "ok", `${cname(person || e.candidate)}: ${t("enrolled", { n: r.faces })}`);
-        refresh(); if (person) Register.changed(id); setTimeout(() => this.close(), 700);
+        const [kind, text] = enrolledMsg(r);
+        msg(person ? "rgMsg" : "aMsg", kind, `${cname(person || e.candidate)}: ${text}`);
+        refresh(); if (person) Register.changed(id); setTimeout(() => this.close(), kind === "ok" ? 700 : 0);
       }
     } catch (x) { if (run === this.run) msg("enrolMsg", "bad", err(x)); }
   },

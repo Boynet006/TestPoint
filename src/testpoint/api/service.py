@@ -731,9 +731,12 @@ def require_gate(entry: Entry, day: Day, station: str) -> None:
 MAX_ENROL = 4
 """Registration templates kept per person: the newest, and always the one facing the camera best."""
 MAX_ADAPT = 2
-"""Templates added on the day from very sure matches at the start line, station or results screen:
-the venue's own light and angles, which a desk photo does not have. The oldest gives way."""
-MAX_TEMPLATES = MAX_ENROL + MAX_ADAPT
+"""Templates added on the day from very sure matches at the station or results screen: the
+venue's own light and angles, which a desk photo does not have. The oldest gives way."""
+MAX_START = 5
+"""Pictures kept from the start camera per runner and day (source "start")."""
+LEARNT = ("adapt", "start")
+"""Templates learnt on the day (not taken at registration): that day's only."""
 ADAPT_SCORE, ADAPT_LEAD, ADAPT_QUALITY, ADAPT_NEW = 0.60, 0.15, 0.6, 0.85
 """An adaptive template needs a match this sure (score, lead over the next person), a picture this
 good, and must differ from every template already kept (similarity below ADAPT_NEW)."""
@@ -768,17 +771,59 @@ def _best_face(engine, frames: list[bytes]):
     return max(faces, key=lambda f: f.quality if f.quality is not None else 0.0)
 
 
-def face_count(db: Session, candidate_id: int) -> int:
-    return db.scalar(select(func.count()).select_from(FaceTemplate)
-                     .where(FaceTemplate.candidate_id == candidate_id)) or 0
+def face_count(db: Session, candidate_id: int, day: Day | None = None) -> int:
+    """Face photos on file; with ``day``, the registration photos taken that day (the screens ask
+    for a fresh set each test day)."""
+    q = select(func.count()).select_from(FaceTemplate).where(FaceTemplate.candidate_id == candidate_id)
+    if day is not None:
+        q = q.where(FaceTemplate.day_id == day.id, FaceTemplate.source.not_in(LEARNT) | FaceTemplate.source.is_(None))
+    return db.scalar(q) or 0
+
+
+def day_gallery(db: Session, day: Day, entry_ids=None) -> dict[int, list[np.ndarray]]:
+    """Today's people (or these entries of today) with the face templates to match them by: the
+    ones taken today, and the older ones only while there is no registration photo from today
+    (faces change between test days: a beard, a haircut; and so does the light)."""
+    q = (select(Entry.id, FaceTemplate.embedding, FaceTemplate.day_id, FaceTemplate.source)
+         .join(FaceTemplate, FaceTemplate.candidate_id == Entry.candidate_id).where(Entry.day_id == day.id))
+    if entry_ids is not None:
+        q = q.where(Entry.id.in_(list(entry_ids)))
+    today: dict[int, list[np.ndarray]] = {}
+    older: dict[int, list[np.ndarray]] = {}
+    enrolled_today: set[int] = set()
+    for entry_id, emb, day_id, source in db.execute(q).all():
+        if day_id == day.id:
+            today.setdefault(entry_id, []).append(np.frombuffer(emb, np.float32))
+            if source not in LEARNT:
+                enrolled_today.add(entry_id)
+        elif source not in LEARNT:
+            older.setdefault(entry_id, []).append(np.frombuffer(emb, np.float32))
+    return {eid: today.get(eid, []) + ([] if eid in enrolled_today else older.get(eid, []))
+            for eid in today.keys() | older.keys()}
+
+
+def last_visit_check(db: Session, day: Day, cid: int, emb) -> dict | None:
+    """Today's registration photo against the photo from the person's last test day: the same
+    person? (A beard or glasses lower the score a little; someone else lowers it a lot.)"""
+    prev = [t for t in db.scalars(select(FaceTemplate).where(FaceTemplate.candidate_id == cid))
+            if t.day_id != day.id and t.source not in LEARNT]
+    if not prev:
+        return None
+    q = normalise(np.asarray(emb, np.float32))
+    score = max(float(np.dot(q, normalise(np.frombuffer(t.embedding, np.float32)))) for t in prev)
+    newest = max(prev, key=lambda t: t.created_at)
+    return {"score": round(score, 3), "differs": score < FACE_MATCH["normal"][0],
+            "taken_at": newest.created_at.isoformat()}
 
 
 def enroll_face(db: Session, day: Day, entry: Entry | None, data: bytes | list[bytes], engine,
-                candidate: Candidate | None = None) -> int:
+                candidate: Candidate | None = None, report: dict | None = None) -> int:
     """Store the face in ``data`` for this candidate (today's ``entry``, or a ``candidate``
     from the register). ``data`` may be a burst of frames: the best one is kept. A picture too
     poor to recognise the person by later (small, blurred, dark) is refused with what is wrong,
-    so the desk takes another. Keeps the newest MAX_ENROL (and the best frontal one)."""
+    so the desk takes another. Keeps today's newest MAX_ENROL (and the best frontal one); of the
+    earlier days only the last visit's frontal photo, to compare the next visit with. ``report``,
+    when given, gets ``last_visit``: today's photo against that one (last_visit_check)."""
     cid = entry.candidate_id if entry is not None else candidate.id
     frames = [data] if isinstance(data, (bytes, bytearray)) else list(data)
     if not frames:
@@ -798,47 +843,63 @@ def enroll_face(db: Session, day: Day, entry: Entry | None, data: bytes | list[b
         raise ServiceError("face_belongs_to_other",
                            f"{owner.name}, bib {owner.bib}, match {clash.score}", 409,
                            owner={"id": owner.id, "name": owner.name, "name_ar": owner.name_ar, "external_id": owner.external_id})
+    check = last_visit_check(db, day, cid, face.embedding)
+    if report is not None and check:
+        report["last_visit"] = check
     db.add(FaceTemplate(candidate_id=cid,
                         embedding=np.asarray(face.embedding, np.float32).tobytes(),
                         photo_jpeg=face.crop_jpeg, yaw=getattr(face, "yaw", None),
-                        quality=face.quality, source="enrol"))
+                        quality=face.quality, source="enrol", day_id=day.id))
     db.flush()
-    # Keep the newest MAX_ENROL, but never drop the photo that faces the camera best:
-    # it is the one shown on the card and at the finish line.
-    kept = [t for t in db.scalars(select(FaceTemplate).where(FaceTemplate.candidate_id == cid)
-                                  .order_by(FaceTemplate.created_at.desc(), FaceTemplate.id.desc()))
-            if t.source != "adapt"]
+    rows = list(db.scalars(select(FaceTemplate).where(FaceTemplate.candidate_id == cid)
+                           .order_by(FaceTemplate.created_at.desc(), FaceTemplate.id.desc())))
+    # Today's: the newest MAX_ENROL, but never the photo that faces the camera best (the one
+    # shown on the card and at the finish line).
+    kept = [t for t in rows if t.day_id == day.id and t.source not in LEARNT]
     front = _front(kept)
     keep = kept[:MAX_ENROL]
     if front is not None and front not in keep:
         keep = kept[:MAX_ENROL - 1] + [front]
-    for t in kept:
-        if t not in keep:
+    # Earlier days': no longer matched against; the last visit's frontal photo stays for the check.
+    older = [t for t in rows if t.day_id != day.id]
+    older_enrol = [t for t in older if t.source not in LEARNT]
+    ref = _front([t for t in older_enrol if t.day_id == older_enrol[0].day_id]) if older_enrol else None
+    for t in kept + older:
+        if t not in keep and t is not ref:
             db.delete(t)
     _audit(db, day, "admin", "enroll_face", entry, detection_score=face.score, quality=face.quality,
-           frames=len(frames), **({} if entry is not None else {"external_id": candidate.external_id}))
+           frames=len(frames), **({} if entry is not None else {"external_id": candidate.external_id}),
+           **({"last_visit_score": check["score"]} if check else {}))
+    if check and check["differs"]:
+        _audit(db, day, "admin", "face_differs_from_last_visit", entry, score=check["score"],
+               **({} if entry is not None else {"external_id": candidate.external_id}))
     db.commit()
-    return face_count(db, cid)
+    return face_count(db, cid, day)
 
 
 def adapt_template(db: Session, day: Day, entry: Entry, face, score: float, runner_up: float,
-                   min_score: float = ADAPT_SCORE, min_quality: float = ADAPT_QUALITY) -> bool:
+                   min_score: float = ADAPT_SCORE, min_quality: float = ADAPT_QUALITY,
+                   source: str = "adapt", limit: int = MAX_ADAPT) -> bool:
     """A very sure match at a station camera adds the picture as a template (the venue's light,
     the camera's angle), when it shows the person differently from every template kept. Never
-    from the finish line (a wrong runner there would be learnt); the oldest adaptive one gives way."""
+    from the finish line (a wrong runner there would be learnt); the oldest of its ``source`` gives
+    way. Learnt templates are for that day only: earlier days' are removed."""
     if face.quality is None or face.quality < min_quality or score < min_score or score - max(runner_up, 0.0) < ADAPT_LEAD:
         return False
     cid = entry.candidate_id
     kept = list(db.scalars(select(FaceTemplate).where(FaceTemplate.candidate_id == cid).order_by(FaceTemplate.created_at)))
+    for t in [t for t in kept if t.source in LEARNT and t.day_id != day.id]:
+        db.delete(t)
+        kept.remove(t)
     emb = np.asarray(face.embedding, np.float32)
     if any(float(np.dot(emb, normalise(np.frombuffer(t.embedding, np.float32)))) >= ADAPT_NEW for t in kept):
         return False
-    adapt = [t for t in kept if t.source == "adapt"]
-    for t in adapt[:max(0, len(adapt) - MAX_ADAPT + 1)]:
+    same = [t for t in kept if t.source == source]
+    for t in same[:max(0, len(same) - limit + 1)]:
         db.delete(t)
     db.add(FaceTemplate(candidate_id=cid, embedding=emb.tobytes(), photo_jpeg=face.crop_jpeg,
-                        yaw=getattr(face, "yaw", None), quality=face.quality, source="adapt"))
-    _audit(db, day, "face", "adapt_template", entry, score=score, quality=face.quality)
+                        yaw=getattr(face, "yaw", None), quality=face.quality, source=source, day_id=day.id))
+    _audit(db, day, "face", "adapt_template", entry, score=score, quality=face.quality, source=source)
     return True
 
 
@@ -874,7 +935,9 @@ def _front(templates: list[FaceTemplate]) -> FaceTemplate | None:
 
 def face_photo(db: Session, entry: Entry | None, candidate_id: int | None = None) -> bytes | None:
     cid = entry.candidate_id if entry is not None else candidate_id
-    t = _front(list(db.scalars(select(FaceTemplate).where(FaceTemplate.candidate_id == cid))))
+    rows = [t for t in db.scalars(select(FaceTemplate).where(FaceTemplate.candidate_id == cid)) if t.source not in LEARNT]
+    today = [t for t in rows if entry is not None and t.day_id == entry.day_id]
+    t = _front(today or rows)
     return t.photo_jpeg if t else None
 
 
@@ -887,11 +950,7 @@ def identify(db: Session, day: Day, data: bytes, engine, station: str | None = N
     """Who is in this frame, among today's candidates with an enrolled face? ``learn``: a very sure
     match may add a template (not from a picture with drawings on it: the camera service's)."""
     face = _face(engine, data, require_single=False)
-    rows = db.execute(select(Entry.id, FaceTemplate.embedding).join(
-        FaceTemplate, FaceTemplate.candidate_id == Entry.candidate_id).where(Entry.day_id == day.id)).all()
-    gallery: dict[int, list[np.ndarray]] = {}
-    for entry_id, emb in rows:
-        gallery.setdefault(entry_id, []).append(np.frombuffer(emb, np.float32))
+    gallery = day_gallery(db, day)
     threshold, margin = FACE_MATCH.get(get_settings(db)["face_match"], FACE_MATCH["normal"])
     m = face_match(face.embedding, gallery, threshold=threshold, margin=margin)
     out = {"box": list(face.box), "score": m.score, "runner_up": m.runner_up,
@@ -1244,12 +1303,7 @@ def face_for_crossing(db: Session, day: Day, rules: DayRules, crossing: Crossing
         return None
     shots = [data] if isinstance(data, (bytes, bytearray)) else list(data)
     live = [e.id for e in running_entries(db, day, crossing.at)]
-    rows = db.execute(select(Entry.id, FaceTemplate.embedding).join(
-        FaceTemplate, FaceTemplate.candidate_id == Entry.candidate_id).where(
-        Entry.day_id == day.id, Entry.id.in_(live))).all()
-    gallery: dict[int, list[np.ndarray]] = {}
-    for entry_id, emb in rows:
-        gallery.setdefault(entry_id, []).append(np.frombuffer(emb, np.float32))
+    gallery = day_gallery(db, day, live)
     if not gallery:
         _audit(db, day, "finish", "face_at_finish", None, crossing_id=crossing.id, outcome="nobody_out_with_a_face")
         db.commit()
@@ -1311,10 +1365,7 @@ def check_finish_face(db: Session, day: Day, crossing: Crossing, data: list[byte
         return None
     named = db.get(Entry, crossing.entry_id)
     ids = {e.id for e in running_entries(db, day, crossing.at)} | {named.id}
-    gallery: dict[int, list[np.ndarray]] = {}
-    for entry_id, emb in db.execute(select(Entry.id, FaceTemplate.embedding).join(
-            FaceTemplate, FaceTemplate.candidate_id == Entry.candidate_id).where(Entry.id.in_(ids))).all():
-        gallery.setdefault(entry_id, []).append(np.frombuffer(emb, np.float32))
+    gallery = day_gallery(db, day, ids)
     if len(gallery) < 2 and named.id in gallery:
         return None                      # nobody else to tell the runner from
     threshold, margin = FACE_MATCH["strict"]

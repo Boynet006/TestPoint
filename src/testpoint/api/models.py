@@ -52,7 +52,11 @@ class FaceTemplate(Base):
     quality: Mapped[float | None] = mapped_column(Float)
     """How good a template the picture made (faces.quality), 0..1; None for older ones."""
     source: Mapped[str | None] = mapped_column(String(8))
-    """"enrol" (registration, kept) or "adapt" (a very sure match at a station, in the venue's light)."""
+    """"enrol" (registration), "adapt" (a very sure match at a station, in the venue's light) or
+    "start" (the start camera, once the runner was started: the course cameras' light)."""
+    day_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    """The test day it was taken on: faces change (a beard, a haircut) and so does the light, so
+    on a day only that day's are used once there are any. None: taken before this was recorded."""
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
@@ -226,7 +230,7 @@ def make_sessionmaker(db_url: str) -> sessionmaker:
                 conn.exec_driver_sql(f"ALTER TABLE crossing ADD COLUMN {col} {typ}")
         for table, cols in (("day", (("rules_json", "TEXT"),)),
                             ("candidate", (("unit", "VARCHAR"),)),
-                            ("face_template", (("yaw", "FLOAT"), ("quality", "FLOAT"), ("source", "VARCHAR"))),
+                            ("face_template", (("yaw", "FLOAT"), ("quality", "FLOAT"), ("source", "VARCHAR"), ("day_id", "INTEGER"))),
                             ("crossing", (("wave_id", "INTEGER"),)),
                             ("entry", (("age", "INTEGER"), ("band", "VARCHAR"), ("level", "INTEGER"), ("run_grade", "INTEGER"),
                                        ("wave_id", "INTEGER"), ("run_started_at", "DATETIME"), ("run_cutoff_at", "DATETIME"))),
