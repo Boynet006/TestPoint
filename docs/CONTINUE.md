@@ -94,6 +94,15 @@ a new address changes nothing. The certificate must carry the name: `scripts\htt
   1/500 then 1/1000 s every 20 minutes and keeps it only when the picture stays as bright and clean,
   goes slower when the picture gets dark, and never tries while someone is running. Indoors here it
   stays at 1/250 s (1/500 s halved the brightness); outdoors in daylight it goes faster.
+- **Station clock from the first rep** (Settings > Exercise station, on by default): recognised, the
+  person just starts; no start position to hold, no 3-2-1, no GO. The test's time runs from the first
+  rep counted (`StationFlow.first_rep`, the attempt's start moved there). Leaving without a rep, or
+  none for 60 s, cancels the attempt (nothing saved). Off: start position, countdown, GO.
+- **Cameras screen** (screen selector > Cameras): every camera live, side by side, with whom each
+  recognised (`/api/cameras/feed`); fits the window; drag a tile by its title to swap places.
+- **Not on GitHub** (stay on the old PC, set up again here): `data/` (the database with people and
+  faces, camera passwords, certificates), the face models (`--download`, then
+  `scripts/build_adaface.py`), the test clips in `data/clips`, the LFW benchmark.
 - **Rolling start** (Settings > Run start, on by default): no stop, no hand, no GO. The start
   camera runs the finish camera's program (`finishcam --report start`): it follows each person, keeps
   face pictures on the way, and times the instant the feet cross the start line; the app

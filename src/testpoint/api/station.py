@@ -30,6 +30,7 @@ from dataclasses import dataclass, field
 RECOGNISE_VOTES, VOTE_WINDOW = 2, 3
 READY_HOLD_S = 1.0          # the start posture held this long: 3-2-1
 POSITION_TIMEOUT_S = 60.0   # never got into position: back to waiting
+ARMED_TIMEOUT_S = 60.0      # clock from the first rep: no rep this long after being recognised, back to waiting
 AWAY_S = 5.0                # nobody on the mat this long before GO: back to waiting
 REFUSED_S = 5.0
 DONE_S = 8.0                # the score stays on screen
@@ -75,6 +76,11 @@ class StationFlow:
     """No rep for this long during the test: it ends (the person stopped). 0 = off."""
     out_s: float = 0.0
     """Out of the exercise's posture this long during the test: it ends. 0 = off."""
+    first_rep: bool = False
+    """The clock starts at the first rep: recognised, the test is under way at once (no start
+    posture to hold, no 3-2-1, no GO); its time runs from the first rep counted. Before it, getting
+    down, adjusting or standing up again is not the end of anything; leaving without a rep, or none
+    for ARMED_TIMEOUT_S, cancels the attempt (nothing is saved)."""
     state: str = "idle"
     entry_id: int | None = None
     event: str | None = None
@@ -138,8 +144,15 @@ class StationFlow:
         if self.state == "countdown" and self.go_at is not None and now >= self.go_at:
             acts.append(("start", self.entry_id, self.event))
             self._to("testing", now, entry_id=self.entry_id, event=self.event, go_at=self.go_at)
-        if self.state == "testing" and self.attempt_id is not None and now >= self.go_at + self.time_s:
+        if self.state == "testing" and self.attempt_id is not None and self.go_at is not None and now >= self.go_at + self.time_s:
             acts += self._finish(now, None)
+        return acts
+
+    def _cancel_armed(self, now: float, why: str) -> list[tuple]:
+        """Clock from the first rep, and no rep: nothing to save. Back to waiting for someone."""
+        acts = [("cancel", self.attempt_id, why)]
+        self.recent[self.entry_id] = now + COOLDOWN_S if why == "left_mat" else now + REFUSED_S
+        self._to("idle", now, reason=why)
         return acts
 
     def _false_start(self, now: float, why: str) -> list[tuple]:
@@ -218,12 +231,30 @@ class StationFlow:
             if now - self.last_seen > AWAY_S:
                 self._to("idle", now, reason="stepped_away")
                 return acts
+            if self.first_rep:
+                acts.append(("start", self.entry_id, self.event))
+                self._to("testing", now, entry_id=self.entry_id, event=self.event)
+                self.go_at = None            # the clock waits for the first rep
+                return acts
             if look.ready:
                 self.ready_since = self.ready_since if self.ready_since is not None else now
                 if now - self.ready_since >= READY_HOLD_S:
                     self._to("countdown", now, entry_id=self.entry_id, event=self.event, go_at=now + self.countdown_s)
             else:
                 self.ready_since = None
+            return acts
+
+        if self.state == "testing" and self.attempt_id is not None and self.go_at is None:
+            # clock from the first rep: waiting for it. Off the mat or no rep for long: cancelled.
+            self.off_since = None if look.present else (self.off_since if self.off_since is not None else now)
+            if look.count is not None and look.count > 0:
+                self.go_at = self.last_rep_at = now
+                self.last_count, self.out_since = look.count, None
+                return acts + [("clock", self.attempt_id, now)]
+            if self.off_since is not None and now - self.off_since >= LEFT_MAT_S:
+                return acts + self._cancel_armed(now, "left_mat")
+            if now - self.since >= ARMED_TIMEOUT_S:
+                return acts + self._cancel_armed(now, "timeout")
             return acts
 
         if self.state == "testing" and self.attempt_id is not None:

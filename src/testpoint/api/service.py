@@ -247,6 +247,7 @@ SETTINGS: dict[str, object] = {
     # exercise station
     "lanes": 3,                  # lanes per exercise station (must match the engine's --lanes)
     "station_stop_after_s": 20,
+    "station_first_rep": True,   # the station's clock starts at the first rep (no start posture, no 3-2-1, no GO)
     "station_out_s": 3,          # one-mat station: out of the exercise's posture (standing, sitting up, kneeling) this
                                  # long during the test ends it with the count so far; 0 = off  # one-mat station: no rep for this long ends the test (the person stopped); 0 = off
     # run start
@@ -1847,6 +1848,14 @@ def note_ended_early(db: Session, day: Day, attempt: Attempt, why: str, after_s:
     """The audit trail of a station test that ended before its time (the count so far stands)."""
     _audit(db, day, attempt.event, "ended_early", attempt.entry, attempt_id=attempt.id, why=why, after_s=after_s,
            count=attempt.auto_count or 0)
+
+
+def attempt_clock(db: Session, day: Day, attempt: Attempt, at: datetime) -> None:
+    """Clock from the first rep: the test's time runs from ``at`` (its first rep), not from when the
+    station got ready."""
+    attempt.started_at = at
+    _audit(db, day, attempt.event, "clock_at_first_rep", attempt.entry, attempt_id=attempt.id, at=at)
+    db.commit()
 
 
 def note_false_start(db: Session, day: Day, attempt: Attempt, why: str, after_s: float) -> None:

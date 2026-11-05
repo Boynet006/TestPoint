@@ -161,6 +161,7 @@ class SettingsIn(BaseModel):
     count_tuning: dict[str, dict[str, float]] | None = None
     station_stop_after_s: int | None = Field(default=None, ge=0, le=120)
     station_out_s: int | None = Field(default=None, ge=0, le=30)
+    station_first_rep: bool | None = None
     finish_shutter: Literal["auto", "1/1000", "1/500", "1/250"] | None = None
     go_styles: dict[Literal["start", "pushup", "crunch", "finish"], dict[Literal["effect", "dim", "size", "speed", "duration", "lines", "lines_count", "lines_opacity", "opacity"], float | str]] | None = None
     go_effect: Literal["racing", "racing2", "scoreboard", "shockwave", "slam", "neon", "hyperspace", "fireworks", "off"] | None = None
@@ -1722,6 +1723,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         f.idle_s = float(st["station_stop_after_s"])    # a change applies to the next check
         f.out_s = float(st["station_out_s"])
         f.countdown_s = float(st["start_countdown_s"])
+        f.first_rep = bool(st["station_first_rep"])
         if f.attempt_id is not None and f.state == "testing":
             a = db.get(Attempt, f.attempt_id)
             if a is None or a.status != "running":       # saved or cancelled by the examiner
@@ -1756,6 +1758,10 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
                 if act[0] == "start":
                     a = S.start_attempt(db, day, S.get_entry(db, day, act[1]), act[2], S.EXERCISE_LANE)
                     flow.started(a.id)
+                elif act[0] == "clock":             # clock from the first rep: it starts now
+                    a = db.get(Attempt, act[1])
+                    if a is not None and a.status == "running":
+                        S.attempt_clock(db, day, a, datetime.fromtimestamp(act[2], timezone.utc).replace(tzinfo=None))
                 elif act[0] == "cancel":            # a false start: no result, they go again
                     a = db.get(Attempt, act[1])
                     if a is not None and a.status == "running":

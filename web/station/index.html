@@ -1504,6 +1504,9 @@
         <label for="setLanes" data-t="set_lanes"></label>
         <select id="setLanes"><option>1</option><option>2</option><option>3</option><option>4</option></select>
         <span class="hint" data-t="set_lanes_hint"></span>
+        <label for="setFirstRep" data-t="set_first_rep"></label>
+        <select id="setFirstRep"><option value="1" data-t="first_rep_on"></option><option value="0" data-t="first_rep_off"></option></select>
+        <span class="hint" data-t="set_first_rep_hint"></span>
         <label for="setOutS" data-t="set_out_s"></label>
         <select id="setOutS"><option value="0" data-t="out_off"></option><option value="2" data-t="out_2"></option><option value="3" data-t="out_3"></option><option value="5" data-t="out_5"></option></select>
         <span class="hint" data-t="set_out_s_hint"></span>
@@ -1848,6 +1851,8 @@ const I18N = {
     st_come_back: "Take a break: come back for the next test",
     st_left_position: "Back into the start position",
     st_false_start: "False start, not counted: get into the start position again",
+    st_first_rep: "Start when you are ready: your time starts with your first rep",
+    set_first_rep: "Station clock", set_first_rep_hint: "From the first rep: recognised, the person just starts (no start position to hold, no 3-2-1, no GO); their time runs from their first rep. Leaving without a rep saves nothing. Off: hold the start position, then the countdown and GO.", first_rep_on: "From the first rep", first_rep_off: "After the start position and GO",
     call_rolling: "Walk to the start line and go: your time starts as you cross it", roll_started: "started",
     roll_title: "Start crossings to name", roll_hint: "Someone crossed the start line and the camera could not say who. Pick the runner: their time starts from that crossing. Not a runner: discard.",
     roll_assign: "Start them", roll_recent: "Recent starts", e_nobody_waiting: "Nobody waiting to start (not a runner)", e_just_cancelled: "Start just cancelled: not started again",
@@ -2273,6 +2278,8 @@ const I18N = {
     st_come_back: "استرح: عد للاختبار التالي",
     st_left_position: "عد إلى وضعية البداية",
     st_false_start: "بداية خاطئة، لم تُحتسب: عد إلى وضعية البداية",
+    st_first_rep: "ابدأ عندما تكون جاهزاً: يبدأ وقتك مع أول تكرار",
+    set_first_rep: "ساعة المحطة", set_first_rep_hint: "من أول تكرار: بعد التعرّف يبدأ الشخص مباشرة (بلا وضعية بداية ولا عدّ تنازلي ولا إشارة انطلاق)؛ يبدأ وقته مع أول تكرار. المغادرة بلا تكرار لا تحفظ شيئاً. متوقف: وضعية البداية ثم العدّ التنازلي والانطلاق.", first_rep_on: "من أول تكرار", first_rep_off: "بعد وضعية البداية والانطلاق",
     call_rolling: "امشِ إلى خط البداية وانطلق: يبدأ وقتك لحظة عبوره", roll_started: "انطلق",
     roll_title: "عبور لخط البداية بحاجة إلى تسمية", roll_hint: "عبر شخص خط البداية ولم تتعرف عليه الكاميرا. اختر العدّاء: يبدأ وقته من لحظة ذلك العبور. ليس عدّاءً: احذفه.",
     roll_assign: "أطلقه", roll_recent: "آخر الانطلاقات", e_nobody_waiting: "لا أحد بانتظار الانطلاق (ليس عدّاءً)", e_just_cancelled: "أُلغي انطلاقه للتو: لم يُطلق مجدداً",
@@ -5703,6 +5710,10 @@ const StationCall = {
       cls = "ask";
       body = `<div><div class="c-who">${who} · ${esc(ex)}</div><div class="c-num">${n > 0 ? n : t("go")}</div></div>`;
       Sound.countdown(Date.parse(v.go_at));
+    } else if (v.state === "testing" && !v.go_at) {
+      // clock from the first rep: nothing to wait for, no GO; the time starts with their first rep
+      cls = "ask";
+      body = `<div><div class="c-who">${who} · ${esc(ex)}</div><div class="c-say">${esc(t("st_first_rep"))}</div></div>`;
     } else if (v.state === "testing") {
       const left = Math.max(0, (Date.parse(v.ends_at) - serverNow()) / 1000), live = v.live || {};
       cls = "go";
@@ -5742,9 +5753,12 @@ const StationCall = {
     }
     if (v.state !== this.last) {
       if (v.state === "position" || v.state === "choose") Sound.chime();
-      if (v.state === "testing") Signal.start(v.event);
+      if (v.state === "testing" && v.go_at) Signal.start(v.event);      // with a clock from the first rep: no GO here
       if (v.state === "done") { Signal.end(); refresh(); if (e && e.done && e.done.length >= 2) setTimeout(() => ResultsCard.show(e.id), 800); }
     }
+    // clock from the first rep: a short beep when it starts (no GO effect)
+    if (v.state === "testing" && v.go_at && this.lastGo === null && this.last === "testing" && Sound.ctx) Sound.tone(Sound.ctx.currentTime, 880, 0.25, 0.25);
+    this.lastGo = v.state === "testing" ? (v.go_at || null) : undefined;
     this.last = v.state;
   },
   async choose(ex) {
@@ -6759,7 +6773,7 @@ const CamLive = {
 /* ============================== settings ============================== */
 // Station settings from the server (shared by every device); see service.SETTINGS.
 const SETTING_DEFAULTS = { auto_identify: true, camera_background: "off", camera_bg_places: ["weigh", "start", "photo"], backdrop_color: "#8a949e", background_image: null, face_match: "normal", face_required: false, face_fresh_min: 120, walk_ins: true, default_gender: "M", default_unit: "combat",
-                           bib_start: 1, lanes: 3, start_countdown_s: 3, cancel_window_s: 120, finish_face_threshold: 0, site_name: "", default_language: "en", theme: "night", admin_pin_set: false, finish_shutter: "auto", go_styles: {}, start_line_on: true, start_rolling: true, start_setup_shown: true, finish_line_on: true, go_effect: "racing", go_dim: 60, go_size: 100, go_speed: 100, go_duration: 1.7, go_lines: 100, go_lines_count: 220, go_lines_opacity: 100, go_opacity: 100 };
+                           bib_start: 1, lanes: 3, start_countdown_s: 3, cancel_window_s: 120, finish_face_threshold: 0, site_name: "", default_language: "en", theme: "night", admin_pin_set: false, finish_shutter: "auto", station_first_rep: true, go_styles: {}, start_line_on: true, start_rolling: true, start_setup_shown: true, finish_line_on: true, go_effect: "racing", go_dim: 60, go_size: 100, go_speed: 100, go_duration: 1.7, go_lines: 100, go_lines_count: 220, go_lines_opacity: 100, go_opacity: 100 };
 const setting = k => (S.settings && k in S.settings ? S.settings[k] : SETTING_DEFAULTS[k]);
 // The GO effect per place (Settings > GO effect > Settings for): start line, push-ups, crunches,
 // finish line. What a place has not set comes from the station's go_* settings.
@@ -7084,7 +7098,7 @@ const Evidence = {
 const SET_FIELDS = {   // input id -> [setting, read, write]
   setAuto: ["auto_identify", v => v === "1", v => (v ? "1" : "0")], setBg: ["camera_background"], setMatch: ["face_match"], setFaceReq: ["face_required", v => v === "1", v => (v ? "1" : "0")], setFaceFresh: ["face_fresh_min", v => parseInt(v, 10), String],
   setChooseFirst: ["station_choose_first", v => v === "1", v => (v ? "1" : "0")], setFcSetup: ["finish_setup_shown", v => v === "1", v => (v ? "1" : "0")], setSlSetup: ["start_setup_shown", v => v === "1", v => (v === false ? "0" : "1")], setStartLineOn: ["start_line_on", v => v === "1", v => (v === false ? "0" : "1")], setRolling: ["start_rolling", v => v === "1", v => (v === false ? "0" : "1")], setFinishLineOn: ["finish_line_on", v => v === "1", v => (v === false ? "0" : "1")], setWalk: ["walk_ins", v => v === "1", v => (v ? "1" : "0")], setGender: ["default_gender"], setUnit: ["default_unit"], setBib: ["bib_start", v => parseInt(v, 10)],
-  setLanes: ["lanes", v => parseInt(v, 10), String], setStopAfter: ["station_stop_after_s", v => parseInt(v, 10) || 0, String], setOutS: ["station_out_s", v => parseInt(v, 10) || 0, String],
+  setLanes: ["lanes", v => parseInt(v, 10), String], setStopAfter: ["station_stop_after_s", v => parseInt(v, 10) || 0, String], setOutS: ["station_out_s", v => parseInt(v, 10) || 0, String], setFirstRep: ["station_first_rep", v => v === "1", v => (v === false ? "0" : "1")],
   setCountdown: ["start_countdown_s", v => parseInt(v, 10), String], setGoFx: ["go_effect"], setGoSpeed: ["go_speed", v => parseInt(v, 10), v => { const x = String(v ?? 100); $("setGoSpeedV").textContent = x + "%"; return x; }],
     setGoDur: ["go_duration", v => parseFloat(v), v => { const x = String(v ?? 1.7); $("setGoDurV").textContent = x + " s"; return x; }], setGoCount: ["go_lines_count", v => parseInt(v, 10), v => { const x = String(v ?? 220); $("setGoCountV").textContent = x; return x; }],
     setGoLineA: ["go_lines_opacity", v => parseInt(v, 10), v => { const x = String(v ?? 100); $("setGoLineAV").textContent = x + "%"; return x; }], setGoA: ["go_opacity", v => parseInt(v, 10), v => { const x = String(v ?? 100); $("setGoAV").textContent = x + "%"; return x; }], setGoLines: ["go_lines", v => parseInt(v, 10), v => { const x = String(v ?? 100); $("setGoLinesV").textContent = x + "%"; return x; }], setGoSize: ["go_size", v => parseInt(v, 10), v => { const x = String(v ?? 100); $("setGoSizeV").textContent = x + "%"; return x; }], setGoDim: ["go_dim", v => parseInt(v, 10), v => { const x = String(v ?? 60); $("setGoDimV").textContent = x + "%"; return x; }], setCancelWin: ["cancel_window_s", v => parseInt(v, 10), String], setFinishFace: ["finish_face_threshold", v => parseFloat(v) || 0, v => String(+v || 0)], setSite: ["site_name", v => v.trim()], setCamSrc: ["camera_sources", v => JSON.parse(v || "{}"), o => JSON.stringify(o || {})], setEvKeep: ["evidence_keep_days", v => parseInt(v, 10), String],
