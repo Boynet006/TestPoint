@@ -489,6 +489,7 @@
   canvas.gofx { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 9999; pointer-events: none;
     margin: 0; padding: 0; border: 0; max-width: none; max-height: none; background: transparent; overflow: visible; }
   .grades .got { border-inline-start: 2px solid var(--line); color: var(--ink, inherit); white-space: nowrap; }
+  .grades .rsbtn { padding: 2px 8px; margin-inline-start: 6px; font-size: 14px; vertical-align: middle; }
   .rcgrid { display: grid; grid-template-columns: minmax(220px, 300px) 1fr; gap: 16px; margin-top: 10px; }
   @media (max-width: 900px) { .rcgrid { grid-template-columns: 1fr; } }
   .rclist { max-height: 70vh; overflow: auto; border: 1px solid var(--line); background: var(--bg2); }
@@ -5799,8 +5800,16 @@ function needsCard(entry, age, band, level, rows, res) {
   const dob = c.dob || ($("wDob") && $("wDob").value) || "";
   setHTML("wNeedsBody", `<div class="needs-who"><b>${esc(cname(c))}</b><span class="age">${t("age_n", { age })}</span><span class="spacer"></span><button class="btn ghost sm" onclick="EditDlg.open(${entry.id})">${t("edit_details")}</button></div>`
     + `<div class="needs-sub">${dob ? `${t("born")} ${esc(fmtDate(dob))} · ` : ""}${t("band_n", { band: band.replace("-", "–") })}${unit ? ` · ${t("unit_" + unit)}` : ""} · <b>${t("std_needs", { level })}</b></div>`
-    + gradeTable(rows, level, res) + `<p class="hint" style="margin:8px 0 0">${t("needs_note")}</p>`);
+    + gradeTable(rows, level, res, entry.id) + `<p class="hint" style="margin:8px 0 0">${t("needs_note")}</p>`);
   $("wNeeds").classList.remove("hidden");
+}
+// a result reset from the weigh-in's panel: the test is done again; the panel shows it at once
+async function resetFromNeeds(id, test) {
+  try {
+    const e = await api("POST", `/api/entries/${id}/reset`, { test });
+    msg("wMsg", "ok", t("reset_done", { name: cname(e.candidate), test: t(test === "run" ? "rc_run" : test) }));
+    needsFor = null; showNeeds(e); refresh();
+  } catch (x) { msg("wMsg", "bad", err(x)); }
 }
 function showNeeds(entry) {
   const b = bandOf(entry);
@@ -5867,14 +5876,17 @@ function dateFields() {
 }
 dateFields();
 // What each grade needs, one row per test; the column this person must reach is marked.
-// ``res``: today's results by test (/api/entries/{id}/results), shown in a last column with a mark.
-function gradeTable(rows, level, res) {
+// ``res``: today's results by test (/api/entries/{id}/results), shown in a last column with a mark;
+// with ``resetId`` (the weigh-in's panel) each result has a reset button (the test is done again).
+function gradeTable(rows, level, res, resetId) {
   const head = `<tr><th></th>${GRADES.map(g => `<th class="${g === level ? "need" : ""}">${g}%${g === level ? ` <small>${t("required")}</small>` : ""}</th>`).join("")}${res ? `<th>${t("today_col")}</th>` : ""}</tr>`;
   const got = test => {
     const x = res && res[test]; if (!x) return "";
     const v = x.test === "run" ? (x.dnf ? "DNF" : x.value != null ? mmss(x.value) : "—") : (x.value ?? "—");
     const mark = x.passed === true ? `<span style="color:var(--go)">✓</span>` : x.passed === false ? `<span style="color:var(--bad)">✗</span>` : "";
-    return `<td class="got">${esc(String(v))} ${mark}${x.percent != null ? ` <small class="hint">${pct(x.percent)}</small>` : ""}</td>`;
+    const has = x.value != null || x.dnf;
+    const rs = resetId && has ? ` <button class="btn ghost sm danger rsbtn" type="button" title="${esc(t("reset_" + test))}" onclick="confirmClick('nrs${test}${resetId}', this, () => resetFromNeeds(${resetId}, '${test}'), 'sure_reset_test')">↺</button>` : "";
+    return `<td class="got">${esc(String(v))} ${mark}${x.percent != null ? ` <small class="hint">${pct(x.percent)}</small>` : ""}${rs}</td>`;
   };
   const body = rows.map(([test, vals]) => `<tr><th>${t(test)} <small>${test === "run" ? "≤" : "≥"}</small></th>${vals.map((v, i) =>
     `<td class="${GRADES[i] === level ? "need" : ""}">${test === "run" || test === "run_s" ? mmss0(v) : v}</td>`).join("")}${res ? got(test) : ""}</tr>`).join("");
