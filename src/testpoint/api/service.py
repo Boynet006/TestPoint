@@ -234,6 +234,8 @@ SETTINGS: dict[str, object] = {
     "face_fresh_min": 120,       # face photos older than this (minutes) are taken again at the desk, and pictures
                                  # learnt at the cameras stop being used (the light changes); 0 = the whole day
     # registration
+    "start_line_on": True,       # the start line by default: on (recognised behind the line, GO, the clock starts at the line) or off (a raised hand gives GO)
+    "start_setup_shown": True,   # the start screen shows its line set-up (on/off, position, direction, colour key)
     "finish_setup_shown": True,  # the finish screen shows its line position, direction and colour key (hide them once set)
     "station_choose_first": True,   # the one-mat station: the person picks push-ups or crunches first, with a raised hand
     "walk_ins": True,            # the weigh-in desk may register people who are not on the list

@@ -336,7 +336,30 @@
     body.fit #t-settings .setpanels { overflow: auto; min-height: 0; padding-inline-end: 4px; }
   }
   .lanes { display: grid; grid-template-columns: repeat(var(--lanes, 3), minmax(0, 1fr)); gap: 16px; }
+  #v-results.grid2 { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); }
+  .rb-sum { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin: 14px 0 10px; }
+  .rb-sum button { background: var(--bg2); border: 1px solid var(--line); color: var(--text); padding: 8px 6px; cursor: pointer; text-align: start; font: inherit; }
+  .rb-sum button:disabled { cursor: default; }
+  .rb-sum button.active { border-color: var(--amber); box-shadow: inset 0 -3px 0 var(--amber); }
+  .rb-sum b { display: block; font-family: var(--cond); font-size: 28px; line-height: 1.1; }
+  .rb-sum span { font-family: var(--cond); font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+  .rb-sum .pass b { color: var(--go); } .rb-sum .fail b { color: var(--stop); } .rb-sum .pending b { color: var(--amber); }
+  .rbtable { width: 100%; border-collapse: collapse; }
+  .rbtable th { font-family: var(--cond); font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); text-align: start; padding: 6px 8px; border-bottom: 1px solid var(--line); cursor: pointer; white-space: nowrap; user-select: none; }
+  .rbtable th.on { color: var(--amber); }
+  .rbtable td { padding: 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  .rbtable tbody tr { cursor: pointer; } .rbtable tbody tr:hover td { background: var(--bg2); }
+  .rbtable tr.hit td { background: color-mix(in srgb, var(--amber) 14%, transparent); }
+  .rbtable .num { font-family: var(--cond); font-size: 18px; white-space: nowrap; }
+  .rbtable .num small { display: block; font-size: 12px; color: var(--muted); }
+  .rbtable .num.ok small { color: var(--go); } .rbtable .num.no small, .rbtable .num.no { color: var(--stop); }
+  .rbtable .who { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .rbtable .who img { width: 32px; height: 32px; object-fit: cover; border-radius: 50%; flex: 0 0 auto; }
+  .rbtable .who .ph { width: 32px; height: 32px; border-radius: 50%; background: var(--bg2); flex: 0 0 auto; }
+  .rbtable .ovr { font-family: var(--cond); font-size: 20px; font-weight: 700; }
+  .rb-empty { padding: 24px 8px; text-align: center; }
   @media (max-width: 1050px) { .grid2, .lanes { grid-template-columns: 1fr; } }
+  @media (max-width: 700px) { .rb-sum { grid-template-columns: repeat(3, minmax(0, 1fr)); } .rbtable .opt { display: none; } }
   .card { background: var(--panel); border: 1px solid var(--line); padding: 16px; }
   .card h2 { margin: 0 0 12px; font-family: var(--cond); font-size: 18px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
   .bar { display: flex; align-items: center; gap: 14px; padding: 12px 16px; background: var(--panel); border: 1px solid var(--line); margin-bottom: 16px; flex-wrap: wrap; }
@@ -1061,7 +1084,9 @@
     <div class="card">
       <h2 data-t="rc_title"></h2>
       <p class="hint" data-t="rc_hint"></p>
-      <div class="search" style="margin-top:10px"><input id="rQuery" data-tp="ph_bib" autocomplete="off" onkeydown="if(event.key==='Enter')resultsByBib()"><button class="btn amber" onclick="resultsByBib()" data-t="rc_show"></button></div>
+      <div class="search" style="margin-top:10px"><input id="rQuery" data-tp="ph_bib" autocomplete="off" oninput="ResultsBoard.render()" onkeydown="if(event.key==='Enter')resultsByBib()"><button class="btn amber" onclick="resultsByBib()" data-t="rc_show"></button></div>
+      <div class="rb-sum" id="rbSum"></div>
+      <div class="tablewrap"><table class="rbtable" id="rbTable"></table></div>
     </div>
   </div>
 
@@ -1408,6 +1433,12 @@
         <label for="setCancelWin" data-t="set_cancel_win"></label>
         <select id="setCancelWin"><option value="120" data-t="min_2"></option><option value="300" data-t="min_5"></option><option value="600" data-t="min_10"></option><option value="1800" data-t="min_30"></option><option value="0" data-t="until_first_finisher"></option></select>
         <span class="hint" data-t="set_cancel_win_hint"></span>
+        <label for="setStartLineOn" data-t="set_sl_on"></label>
+        <select id="setStartLineOn"><option value="1" data-t="on"></option><option value="0" data-t="off"></option></select>
+        <span class="hint" data-t="set_sl_on_hint"></span>
+        <label for="setSlSetup" data-t="set_sl_setup"></label>
+        <select id="setSlSetup"><option value="1" data-t="set_shown"></option><option value="0" data-t="set_hidden"></option></select>
+        <span class="hint" data-t="set_sl_setup_hint"></span>
       </div>
     </div>
     <div class="card setpanel" data-p="finish" data-scope="station">
@@ -1741,8 +1772,9 @@ const I18N = {
     rc_fail: "FAIL",
     rc_pass: "PASS",
     rc_show: "Show",
-    rc_hint: "Look at the camera to see your results, or type a bib.",
-    rc_title: "Your results",
+    rc_hint: "Look at the camera to see your own card, or type a bib. Tap a row for anyone's card; tap a box to filter.",
+    rc_title: "Today's results", rb_all: "Tested", rb_pass: "Passed", rb_fail: "Failed", rb_pending: "In progress", rb_rate: "Pass rate",
+    rb_name: "Name", rb_overall: "Overall", rb_none: "No results yet today.", rb_nomatch: "Nobody matches.", rb_running: "on now",
     r_results: "Results",
     e_all_done: "Push-ups and crunches are both done",
     st_reset: "Reset",
@@ -1894,8 +1926,10 @@ const I18N = {
     e_not_testing: "No test is running at this station", e_unknown_camera: "Unknown camera", e_unknown_setting: "Unknown setting", st_choose: "Choose your first test", st_choose_how: "Raise a hand: the circle follows it. Hold it on one test.", st_choose_left: "{n} s, then {ex}.",
     set_choose_first: "People choose their first test", set_choose_first_hint: "One mat: with both tests still to do, the person picks push-ups or crunches first with a raised hand (a circle follows it; held on one test 1.5 s), or by getting into its start position. Not with a test video. Off: push-ups first.",
     ph_date: "dd-mm-yyyy", pick_date: "Pick a date", fc_setup: "Finish line set-up", fc_setup_hint: "Colour key, line position, runners' direction.",
-    set_fc_setup: "Line set-up on the start and finish screens", set_shown: "Shown", set_hidden: "Hidden",
-    set_fc_setup_hint: "The fold-out with the colour key, the finish line position and the runners' direction. Hide it once they are set, so the test day screen stays simple.",
+    set_fc_setup: "Finish line set-up", set_shown: "Shown", set_hidden: "Hidden",
+    set_fc_setup_hint: "The fold-out on the finish screen with the colour key, the finish line position and the runners' direction. Hide it once they are set, so the test day screen stays simple.",
+    set_sl_setup: "Start line set-up", set_sl_setup_hint: "The fold-out on the start screen with the start line on/off, its position, the runners' direction and the colour key. Hide it once they are set.",
+    set_sl_on: "Start line", set_sl_on_hint: "The default on every start screen. On: no hand to raise; recognised behind the line, the runner sees GO and their clock starts the moment they cross it. Off: a raised hand gives GO. Saving applies it to every start screen; the set-up on a start screen can still change it there.",
     set_walk: "Register walk-ins at the desk", set_walk_hint: "Off: only people on today's list (CSV or Advanced) can be tested.",
     walk_ins_off: "Not on today's list. Registering at the desk is switched off: add them in Advanced.",
     set_lanes: "Lanes per station", set_lanes_hint: "Must match the cameras the engine watches (--lanes).", lanes_wait: "The lane change waits until those lanes are free.",
@@ -2152,8 +2186,9 @@ const I18N = {
     rc_fail: "راسب",
     rc_pass: "ناجح",
     rc_show: "عرض",
-    rc_hint: "انظر إلى الكاميرا لترى نتائجك، أو اكتب الرقم.",
-    rc_title: "نتائجك",
+    rc_hint: "انظر إلى الكاميرا لترى بطاقتك، أو اكتب الرقم. اضغط على صف لعرض بطاقة أي شخص؛ اضغط على مربع للتصفية.",
+    rc_title: "نتائج اليوم", rb_all: "المختبَرون", rb_pass: "ناجح", rb_fail: "راسب", rb_pending: "قيد الاختبار", rb_rate: "نسبة النجاح",
+    rb_name: "الاسم", rb_overall: "الإجمالي", rb_none: "لا توجد نتائج اليوم بعد.", rb_nomatch: "لا يوجد تطابق.", rb_running: "الآن",
     r_results: "النتائج",
     e_all_done: "أُنجز الضغط والبطن كلاهما",
     st_reset: "إعادة",
@@ -2305,8 +2340,10 @@ const I18N = {
     e_not_testing: "لا اختبار جارٍ في هذه المحطة", e_unknown_camera: "كاميرا غير معروفة", e_unknown_setting: "إعداد غير معروف", st_choose: "اختر اختبارك الأول", st_choose_how: "ارفع يدك: الدائرة تتبعها. أبقِها على اختبار واحد.", st_choose_left: "{n} ث، ثم {ex}.",
     set_choose_first: "يختار الشخص اختباره الأول", set_choose_first_hint: "بساط واحد: إذا بقي الاختباران، يختار الشخص الضغط أو البطن أولاً برفع يده (دائرة تتبعها؛ يبقيها على اختبار 1.5 ث)، أو باتخاذ وضعية بدايته. ليس مع فيديو تجريبي. إيقاف: الضغط أولاً.",
     ph_date: "يوم-شهر-سنة", pick_date: "اختر تاريخاً", fc_setup: "إعداد خط النهاية", fc_setup_hint: "دليل الألوان، موضع الخط، اتجاه العدّائين.",
-    set_fc_setup: "إعداد الخط في شاشتي البداية والنهاية", set_shown: "ظاهر", set_hidden: "مخفي",
-    set_fc_setup_hint: "دليل الألوان وموضع خط النهاية واتجاه العدّائين. أخفِها بعد ضبطها لتبقى شاشة يوم الاختبار بسيطة.",
+    set_fc_setup: "إعداد خط النهاية", set_shown: "ظاهر", set_hidden: "مخفي",
+    set_fc_setup_hint: "القائمة في شاشة النهاية: دليل الألوان وموضع خط النهاية واتجاه العدّائين. أخفِها بعد ضبطها لتبقى شاشة يوم الاختبار بسيطة.",
+    set_sl_setup: "إعداد خط البداية", set_sl_setup_hint: "القائمة في شاشة البداية: تشغيل خط البداية أو إيقافه وموضعه واتجاه العدّائين ودليل الألوان. أخفِها بعد ضبطها.",
+    set_sl_on: "خط البداية", set_sl_on_hint: "الوضع الافتراضي في كل شاشات البداية. مفعّل: لا حاجة لرفع اليد؛ عند التعرّف عليه خلف الخط يرى العدّاء إشارة الانطلاق ويبدأ وقته لحظة عبوره. متوقف: رفع اليد يعطي الانطلاق. الحفظ يطبّقه على كل شاشات البداية، ويمكن تغييره من الإعداد في شاشة البداية.",
     set_walk: "تسجيل الحضور غير المدرجين", set_walk_hint: "إيقاف: فقط المدرجون في قائمة اليوم يمكن اختبارهم.",
     walk_ins_off: "غير موجود في قائمة اليوم. التسجيل عند المكتب متوقف: أضفه من القائمة المتقدمة.",
     set_lanes: "عدد المسارات في المحطة", set_lanes_hint: "يجب أن يطابق الكاميرات التي يراقبها المحرك.", lanes_wait: "تغيير المسارات ينتظر حتى تفرغ.",
@@ -2616,7 +2653,7 @@ function render() {
   if (!S.state) return;
   $("hdrDate").textContent = fmtDate(S.state.date);
   if (mode === "advanced") renderAdvanced();
-  else ({ weigh: renderWeigh, start: renderStart, finish: renderFinish, station: renderStation, results: () => {} })[role]();
+  else ({ weigh: renderWeigh, start: renderStart, finish: renderFinish, station: renderStation, results: () => ResultsBoard.render() })[role]();
 }
 function setRole(r) { if (settingsOpen) closeSettings(); role = r;
   /* one camera, moved to the station in use */ const bs = $("camBadgeSlot-" + r); if (bs && !bs.contains($("camBadge"))) bs.appendChild($("camBadge"));
@@ -3919,7 +3956,8 @@ const camShown = (k, screen) => {
 $("fcSetupBox").open = load("fcSetupOpen", "1") === "1";   // the finish set-up fold-out, open or closed as this device left it
 function applyCamSources() {
   // the finish line's set-up (colour key, line position, direction): hidden once it is set, if chosen
-  document.querySelectorAll(".fcsetup").forEach(e => e.classList.toggle("hidden", setting("finish_setup_shown") === false));
+  $("fcSetupBox").classList.toggle("hidden", setting("finish_setup_shown") === false);
+  try { StartLineCfg.show(); } catch { /* still loading */ }   // its own setting (start_setup_shown) and default (start_line_on)
   if (typeof Cam === "undefined") return;
   // the desk camera: a hidden choice in use gives way to the first one shown that runs by itself
   if (CAM_ROLES.includes(role) && Cam.kind && !camShown(Cam.kind, role) && !Cam.opening) {
@@ -4003,10 +4041,17 @@ function camChoice(selId, inputId) {
 // kept on this device, sent with each start of the camera; a change restarts a running camera so
 // the line drawn on the picture is always the one in use.
 const StartLineCfg = {
-  pref() { try { return JSON.parse(load("startLine", "{}")) || {}; } catch { return {}; } },
+  // On or off: the station's default (Settings > Run), unless this screen switched it since that
+  // default was last saved (a new default reaches every start screen).
+  pref() {
+    let p = {}; try { p = JSON.parse(load("startLine", "{}")) || {}; } catch { /* none */ }
+    const def = setting("start_line_on") !== false;
+    if (p.base !== def) p.on = def;
+    return p;
+  },
   show() {
     const p = this.pref(), box = $("slSetupBox");
-    box.classList.toggle("hidden", role !== "start" || !Cam.relayed() || setting("finish_setup_shown") === false);
+    box.classList.toggle("hidden", role !== "start" || !Cam.relayed() || setting("start_setup_shown") === false);
     if (!this.opened) { box.open = load("slSetupOpen", "1") === "1"; this.opened = true; }   // as this device left it
     $("slOn").value = p.on ? "1" : "0"; $("slLineY").value = Math.round((p.y ?? 0.85) * 100); $("slDir").value = p.dir || "down";
     $("slLineY").disabled = $("slDir").disabled = !p.on;
@@ -4027,7 +4072,7 @@ const StartLineCfg = {
   },
   body() { const p = this.pref(); return p.on ? { line_y: p.y ?? 0.85, direction: p.dir || "down" } : {}; },
   changed() {
-    save("startLine", JSON.stringify({ on: $("slOn").value === "1", y: +$("slLineY").value / 100, dir: $("slDir").value }));
+    save("startLine", JSON.stringify({ on: $("slOn").value === "1", y: +$("slLineY").value / 100, dir: $("slDir").value, base: setting("start_line_on") !== false }));
     this.show();
     if (StartCam.live) { msg("sMsg", "warn", t("fc_line_applying")); StartCam.start(); }
   },
@@ -5675,11 +5720,60 @@ async function resultsIdentify(quiet) {
   try {
     const f = await Cam.frame();
     const r = await apiImage(`/api/face/identify?station=results${Cam.relayed() ? "&learn=0" : ""}`, f.blob);
-    if (r.entry) { drawBox(r.box, f.w, f.h, `${cname(r.entry.candidate)} ${r.score.toFixed(2)}`, true); ResultsCard.show(r.entry.id); msg("rMsg"); }
+    if (r.entry) { drawBox(r.box, f.w, f.h, `${cname(r.entry.candidate)} ${r.score.toFixed(2)}`, true); ResultsCard.show(r.entry.id); ResultsBoard.hit = r.entry.id; ResultsBoard.render(); msg("rMsg"); }
     else { drawBox(r.box, f.w, f.h, `? ${r.score.toFixed(2)}`, false); if (!quiet) msg("rMsg", "warn", t("not_recognised")); }
   } catch (e) { clearBox(); if (!quiet) msg("rMsg", "bad", err(e)); }
   finally { idBusy = false; }
 }
+// The results screen's board: everyone tested today, live, with each test's result against the
+// person's required level, the overall percentage and the verdict. Boxes at the top count and filter;
+// the headers sort; typing filters by bib or name; a row opens that person's card.
+const ResultsBoard = {
+  filter: "all", sort: "bib", dir: 1, hit: null,
+  setFilter(f) { this.filter = this.filter === f ? "all" : f; this.render(); },
+  setSort(k) { this.dir = this.sort === k ? -this.dir : (k === "bib" || k === "name" || k === "run" ? 1 : -1); this.sort = k; this.render(); },
+  open(id) { ResultsCard.shown[id] = 0; ResultsCard.show(id, 20000); },
+  cell(e, test) {
+    const lvl = e.standard && e.standard.level, on = `<td class="num"><span class="pill warn">${esc(t("rb_running"))}</span></td>`;
+    if (test === "run") {
+      if (e.status === "dnf" && e.run_time_s == null) return `<td class="num no">DNF</td>`;
+      if (e.run_time_s == null) return e.status === "running" ? on : `<td class="num hint">—</td>`;
+      const ok = e.run_grade != null && lvl ? e.run_grade >= lvl : null;
+      return `<td class="num ${ok === true ? "ok" : ok === false ? "no" : ""}">${mmss(e.run_time_s)}${e.run_percent != null ? `<small>${esc(pct(e.run_percent))}</small>` : ""}</td>`;
+    }
+    const a = e.events && e.events[test];
+    if (!a) return `<td class="num hint">—</td>`;
+    if (a.status === "running") return on;
+    return `<td class="num ${a.passed === true ? "ok" : a.passed === false ? "no" : ""}">${a.count ?? "—"}${a.percent != null ? `<small>${esc(pct(a.percent))}</small>` : ""}</td>`;
+  },
+  key(e, k) {
+    const ev = x => e.events && e.events[x] && e.events[x].status === "finished" ? e.events[x].percent ?? -1 : -2;
+    return { bib: bibNum(e), name: cname(e.candidate).toLowerCase(), run: e.run_time_s ?? 1e9, pushup: ev("pushup"), crunch: ev("crunch"),
+             overall: e.overall_percent ?? -1, result: { pass: 3, pending: 2, no_standard: 1, fail: 0 }[e.verdict] ?? -1 }[k];
+  },
+  render() {
+    const sum = $("rbSum"), tab = $("rbTable"); if (!sum || !S.entries) return;
+    const pend = e => ["pending", "no_standard"].includes(e.verdict);
+    const all = S.entries.filter(e => e.verdict != null);
+    const np = all.filter(e => e.verdict === "pass").length, nf = all.filter(e => e.verdict === "fail").length, done = np + nf;
+    const box = (f, num, label) => `<button type="button" class="${f} ${this.filter === f ? "active" : ""}" onclick="ResultsBoard.setFilter('${f}')"><b>${num}</b><span>${esc(t(label))}</span></button>`;
+    sum.innerHTML = box("all", all.length, "rb_all") + box("pass", np, "rb_pass") + box("fail", nf, "rb_fail") + box("pending", all.filter(pend).length, "rb_pending")
+      + `<button type="button" disabled><b>${done ? Math.round(np / done * 100) + "%" : "—"}</b><span>${esc(t("rb_rate"))}</span></button>`;
+    const q = ($("rQuery").value || "").trim().toLowerCase();
+    let rows = all.filter(e => this.filter === "all" || (this.filter === "pending" ? pend(e) : e.verdict === this.filter));
+    if (q) rows = rows.filter(e => [e.candidate.bib, e.candidate.name, e.candidate.name_ar, e.candidate.external_id].some(x => x != null && String(x).toLowerCase().includes(q)));
+    rows.sort((a, b) => { const x = this.key(a, this.sort), y = this.key(b, this.sort); return x < y ? -this.dir : x > y ? this.dir : bibNum(a) - bibNum(b); });
+    const th = (k, label, cls = "") => `<th class="${cls} ${this.sort === k ? "on" : ""}" onclick="ResultsBoard.setSort('${k}')">${esc(t(label))}${this.sort === k ? (this.dir > 0 ? " ▲" : " ▼") : ""}</th>`;
+    const head = `<thead><tr>${th("bib", "bib")}${th("name", "rb_name")}${th("run", "run")}${th("pushup", "pushup")}${th("crunch", "crunch")}${th("overall", "rb_overall", "opt")}${th("result", "result")}</tr></thead>`;
+    if (!rows.length) { tab.innerHTML = head + `<tbody><tr><td colspan="7" class="rb-empty hint">${esc(t(all.length ? "rb_nomatch" : "rb_none"))}</td></tr></tbody>`; return; }
+    tab.innerHTML = head + `<tbody>${rows.map(e => `<tr class="${this.hit === e.id ? "hit" : ""}" onclick="ResultsBoard.open(${e.id})">`
+      + `<td class="num">${esc(e.candidate.bib ?? "")}</td>`
+      + `<td><div class="who">${e.faces ? `<img src="/api/entries/${e.id}/face.jpg" alt="" loading="lazy">` : `<span class="ph"></span>`}<span>${esc(cname(e.candidate))}</span></div></td>`
+      + this.cell(e, "run") + this.cell(e, "pushup") + this.cell(e, "crunch")
+      + `<td class="ovr opt">${e.overall_percent != null ? esc(pct(e.overall_percent)) : "—"}</td>`
+      + `<td>${verdictPill(e.verdict)}</td></tr>`).join("")}</tbody>`;
+  },
+};
 async function resultsByBib() {
   const q = $("rQuery").value.trim(); if (!q) return;
   try { const r = await api("POST", "/api/checkin", { station: "pushup", query: q }); ResultsCard.shown[r.entry.id] = 0; ResultsCard.show(r.entry.id); $("rQuery").value = ""; }
@@ -6372,7 +6466,7 @@ const CamLive = {
 /* ============================== settings ============================== */
 // Station settings from the server (shared by every device); see service.SETTINGS.
 const SETTING_DEFAULTS = { auto_identify: true, camera_background: "off", camera_bg_places: ["weigh", "start", "photo"], backdrop_color: "#8a949e", background_image: null, face_match: "normal", face_required: false, face_fresh_min: 120, walk_ins: true, default_gender: "M", default_unit: "combat",
-                           bib_start: 1, lanes: 3, start_countdown_s: 3, cancel_window_s: 120, finish_face_threshold: 0, site_name: "", default_language: "en", theme: "night", admin_pin_set: false, finish_shutter: "auto", go_effect: "racing", go_dim: 60, go_size: 100, go_speed: 100, go_duration: 1.7, go_lines: 100, go_lines_count: 220, go_lines_opacity: 100, go_opacity: 100 };
+                           bib_start: 1, lanes: 3, start_countdown_s: 3, cancel_window_s: 120, finish_face_threshold: 0, site_name: "", default_language: "en", theme: "night", admin_pin_set: false, finish_shutter: "auto", start_line_on: true, start_setup_shown: true, go_effect: "racing", go_dim: 60, go_size: 100, go_speed: 100, go_duration: 1.7, go_lines: 100, go_lines_count: 220, go_lines_opacity: 100, go_opacity: 100 };
 const setting = k => (S.settings && k in S.settings ? S.settings[k] : SETTING_DEFAULTS[k]);
 function applySettings(first) {
   if (first && load("lang", null) == null && setting("default_language") !== lang) setLang(setting("default_language"), false);
@@ -6669,7 +6763,7 @@ const Evidence = {
 };
 const SET_FIELDS = {   // input id -> [setting, read, write]
   setAuto: ["auto_identify", v => v === "1", v => (v ? "1" : "0")], setBg: ["camera_background"], setMatch: ["face_match"], setFaceReq: ["face_required", v => v === "1", v => (v ? "1" : "0")], setFaceFresh: ["face_fresh_min", v => parseInt(v, 10), String],
-  setChooseFirst: ["station_choose_first", v => v === "1", v => (v ? "1" : "0")], setFcSetup: ["finish_setup_shown", v => v === "1", v => (v ? "1" : "0")], setWalk: ["walk_ins", v => v === "1", v => (v ? "1" : "0")], setGender: ["default_gender"], setUnit: ["default_unit"], setBib: ["bib_start", v => parseInt(v, 10)],
+  setChooseFirst: ["station_choose_first", v => v === "1", v => (v ? "1" : "0")], setFcSetup: ["finish_setup_shown", v => v === "1", v => (v ? "1" : "0")], setSlSetup: ["start_setup_shown", v => v === "1", v => (v === false ? "0" : "1")], setStartLineOn: ["start_line_on", v => v === "1", v => (v === false ? "0" : "1")], setWalk: ["walk_ins", v => v === "1", v => (v ? "1" : "0")], setGender: ["default_gender"], setUnit: ["default_unit"], setBib: ["bib_start", v => parseInt(v, 10)],
   setLanes: ["lanes", v => parseInt(v, 10), String], setStopAfter: ["station_stop_after_s", v => parseInt(v, 10) || 0, String], setOutS: ["station_out_s", v => parseInt(v, 10) || 0, String],
   setCountdown: ["start_countdown_s", v => parseInt(v, 10), String], setGoFx: ["go_effect"], setGoSpeed: ["go_speed", v => parseInt(v, 10), v => { const x = String(v ?? 100); $("setGoSpeedV").textContent = x + "%"; return x; }],
     setGoDur: ["go_duration", v => parseFloat(v), v => { const x = String(v ?? 1.7); $("setGoDurV").textContent = x + " s"; return x; }], setGoCount: ["go_lines_count", v => parseInt(v, 10), v => { const x = String(v ?? 220); $("setGoCountV").textContent = x; return x; }],
