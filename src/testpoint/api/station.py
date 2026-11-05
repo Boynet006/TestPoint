@@ -36,6 +36,8 @@ DONE_S = 8.0                # the score stays on screen
 COOLDOWN_S = 20.0           # the person just tested is not picked up again meanwhile
 STALE_S = 3.0               # no word from the camera this long before GO: idle
 LEFT_MAT_S = 5.0            # off the mat this long during the test: it ends with the count so far
+FALSE_START_S = 10.0        # left the position or the mat with no rep this soon after GO: a false start,
+                            # not a result of 0 (the attempt is cancelled, they get into position again)
 CHOOSE_DWELL_S = 1.5        # the cursor held on one test this long picks it
 CHOOSE_TIMEOUT_S = 20.0     # no choice: push-ups, as without choosing
 CHOICES = ("pushup", "crunch")   # on the screen left to right (push-ups first, as without choosing)
@@ -140,6 +142,15 @@ class StationFlow:
             acts += self._finish(now, None)
         return acts
 
+    def _false_start(self, now: float, why: str) -> list[tuple]:
+        """No rep yet and out of the exercise just after GO (getting settled, a slip, sitting up to
+        adjust): not a test of 0. The attempt is cancelled and the same person gets into position
+        again for a new 3-2-1."""
+        acts = [("cancel", self.attempt_id, why)]
+        self._to("position", now, entry_id=self.entry_id, event=self.event, reason="false_start")
+        self.attempt_id = self.go_at = None
+        return acts
+
     def _finish(self, now: float, why: str | None) -> list[tuple]:
         acts = [("finish", self.attempt_id, why)]
         self.recent[self.entry_id] = now + COOLDOWN_S
@@ -224,13 +235,14 @@ class StationFlow:
                 self.last_count = look.count
             if look.ready:          # resting in the start position (arms straight, lying back) is allowed
                 self.last_rep_at = now
+            early = self.last_count <= 0 and self.go_at is not None and now - self.go_at < FALSE_START_S
             if self.off_since is not None and now - self.off_since >= LEFT_MAT_S:
-                return acts + self._finish(now, "left_mat")
+                return acts + (self._false_start(now, "left_mat") if early else self._finish(now, "left_mat"))
             # left the exercise (stood up, sat up and stayed up, kneeling): a short grace for the
             # pose's jitter and a slip; then the test is over with the count so far
             self.out_since = (self.out_since if self.out_since is not None else now) if look.present and look.out else None
             if self.out_s > 0 and self.out_since is not None and now - self.out_since >= self.out_s:
-                return acts + self._finish(now, "left_position")
+                return acts + (self._false_start(now, "left_position") if early else self._finish(now, "left_position"))
             # "stopped": no rep for idle_s after doing some; before the first rep (getting down on
             # the mat, a slow start) only the time, the examiner or leaving the mat ends the test
             if self.idle_s > 0 and self.last_count > 0 and now - self.last_rep_at >= self.idle_s:

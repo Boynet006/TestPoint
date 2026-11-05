@@ -1748,6 +1748,12 @@ def note_ended_early(db: Session, day: Day, attempt: Attempt, why: str, after_s:
            count=attempt.auto_count or 0)
 
 
+def note_false_start(db: Session, day: Day, attempt: Attempt, why: str, after_s: float) -> None:
+    """The audit trail of a station test cancelled as a false start (out of the exercise with no
+    rep just after GO): no result was saved; the person goes again."""
+    _audit(db, day, attempt.event, "false_start", attempt.entry, attempt_id=attempt.id, why=why, after_s=after_s)
+
+
 def note_manual_start(db: Session, day: Day, entry: Entry, event: str, step: str) -> None:
     """The audit trail of a station test the examiner started by hand."""
     _audit(db, day, event, "manual_start", entry, step=step)

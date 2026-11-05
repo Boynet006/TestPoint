@@ -365,3 +365,27 @@ def test_without_a_countdown_the_count_starts_as_soon_as_they_are_ready():
     acts = f.observe(1.0 + READY_HOLD_S, StationLook(True, ready=True))
     acts += f.observe(1.1 + READY_HOLD_S, StationLook(True, ready=True))
     assert ("start", 7, "pushup") in acts and f.state == "testing" and f.go_at == 1.0 + READY_HOLD_S   # GO = ready
+
+
+def test_out_of_position_with_no_rep_just_after_go_is_a_false_start_not_a_zero():
+    f = StationFlow(countdown_s=3.0, time_s=120.0, idle_s=20.0, out_s=3.0)
+    under_way(f)                                                    # GO at 4.0
+    f.observe(5.0, StationLook(True, count=0, out=True))            # sat up to adjust, no rep yet
+    assert f.observe(8.0, StationLook(True, count=0, out=True)) == [("cancel", 55, "left_position")]
+    assert f.state == "position" and f.reason == "false_start" and f.attempt_id is None
+    # the same person goes again: in position, 3-2-1, a new attempt
+    f.go_now(9.0)
+    f.observe(12.1, StationLook(True))
+    f.started(56)
+    assert f.state == "testing"
+    # with a rep done, leaving is the end of the test (the count stands)
+    f.observe(13.0, StationLook(True, count=1))
+    f.observe(14.0, StationLook(True, count=1, out=True))
+    assert f.observe(17.0, StationLook(True, count=1, out=True)) == [("finish", 56, "left_position")]
+
+
+def test_no_rep_long_after_go_then_leaving_is_a_result_of_zero():
+    f = StationFlow(countdown_s=3.0, time_s=120.0, idle_s=20.0, out_s=3.0)
+    under_way(f)
+    f.observe(20.0, StationLook(True, count=0, out=True))
+    assert f.observe(23.0, StationLook(True, count=0, out=True)) == [("finish", 55, "left_position")]

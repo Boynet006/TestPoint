@@ -1807,6 +1807,7 @@ const I18N = {
     st_all_done: "All tests done",
     st_come_back: "Take a break: come back for the next test",
     st_left_position: "Back into the start position",
+    st_false_start: "False start, not counted: get into the start position again",
     st_timeout: "Not in position in time: step onto the mat again",
     st_stepped_away: "They stepped away: step onto the mat again",
     st_hold: "hold still…",
@@ -2223,6 +2224,7 @@ const I18N = {
     st_all_done: "اكتملت جميع الاختبارات",
     st_come_back: "استرح: عد للاختبار التالي",
     st_left_position: "عد إلى وضعية البداية",
+    st_false_start: "بداية خاطئة، لم تُحتسب: عد إلى وضعية البداية",
     st_timeout: "لم يتخذ الوضعية في الوقت: قف على البساط مجدداً",
     st_stepped_away: "ابتعد: قف على البساط مجدداً",
     st_hold: "اثبت…",
@@ -3109,7 +3111,10 @@ const Cam = {
 // ---- start line: an IP camera (Hikvision etc.) instead of this device's webcam. A browser cannot
 // open rtsp://, so the camera service on the station PC runs testpoint.startcam, which sends the
 // picture to the app; the page shows it as a live stream and identifies faces on its newest frame.
-const RELAY_ROLES = ["weigh", "start"];   // screens that can show a camera through the camera service
+const RELAY_ROLES = ["weigh", "start"];
+// A camera whose last run was a test video (played to its end, or stopped) is not replaced by the
+// IP camera by itself: another screen played it on purpose. Auto-start is for a PC just started.
+const ranVideo = st => !!(st && st.config && st.config.kind === "video");   // screens that can show a camera through the camera service
 const StartCam = {
   live: false, retry: null, svcWebcam: false,
   // The start line's camera runs the start (recognise, raise a hand, 3-2-1-GO); the weigh-in's only
@@ -3151,7 +3156,7 @@ const StartCam = {
     this.buttons(st);
     if (!st || !st.available) { msg(c.box, "bad", t("e_camera_service_offline")); Cam.show(); return; }
     if (st.running && !(st.config && st.config.kind === "webcam")) await this.watch();
-    else if (SavedCams.has(c.saved) && !load(c.stopped, "")) await this.start();     // its saved camera, by itself
+    else if (SavedCams.has(c.saved) && !load(c.stopped, "") && !ranVideo(st)) await this.start();     // its saved camera, by itself
     else { msg(c.box, "warn", t("ip_not_running")); Cam.show(); }
   },
   buttons(st) {
@@ -4234,7 +4239,7 @@ const FinishCam = {
     // opened with its IP camera not running (the PC just started): it starts by itself, with this
     // screen's line, as the start line's does, unless the examiner stopped it here
     if (!this.autoTried && role === "finish" && this.st.available && !this.st.running && !this.busy && this.lineOn()
-        && this.pref.kind === "url" && !load("fcStopped", "") && $("fcCamSel").value) { this.autoTried = true; this.start(); }
+        && this.pref.kind === "url" && !load("fcStopped", "") && $("fcCamSel").value && !ranVideo(this.st)) { this.autoTried = true; this.start(); }
     // the finish line switched off (here, or a new station default): the camera stops, hand timing takes over
     if (role === "finish" && this.st.running && !this.busy && !this.lineOn()) { this.autoTried = false; this.stop(true); }
     this.render();
@@ -4615,7 +4620,7 @@ const StationCam = {
   autoStart() {
     const st = this.st;
     if (this.autoTried || role !== "station" || !st || !st.available || st.running || this.busy) return;
-    if (this.pref.kind !== "url" || load("scStopped", "") || !$("scCamSel").value) return;
+    if (this.pref.kind !== "url" || load("scStopped", "") || !$("scCamSel").value || ranVideo(st)) return;
     this.autoTried = true; this.start();
   },
   // One mat: the engine follows the person checked in ("auto"); several: the exercise on this page.

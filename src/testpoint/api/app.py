@@ -1673,6 +1673,11 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
                 if act[0] == "start":
                     a = S.start_attempt(db, day, S.get_entry(db, day, act[1]), act[2], S.EXERCISE_LANE)
                     flow.started(a.id)
+                elif act[0] == "cancel":            # a false start: no result, they go again
+                    a = db.get(Attempt, act[1])
+                    if a is not None and a.status == "running":
+                        S.note_false_start(db, day, a, act[2] if len(act) > 2 else "", round(wall() - (flow.go_at or wall()), 1))
+                        S.cancel_attempt(db, day, a.id)
                 elif act[0] == "finish":
                     a = db.get(Attempt, act[1])
                     if a is not None and a.status == "running":
