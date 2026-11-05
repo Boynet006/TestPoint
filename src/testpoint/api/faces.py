@@ -4,6 +4,13 @@ Models (OpenCV Zoo, run with OpenCV's DNN, fully offline):
   * YuNet 2023mar  - face detection   (MIT)
   * SFace 2021dec  - face recognition (Apache-2.0), 128-d embedding,
                      cosine similarity >= 0.363 means "same person" per the authors.
+  * AdaFace IR-101 - face recognition, 512-d (code MIT; trained on WebFace12M, whose licence
+                     the authors ask to follow), used instead of SFace when its file is there
+                     (scripts/build_adaface.py makes it). Far better on poor pictures: on LFW
+                     shrunk and blurred as the finish camera sees a runner, 96.9 % right against
+                     SFace's 90.3 %, and 88 % of true matches found at 1 wrong in 1000 (SFace 46 %).
+                     Its scores are put on SFace's scale (``common_score``), so every threshold,
+                     setting and score shown keeps its meaning, at the same rate of wrong matches.
 
     python -m testpoint.api.faces --download data/models/face   # fetch + verify the models
 
@@ -36,6 +43,22 @@ MODELS = {
     ),
 }
 DETECTOR, RECOGNIZER = MODELS
+ADAFACE = "face_recognition_adaface_ir101.onnx"
+
+# AdaFace score -> the SFace score with the same rate of wrong matches (different people), measured
+# on all of LFW as the cameras compare: a clean photo against one shrunk, blurred and compressed as
+# the finish camera sees a runner (13,000 faces, 3 million pairs of different people). Above
+# SFace 0.55, where wrong matches no longer happen, the same rate of right matches instead.
+ADA_TO_SFACE = [(-1.0, -1.0), (0.095, 0.20), (0.128, 0.25), (0.166, 0.30), (0.192, 0.33), (0.223, 0.363),
+                (0.264, 0.40), (0.366, 0.45), (0.50, 0.50), (0.60, 0.60), (1.0, 1.0)]
+
+
+def common_score(raw: float, dim: int) -> float:
+    """A similarity on SFace's scale, whichever model made the embeddings (by their size)."""
+    if dim != 512:
+        return raw
+    ys, xs = zip(*ADA_TO_SFACE)
+    return float(np.interp(raw, ys, xs))
 
 DEFAULT_THRESHOLD = 0.363
 DEFAULT_MARGIN = 0.05
@@ -139,12 +162,15 @@ def normalise(v: np.ndarray) -> np.ndarray:
 
 def match(probe: np.ndarray, gallery: dict[int, list[np.ndarray]],
           threshold: float = DEFAULT_THRESHOLD, margin: float = DEFAULT_MARGIN) -> Match:
-    """Best gallery identity for ``probe``. Each identity may have several templates (max wins)."""
+    """Best gallery identity for ``probe``. Each identity may have several templates (max wins).
+    Templates made by another model (another size) are left out; scores are on SFace's scale."""
     probe = normalise(probe)
     scores = []
     for cid, templates in gallery.items():
-        if templates:
-            scores.append((cid, max(float(np.dot(probe, normalise(t))) for t in templates)))
+        same = [t for t in templates if np.asarray(t).size == probe.size]
+        if same:
+            raw = max(float(np.dot(probe, normalise(t))) for t in same)
+            scores.append((cid, common_score(raw, probe.size)))
     scores.sort(key=lambda x: x[1], reverse=True)
     if not scores:
         return Match(None, 0.0, 0.0, False, [])
@@ -172,8 +198,12 @@ class FaceEngine:
                                                    0.8, 0.3, 5000)
         # also the reference 5-point alignment (alignCrop) for the GPU engine
         self._recognizer = cv2.FaceRecognizerSF.create(str(self.model_dir / RECOGNIZER), "")
-        self._gpu_det = self._gpu_rec = None
+        self._gpu_det = self._gpu_rec = self._ada = None
         self.device = "cpu"
+        # the stronger recognition model when it is there (TESTPOINT_FACE_MODEL=sface keeps SFace)
+        want = os.environ.get("TESTPOINT_FACE_MODEL", "auto").lower()
+        self.model = "adaface" if want in ("auto", "adaface") and (self.model_dir / ADAFACE).is_file() else "sface"
+        self.dim = 512 if self.model == "adaface" else 128
         if device != "cpu":
             from ..vision import face_gpu
             if face_gpu.cuda_available():
@@ -187,6 +217,9 @@ class FaceEngine:
                     print(f"face models on the CPU: the GPU could not be used ({e})")
             elif device == "cuda":
                 raise FaceError("no_gpu", "ONNX Runtime has no CUDA here")
+        if self.model == "adaface":
+            from ..vision import face_gpu
+            self._ada = face_gpu.AdaFaceOrt(self.model_dir / ADAFACE, "cuda" if self.device == "cuda" else "cpu")
         # The OpenCV detector keeps per-call state (input size): one caller at a time.
         self._lock = threading.Lock()
 
@@ -222,9 +255,12 @@ class FaceEngine:
         return np.zeros((0, 15), np.float32) if faces is None else faces
 
     def embed(self, img: np.ndarray, rows: np.ndarray) -> np.ndarray:
-        """L2-normalised 128-d embeddings of the faces ``rows`` (detector rows) of ``img``."""
+        """L2-normalised embeddings (512-d AdaFace, else 128-d SFace) of the faces ``rows``
+        (detector rows) of ``img``."""
         aligned = [self._recognizer.alignCrop(img, r) for r in rows]
-        if self._gpu_rec is not None:
+        if self._ada is not None:
+            feats = self._ada.features(aligned)
+        elif self._gpu_rec is not None:
             feats = self._gpu_rec.features(aligned)
         else:
             feats = np.array([self._recognizer.feature(a).reshape(-1) for a in aligned], np.float32).reshape(-1, 128)

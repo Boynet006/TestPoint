@@ -31,6 +31,20 @@ py -3.12 -m venv .venv
 winget install --id Gyan.FFmpeg -e        # browser-playable evidence clips (H.264)
 ```
 
+The stronger face model (AdaFace IR-101, used instead of SFace when its file is there; the
+stored faces are made again with it by themselves). Once, with the internet; PyTorch is only
+needed for this step:
+
+```
+.venv\Scripts\python.exe -m pip install torch safetensors onnx
+.venv\Scripts\python.exe scriptsuild_adaface.py
+```
+
+Measured 2026-11-05 on LFW (13,233 faces) with the pictures shrunk and blurred as the finish camera
+sees a runner: 96.9 % right against SFace's 90.3 %; at the normal threshold, with the same rate of
+wrong matches (3 in 10,000), the right person is found 97 % of the time (SFace 65 %). Scores and
+thresholds stay on SFace's scale (`faces.common_score`). `TESTPOINT_FACE_MODEL=sface` keeps SFace.
+
 GPU: install `onnxruntime-gpu` as the README says; without it everything runs on the CPU, slower.
 The fonts are in the app (`web/station/fonts`): no internet needed once set up.
 

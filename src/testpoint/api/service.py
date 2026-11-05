@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 import numpy as np
 
 from . import journey as J
-from .faces import FaceError, QUALITY_OK, match as face_match, normalise
+from .faces import FaceError, QUALITY_OK, common_score, match as face_match, normalise
 from .models import Attempt, AuditLog, Candidate, Crossing, Day, Entry, FaceTemplate, Rep, Setting, Wave, utcnow
 from .rules import EVENTS, GRADES, UNITS, DayRules, age_on, bmi as compute_bmi
 
@@ -824,6 +824,29 @@ def _current(t: FaceTemplate, day: Day, since: datetime) -> bool:
     return t.day_id == day.id and t.created_at is not None and t.created_at >= since
 
 
+def reembed_templates(db: Session, engine) -> tuple[int, int]:
+    """Face templates made by another recognition model (another size, e.g. SFace's 128 after the
+    switch to AdaFace's 512) made again from their photo by the model in use. A photo in which no
+    face is found any more leaves its template as it was (no longer matched). (made, left)"""
+    dim = getattr(engine, "dim", None)
+    if engine is None or not dim:
+        return 0, 0
+    made = left = 0
+    for t in db.scalars(select(FaceTemplate)):
+        if len(t.embedding) == dim * 4:
+            continue
+        try:
+            face = engine.face_from_bytes(t.photo_jpeg)
+        except FaceError:
+            left += 1
+            continue
+        t.embedding = np.asarray(face.embedding, np.float32).tobytes()
+        made += 1
+    if made:
+        db.commit()
+    return made, left
+
+
 def face_count(db: Session, candidate_id: int, day: Day | None = None, fresh: bool = True) -> int:
     """Face photos on file; with ``day``, the registration photos taken that day and, ``fresh``,
     within face_window (the screens ask for a new set when there are none)."""
@@ -878,7 +901,10 @@ def last_visit_check(db: Session, day: Day, cid: int, emb) -> dict | None:
     if not prev:
         return None
     q = normalise(np.asarray(emb, np.float32))
-    score = max(float(np.dot(q, normalise(np.frombuffer(t.embedding, np.float32)))) for t in prev)
+    prev = [t for t in prev if len(t.embedding) == q.size * 4]          # made by the model in use
+    if not prev:
+        return None
+    score = common_score(max(float(np.dot(q, normalise(np.frombuffer(t.embedding, np.float32)))) for t in prev), q.size)
     newest = max(prev, key=lambda t: t.created_at)
     return {"score": round(score, 3), "differs": score < FACE_MATCH["normal"][0],
             "taken_at": newest.created_at.isoformat()}
@@ -965,7 +991,7 @@ def adapt_template(db: Session, day: Day, entry: Entry, face, score: float, runn
         db.delete(t)
         kept.remove(t)
     emb = np.asarray(face.embedding, np.float32)
-    if any(float(np.dot(emb, normalise(np.frombuffer(t.embedding, np.float32)))) >= ADAPT_NEW for t in kept):
+    if any(len(t.embedding) == emb.size * 4 and common_score(float(np.dot(emb, normalise(np.frombuffer(t.embedding, np.float32)))), emb.size) >= ADAPT_NEW for t in kept):
         return False
     same = [t for t in kept if t.source == source]
     for t in same[:max(0, len(same) - limit + 1)]:

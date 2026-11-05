@@ -162,7 +162,7 @@ class SettingsIn(BaseModel):
     station_out_s: int | None = Field(default=None, ge=0, le=30)
     finish_shutter: Literal["auto", "1/1000", "1/500", "1/250"] | None = None
     go_styles: dict[Literal["start", "pushup", "crunch", "finish"], dict[Literal["effect", "dim", "size", "speed", "duration", "lines", "lines_count", "lines_opacity", "opacity"], float | str]] | None = None
-    go_effect: Literal["racing", "shockwave", "slam", "neon", "hyperspace", "fireworks", "off"] | None = None
+    go_effect: Literal["racing", "scoreboard", "shockwave", "slam", "neon", "hyperspace", "fireworks", "off"] | None = None
     go_dim: int | None = Field(default=None, ge=0, le=100)
     go_size: int | None = Field(default=None, ge=50, le=150)
     go_speed: int | None = Field(default=None, ge=50, le=200)
@@ -530,7 +530,12 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
 
     def engine():
         if "e" not in _engine_cache:
-            _engine_cache["e"] = face_engine()
+            _engine_cache["e"] = eng = face_engine()
+            if eng is not None:      # faces saved by another model: made again by this one, once
+                with SessionLocal() as db:
+                    made, left = S.reembed_templates(db, eng)
+                if made or left:
+                    print(f"face templates: {made} made again with {getattr(eng, 'model', '?')}, {left} without a face left as they were")
         return _engine_cache["e"]
 
     def get_db() -> Iterator[Session]:
