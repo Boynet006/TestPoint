@@ -251,6 +251,7 @@ SETTINGS: dict[str, object] = {
     "finish_face_threshold": 0.0, # face match needed at the finish (0.30-0.60); 0 = automatic (normal while few are out)
     # display
     "site_name": "",             # shown in the header; empty = "Fitness examination station"
+    "go_effect": "shockwave",    # the full-screen GO: shockwave, slam, neon, hyperspace, fireworks or off
     "default_language": "en",    # a device that never chose a language: "en" or "ar"
     "trouble_run_cutoff_s": 0,
     "count_tuning": {},          # counting rules changed from the calibrated ones: {exercise: {rule: value}}   # troubleshooting: a short run cut-off in seconds instead of the rule's (0 = off)

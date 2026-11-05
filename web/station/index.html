@@ -485,6 +485,8 @@
   .grades td { font-size: 22px; font-weight: 700; }
   .grades .need { background: color-mix(in srgb, var(--go) 14%, transparent); color: var(--go); }
   .grades th small { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }
+  canvas.gofx { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 9999; pointer-events: none;
+    margin: 0; padding: 0; border: 0; max-width: none; max-height: none; background: transparent; overflow: visible; }
   .grades .got { border-inline-start: 2px solid var(--line); color: var(--ink, inherit); white-space: nowrap; }
   .rcgrid { display: grid; grid-template-columns: minmax(220px, 300px) 1fr; gap: 16px; margin-top: 10px; }
   @media (max-width: 900px) { .rcgrid { grid-template-columns: 1fr; } }
@@ -1555,6 +1557,10 @@
       <h2 data-t="sec_look"></h2>
       <p class="hint" data-t="settings_hint"></p>
 <div class="settings">
+        <label for="setGoFx" data-t="set_gofx"></label>
+        <span class="row" style="gap:8px"><select id="setGoFx"><option value="shockwave" data-t="gofx_shockwave"></option><option value="slam" data-t="gofx_slam"></option><option value="neon" data-t="gofx_neon"></option><option value="hyperspace" data-t="gofx_hyperspace"></option><option value="fireworks" data-t="gofx_fireworks"></option><option value="off" data-t="off"></option></select>
+          <button class="btn sm" type="button" onclick="GoFX.play($('setGoFx').value)" data-t="gofx_preview"></button></span>
+        <span class="hint" data-t="set_gofx_hint"></span>
         <label for="setSite" data-t="set_site"></label>
         <input id="setSite" maxlength="60" autocomplete="off">
         <span class="hint" data-t="set_site_hint"></span>
@@ -1711,7 +1717,7 @@ const I18N = {
     n_face_bib_disagree: "the bib read and the face disagree: the face looks like bib {bib}",
     call_timeout: "No hand raised: step onto the mark again",
     call_stepped_away: "The runner stepped away: step onto the mark again",
-    call_raise: "Raise a hand to start", call_go_line: "GO! Your time starts when you cross the line", call_behind_line: "Step back behind the line", call_false_start: "False start: over the line before GO. Step back behind the line", sl_setup: "Start line set-up", sl_setup_hint: "Colour key, line position, runners' direction.", sl_box_mark: "the runner at the mark", sl_box_hand: "a hand raised", sl_box_line: "the start line (red while a foot is over it)", sl_on: "Start line", sl_on_hint: "On: no hand to raise. Recognised behind the line, the runner sees GO and their clock starts the moment they cross it. Off: a raised hand gives GO.", sl_line: "Line position", sl_line_hint: "The white line on the picture: put it on the floor where the runners' toes go. It turns red when someone is over it.", sl_dir: "Running direction", sl_dir_down: "Towards the camera (down the picture)", sl_dir_up: "Away from the camera (up the picture)", sl_dir_hint: "Which side of the line is the course",
+    call_raise: "Raise a hand to start", set_gofx: "GO effect", set_gofx_hint: "Shown full screen at GO on the start line and when a station test starts.", gofx_preview: "Preview", gofx_shockwave: "Shockwave", gofx_slam: "Slam", gofx_neon: "Neon", gofx_hyperspace: "Hyperspace", gofx_fireworks: "Fireworks", call_go_line: "GO! Your time starts when you cross the line", call_behind_line: "Step back behind the line", call_false_start: "False start: over the line before GO. Step back behind the line", sl_setup: "Start line set-up", sl_setup_hint: "Colour key, line position, runners' direction.", sl_box_mark: "the runner at the mark", sl_box_hand: "a hand raised", sl_box_line: "the start line (red while a foot is over it)", sl_on: "Start line", sl_on_hint: "On: no hand to raise. Recognised behind the line, the runner sees GO and their clock starts the moment they cross it. Off: a raised hand gives GO.", sl_line: "Line position", sl_line_hint: "The white line on the picture: put it on the floor where the runners' toes go. It turns red when someone is over it.", sl_dir: "Running direction", sl_dir_down: "Towards the camera (down the picture)", sl_dir_up: "Away from the camera (up the picture)", sl_dir_hint: "Which side of the line is the course",
     call_no_camera: "The start camera is not sending: check it below",
     call_step_up: "Step onto the mark and look at the camera",
     e_low_quality: "The photo is not good enough to recognise them by later (blurred, dark or too small): take another",
@@ -2120,7 +2126,7 @@ const I18N = {
     n_face_bib_disagree: "الرقم المقروء والوجه لا يتطابقان: الوجه يشبه الرقم {bib}",
     call_timeout: "لم تُرفع اليد: قف على العلامة مجدداً",
     call_stepped_away: "ابتعد العدّاء: قف على العلامة مجدداً",
-    call_raise: "ارفع يدك للبدء", call_go_line: "انطلق! يبدأ وقتك عند عبورك الخط", call_behind_line: "ارجع خلف الخط", call_false_start: "بداية خاطئة: تجاوز الخط قبل الانطلاق. ارجع خلف الخط", sl_setup: "إعداد خط البداية", sl_setup_hint: "دليل الألوان، موضع الخط، اتجاه العدّائين.", sl_box_mark: "العدّاء عند العلامة", sl_box_hand: "يد مرفوعة", sl_box_line: "خط البداية (أحمر عند تجاوز قدم له)", sl_on: "خط البداية", sl_on_hint: "مفعّل: لا حاجة لرفع اليد. عند التعرّف عليه خلف الخط يرى العدّاء إشارة الانطلاق ويبدأ وقته لحظة عبوره. متوقف: رفع اليد يعطي الانطلاق.", sl_line: "موضع الخط", sl_line_hint: "الخط الأبيض على الصورة: ضعه على الأرض حيث تكون أصابع قدمي العدّاء. يصبح أحمر عند تجاوزه.", sl_dir: "اتجاه الجري", sl_dir_down: "نحو الكاميرا (إلى أسفل الصورة)", sl_dir_up: "بعيداً عن الكاميرا (إلى أعلى الصورة)", sl_dir_hint: "أي جانب من الخط هو المسار",
+    call_raise: "ارفع يدك للبدء", set_gofx: "تأثير الانطلاق", set_gofx_hint: "يظهر بملء الشاشة عند الانطلاق في خط البداية وعند بدء اختبار في المحطة.", gofx_preview: "معاينة", gofx_shockwave: "موجة صدمة", gofx_slam: "ارتطام", gofx_neon: "نيون", gofx_hyperspace: "سرعة الضوء", gofx_fireworks: "ألعاب نارية", call_go_line: "انطلق! يبدأ وقتك عند عبورك الخط", call_behind_line: "ارجع خلف الخط", call_false_start: "بداية خاطئة: تجاوز الخط قبل الانطلاق. ارجع خلف الخط", sl_setup: "إعداد خط البداية", sl_setup_hint: "دليل الألوان، موضع الخط، اتجاه العدّائين.", sl_box_mark: "العدّاء عند العلامة", sl_box_hand: "يد مرفوعة", sl_box_line: "خط البداية (أحمر عند تجاوز قدم له)", sl_on: "خط البداية", sl_on_hint: "مفعّل: لا حاجة لرفع اليد. عند التعرّف عليه خلف الخط يرى العدّاء إشارة الانطلاق ويبدأ وقته لحظة عبوره. متوقف: رفع اليد يعطي الانطلاق.", sl_line: "موضع الخط", sl_line_hint: "الخط الأبيض على الصورة: ضعه على الأرض حيث تكون أصابع قدمي العدّاء. يصبح أحمر عند تجاوزه.", sl_dir: "اتجاه الجري", sl_dir_down: "نحو الكاميرا (إلى أسفل الصورة)", sl_dir_up: "بعيداً عن الكاميرا (إلى أعلى الصورة)", sl_dir_hint: "أي جانب من الخط هو المسار",
     call_no_camera: "كاميرا البداية لا ترسل: تحقق منها أدناه",
     call_step_up: "قف على العلامة وانظر إلى الكاميرا",
     e_low_quality: "?????? ??? ????? ?????? ???? ?????? (??? ????? ?? ????? ?? ?????): ????? ???? ????",
@@ -4006,6 +4012,10 @@ const StartCall = {
     if (sig !== this.sig) { box.className = "callbox " + cls; box.innerHTML = html; this.sig = sig; }
     if (v.state === "countdown" && this.lastState !== "countdown") refresh();     // the runner list updates at once
     if (v.state !== this.lastState && (v.state === "raise_hand" || v.state === "go")) Sound.chime();
+    if (v.state === "go" && this.lastState !== "go") GoFX.play();
+    if ((v.state === "countdown" || v.state === "started") && v.go_at && Date.parse(v.go_at) <= serverNow() && this.fxFor !== v.go_at) {
+      this.fxFor = v.go_at; if (Date.parse(v.go_at) > serverNow() - 1500) GoFX.play();   // the moment of GO, not a late page load
+    }
     this.lastState = v.state;
   },
 };
@@ -4175,8 +4185,100 @@ const FinishCam = {
 };
 
 // ---- exercise station: start and time signals (one beep at the start, two at 10 s left, a long one at time)
+// ---- GO, as a full-screen moment: an overlay effect chosen in Settings (go_effect), about 1.6 s,
+// drawn on one canvas above everything and gone again. Played on the start line at GO and at the
+// station when a test starts. "Reduce motion" on the device: a plain fade.
+const GoFX = {
+  KINDS: ["shockwave", "slam", "neon", "hyperspace", "fireworks", "off"],
+  playing: false,
+  play(kind = setting("go_effect") || "shockwave", text = t("go")) {
+    if (kind === "off" || this.playing || document.hidden) return;
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) kind = "fade";
+    this.playing = true;
+    // in the browser's top layer (a popover), so it is above an open card or window as well
+    const c = document.createElement("canvas"); c.className = "gofx"; c.setAttribute("popover", "manual");
+    document.body.appendChild(c); try { c.showPopover(); } catch { /* an older browser: z-index only */ }
+    const g = c.getContext("2d"), dpr = Math.min(2, devicePixelRatio || 1);
+    const W = innerWidth, H = innerHeight; c.width = W * dpr; c.height = H * dpr; g.scale(dpr, dpr);
+    const css = getComputedStyle(document.documentElement), GO = css.getPropertyValue("--go").trim() || "#19d27a";
+    const AMB = css.getPropertyValue("--amber").trim() || "#ffb000", cx = W / 2, cy = H / 2;
+    const big = Math.min(W * 0.34, H * 0.5) * (text.length > 3 ? 0.8 : 1);
+    const font = s => `900 ${s}px "Barlow Condensed", "Cairo", Impact, sans-serif`;
+    const parts = [], rnd = (a, b) => a + Math.random() * (b - a);
+    const burst = (x, y, n, col, sp) => { for (let i = 0; i < n; i++) { const a = rnd(0, 6.283), v = rnd(sp * .35, sp); parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: rnd(.6, 1.1), col }); } };
+    const stars = Array.from({ length: 220 }, () => ({ a: rnd(0, 6.283), r: rnd(0, 40), v: rnd(.6, 1.6) }));
+    const word = (s, alpha, col, glow, dx = 0, dy = 0, stroke) => {
+      g.save(); g.globalAlpha = Math.max(0, Math.min(1, alpha)); g.font = font(s); g.textAlign = "center"; g.textBaseline = "middle";
+      if (glow) { g.shadowColor = col; g.shadowBlur = glow; }
+      g.fillStyle = col; g.fillText(text, cx + dx, cy + dy);
+      if (stroke) { g.shadowBlur = 0; g.lineWidth = Math.max(2, s / 40); g.strokeStyle = stroke; g.strokeText(text, cx + dx, cy + dy); }
+      g.restore();
+    };
+    const shake = amp => { document.body.style.transform = amp > .5 ? `translate(${rnd(-amp, amp)}px, ${rnd(-amp, amp)}px)` : ""; };
+    const ease = x => 1 - Math.pow(1 - Math.min(1, Math.max(0, x)), 3);
+    const dur = { shockwave: 1700, slam: 1700, neon: 1900, hyperspace: 1700, fireworks: 2100, fade: 1000 }[kind] || 1700;
+    let t0 = null, popped = false;
+    const frame = now => {
+      t0 = t0 ?? now; const t = (now - t0) / dur, ms = now - t0;
+      g.clearRect(0, 0, W, H);
+      const out = t > .8 ? 1 - (t - .8) / .2 : 1;                 // everything fades out at the end
+      if (kind === "shockwave") {
+        g.fillStyle = `rgba(255,255,255,${Math.max(0, .85 - ms / 180)})`; g.fillRect(0, 0, W, H);   // the flash
+        g.fillStyle = `rgba(0,0,0,${.45 * out})`; g.fillRect(0, 0, W, H);
+        for (let k = 0; k < 3; k++) {                                 // the rings
+          const p = ease((ms - k * 120) / 900); if (p <= 0) continue;
+          g.beginPath(); g.arc(cx, cy, p * Math.hypot(W, H) * .6, 0, 6.283);
+          g.strokeStyle = GO; g.globalAlpha = (1 - p) * out; g.lineWidth = 26 * (1 - p) + 2; g.stroke(); g.globalAlpha = 1;
+        }
+        const s = big * (1 + 2.2 * (1 - ease(ms / 260)));
+        word(s, out, "#fff", 60, 0, 0, GO); shake(ms < 420 ? 18 * (1 - ms / 420) : 0);
+      } else if (kind === "slam") {
+        g.fillStyle = `rgba(0,0,0,${.5 * out})`; g.fillRect(0, 0, W, H);
+        const fall = Math.min(1, ms / 220), dy = (1 - fall * fall) * -H * .7;
+        const bounce = ms > 220 ? Math.sin((ms - 220) / 70) * 18 * Math.exp(-(ms - 220) / 160) : 0;
+        if (ms > 220 && !popped) { popped = true; burst(cx, cy + big * .35, 90, AMB, 16); burst(cx, cy + big * .35, 50, "#fff", 10); }
+        shake(ms > 220 && ms < 600 ? 22 * (1 - (ms - 220) / 380) : 0);
+        word(big * (ms < 220 ? 1.15 : 1), out, AMB, 30, 0, dy + bounce, "#1a1200");
+      } else if (kind === "neon") {
+        g.fillStyle = `rgba(4,8,12,${.82 * out})`; g.fillRect(0, 0, W, H);
+        for (let y = 0; y < H; y += 4) { g.fillStyle = "rgba(255,255,255,.03)"; g.fillRect(0, y, W, 1); }   // scanlines
+        const flick = ms < 520 ? (Math.random() < .55 ? 1 : .15) : 1;  // the sign catching
+        word(big, out * flick, GO, 70 * flick, 0, 0); word(big, out * flick * .9, "#eafff3", 18, 0, 0);
+        const lw = big * 1.25 * ease(ms / 600);                         // a bar of light under it
+        g.globalAlpha = out * flick; g.fillStyle = GO; g.shadowColor = GO; g.shadowBlur = 40; g.fillRect(cx - lw / 2, cy + big * .62, lw, 6); g.shadowBlur = 0; g.globalAlpha = 1;
+      } else if (kind === "hyperspace") {
+        g.fillStyle = `rgba(0,0,0,${.7 * out})`; g.fillRect(0, 0, W, H);
+        const sp = ease(ms / 700);
+        g.lineCap = "round";
+        for (const s of stars) {                                        // the streaks
+          s.r += s.v * (8 + 60 * sp); const r0 = s.r, r1 = s.r + 40 + 260 * sp * s.v;
+          g.strokeStyle = `rgba(200,255,230,${.75 * out})`; g.lineWidth = 1 + 2 * s.v;
+          g.beginPath(); g.moveTo(cx + Math.cos(s.a) * r0, cy + Math.sin(s.a) * r0); g.lineTo(cx + Math.cos(s.a) * r1, cy + Math.sin(s.a) * r1); g.stroke();
+        }
+        const z = ms < 500 ? .2 + .8 * ease(ms / 500) : 1 + (ms > 1100 ? (ms - 1100) / 300 : 0);
+        word(big * z, out, "#fff", 50, 0, 0, GO);
+      } else if (kind === "fireworks") {
+        g.fillStyle = `rgba(0,0,0,${.45 * out})`; g.fillRect(0, 0, W, H);
+        for (const [at, x, y, col] of [[0, .5, .35, GO], [180, .22, .3, AMB], [340, .78, .32, "#4cc2ff"], [560, .35, .2, "#ff5fa2"], [760, .66, .22, GO]])
+          if (ms >= at && ms - 18 < at) burst(W * x, H * y, 120, col, 11);
+        word(big * (.8 + .2 * ease(ms / 300)), out, "#fff", 40, 0, big * .25, AMB);
+      } else {
+        g.fillStyle = `rgba(0,0,0,${.4 * out})`; g.fillRect(0, 0, W, H);
+        word(big, Math.min(1, ms / 200) * out, GO, 30);
+      }
+      for (const p of parts) {                                        // sparks, with gravity
+        p.x += p.vx; p.y += p.vy; p.vy += .25; p.vx *= .985; p.life -= .016;
+        if (p.life > 0) { g.globalAlpha = Math.min(1, p.life) * out; g.fillStyle = p.col; g.fillRect(p.x, p.y, 3, 3); }
+      }
+      g.globalAlpha = 1;
+      if (t < 1) requestAnimationFrame(frame);
+      else { c.remove(); shake(0); this.playing = false; }
+    };
+    requestAnimationFrame(frame);
+  },
+};
 const Signal = {
-  start() { if (Sound.ctx) Sound.tone(Sound.ctx.currentTime, 880, 0.35, 0.3); },
+  start() { if (Sound.ctx) Sound.tone(Sound.ctx.currentTime, 880, 0.35, 0.3); GoFX.play(); },
   warn() { if (Sound.ctx) { const t0 = Sound.ctx.currentTime; Sound.tone(t0, 990, 0.12, 0.25); Sound.tone(t0 + 0.2, 990, 0.12, 0.25); } },
   end() { if (Sound.ctx) { const t0 = Sound.ctx.currentTime; Sound.tone(t0, 660, 1.2, 0.35); Sound.tone(t0, 440, 1.2, 0.2); } },
 };
@@ -6145,7 +6247,7 @@ const CamLive = {
 /* ============================== settings ============================== */
 // Station settings from the server (shared by every device); see service.SETTINGS.
 const SETTING_DEFAULTS = { auto_identify: true, camera_background: "off", camera_bg_places: ["weigh", "start", "photo"], backdrop_color: "#8a949e", background_image: null, face_match: "normal", face_required: false, face_fresh_min: 120, walk_ins: true, default_gender: "M", default_unit: "combat",
-                           bib_start: 1, lanes: 3, start_countdown_s: 3, cancel_window_s: 120, finish_face_threshold: 0, site_name: "", default_language: "en", theme: "night", admin_pin_set: false };
+                           bib_start: 1, lanes: 3, start_countdown_s: 3, cancel_window_s: 120, finish_face_threshold: 0, site_name: "", default_language: "en", theme: "night", admin_pin_set: false, go_effect: "shockwave" };
 const setting = k => (S.settings && k in S.settings ? S.settings[k] : SETTING_DEFAULTS[k]);
 function applySettings(first) {
   if (first && load("lang", null) == null && setting("default_language") !== lang) setLang(setting("default_language"), false);
@@ -6444,7 +6546,7 @@ const SET_FIELDS = {   // input id -> [setting, read, write]
   setAuto: ["auto_identify", v => v === "1", v => (v ? "1" : "0")], setBg: ["camera_background"], setMatch: ["face_match"], setFaceReq: ["face_required", v => v === "1", v => (v ? "1" : "0")], setFaceFresh: ["face_fresh_min", v => parseInt(v, 10), String],
   setChooseFirst: ["station_choose_first", v => v === "1", v => (v ? "1" : "0")], setFcSetup: ["finish_setup_shown", v => v === "1", v => (v ? "1" : "0")], setWalk: ["walk_ins", v => v === "1", v => (v ? "1" : "0")], setGender: ["default_gender"], setUnit: ["default_unit"], setBib: ["bib_start", v => parseInt(v, 10)],
   setLanes: ["lanes", v => parseInt(v, 10), String], setStopAfter: ["station_stop_after_s", v => parseInt(v, 10) || 0, String], setOutS: ["station_out_s", v => parseInt(v, 10) || 0, String],
-  setCountdown: ["start_countdown_s", v => parseInt(v, 10), String], setCancelWin: ["cancel_window_s", v => parseInt(v, 10), String], setFinishFace: ["finish_face_threshold", v => parseFloat(v) || 0, v => String(+v || 0)], setSite: ["site_name", v => v.trim()], setCamSrc: ["camera_sources", v => JSON.parse(v || "{}"), o => JSON.stringify(o || {})], setEvKeep: ["evidence_keep_days", v => parseInt(v, 10), String],
+  setCountdown: ["start_countdown_s", v => parseInt(v, 10), String], setGoFx: ["go_effect"], setCancelWin: ["cancel_window_s", v => parseInt(v, 10), String], setFinishFace: ["finish_face_threshold", v => parseFloat(v) || 0, v => String(+v || 0)], setSite: ["site_name", v => v.trim()], setCamSrc: ["camera_sources", v => JSON.parse(v || "{}"), o => JSON.stringify(o || {})], setEvKeep: ["evidence_keep_days", v => parseInt(v, 10), String],
   setEvMax: ["evidence_max_gb", v => Math.max(0, parseFloat(v) || 0), v => String(+v || 0)], setEvFree: ["evidence_min_free_gb", v => Math.max(0, parseFloat(v) || 0), v => String(+v || 0)],
   setEvHeld: ["evidence_held_days", v => (v ? v.split(",") : []), a => (a || []).slice().sort().join(",")], setTuning: ["count_tuning", v => JSON.parse(v || "{}"), o => JSON.stringify(o || {})], setTroubleRun: ["trouble_run_cutoff_s", v => parseInt(v, 10) || 0, String], setBgPlaces: ["camera_bg_places", v => (v ? v.split(",") : []), a => (a || []).join(",")], setLang: ["default_language"], setTheme: ["theme"],
 };
