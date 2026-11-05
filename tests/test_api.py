@@ -168,6 +168,14 @@ def test_full_day(client, monkeypatch):
                        headers={"X-Admin-Pin": "2468"}).status_code == 200
     client.put("/api/settings/admin-pin", json={"pin": ""}, headers={"X-Admin-Pin": "2468"})
 
+    # reset one result so that test is done again: the crunches, then the run
+    e = ok(client.post(f"/api/entries/{ids[11]}/reset", json={"test": "crunch"}))
+    assert "crunch" not in e["events"] and e["events"]["pushup"]["count"] == 45 and e["status"] == "run_passed"
+    err(client.post(f"/api/entries/{ids[11]}/reset", json={"test": "crunch"}), 409, "no_result")
+    e = ok(client.post(f"/api/entries/{ids[11]}/reset", json={"test": "run"}))
+    assert e["status"] == "accepted" and e["run_time_s"] is None and e["events"]["pushup"]["count"] == 45
+    err(client.post(f"/api/entries/{ids[11]}/reset", json={"test": "run"}), 409, "no_result")
+
     # a cancelled attempt can be retried
     att3 = ok(client.post("/api/attempts", json={"entry_id": ids[12], "event": "pushup"}), 201)
     assert client.post(f"/api/attempts/{att3['id']}/cancel").status_code == 204

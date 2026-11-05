@@ -898,6 +898,7 @@
     </div>
     <label class="lbl" style="margin-top:8px"><span data-t="correct_reason"></span><input id="cReason" autocomplete="off" required></label>
     <p class="hint" data-t="correct_hint"></p>
+    <div class="row" id="cResets" style="gap:8px;margin-top:6px;flex-wrap:wrap"></div>
     <div id="correctMsg"></div>
     <div class="row" style="margin-top:8px"><button class="btn amber" type="submit" data-t="finish_save"></button></div>
   </form>
@@ -1724,7 +1725,7 @@ const I18N = {
     cs_one: "Keep at least one camera choice on each screen.", cs_na: "This screen cannot use this source",
     ipc_hint: "The IP cameras' addresses, saved on the station PC: rtsp://user:password@ip:554/Streaming/Channels/101. Screens never see the password; a camera screen whose IP camera box is left empty uses the address saved here. Type a dash (-) to remove one.",
     sec_ipcams: "Cameras", sec_cameras: "Cameras", sec_camera_bg: "Camera background", ipc_title: "IP camera addresses",
-    rc_run: "3.2 km run", rc_overall: "Overall", today_col: "Today", correct: "Correct", correct_title: "Correct a result", correct_reason: "Reason (required)", correct_hint: "Change what is wrong: the grade and the result follow. The old and new values and the reason go in the audit log.", correct_bad_time: "The run time as m:ss (for example 15:42.5)", corrected: "{name}: result corrected",
+    rc_run: "3.2 km run", rc_overall: "Overall", today_col: "Today", correct: "Correct", correct_title: "Correct or reset a result", reset_run: "Reset the run", reset_pushup: "Reset push-ups", reset_crunch: "Reset crunches", sure_reset_test: "Take it back? Press again", reset_done: "{name}: {test} reset, the test can be done again", correct_reason: "Reason (required)", correct_hint: "Change what is wrong: the grade and the result follow. The old and new values and the reason go in the audit log.", correct_bad_time: "The run time as m:ss (for example 15:42.5)", corrected: "{name}: result corrected",
     rc_pending: "to do",
     rc_pending_all: "NOT FINISHED YET",
     rc_fail: "FAIL",
@@ -2133,7 +2134,7 @@ const I18N = {
     cs_one: "أبقِ خياراً واحداً للكاميرا على الأقل في كل شاشة.", cs_na: "هذه الشاشة لا تستخدم هذا المصدر",
     ipc_hint: "عناوين كاميرات IP محفوظة على جهاز المحطة: rtsp://user:password@ip:554/Streaming/Channels/101. لا تظهر كلمة المرور على أي شاشة؛ وإذا تُرك حقل كاميرا IP فارغاً تُستخدم العنوان المحفوظ هنا. اكتب (-) لحذف عنوان.",
     sec_ipcams: "الكاميرات", sec_cameras: "الكاميرات", sec_camera_bg: "خلفية الكاميرا", ipc_title: "عناوين كاميرات IP",
-    rc_run: "جري 3.2 كم", rc_overall: "المجموع", today_col: "اليوم", correct: "تصحيح", correct_title: "تصحيح نتيجة", correct_reason: "السبب (مطلوب)", correct_hint: "غيّر ما هو خطأ: الدرجة والنتيجة تتبعان. القيم القديمة والجديدة والسبب تُسجّل في سجل التدقيق.", correct_bad_time: "زمن الجري بصيغة د:ث (مثلاً 15:42.5)", corrected: "{name}: صُحّحت النتيجة",
+    rc_run: "جري 3.2 كم", rc_overall: "المجموع", today_col: "اليوم", correct: "تصحيح", correct_title: "تصحيح نتيجة أو إعادة تعيينها", reset_run: "إعادة تعيين الجري", reset_pushup: "إعادة تعيين الضغط", reset_crunch: "إعادة تعيين البطن", sure_reset_test: "التراجع عنها؟ اضغط مرة أخرى", reset_done: "{name}: أُعيد تعيين {test}، يمكن إعادة الاختبار", correct_reason: "السبب (مطلوب)", correct_hint: "غيّر ما هو خطأ: الدرجة والنتيجة تتبعان. القيم القديمة والجديدة والسبب تُسجّل في سجل التدقيق.", correct_bad_time: "زمن الجري بصيغة د:ث (مثلاً 15:42.5)", corrected: "{name}: صُحّحت النتيجة",
     rc_pending: "متبقٍ",
     rc_pending_all: "لم يكتمل بعد",
     rc_fail: "راسب",
@@ -5696,7 +5697,21 @@ const CorrectDlg = {
     $("cRun").value = e.run_time_s != null ? fmt(e.run_time_s) : ""; $("cRun").disabled = e.run_time_s == null;
     $("cPush").value = ev("pushup") ?? ""; $("cPush").disabled = ev("pushup") == null;
     $("cCrunch").value = ev("crunch") ?? ""; $("cCrunch").disabled = ev("crunch") == null;
-    $("cReason").value = ""; msg("correctMsg"); $("correctDlg").showModal();
+    $("cReason").value = ""; msg("correctMsg");
+    // reset: take one result back so that test is done again (confirmed; the audit log keeps it)
+    const tests = [["run", e.run_time_s != null || ["dnf", "running", "lined_up"].includes(e.status)], ["pushup", ev("pushup") != null], ["crunch", ev("crunch") != null]];
+    $("cResets").innerHTML = tests.filter(([, has]) => has).map(([k]) =>
+      `<button class="btn ghost sm danger" type="button" onclick="confirmClick('reset${k}${e.id}', this, () => CorrectDlg.reset('${k}'), 'sure_reset_test')">${esc(t("reset_" + k))}</button>`).join("");
+    if (!$("correctDlg").open) $("correctDlg").showModal();
+  },
+  async reset(test) {
+    const e = this.e;
+    try {
+      await api("POST", `/api/entries/${e.id}/reset`, { test });
+      const what = t(test === "run" ? "rc_run" : test);
+      msg("aMsg", "ok", t("reset_done", { name: cname(e.candidate), test: what })); refresh();
+      await this.open(e.id); msg("correctMsg", "ok", t("reset_done", { name: cname(e.candidate), test: what }));
+    } catch (x) { msg("correctMsg", "bad", err(x)); }
   },
   async save() {
     const e = this.e, reason = $("cReason").value.trim(), todo = [];

@@ -1349,6 +1349,7 @@ def _assign(day: Day, rules: DayRules, crossing: Crossing, entry: Entry) -> None
     entry.run_grade = rules.grade("run", crossing.time_s, band) if band else None
     pass_s = band.run_s[GRADES.index(entry.level)] if band and entry.level in GRADES else None
     entry.status = J.after_finish(crossing.time_s, pass_s, rules.run_cutoff_s)
+    entry.status = J.after_event(done_events(entry), entry.status)   # a run done again after both exercises
 
 
 def resolve_crossing(db: Session, day: Day, rules: DayRules, crossing_id: int,
@@ -1721,6 +1722,26 @@ def note_calibration(db: Session, day: Day, attempt: Attempt, calibration: dict 
     if calibration:
         _audit(db, day, attempt.event, "calibration", attempt.entry, attempt_id=attempt.id, **calibration)
         db.commit()
+
+
+def reset_run(db: Session, day: Day, entry: Entry) -> Entry:
+    """The run is taken back so the person runs again (it went wrong): back to weighed in, ready
+    to line up; the time, the start and the finish are cleared (their crossing is left
+    unassigned, out of the review queue). Exercise results already saved stay. The audit log
+    keeps what was there."""
+    if entry.run_time_s is None and entry.status not in (J.DNF, J.RUNNING, J.LINED_UP) and not (
+            entry.status == J.COMPLETE and entry.run_started_at is not None):
+        raise ServiceError("no_result", f"{entry.candidate.name} has no run to reset")
+    _audit(db, day, "admin", "reset_run", entry, status=entry.status, run_time_s=entry.run_time_s,
+           run_grade=entry.run_grade, started_at=entry.run_started_at, finished_at=entry.finished_at)
+    for c in db.scalars(select(Crossing).where(Crossing.entry_id == entry.id)):
+        c.entry_id, c.needs_review = None, False
+        c.note = ((c.note or "") + " | run reset").strip(" |")
+    entry.run_time_s = entry.run_grade = entry.finished_at = None
+    entry.run_started_at = entry.run_cutoff_at = entry.lined_up_at = None
+    entry.status = J.ACCEPTED
+    db.commit()
+    return entry
 
 
 def redo_attempt(db: Session, day: Day, rules: DayRules, attempt_id: int) -> Entry:

@@ -242,6 +242,10 @@ class StationCamIn(BaseModel):
     loop: bool = False
 
 
+class ResetIn(BaseModel):
+    test: Literal["run", "pushup", "crunch"]
+
+
 class CorrectIn(BaseModel):
     test: Literal["run", "pushup", "crunch"]
     value: float
@@ -977,6 +981,21 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         if late:
             S.check_admin_pin(db, request.headers.get("x-admin-pin"))
         return entry_out(S.cancel_start(db, day, S.get_entry(db, day, entry_id), late=late), day)
+
+    @app.post("/api/entries/{entry_id}/reset", dependencies=[Depends(admin)])
+    def reset_result(entry_id: int, body: ResetIn, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        """Take one result back so that test is done again: the run, the push-ups or the crunches
+        (the admin PIN when one is set; the audit log keeps what was there)."""
+        e = S.get_entry(db, day, entry_id)
+        if body.test == "run":
+            e = S.reset_run(db, day, e)
+        else:
+            a = next((x for x in e.attempts if x.event == body.test and x.status == "finished"), None)
+            if a is None:
+                raise S.ServiceError("no_result", f"{e.candidate.name} has no {body.test} result to reset")
+            e = S.redo_attempt(db, day, S.rules_for(db, day, rules), a.id)
+            station_flow(db, day).recent.pop(e.id, None)     # the station may take them again at once
+        return entry_out(e, day, S.face_count(db, e.candidate_id, day))
 
     @app.post("/api/entries/{entry_id}/correct", dependencies=[Depends(admin)])
     def correct_result(entry_id: int, body: CorrectIn, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
