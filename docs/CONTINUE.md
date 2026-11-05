@@ -1,4 +1,4 @@
-﻿# Continue on another machine
+# Continue on another machine
 
 Everything needed is on GitHub, except what is private to the station PC: the database
 (`data/dev.db`: people, faces, results, the cameras' passwords), the HTTPS certificates and the
@@ -52,8 +52,20 @@ $env:DISABLE_SQLALCHEMY_CEXT_RUNTIME = "1"
 .venv\Scripts\python.exe -m testpoint.camhost        # second window: the cameras
 ```
 
-`scripts\start-station.ps1` opens the address `192.168.250.149` when this PC has it, else
-`localhost`: change it there for another PC's address.
+TestPoint opens by this PC's name (e.g. `https://desktop-d1l2fsd:8000/ui/`), never its address, so
+a new address changes nothing. The certificate must carry the name: `scripts\https-cert.ps1` adds it.
+
+## Offline and online: the TestPoint Network icon
+
+![TestPoint Network](network.png)
+
+- **Offline mode:** this PC gets a fixed address on the cameras' network (default
+  192.168.250.240, checked free first): works with no router and no internet.
+- **Online mode:** back to automatic (DHCP) for the internet.
+- It shows this PC's address, the internet, each camera (answering or not) and TestPoint, and
+  starts TestPoint. The cameras keep their fixed addresses (.241 start, .242 finish, .243 station);
+  they are only checked. Windows asks for administrator permission when a mode button is pressed.
+- Settings: `data\network.json` (the offline address, the camera list).
 
 ## 4. What to redo on the new machine
 
