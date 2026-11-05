@@ -72,11 +72,17 @@ a new address changes nothing. The certificate must carry the name: `scripts\htt
 - **Cameras:** Settings > Cameras: type each camera's address with its password again.
 - **Camera picture quality** (set in each camera, not in the app): main stream 2688x1520, 25 fps,
   H.264 High, constant bitrate 8192 kbps (their maximum). Set on all three on 2026-11-05.
-- **Camera image** (2026-11-05, measured sharpness 4x start, 1.8x finish, 7x station): WDR off on all
-  three (indoors, even light); shutter 1/250 s and stream smoothing 30 on all three (matched);
-  day/night on automatic on all three (the finish was stuck in night mode: black and white);
-  a one-push focus on each once it is in its final place. Refocus after moving a camera.
-  For fast runners at the finish, 1/500-1/1000 s gives less blur but a darker picture indoors.
+- **Camera image** (2026-11-05): WDR **auto** on all three (on by itself against the sun outdoors,
+  off in even light); day/night automatic; stream smoothing 30; a one-push focus on each once it
+  is in its final place (refocus after moving a camera). Shutter 1/250 s at the start line and the
+  station (people stand still or move slowly). The **finish** shutter follows the light by itself
+  (Settings > Cameras > Finish camera shutter, Automatic; `src/testpoint/api/light.py`): it tries
+  1/500 then 1/1000 s every 20 minutes and keeps it only when the picture stays as bright and clean,
+  goes slower when the picture gets dark, and never tries while someone is running. Indoors here it
+  stays at 1/250 s (1/500 s halved the brightness); outdoors in daylight it goes faster.
+- **Fair finish times:** a crossing is timed at the instant the feet cross the line, interpolated
+  between the two camera frames around it, from when those frames arrived from the camera, not when
+  the analysis got to them (the GPU's load no longer changes anyone's time).
 - **People:** the database starts empty; register candidates again (fresh face photos each day).
 - **Lines:** the finish and start line positions are kept per browser: set them again on the
   finish and start line screens (Line set-up).

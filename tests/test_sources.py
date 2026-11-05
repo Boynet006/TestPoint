@@ -328,3 +328,36 @@ def test_player_without_controls_ends_with_the_clip():
     p = sources.VideoPlayer(FakeVideo(2), clock=fast_clock(), hold_end=False)
     assert [int(p.read()[0, 0, 0]) for _ in range(2)] == [0, 1]
     assert p.read() is None
+
+
+def test_live_frames_are_timed_when_they_arrived_not_when_analysed():
+    import time as _t
+
+    from testpoint.vision.sources import LatestFrame, iter_frames
+
+    class TwoThenQuiet:
+        is_live, fps = True, 25.0
+
+        def __init__(self):
+            self.i = 0
+
+        def read(self):
+            self.i += 1
+            if self.i == 2:
+                _t.sleep(0.05)          # the second frame, a moment after the first was taken
+            if self.i > 2:
+                _t.sleep(1.0)
+                return None
+            return self.i
+
+        def release(self):
+            pass
+
+    src = LatestFrame(TwoThenQuiet())
+    frames = iter_frames(src)
+    next(frames)
+    _t.sleep(0.3)                       # a slow analysis: the second frame came in long before this
+    f, t = next(frames)
+    taken = _t.monotonic() - src.t_origin
+    assert f == 2 and t < 0.15 and taken > 0.25      # timed at its arrival, not when it was taken
+    src.release()

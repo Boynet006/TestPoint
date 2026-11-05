@@ -340,3 +340,14 @@ def test_a_test_video_plays_at_its_speed_while_the_analysis_takes_the_newest_fra
         threading.Event().wait(0.01)
     a.stop(); a.join(2)
     assert seen == [(0.0, False), (0.16, True)]   # the newest frame next, and the jump not lost
+
+
+def test_crossing_wall_time_is_the_interpolated_instant_not_the_analysis_time():
+    import time as _t
+
+    cam = FinishCam.__new__(FinishCam)
+    cam.t_origin = _t.monotonic() - 10.0      # frame time 0 was 10 s ago
+    wall = cam.wall_of(9.7)                   # the runner's feet crossed 0.3 s ago
+    assert abs((_t.time() - wall) - 0.3) < 0.02
+    cam.t_origin = None
+    assert abs(cam.wall_of(9.7) - _t.time()) < 0.02     # a video file: now, as before

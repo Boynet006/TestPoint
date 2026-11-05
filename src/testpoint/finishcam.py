@@ -259,8 +259,18 @@ class FinishCam:
         shots.append((t, crop.copy()))
         del shots[:-self.FACE_SNAPSHOTS]
 
+    t_origin: float | None = None
+    """``time.monotonic()`` of frame time 0 on a live camera (set by the frame loop): a crossing's
+    wall time is then its interpolated instant between the two frames around the line, as they
+    arrived from the camera, not when the analysis got to it. Without it (video files), now."""
+
+    def wall_of(self, t: float) -> float:
+        if self.t_origin is None:
+            return time.time()
+        return time.time() - max(0.0, time.monotonic() - (self.t_origin + t))
+
     def _crossing(self, ev: CrossEvent) -> Crossing | None:
-        wall = time.time()
+        wall = self.wall_of(ev.t)
         crops = self.reader.take(ev.track_id) if self.reader is not None else []
         heads = [crop for _t, crop in self._heads.pop(ev.track_id, [])]
         clip = None
@@ -492,6 +502,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         # realtime: a crossing in a video is reported when it happens on screen
         for frame, t in iter_frames(source, realtime=args.realtime):
+            if source.is_live:
+                cam.t_origin = getattr(source, "t_origin", None)
             if crop is not None:
                 h, w = frame.shape[:2]
                 frame = frame[int(crop[1] * h):int(crop[3] * h), int(crop[0] * w):int(crop[2] * w)]

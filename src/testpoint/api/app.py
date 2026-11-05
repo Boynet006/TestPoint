@@ -40,6 +40,7 @@ from sqlalchemy.orm import Session
 
 from .. import retention as R
 from . import journey as J
+from .light import FinishLight
 from . import service as S
 from .startline import Look, StartLine
 from .station import CHOICES, StationFlow, StationLook, next_event
@@ -156,6 +157,7 @@ class SettingsIn(BaseModel):
     count_tuning: dict[str, dict[str, float]] | None = None
     station_stop_after_s: int | None = Field(default=None, ge=0, le=120)
     station_out_s: int | None = Field(default=None, ge=0, le=30)
+    finish_shutter: Literal["auto", "1/1000", "1/500", "1/250"] | None = None
     go_effect: Literal["racing", "shockwave", "slam", "neon", "hyperspace", "fireworks", "off"] | None = None
     go_dim: int | None = Field(default=None, ge=0, le=100)
     go_size: int | None = Field(default=None, ge=50, le=150)
@@ -477,7 +479,9 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     @asynccontextmanager
     async def lifespan(_app):
         job = start_retention()      # defined below, with the evidence routes
+        finish_light.start()
         yield
+        finish_light.stop()
         if job is not None:
             job.cancel()
 
@@ -498,6 +502,25 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     _last_frame: dict[str, tuple[float, bytes]] = {}
     _frame_waiters: dict[str, asyncio.Event] = {}   # wakes the open streams when a new picture comes
     _streams: set[str] = set()                      # the live streams open now, by the key the page gave
+
+    def _finish_picture() -> bytes | None:
+        seen = _last_frame.get("finish")
+        return seen[1] if seen and clock() - seen[0] <= FRAME_STALE_S else None
+
+    def _finish_url() -> str | None:
+        with SessionLocal() as db:
+            return S.camera_urls(db).get("finish")
+
+    def _finish_mode() -> str:
+        with SessionLocal() as db:
+            return S.get_settings(db)["finish_shutter"]
+
+    def _anyone_running() -> bool:
+        with SessionLocal() as db:
+            return db.scalar(select(Entry.id).where(Entry.status == J.RUNNING).limit(1)) is not None
+
+    finish_light = FinishLight(_finish_picture, _finish_url, _finish_mode, _anyone_running)
+    """The finish camera's shutter following the light (light.py); its state in /api/cameras/light."""
     _watchers: dict[str, int] = {}                  # open live streams per camera: nobody watching, the camera sends 1 a second
     _frame_times: dict[str, deque] = {}             # arrival times of the latest pictures, for the picture rate
 
@@ -1139,6 +1162,11 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         now = clock()
         recent = [t for t in ts if now - t <= 2.0]
         return round(len(recent) / 2.0, 1) if recent else 0.0
+
+    @app.get("/api/cameras/light")
+    def cameras_light() -> dict:
+        """The finish camera's shutter now, and the picture's brightness and grain it is chosen from."""
+        return finish_light.status()
 
     @app.get("/api/engine/live")
     def engine_live() -> dict:

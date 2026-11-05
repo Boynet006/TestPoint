@@ -251,6 +251,7 @@ SETTINGS: dict[str, object] = {
     "finish_face_threshold": 0.0, # face match needed at the finish (0.30-0.60); 0 = automatic (normal while few are out)
     # display
     "site_name": "",             # shown in the header; empty = "Fitness examination station"
+    "finish_shutter": "auto",    # the finish camera's shutter: auto (as fast as the light allows), 1/1000, 1/500 or 1/250
     "go_effect": "racing",       # the full-screen GO: racing, shockwave, slam, neon, hyperspace, fireworks or off
     "go_dim": 60,                # how dark the screen goes behind GO, 0-100 %
     "go_size": 100,              # how big GO is drawn, 50-150 %

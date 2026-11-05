@@ -1502,6 +1502,13 @@
         <span class="hint" id="ipcStationNow"></span>
       </div>
       <div id="ipcMsg"></div>
+      <h3 class="sec" data-t="fs_title"></h3>
+      <p class="hint" data-t="fs_hint"></p>
+      <div class="settings wide">
+        <label for="setFinishShutter" data-t="fs_label"></label>
+        <select id="setFinishShutter"><option value="auto" data-t="fs_auto"></option><option value="1/1000">1/1000 s</option><option value="1/500">1/500 s</option><option value="1/250">1/250 s</option></select>
+        <span class="hint" id="fsNow"></span>
+      </div>
     </div>
     <div class="card setpanel" data-p="camerabg" data-scope="station">
       <h2 data-t="sec_camera_bg"></h2>
@@ -1725,6 +1732,8 @@ const I18N = {
     cs_webcam_d: "The device's or the PC's camera", cs_video_d: "A recorded video, for testing", cs_photo_d: "A still picture, for testing", cs_ipcam_d: "A network camera (its address below)",
     cs_one: "Keep at least one camera choice on each screen.", cs_na: "This screen cannot use this source",
     ipc_hint: "The IP cameras' addresses, saved on the station PC: rtsp://user:password@ip:554/Streaming/Channels/101. Screens never see the password; a camera screen whose IP camera box is left empty uses the address saved here. Type a dash (-) to remove one.",
+    fs_title: "Finish camera shutter", fs_hint: "Runners cross the line fast: a faster shutter keeps their face and body sharp, but needs more light. On Automatic the app uses the fastest shutter the light allows, morning to evening, indoors or out: it tries a faster one now and then and keeps it only if the picture stays as bright and clean. The start line and the exercise station stay at 1/250 s (people there stand still or move slowly).",
+    fs_label: "Shutter", fs_auto: "Automatic (follows the light)", fs_now: "Now {s} · brightness {b} · grain {n}", fs_trying: " · trying a faster shutter", fs_none: "No live picture from the finish camera yet.",
     sec_ipcams: "Cameras", sec_cameras: "Cameras", sec_camera_bg: "Camera background", ipc_title: "IP camera addresses",
     rc_run: "3.2 km run", rc_overall: "Overall", today_col: "Today", correct: "Correct", correct_title: "Correct or reset a result", reset_run: "Reset the run", reset_pushup: "Reset push-ups", reset_crunch: "Reset crunches", sure_reset_test: "Take it back? Press again", reset_done: "{name}: {test} reset, the test can be done again", correct_reason: "Reason (required)", correct_hint: "Change what is wrong: the grade and the result follow. The old and new values and the reason go in the audit log.", correct_bad_time: "The run time as m:ss (for example 15:42.5)", corrected: "{name}: result corrected",
     rc_pending: "to do",
@@ -2134,6 +2143,8 @@ const I18N = {
     cs_webcam_d: "كاميرا الجهاز أو الحاسوب", cs_video_d: "فيديو مسجّل للتجربة", cs_photo_d: "صورة ثابتة للتجربة", cs_ipcam_d: "كاميرا شبكة (عنوانها أدناه)",
     cs_one: "أبقِ خياراً واحداً للكاميرا على الأقل في كل شاشة.", cs_na: "هذه الشاشة لا تستخدم هذا المصدر",
     ipc_hint: "عناوين كاميرات IP محفوظة على جهاز المحطة: rtsp://user:password@ip:554/Streaming/Channels/101. لا تظهر كلمة المرور على أي شاشة؛ وإذا تُرك حقل كاميرا IP فارغاً تُستخدم العنوان المحفوظ هنا. اكتب (-) لحذف عنوان.",
+    fs_title: "سرعة غالق كاميرا خط النهاية", fs_hint: "يعبر المتسابقون الخط بسرعة: الغالق الأسرع يُبقي الوجه والجسم واضحين لكنه يحتاج إضاءة أكثر. في الوضع التلقائي يستخدم التطبيق أسرع غالق تسمح به الإضاءة صباحاً ومساءً، داخل المبنى أو خارجه: يجرّب غالقاً أسرع من حين لآخر ولا يُبقيه إلا إذا بقيت الصورة بنفس الإضاءة والنقاء. يبقى خط البداية ومحطة التمارين على 1/250 ثانية (الأشخاص هناك ثابتون أو يتحركون ببطء).",
+    fs_label: "الغالق", fs_auto: "تلقائي (يتبع الإضاءة)", fs_now: "الآن {s} · الإضاءة {b} · التشويش {n}", fs_trying: " · يجرّب غالقاً أسرع", fs_none: "لا توجد صورة مباشرة من كاميرا خط النهاية بعد.",
     sec_ipcams: "الكاميرات", sec_cameras: "الكاميرات", sec_camera_bg: "خلفية الكاميرا", ipc_title: "عناوين كاميرات IP",
     rc_run: "جري 3.2 كم", rc_overall: "المجموع", today_col: "اليوم", correct: "تصحيح", correct_title: "تصحيح نتيجة أو إعادة تعيينها", reset_run: "إعادة تعيين الجري", reset_pushup: "إعادة تعيين الضغط", reset_crunch: "إعادة تعيين البطن", sure_reset_test: "التراجع عنها؟ اضغط مرة أخرى", reset_done: "{name}: أُعيد تعيين {test}، يمكن إعادة الاختبار", correct_reason: "السبب (مطلوب)", correct_hint: "غيّر ما هو خطأ: الدرجة والنتيجة تتبعان. القيم القديمة والجديدة والسبب تُسجّل في سجل التدقيق.", correct_bad_time: "زمن الجري بصيغة د:ث (مثلاً 15:42.5)", corrected: "{name}: صُحّحت النتيجة",
     rc_pending: "متبقٍ",
@@ -6361,7 +6372,7 @@ const CamLive = {
 /* ============================== settings ============================== */
 // Station settings from the server (shared by every device); see service.SETTINGS.
 const SETTING_DEFAULTS = { auto_identify: true, camera_background: "off", camera_bg_places: ["weigh", "start", "photo"], backdrop_color: "#8a949e", background_image: null, face_match: "normal", face_required: false, face_fresh_min: 120, walk_ins: true, default_gender: "M", default_unit: "combat",
-                           bib_start: 1, lanes: 3, start_countdown_s: 3, cancel_window_s: 120, finish_face_threshold: 0, site_name: "", default_language: "en", theme: "night", admin_pin_set: false, go_effect: "racing", go_dim: 60, go_size: 100, go_speed: 100, go_duration: 1.7, go_lines: 100, go_lines_count: 220, go_lines_opacity: 100, go_opacity: 100 };
+                           bib_start: 1, lanes: 3, start_countdown_s: 3, cancel_window_s: 120, finish_face_threshold: 0, site_name: "", default_language: "en", theme: "night", admin_pin_set: false, finish_shutter: "auto", go_effect: "racing", go_dim: 60, go_size: 100, go_speed: 100, go_duration: 1.7, go_lines: 100, go_lines_count: 220, go_lines_opacity: 100, go_opacity: 100 };
 const setting = k => (S.settings && k in S.settings ? S.settings[k] : SETTING_DEFAULTS[k]);
 function applySettings(first) {
   if (first && load("lang", null) == null && setting("default_language") !== lang) setLang(setting("default_language"), false);
@@ -6664,7 +6675,7 @@ const SET_FIELDS = {   // input id -> [setting, read, write]
     setGoDur: ["go_duration", v => parseFloat(v), v => { const x = String(v ?? 1.7); $("setGoDurV").textContent = x + " s"; return x; }], setGoCount: ["go_lines_count", v => parseInt(v, 10), v => { const x = String(v ?? 220); $("setGoCountV").textContent = x; return x; }],
     setGoLineA: ["go_lines_opacity", v => parseInt(v, 10), v => { const x = String(v ?? 100); $("setGoLineAV").textContent = x + "%"; return x; }], setGoA: ["go_opacity", v => parseInt(v, 10), v => { const x = String(v ?? 100); $("setGoAV").textContent = x + "%"; return x; }], setGoLines: ["go_lines", v => parseInt(v, 10), v => { const x = String(v ?? 100); $("setGoLinesV").textContent = x + "%"; return x; }], setGoSize: ["go_size", v => parseInt(v, 10), v => { const x = String(v ?? 100); $("setGoSizeV").textContent = x + "%"; return x; }], setGoDim: ["go_dim", v => parseInt(v, 10), v => { const x = String(v ?? 60); $("setGoDimV").textContent = x + "%"; return x; }], setCancelWin: ["cancel_window_s", v => parseInt(v, 10), String], setFinishFace: ["finish_face_threshold", v => parseFloat(v) || 0, v => String(+v || 0)], setSite: ["site_name", v => v.trim()], setCamSrc: ["camera_sources", v => JSON.parse(v || "{}"), o => JSON.stringify(o || {})], setEvKeep: ["evidence_keep_days", v => parseInt(v, 10), String],
   setEvMax: ["evidence_max_gb", v => Math.max(0, parseFloat(v) || 0), v => String(+v || 0)], setEvFree: ["evidence_min_free_gb", v => Math.max(0, parseFloat(v) || 0), v => String(+v || 0)],
-  setEvHeld: ["evidence_held_days", v => (v ? v.split(",") : []), a => (a || []).slice().sort().join(",")], setTuning: ["count_tuning", v => JSON.parse(v || "{}"), o => JSON.stringify(o || {})], setTroubleRun: ["trouble_run_cutoff_s", v => parseInt(v, 10) || 0, String], setBgPlaces: ["camera_bg_places", v => (v ? v.split(",") : []), a => (a || []).join(",")], setLang: ["default_language"], setTheme: ["theme"],
+  setEvHeld: ["evidence_held_days", v => (v ? v.split(",") : []), a => (a || []).slice().sort().join(",")], setTuning: ["count_tuning", v => JSON.parse(v || "{}"), o => JSON.stringify(o || {})], setTroubleRun: ["trouble_run_cutoff_s", v => parseInt(v, 10) || 0, String], setBgPlaces: ["camera_bg_places", v => (v ? v.split(",") : []), a => (a || []).join(",")], setLang: ["default_language"], setTheme: ["theme"], setFinishShutter: ["finish_shutter"],
 };
 function showSettings() {
   for (const [id, [k, , out]] of Object.entries(SET_FIELDS)) $(id).value = out ? out(setting(k)) : setting(k);
@@ -6806,12 +6817,26 @@ const setAdminPin = v => { try { v ? sessionStorage.setItem("tp_admin_pin", v) :
 let settingsOpen = false;
 // ---- settings navigation: one section at a time, search across all of them, and a save bar
 // that appears only when a station setting differs from what is saved (and marks its section).
+const FinishLight = {   // Settings > Cameras: the finish camera's shutter now (src/testpoint/api/light.py)
+  timer: 0,
+  watch() { clearInterval(this.timer); this.show(); this.timer = setInterval(() => { if (SetNav.cur === "camera" && document.querySelector('#t-settings .setpanel[data-p="camera"].on')) this.show(); else clearInterval(this.timer); }, 5000); },
+  async show() {
+    let st = null;
+    try { st = await (await fetch("/api/cameras/light")).json(); } catch (e) { /* offline: leave it */ return; }
+    const el = $("fsNow"); if (!el) return;
+    el.textContent = st && st.shutter && st.brightness != null
+      ? t("fs_now").replace("{s}", st.shutter + " s").replace("{b}", st.brightness).replace("{n}", st.noise) + (st.trying ? t("fs_trying") : "")
+      : t("fs_none");
+  },
+};
+
 const SetNav = {
   cur: null, timer: 0,
   show(key) {
     if (key === "ipcams") key = "camera";   // merged into Cameras
     this.cur = document.querySelector(`#t-settings .setpanel[data-p="${key}"]`) ? key : "rules"; save("setPanel", this.cur);
     if (this.cur === "evidence") Evidence.load();
+    if (this.cur === "camera") FinishLight.watch();
     $("setSearch").value = ""; this.search(""); window.scrollTo(0, 0);
     document.querySelector(`#setNav button[data-p="${this.cur}"]`).scrollIntoView({ block: "nearest", inline: "nearest" });
   },
