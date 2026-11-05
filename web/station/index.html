@@ -342,6 +342,10 @@
   .camtile { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
   .camtile .ct-head { display: flex; align-items: center; gap: 8px; }
   .camtile .ct-head h2 { margin: 0; }
+  .camtile .ct-head { cursor: grab; touch-action: none; user-select: none; }
+  .camtile .ct-head::before { content: "⠿"; color: var(--muted); font-size: 18px; line-height: 1; }
+  .camtile.dragging { opacity: .45; }
+  .camtile.drop { outline: 2px dashed var(--amber); outline-offset: 3px; }
   .camtile .ct-pic { position: relative; background: #000; aspect-ratio: 16 / 9; display: grid; place-items: center; overflow: hidden; }
   /* the whole screen without scrolling (wide screens): two rows of tiles in the window's height, each
      picture taking what its tile has left, the last 3 recognised under it */
@@ -1822,7 +1826,7 @@ const I18N = {
     r_results: "Results", r_cameras: "Cameras",
     cw_start: "Start line", cw_finish: "Finish line", cw_exercise: "Exercise station", cw_weigh: "Weigh-in", cw_off: "No picture", cw_none: "Nobody recognised yet today.",
     cw_started: "started", cw_review: "to name", cw_refused: "refused", cw_ignored: "ignored", cw_discarded: "discarded", cw_finished: "finished",
-    cw_station_now: "Now: {who} · {what}", cw_idle: "Waiting for someone",
+    cw_station_now: "Now: {who} · {what}", cw_idle: "Waiting for someone", cw_drag: "Drag onto another camera to swap them",
     e_all_done: "Push-ups and crunches are both done",
     st_reset: "Reset",
     st_end: "End test", st_end_sure: "End it? Press again", st_end_hint: "The person cannot go on: the test ends now and the count so far is their result.",
@@ -2247,7 +2251,7 @@ const I18N = {
     r_results: "النتائج", r_cameras: "الكاميرات",
     cw_start: "خط البداية", cw_finish: "خط النهاية", cw_exercise: "محطة التمارين", cw_weigh: "الوزن", cw_off: "لا توجد صورة", cw_none: "لم يُتعرّف على أحد اليوم بعد.",
     cw_started: "انطلق", cw_review: "بحاجة إلى تسمية", cw_refused: "مرفوض", cw_ignored: "تم تجاهله", cw_discarded: "محذوف", cw_finished: "أنهى",
-    cw_station_now: "الآن: {who} · {what}", cw_idle: "بانتظار شخص",
+    cw_station_now: "الآن: {who} · {what}", cw_idle: "بانتظار شخص", cw_drag: "اسحب إلى كاميرا أخرى لتبديل مكانيهما",
     e_all_done: "أُنجز الضغط والبطن كلاهما",
     st_reset: "إعادة",
     st_end: "إنهاء الاختبار", st_end_sure: "إنهاء؟ اضغط مرة أخرى", st_end_hint: "لا يستطيع المتابعة: ينتهي الاختبار الآن ويُحتسب العدد حتى الآن نتيجةً له.",
@@ -5946,10 +5950,37 @@ const CamWall = {
     w.classList.toggle("fit", wide);
     w.style.height = wide ? Math.max(360, innerHeight - w.getBoundingClientRect().top - 14) + "px" : "";
   },
+  // the tiles' order, kept on this screen: drag a tile by its title onto another to swap them
+  order() {
+    let o = []; try { o = JSON.parse(load("camOrder", "[]")) || []; } catch { /* none */ }
+    const all = this.CAMS.map(c => c[0]);
+    return [...o.filter(s => all.includes(s)), ...all.filter(s => !o.includes(s))];
+  },
+  drag(e, st) {
+    if (e.button !== 0) return;
+    const tile = $("ct-" + st); let over = null;
+    tile.classList.add("dragging"); e.target.setPointerCapture?.(e.pointerId);
+    const move = ev => {
+      const el = document.elementFromPoint(ev.clientX, ev.clientY)?.closest(".camtile");
+      const target = el && el !== tile ? el : null;
+      if (target !== over) { over?.classList.remove("drop"); over = target; over?.classList.add("drop"); }
+    };
+    const up = ev => {
+      if (ev && ev.type === "pointerup") move(ev);          // where it was let go decides
+      removeEventListener("pointermove", move); removeEventListener("pointerup", up); removeEventListener("pointercancel", up);
+      tile.classList.remove("dragging"); over?.classList.remove("drop");
+      if (!over) return;
+      const o = this.order(), a = o.indexOf(st), b = o.indexOf(over.id.slice(3));
+      [o[a], o[b]] = [o[b], o[a]]; save("camOrder", JSON.stringify(o));
+      const w = $("camWall"); o.forEach(s => w.appendChild($("ct-" + s)));   // the same tiles moved: the live pictures go on
+    };
+    addEventListener("pointermove", move); addEventListener("pointerup", up); addEventListener("pointercancel", up);
+  },
   build() {
     if (this.built) return; this.built = true;
-    $("camWall").innerHTML = this.CAMS.map(([st, label]) => `<div class="card camtile" id="ct-${st}">`
-      + `<div class="ct-head"><h2 data-t="${label}">${esc(t(label))}</h2><span class="spacer"></span><span class="pill" id="ctl-${st}"></span></div>`
+    const by = Object.fromEntries(this.CAMS);
+    $("camWall").innerHTML = this.order().map(st => [st, by[st]]).map(([st, label]) => `<div class="card camtile" id="ct-${st}">`
+      + `<div class="ct-head" onpointerdown="CamWall.drag(event, '${st}')" title="${esc(t("cw_drag"))}"><h2 data-t="${label}">${esc(t(label))}</h2><span class="spacer"></span><span class="pill" id="ctl-${st}"></span></div>`
       + `<div class="ct-pic"><img alt="" id="cti-${st}" class="hidden"><span class="ct-off" id="cto-${st}">${esc(t("cw_off"))}</span></div>`
       + `<div class="ct-now" id="ctn-${st}"></div><table id="ctf-${st}"></table></div>`).join("");
   },
