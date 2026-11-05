@@ -37,7 +37,7 @@ needed for this step:
 
 ```
 .venv\Scripts\python.exe -m pip install torch safetensors onnx
-.venv\Scripts\python.exe scriptsuild_adaface.py
+.venv\Scripts\python.exe scripts\build_adaface.py
 ```
 
 Measured 2026-11-05 on LFW (13,233 faces) with the pictures shrunk and blurred as the finish camera
