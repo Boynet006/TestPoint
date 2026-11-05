@@ -158,6 +158,9 @@ class SettingsIn(BaseModel):
     station_out_s: int | None = Field(default=None, ge=0, le=30)
     go_effect: Literal["racing", "shockwave", "slam", "neon", "hyperspace", "fireworks", "off"] | None = None
     go_dim: int | None = Field(default=None, ge=0, le=100)
+    go_size: int | None = Field(default=None, ge=50, le=150)
+    go_speed: int | None = Field(default=None, ge=50, le=200)
+    go_duration: float | None = Field(default=None, ge=0.8, le=5.0)
     evidence_keep_days: int | None = Field(default=None, ge=0, le=3650)
     evidence_max_gb: float | None = Field(default=None, ge=0, le=100000)
     evidence_min_free_gb: float | None = Field(default=None, ge=0, le=10000)
