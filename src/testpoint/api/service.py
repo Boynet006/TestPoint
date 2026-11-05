@@ -252,6 +252,7 @@ SETTINGS: dict[str, object] = {
     # display
     "site_name": "",             # shown in the header; empty = "Fitness examination station"
     "go_effect": "racing",       # the full-screen GO: racing, shockwave, slam, neon, hyperspace, fireworks or off
+    "go_dim": 60,                # how dark the screen goes behind GO, 0-100 %
     "default_language": "en",    # a device that never chose a language: "en" or "ar"
     "trouble_run_cutoff_s": 0,
     "count_tuning": {},          # counting rules changed from the calibrated ones: {exercise: {rule: value}}   # troubleshooting: a short run cut-off in seconds instead of the rule's (0 = off)
