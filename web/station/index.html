@@ -485,6 +485,7 @@
   .grades td { font-size: 22px; font-weight: 700; }
   .grades .need { background: color-mix(in srgb, var(--go) 14%, transparent); color: var(--go); }
   .grades th small { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }
+  .gofx-h { font-family: var(--cond); font-size: 15px; letter-spacing: 2px; text-transform: uppercase; color: var(--amber); margin: 22px 0 6px; border-top: 1px solid var(--line); padding-top: 14px; }
   canvas.gofx { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 9999; pointer-events: none;
     margin: 0; padding: 0; border: 0; max-width: none; max-height: none; background: transparent; overflow: visible; }
   .grades .got { border-inline-start: 2px solid var(--line); color: var(--ink, inherit); white-space: nowrap; }
@@ -1347,6 +1348,7 @@
       <button type="button" data-p="camerabg" onclick="SetNav.show('camerabg')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span data-t="sec_camera_bg"></span><i class="dot"></i></button>
       <button type="button" data-p="evidence" onclick="SetNav.show('evidence')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8" cy="12" r="2.2"/><path d="M13 10h5M13 14h3"/></svg><span data-t="sec_evidence"></span><i class="dot"></i></button>
       <button type="button" data-p="look" onclick="SetNav.show('look')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="8" cy="10" r="1.3"/><circle cx="12" cy="7.5" r="1.3"/><circle cx="16" cy="10" r="1.3"/><path d="M12 21c-1.5 0-2-1-1.5-2.2.6-1.4 2-1.8 3.5-1.8H17"/></svg><span data-t="sec_look"></span><i class="dot"></i></button>
+<button type="button" data-p="gofx" onclick="SetNav.show('gofx')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg><span data-t="sec_gofx"></span><i class="dot"></i></button>
       <div class="grp" data-t="nav_device"></div>
       <button type="button" data-p="screen" onclick="SetNav.show('screen')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="1"/><path d="M8 20h8M12 16v4"/></svg><span data-t="sec_screen"></span><i class="dot"></i></button>
       <button type="button" data-p="sounds" onclick="SetNav.show('sounds')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg><span data-t="sec_sounds_nav"></span><i class="dot"></i></button>
@@ -1553,35 +1555,57 @@
       </div>
       <div id="evMsg"></div>
     </div>
+    <div class="card setpanel" data-p="gofx" data-scope="station">
+      <h2 data-t="sec_gofx"></h2>
+      <p class="hint" data-t="gofx_intro"></p>
+      <h3 class="gofx-h" data-t="gofx_g_effect"></h3>
+      <div class="settings">
+        <label for="setGoFx" data-t="set_gofx"></label>
+        <span class="row" style="gap:8px"><select id="setGoFx" onchange="GoFX.preview()"><option value="racing" data-t="gofx_racing"></option><option value="shockwave" data-t="gofx_shockwave"></option><option value="slam" data-t="gofx_slam"></option><option value="neon" data-t="gofx_neon"></option><option value="hyperspace" data-t="gofx_hyperspace"></option><option value="fireworks" data-t="gofx_fireworks"></option><option value="off" data-t="off"></option></select>
+          <button class="btn amber" type="button" onclick="GoFX.preview()" data-t="gofx_preview"></button></span>
+        <span class="hint" data-t="set_gofx_hint"></span>
+      </div>
+      <h3 class="gofx-h" data-t="gofx_g_word"></h3>
+      <div class="settings">
+        <label for="setGoSize" data-t="set_gosize"></label>
+        <span class="row" style="gap:10px"><input id="setGoSize" type="range" min="50" max="150" step="5" style="flex:1" oninput="$('setGoSizeV').textContent = this.value + '%'" onchange="GoFX.preview()"><b id="setGoSizeV" class="t"></b></span>
+        <span class="hint" data-t="set_gosize_hint"></span>
+        <label for="setGoA" data-t="set_goa"></label>
+        <span class="row" style="gap:10px"><input id="setGoA" type="range" min="0" max="100" step="5" style="flex:1" oninput="$('setGoAV').textContent = this.value + '%'" onchange="GoFX.preview()"><b id="setGoAV" class="t"></b></span>
+        <span class="hint" data-t="set_goa_hint"></span>
+      </div>
+      <h3 class="gofx-h" data-t="gofx_g_back"></h3>
+      <div class="settings">
+        <label for="setGoDim" data-t="set_godim"></label>
+        <span class="row" style="gap:10px"><input id="setGoDim" type="range" min="0" max="100" step="5" style="flex:1" oninput="$('setGoDimV').textContent = this.value + '%'" onchange="GoFX.preview()"><b id="setGoDimV" class="t"></b></span>
+        <span class="hint" data-t="set_godim_hint"></span>
+      </div>
+      <h3 class="gofx-h" data-t="gofx_g_lines"></h3>
+      <div class="settings">
+        <label for="setGoLines" data-t="set_golines"></label>
+        <span class="row" style="gap:10px"><input id="setGoLines" type="range" min="0" max="100" step="5" style="flex:1" oninput="$('setGoLinesV').textContent = this.value + '%'" onchange="GoFX.preview()"><b id="setGoLinesV" class="t"></b></span>
+        <span class="hint" data-t="set_golines_hint"></span>
+        <label for="setGoCount" data-t="set_gocount"></label>
+        <span class="row" style="gap:10px"><input id="setGoCount" type="range" min="10" max="400" step="10" style="flex:1" oninput="$('setGoCountV').textContent = this.value" onchange="GoFX.preview()"><b id="setGoCountV" class="t"></b></span>
+        <span class="hint" data-t="set_gocount_hint"></span>
+        <label for="setGoLineA" data-t="set_golinea"></label>
+        <span class="row" style="gap:10px"><input id="setGoLineA" type="range" min="0" max="100" step="5" style="flex:1" oninput="$('setGoLineAV').textContent = this.value + '%'" onchange="GoFX.preview()"><b id="setGoLineAV" class="t"></b></span>
+        <span class="hint" data-t="set_golinea_hint"></span>
+      </div>
+      <h3 class="gofx-h" data-t="gofx_g_time"></h3>
+      <div class="settings">
+        <label for="setGoSpeed" data-t="set_gospeed"></label>
+        <span class="row" style="gap:10px"><input id="setGoSpeed" type="range" min="50" max="200" step="10" style="flex:1" oninput="$('setGoSpeedV').textContent = this.value + '%'" onchange="GoFX.preview()"><b id="setGoSpeedV" class="t"></b></span>
+        <span class="hint" data-t="set_gospeed_hint"></span>
+        <label for="setGoDur" data-t="set_godur"></label>
+        <span class="row" style="gap:10px"><input id="setGoDur" type="range" min="0.1" max="5" step="0.1" style="flex:1" oninput="$('setGoDurV').textContent = this.value + ' s'" onchange="GoFX.preview()"><b id="setGoDurV" class="t"></b></span>
+        <span class="hint" data-t="set_godur_hint"></span>
+      </div>
+    </div>
     <div class="card setpanel" data-p="look" data-scope="station">
       <h2 data-t="sec_look"></h2>
       <p class="hint" data-t="settings_hint"></p>
 <div class="settings">
-        <label for="setGoFx" data-t="set_gofx"></label>
-        <span class="row" style="gap:8px"><select id="setGoFx"><option value="racing" data-t="gofx_racing"></option><option value="shockwave" data-t="gofx_shockwave"></option><option value="slam" data-t="gofx_slam"></option><option value="neon" data-t="gofx_neon"></option><option value="hyperspace" data-t="gofx_hyperspace"></option><option value="fireworks" data-t="gofx_fireworks"></option><option value="off" data-t="off"></option></select>
-          <button class="btn sm" type="button" onclick="GoFX.play($('setGoFx').value, undefined, +$('setGoDim').value, +$('setGoSize').value, +$('setGoSpeed').value, +$('setGoDur').value, +$('setGoLines').value, +$('setGoCount').value, +$('setGoLineA').value)" data-t="gofx_preview"></button></span>
-        <span class="hint" data-t="set_gofx_hint"></span>
-        <label for="setGoDim" data-t="set_godim"></label>
-        <span class="row" style="gap:10px"><input id="setGoDim" type="range" min="0" max="100" step="5" style="flex:1" oninput="$('setGoDimV').textContent = this.value + '%'"><b id="setGoDimV" class="t"></b></span>
-        <span class="hint" data-t="set_godim_hint"></span>
-        <label for="setGoSize" data-t="set_gosize"></label>
-        <span class="row" style="gap:10px"><input id="setGoSize" type="range" min="50" max="150" step="5" style="flex:1" oninput="$('setGoSizeV').textContent = this.value + '%'"><b id="setGoSizeV" class="t"></b></span>
-        <span class="hint" data-t="set_gosize_hint"></span>
-        <label for="setGoLines" data-t="set_golines"></label>
-        <span class="row" style="gap:10px"><input id="setGoLines" type="range" min="0" max="100" step="5" style="flex:1" oninput="$('setGoLinesV').textContent = this.value + '%'"><b id="setGoLinesV" class="t"></b></span>
-        <span class="hint" data-t="set_golines_hint"></span>
-        <label for="setGoCount" data-t="set_gocount"></label>
-        <span class="row" style="gap:10px"><input id="setGoCount" type="range" min="10" max="400" step="10" style="flex:1" oninput="$('setGoCountV').textContent = this.value"><b id="setGoCountV" class="t"></b></span>
-        <span class="hint" data-t="set_gocount_hint"></span>
-        <label for="setGoLineA" data-t="set_golinea"></label>
-        <span class="row" style="gap:10px"><input id="setGoLineA" type="range" min="0" max="100" step="5" style="flex:1" oninput="$('setGoLineAV').textContent = this.value + '%'"><b id="setGoLineAV" class="t"></b></span>
-        <span class="hint" data-t="set_golinea_hint"></span>
-        <label for="setGoSpeed" data-t="set_gospeed"></label>
-        <span class="row" style="gap:10px"><input id="setGoSpeed" type="range" min="50" max="200" step="10" style="flex:1" oninput="$('setGoSpeedV').textContent = this.value + '%'"><b id="setGoSpeedV" class="t"></b></span>
-        <span class="hint" data-t="set_gospeed_hint"></span>
-        <label for="setGoDur" data-t="set_godur"></label>
-        <span class="row" style="gap:10px"><input id="setGoDur" type="range" min="0.8" max="5" step="0.1" style="flex:1" oninput="$('setGoDurV').textContent = this.value + ' s'"><b id="setGoDurV" class="t"></b></span>
-        <span class="hint" data-t="set_godur_hint"></span>
         <label for="setSite" data-t="set_site"></label>
         <input id="setSite" maxlength="60" autocomplete="off">
         <span class="hint" data-t="set_site_hint"></span>
@@ -1738,7 +1762,7 @@ const I18N = {
     n_face_bib_disagree: "the bib read and the face disagree: the face looks like bib {bib}",
     call_timeout: "No hand raised: step onto the mark again",
     call_stepped_away: "The runner stepped away: step onto the mark again",
-    call_raise: "Raise a hand to start", set_gofx: "GO effect", set_godim: "GO background darkness", set_gosize: "GO size", set_golines: "GO lines area", set_gocount: "GO lines count", set_gocount_hint: "How many lines (speed streaks): fewer for a cleaner look.", set_golinea: "GO lines opacity", set_golinea_hint: "How strong the lines, rings and sparks are: 100% full, 0% invisible.", set_golines_hint: "How much of the screen the lines take (speed streaks, rings, bursts): 100% the whole screen, less a box around GO, 0% no lines.", set_gospeed: "GO speed", set_gospeed_hint: "How fast the effect moves: 100% as designed, 200% twice as fast.", set_godur: "GO duration", set_godur_hint: "How long GO stays on the screen, fading out at the end.", set_gosize_hint: "How big GO is drawn: 100% fills most of the screen height.", set_godim_hint: "How dark the screen goes behind GO: 0% the screen stays as it is, 100% black. Preview shows it.", set_gofx_hint: "Shown full screen at GO on the start line and when a station test starts.", gofx_preview: "Preview", gofx_racing: "Racing", gofx_shockwave: "Shockwave", gofx_slam: "Slam", gofx_neon: "Neon", gofx_hyperspace: "Hyperspace", gofx_fireworks: "Fireworks", call_go_line: "GO! Your time starts when you cross the line", call_behind_line: "Step back behind the line", call_false_start: "False start: over the line before GO. Step back behind the line", sl_setup: "Start line set-up", sl_setup_hint: "Colour key, line position, runners' direction.", sl_box_mark: "the runner at the mark", sl_box_hand: "a hand raised", sl_box_line: "the start line (red while a foot is over it)", sl_on: "Start line", sl_on_hint: "On: no hand to raise. Recognised behind the line, the runner sees GO and their clock starts the moment they cross it. Off: a raised hand gives GO.", sl_line: "Line position", sl_line_hint: "The white line on the picture: put it on the floor where the runners' toes go. It turns red when someone is over it.", sl_dir: "Running direction", sl_dir_down: "Towards the camera (down the picture)", sl_dir_up: "Away from the camera (up the picture)", sl_dir_hint: "Which side of the line is the course",
+    call_raise: "Raise a hand to start", set_gofx: "Effect", set_godim: "Darkness", set_gosize: "Size", set_goa: "Opacity", set_goa_hint: "How solid the word GO is: 100% full, lower lets the screen show through.", set_golines: "Area", set_gocount: "Count", set_gocount_hint: "How many lines (speed streaks): fewer for a cleaner look.", set_golinea: "Opacity", set_golinea_hint: "How strong the lines, rings and sparks are: 100% full, 0% invisible.", set_golines_hint: "How much of the screen the lines take (speed streaks, rings, bursts): 100% the whole screen, less a box around GO, 0% no lines.", set_gospeed: "Speed", set_gospeed_hint: "How fast the effect moves: 100% as designed, 200% twice as fast.", set_godur: "Duration", set_godur_hint: "How long GO stays on the screen, fading out at the end.", set_gosize_hint: "How big GO is drawn: 100% fills most of the screen height.", set_godim_hint: "How dark the screen goes behind GO: 0% the screen stays as it is, 100% black. Preview shows it.", set_gofx_hint: "Shown full screen at GO on the start line and when a station test starts.", gofx_preview: "Preview", gofx_racing: "Racing", sec_gofx: "GO effect", gofx_intro: "The full-screen GO on the start line and when a station test starts. Let go of a slider to see it; Save settings keeps it on every device.", gofx_g_effect: "Effect", gofx_g_word: "The word GO", gofx_g_back: "Background", gofx_g_lines: "Lines", gofx_g_time: "Timing", gofx_shockwave: "Shockwave", gofx_slam: "Slam", gofx_neon: "Neon", gofx_hyperspace: "Hyperspace", gofx_fireworks: "Fireworks", call_go_line: "GO! Your time starts when you cross the line", call_behind_line: "Step back behind the line", call_false_start: "False start: over the line before GO. Step back behind the line", sl_setup: "Start line set-up", sl_setup_hint: "Colour key, line position, runners' direction.", sl_box_mark: "the runner at the mark", sl_box_hand: "a hand raised", sl_box_line: "the start line (red while a foot is over it)", sl_on: "Start line", sl_on_hint: "On: no hand to raise. Recognised behind the line, the runner sees GO and their clock starts the moment they cross it. Off: a raised hand gives GO.", sl_line: "Line position", sl_line_hint: "The white line on the picture: put it on the floor where the runners' toes go. It turns red when someone is over it.", sl_dir: "Running direction", sl_dir_down: "Towards the camera (down the picture)", sl_dir_up: "Away from the camera (up the picture)", sl_dir_hint: "Which side of the line is the course",
     call_no_camera: "The start camera is not sending: check it below",
     call_step_up: "Step onto the mark and look at the camera",
     e_low_quality: "The photo is not good enough to recognise them by later (blurred, dark or too small): take another",
@@ -2147,7 +2171,7 @@ const I18N = {
     n_face_bib_disagree: "الرقم المقروء والوجه لا يتطابقان: الوجه يشبه الرقم {bib}",
     call_timeout: "لم تُرفع اليد: قف على العلامة مجدداً",
     call_stepped_away: "ابتعد العدّاء: قف على العلامة مجدداً",
-    call_raise: "ارفع يدك للبدء", set_gofx: "تأثير الانطلاق", set_godim: "عتمة الخلفية عند الانطلاق", set_gosize: "حجم إشارة الانطلاق", set_golines: "مساحة الخطوط", set_gocount: "عدد الخطوط", set_gocount_hint: "عدد الخطوط (خطوط السرعة): أقل لمظهر أنظف.", set_golinea: "شفافية الخطوط", set_golinea_hint: "قوة الخطوط والحلقات والشرر: 100% كاملة، 0% غير مرئية.", set_golines_hint: "كم تأخذ الخطوط من الشاشة (خطوط السرعة، الحلقات، الانفجارات): 100% الشاشة كلها، أقل منطقة حول الكلمة، 0% بلا خطوط.", set_gospeed: "سرعة التأثير", set_gospeed_hint: "سرعة حركة التأثير: 100% كما صُمم، 200% أسرع بمرتين.", set_godur: "مدة إشارة الانطلاق", set_godur_hint: "مدة بقاء إشارة الانطلاق على الشاشة، مع تلاشيها في النهاية.", set_gosize_hint: "حجم كلمة الانطلاق: 100% تملأ معظم ارتفاع الشاشة.", set_godim_hint: "مدى إعتام الشاشة خلف إشارة الانطلاق: 0% تبقى الشاشة كما هي، 100% سوداء. المعاينة تعرضه.", set_gofx_hint: "يظهر بملء الشاشة عند الانطلاق في خط البداية وعند بدء اختبار في المحطة.", gofx_preview: "معاينة", gofx_racing: "سباق", gofx_shockwave: "موجة صدمة", gofx_slam: "ارتطام", gofx_neon: "نيون", gofx_hyperspace: "سرعة الضوء", gofx_fireworks: "ألعاب نارية", call_go_line: "انطلق! يبدأ وقتك عند عبورك الخط", call_behind_line: "ارجع خلف الخط", call_false_start: "بداية خاطئة: تجاوز الخط قبل الانطلاق. ارجع خلف الخط", sl_setup: "إعداد خط البداية", sl_setup_hint: "دليل الألوان، موضع الخط، اتجاه العدّائين.", sl_box_mark: "العدّاء عند العلامة", sl_box_hand: "يد مرفوعة", sl_box_line: "خط البداية (أحمر عند تجاوز قدم له)", sl_on: "خط البداية", sl_on_hint: "مفعّل: لا حاجة لرفع اليد. عند التعرّف عليه خلف الخط يرى العدّاء إشارة الانطلاق ويبدأ وقته لحظة عبوره. متوقف: رفع اليد يعطي الانطلاق.", sl_line: "موضع الخط", sl_line_hint: "الخط الأبيض على الصورة: ضعه على الأرض حيث تكون أصابع قدمي العدّاء. يصبح أحمر عند تجاوزه.", sl_dir: "اتجاه الجري", sl_dir_down: "نحو الكاميرا (إلى أسفل الصورة)", sl_dir_up: "بعيداً عن الكاميرا (إلى أعلى الصورة)", sl_dir_hint: "أي جانب من الخط هو المسار",
+    call_raise: "ارفع يدك للبدء", set_gofx: "التأثير", set_godim: "العتمة", set_gosize: "الحجم", set_goa: "الشفافية", set_goa_hint: "مدى وضوح كلمة الانطلاق: 100% كاملة، أقل تظهر الشاشة من خلالها.", set_golines: "المساحة", set_gocount: "العدد", set_gocount_hint: "عدد الخطوط (خطوط السرعة): أقل لمظهر أنظف.", set_golinea: "الشفافية", set_golinea_hint: "قوة الخطوط والحلقات والشرر: 100% كاملة، 0% غير مرئية.", set_golines_hint: "كم تأخذ الخطوط من الشاشة (خطوط السرعة، الحلقات، الانفجارات): 100% الشاشة كلها، أقل منطقة حول الكلمة، 0% بلا خطوط.", set_gospeed: "السرعة", set_gospeed_hint: "سرعة حركة التأثير: 100% كما صُمم، 200% أسرع بمرتين.", set_godur: "المدة", set_godur_hint: "مدة بقاء إشارة الانطلاق على الشاشة، مع تلاشيها في النهاية.", set_gosize_hint: "حجم كلمة الانطلاق: 100% تملأ معظم ارتفاع الشاشة.", set_godim_hint: "مدى إعتام الشاشة خلف إشارة الانطلاق: 0% تبقى الشاشة كما هي، 100% سوداء. المعاينة تعرضه.", set_gofx_hint: "يظهر بملء الشاشة عند الانطلاق في خط البداية وعند بدء اختبار في المحطة.", gofx_preview: "معاينة", gofx_racing: "سباق", sec_gofx: "تأثير الانطلاق", gofx_intro: "إشارة الانطلاق بملء الشاشة في خط البداية وعند بدء اختبار في المحطة. اترك المؤشر لترى التغيير؛ حفظ الإعدادات يعتمده على كل الأجهزة.", gofx_g_effect: "التأثير", gofx_g_word: "كلمة الانطلاق", gofx_g_back: "الخلفية", gofx_g_lines: "الخطوط", gofx_g_time: "التوقيت", gofx_shockwave: "موجة صدمة", gofx_slam: "ارتطام", gofx_neon: "نيون", gofx_hyperspace: "سرعة الضوء", gofx_fireworks: "ألعاب نارية", call_go_line: "انطلق! يبدأ وقتك عند عبورك الخط", call_behind_line: "ارجع خلف الخط", call_false_start: "بداية خاطئة: تجاوز الخط قبل الانطلاق. ارجع خلف الخط", sl_setup: "إعداد خط البداية", sl_setup_hint: "دليل الألوان، موضع الخط، اتجاه العدّائين.", sl_box_mark: "العدّاء عند العلامة", sl_box_hand: "يد مرفوعة", sl_box_line: "خط البداية (أحمر عند تجاوز قدم له)", sl_on: "خط البداية", sl_on_hint: "مفعّل: لا حاجة لرفع اليد. عند التعرّف عليه خلف الخط يرى العدّاء إشارة الانطلاق ويبدأ وقته لحظة عبوره. متوقف: رفع اليد يعطي الانطلاق.", sl_line: "موضع الخط", sl_line_hint: "الخط الأبيض على الصورة: ضعه على الأرض حيث تكون أصابع قدمي العدّاء. يصبح أحمر عند تجاوزه.", sl_dir: "اتجاه الجري", sl_dir_down: "نحو الكاميرا (إلى أسفل الصورة)", sl_dir_up: "بعيداً عن الكاميرا (إلى أعلى الصورة)", sl_dir_hint: "أي جانب من الخط هو المسار",
     call_no_camera: "كاميرا البداية لا ترسل: تحقق منها أدناه",
     call_step_up: "قف على العلامة وانظر إلى الكاميرا",
     e_low_quality: "?????? ??? ????? ?????? ???? ?????? (??? ????? ?? ????? ?? ?????): ????? ???? ????",
@@ -4211,10 +4235,17 @@ const FinishCam = {
 // station when a test starts. "Reduce motion" on the device: a plain fade.
 const GoFX = {
   KINDS: ["racing", "shockwave", "slam", "neon", "hyperspace", "fireworks", "off"],
+  // Settings > GO effect: plays with what the page shows now (each slider calls it when let go)
+  preview() {
+    const v = id => +$(id).value;
+    this.playing = false; document.querySelectorAll("canvas.gofx").forEach(c => c.remove());
+    this.play($("setGoFx").value === "off" ? "racing" : $("setGoFx").value, undefined, v("setGoDim"), v("setGoSize"), v("setGoSpeed"),
+              v("setGoDur"), v("setGoLines"), v("setGoCount"), v("setGoLineA"), v("setGoA"));
+  },
   playing: false,
   play(kind = setting("go_effect") || "racing", text = t("go"), dim = setting("go_dim") ?? 60, size = setting("go_size") ?? 100,
        speed = setting("go_speed") ?? 100, secs = setting("go_duration") ?? 1.7, lines = setting("go_lines") ?? 100,
-       count = setting("go_lines_count") ?? 220, lineAlpha = setting("go_lines_opacity") ?? 100) {
+       count = setting("go_lines_count") ?? 220, lineAlpha = setting("go_lines_opacity") ?? 100, goAlpha = setting("go_opacity") ?? 100) {
     if (kind === "off" || this.playing || document.hidden) return;
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) kind = "fade";
     this.playing = true;
@@ -4232,8 +4263,9 @@ const GoFX = {
     // the lines: how many (GO lines count) and how strong (GO lines opacity), Settings
     const stars = Array.from({ length: Math.max(0, Math.min(400, Math.round(+count || 0))) }, () => ({ a: rnd(0, 6.283), r: rnd(0, 40), v: rnd(.6, 1.6) }));
     const LO = Math.max(0, Math.min(100, +lineAlpha)) / 100;
+    const GA = Math.max(0, Math.min(100, +goAlpha)) / 100;          // how solid GO itself is (GO opacity)
     const word = (s, alpha, col, glow, dx = 0, dy = 0, stroke) => {
-      g.save(); g.globalAlpha = Math.max(0, Math.min(1, alpha)); g.font = font(s); g.textAlign = "center"; g.textBaseline = "middle";
+      g.save(); g.globalAlpha = Math.max(0, Math.min(1, alpha)) * GA; g.font = font(s); g.textAlign = "center"; g.textBaseline = "middle";
       if (glow) { g.shadowColor = col; g.shadowBlur = glow; }
       g.fillStyle = col; g.fillText(text, cx + dx, cy + dy);
       if (stroke) { g.shadowBlur = 0; g.lineWidth = Math.max(2, s / 40); g.strokeStyle = stroke; g.strokeText(text, cx + dx, cy + dy); }
@@ -4248,7 +4280,7 @@ const GoFX = {
     const inArea = draw => { if (LA <= 0) return; g.save(); g.beginPath(); g.rect(cx - LW / 2, cy - LH / 2, LW, LH); g.clip(); draw(); g.restore(); };
     // how long it stays (Settings: GO duration) and how fast it moves (GO speed): the animation's
     // clock runs at the speed, the whole effect lasts the duration and fades out in its last fifth
-    const dur = Math.max(.5, Math.min(6, +secs || 1.7)) * 1000, SP = Math.max(.25, Math.min(3, (+speed || 100) / 100));
+    const dur = Math.max(.1, Math.min(6, +secs || 1.7)) * 1000, SP = Math.max(.25, Math.min(3, (+speed || 100) / 100));
     let t0 = null, popped = false;
     const frame = now => {
       t0 = t0 ?? now; const t = (now - t0) / dur, ms = (now - t0) * SP;
@@ -6302,7 +6334,7 @@ const CamLive = {
 /* ============================== settings ============================== */
 // Station settings from the server (shared by every device); see service.SETTINGS.
 const SETTING_DEFAULTS = { auto_identify: true, camera_background: "off", camera_bg_places: ["weigh", "start", "photo"], backdrop_color: "#8a949e", background_image: null, face_match: "normal", face_required: false, face_fresh_min: 120, walk_ins: true, default_gender: "M", default_unit: "combat",
-                           bib_start: 1, lanes: 3, start_countdown_s: 3, cancel_window_s: 120, finish_face_threshold: 0, site_name: "", default_language: "en", theme: "night", admin_pin_set: false, go_effect: "racing", go_dim: 60, go_size: 100, go_speed: 100, go_duration: 1.7, go_lines: 100, go_lines_count: 220, go_lines_opacity: 100 };
+                           bib_start: 1, lanes: 3, start_countdown_s: 3, cancel_window_s: 120, finish_face_threshold: 0, site_name: "", default_language: "en", theme: "night", admin_pin_set: false, go_effect: "racing", go_dim: 60, go_size: 100, go_speed: 100, go_duration: 1.7, go_lines: 100, go_lines_count: 220, go_lines_opacity: 100, go_opacity: 100 };
 const setting = k => (S.settings && k in S.settings ? S.settings[k] : SETTING_DEFAULTS[k]);
 function applySettings(first) {
   if (first && load("lang", null) == null && setting("default_language") !== lang) setLang(setting("default_language"), false);
@@ -6603,7 +6635,7 @@ const SET_FIELDS = {   // input id -> [setting, read, write]
   setLanes: ["lanes", v => parseInt(v, 10), String], setStopAfter: ["station_stop_after_s", v => parseInt(v, 10) || 0, String], setOutS: ["station_out_s", v => parseInt(v, 10) || 0, String],
   setCountdown: ["start_countdown_s", v => parseInt(v, 10), String], setGoFx: ["go_effect"], setGoSpeed: ["go_speed", v => parseInt(v, 10), v => { const x = String(v ?? 100); $("setGoSpeedV").textContent = x + "%"; return x; }],
     setGoDur: ["go_duration", v => parseFloat(v), v => { const x = String(v ?? 1.7); $("setGoDurV").textContent = x + " s"; return x; }], setGoCount: ["go_lines_count", v => parseInt(v, 10), v => { const x = String(v ?? 220); $("setGoCountV").textContent = x; return x; }],
-    setGoLineA: ["go_lines_opacity", v => parseInt(v, 10), v => { const x = String(v ?? 100); $("setGoLineAV").textContent = x + "%"; return x; }], setGoLines: ["go_lines", v => parseInt(v, 10), v => { const x = String(v ?? 100); $("setGoLinesV").textContent = x + "%"; return x; }], setGoSize: ["go_size", v => parseInt(v, 10), v => { const x = String(v ?? 100); $("setGoSizeV").textContent = x + "%"; return x; }], setGoDim: ["go_dim", v => parseInt(v, 10), v => { const x = String(v ?? 60); $("setGoDimV").textContent = x + "%"; return x; }], setCancelWin: ["cancel_window_s", v => parseInt(v, 10), String], setFinishFace: ["finish_face_threshold", v => parseFloat(v) || 0, v => String(+v || 0)], setSite: ["site_name", v => v.trim()], setCamSrc: ["camera_sources", v => JSON.parse(v || "{}"), o => JSON.stringify(o || {})], setEvKeep: ["evidence_keep_days", v => parseInt(v, 10), String],
+    setGoLineA: ["go_lines_opacity", v => parseInt(v, 10), v => { const x = String(v ?? 100); $("setGoLineAV").textContent = x + "%"; return x; }], setGoA: ["go_opacity", v => parseInt(v, 10), v => { const x = String(v ?? 100); $("setGoAV").textContent = x + "%"; return x; }], setGoLines: ["go_lines", v => parseInt(v, 10), v => { const x = String(v ?? 100); $("setGoLinesV").textContent = x + "%"; return x; }], setGoSize: ["go_size", v => parseInt(v, 10), v => { const x = String(v ?? 100); $("setGoSizeV").textContent = x + "%"; return x; }], setGoDim: ["go_dim", v => parseInt(v, 10), v => { const x = String(v ?? 60); $("setGoDimV").textContent = x + "%"; return x; }], setCancelWin: ["cancel_window_s", v => parseInt(v, 10), String], setFinishFace: ["finish_face_threshold", v => parseFloat(v) || 0, v => String(+v || 0)], setSite: ["site_name", v => v.trim()], setCamSrc: ["camera_sources", v => JSON.parse(v || "{}"), o => JSON.stringify(o || {})], setEvKeep: ["evidence_keep_days", v => parseInt(v, 10), String],
   setEvMax: ["evidence_max_gb", v => Math.max(0, parseFloat(v) || 0), v => String(+v || 0)], setEvFree: ["evidence_min_free_gb", v => Math.max(0, parseFloat(v) || 0), v => String(+v || 0)],
   setEvHeld: ["evidence_held_days", v => (v ? v.split(",") : []), a => (a || []).slice().sort().join(",")], setTuning: ["count_tuning", v => JSON.parse(v || "{}"), o => JSON.stringify(o || {})], setTroubleRun: ["trouble_run_cutoff_s", v => parseInt(v, 10) || 0, String], setBgPlaces: ["camera_bg_places", v => (v ? v.split(",") : []), a => (a || []).join(",")], setLang: ["default_language"], setTheme: ["theme"],
 };

@@ -255,7 +255,8 @@ SETTINGS: dict[str, object] = {
     "go_dim": 60,                # how dark the screen goes behind GO, 0-100 %
     "go_size": 100,              # how big GO is drawn, 50-150 %
     "go_speed": 100,             # how fast the GO effect moves, 50-200 %
-    "go_duration": 1.7,          # how long GO stays on the screen, 0.8-5 s
+    "go_duration": 1.7,          # how long GO stays on the screen, 0.1-5 s
+    "go_opacity": 100,           # how solid the word GO is, 0-100 %
     "go_lines": 100,             # how much of the screen the GO effect's lines take, 0-100 %
     "go_lines_count": 220,       # how many lines, 10-400
     "go_lines_opacity": 100,     # how strong the lines, rings and sparks are, 0-100 %
