@@ -162,7 +162,7 @@ class SettingsIn(BaseModel):
     station_out_s: int | None = Field(default=None, ge=0, le=30)
     finish_shutter: Literal["auto", "1/1000", "1/500", "1/250"] | None = None
     go_styles: dict[Literal["start", "pushup", "crunch", "finish"], dict[Literal["effect", "dim", "size", "speed", "duration", "lines", "lines_count", "lines_opacity", "opacity"], float | str]] | None = None
-    go_effect: Literal["racing", "scoreboard", "shockwave", "slam", "neon", "hyperspace", "fireworks", "off"] | None = None
+    go_effect: Literal["racing", "racing2", "scoreboard", "shockwave", "slam", "neon", "hyperspace", "fireworks", "off"] | None = None
     go_dim: int | None = Field(default=None, ge=0, le=100)
     go_size: int | None = Field(default=None, ge=50, le=150)
     go_speed: int | None = Field(default=None, ge=50, le=200)
@@ -383,7 +383,7 @@ class EngineLaneIn(BaseModel):
     ready: bool = False
     out: bool = False
     """Seen, but not in the exercise's posture (standing, sitting up, kneeling)."""
-    face: str | None = Field(default=None, max_length=2000)
+    face: str | None = Field(default=None, max_length=4000)
     hand: list[float] | None = Field(default=None, min_length=2, max_length=2)
     """Where a raised hand points on the screen (0..1 each): choosing the first test."""
 
@@ -434,8 +434,8 @@ class StartObsIn(BaseModel):
     """What the start-line camera sees at the mark (testpoint.startcam), a few times a second."""
     present: bool
     hand: Literal["left", "right", "both"] | None = None
-    emb: str | None = Field(default=None, max_length=2000)
-    """The face embedding (128 float32, base64) when a face was looked at in this frame."""
+    emb: str | None = Field(default=None, max_length=4000)
+    """The face embedding (128 float32 SFace or 512 AdaFace, base64) when a face was looked at in this frame."""
     quality: float | None = None
     over: bool = False
     """With a start line: the person at the mark has a foot over it."""

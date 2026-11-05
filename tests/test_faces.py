@@ -417,3 +417,12 @@ def test_templates_of_another_model_are_made_again_from_their_photo():
         sizes = sorted(len(t.embedding) for t in db.scalars(select(models.FaceTemplate)))
         assert sizes == [512, 2048, 2048]
         assert S.reembed_templates(db, Eng()) == (0, 1)                      # once
+
+
+def test_a_512_float_face_vector_fits_the_camera_reports():
+    import base64
+    from testpoint.api.app import EngineLaneIn, StartObsIn
+    emb = base64.b64encode(np.zeros(512, np.float32).tobytes()).decode()
+    for model, field in ((StartObsIn, "emb"), (EngineLaneIn, "face")):
+        limit = next(m.max_length for m in model.model_fields[field].metadata if hasattr(m, "max_length"))
+        assert limit >= len(emb), model.__name__
