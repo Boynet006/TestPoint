@@ -73,8 +73,10 @@ a new address changes nothing. The certificate must carry the name: `scripts\htt
 - **Camera picture quality** (set in each camera, not in the app): main stream 2688x1520, 25 fps,
   H.264 High, constant bitrate 8192 kbps (their maximum). Set on all three on 2026-11-05.
 - **Camera image** (2026-11-05, measured sharpness 4x start, 1.8x finish, 7x station): WDR off on all
-  three (indoors, even light); shutter 1/250 s on the start and station cameras, 1/1000 s at the finish
-  (runners); a one-push focus on each once it is in its final place. Refocus after moving a camera.
+  three (indoors, even light); shutter 1/250 s and stream smoothing 30 on all three (matched);
+  day/night on automatic on all three (the finish was stuck in night mode: black and white);
+  a one-push focus on each once it is in its final place. Refocus after moving a camera.
+  For fast runners at the finish, 1/500-1/1000 s gives less blur but a darker picture indoors.
 - **People:** the database starts empty; register candidates again (fresh face photos each day).
 - **Lines:** the finish and start line positions are kept per browser: set them again on the
   finish and start line screens (Line set-up).
