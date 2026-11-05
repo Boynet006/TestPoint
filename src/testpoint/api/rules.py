@@ -90,6 +90,31 @@ class DayRules:
                    if (value <= need if test == "run" else value >= need)]
         return max(reached, default=0)
 
+    def percent(self, test: str, value: float, band: AgeBand) -> float:
+        """The exact percentage of a result (decided 2026-11-04): on the straight line between the
+        table's columns (60, 70, 100), at most 100; below the 60 % column in proportion to it (half
+        the 60 % count scores 30 %; for the run, a time twice the 60 % time scores 30 %)."""
+        n60, n70, n100 = band.needs(test)
+        if test == "run":                      # faster is better
+            if value <= n100:
+                p = 100.0
+            elif value <= n70:
+                p = 70 + 30 * (n70 - value) / max(n70 - n100, 1e-9)
+            elif value <= n60:
+                p = 60 + 10 * (n60 - value) / max(n60 - n70, 1e-9)
+            else:
+                p = 60 * n60 / value if value > 0 else 0.0
+        else:
+            if value >= n100:
+                p = 100.0
+            elif value >= n70:
+                p = 70 + 30 * (value - n70) / max(n100 - n70, 1e-9)
+            elif value >= n60:
+                p = 60 + 10 * (value - n60) / max(n70 - n60, 1e-9)
+            else:
+                p = 60 * max(value, 0) / n60 if n60 > 0 else 0.0
+        return round(min(100.0, max(0.0, p)), 1)
+
     def level(self, unit: str | None) -> int:
         return int(self.unit_level.get(unit or "", min(self.unit_level.values())))
 

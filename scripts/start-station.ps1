@@ -34,10 +34,10 @@ if (-not (Up "http://127.0.0.1:8099/health")) {
 }
 for ($i = 0; $i -lt 60 -and -not (Up "https://127.0.0.1:8000/api/settings"); $i++) { Start-Sleep 1 }
 
-# The address the screens were set up on (their saved settings belong to it); this PC's own name
-# when it is not on the camera network.
-$ip = (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { $_.IPAddress -eq "192.168.250.149" }).IPAddress
-$url = if ($ip) { "https://$($ip):8000/ui/" } else { "https://localhost:8000/ui/" }
+# By this PC's name, never its address: the address changes (DHCP, offline mode: scripts\network.ps1)
+# and the screens' saved settings belong to the address they were opened by. The certificate
+# carries the name (scripts\https-cert.ps1).
+$url = "https://$($env:COMPUTERNAME.ToLower()):8000/ui/"
 $chrome = @("$env:ProgramFiles\Google\Chrome\Application\chrome.exe", "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe",
             "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
 if ($chrome) { Start-Process $chrome $url } else { Start-Process $url }

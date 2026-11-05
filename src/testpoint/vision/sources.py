@@ -249,6 +249,10 @@ class LatestFrame:
         """Called on the reader thread with every frame the camera sends (the live picture);
         must be quick and must not keep the thread waiting."""
         self._frame = None
+        self._stamp = 0.0
+        self.last_stamp: float | None = None
+        """``time.monotonic()`` when the frame last returned by ``read()`` arrived from the camera:
+        its real time, however long it then waited for the analysis (fair finish times)."""
         self._seq = 0
         self._given = 0
         self._error: Exception | None = None
@@ -278,7 +282,7 @@ class LatestFrame:
                     return
                 if self._seq > self._given:
                     self.dropped += 1       # the previous newest was never taken
-                self._frame, self._seq = frame, self._seq + 1
+                self._frame, self._stamp, self._seq = frame, time.monotonic(), self._seq + 1
                 self._cv.notify_all()
             tap = self.on_frame
             if tap is not None:
@@ -292,6 +296,7 @@ class LatestFrame:
             self._cv.wait_for(lambda: self._seq > self._given or self._done)
             if self._seq > self._given:
                 self._given = self._seq
+                self.last_stamp = self._stamp
                 return self._frame
             if self._error is not None:
                 raise self._error
@@ -541,6 +546,10 @@ def iter_frames(source, clock: Callable[[], float] = time.monotonic, realtime: b
     fps = source.fps or 30.0
     t0 = clock()
     idx = 0
+    try:
+        source.t_origin = t0 if clock is time.monotonic else None
+    except AttributeError:
+        pass
     pace = realtime and not source.is_live and not getattr(source, "paced", False)
     while True:
         if pace:
@@ -555,5 +564,11 @@ def iter_frames(source, clock: Callable[[], float] = time.monotonic, realtime: b
         frame = source.read()
         if frame is None:
             return
-        yield frame, (clock() - t0 if source.is_live else idx / fps)
+        if source.is_live:
+            stamp = getattr(source, "last_stamp", None)
+            # a live frame is stamped when it arrived, not when the analysis took it
+            t = (stamp if stamp is not None and clock is time.monotonic else clock()) - t0
+        else:
+            t = idx / fps
+        yield frame, t
         idx += 1

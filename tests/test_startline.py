@@ -108,21 +108,26 @@ def test_over_the_start_line_before_go_is_a_false_start():
     assert s.observe(4.2, Look(True, None, None, over=True)) == [] and s.state == "started"
 
 
-def test_with_a_start_line_the_clock_starts_when_the_runner_crosses_it():
-    s = StartLine(countdown_s=0.0)
+def test_with_a_start_line_no_hand_the_clock_starts_at_the_crossing():
+    s = StartLine(countdown_s=3.0)
     lk = lambda **kw: Look(True, line=True, **kw)
+    s.observe(0.0, lk(match=ME))
+    assert s.observe(0.25, lk(match=ME)) == [("line_up", 7)] and s.state == "go"   # recognised: GO, no hand
+    assert s.observe(2.0, lk(hand="right")) == []                       # a hand changes nothing
+    assert all(s.observe(float(t), lk()) == [] for t in range(3, 10))   # waiting behind the line
+    assert s.observe(9.4, lk(over=True)) == [("start_now", 7)]          # crossed: the clock starts now
+    assert s.state == "started" and s.observe(9.6, lk(over=True)) == []
+    # stepped away instead: back to waiting, nothing started
+    s = StartLine()
     s.observe(0.0, lk(match=ME)); s.observe(0.25, lk(match=ME))
-    s.observe(0.5, lk(hand="right"))
-    assert s.observe(1.0, lk(hand="right")) == [("start", 7)]          # GO now
-    assert s.observe(1.3, lk()) == []                                   # still behind the line
-    assert s.observe(1.6, lk(over=True)) == [("crossed", 7)]            # the clock runs from here
-    assert s.observe(1.8, lk(over=True)) == []                          # once
-    # not seen crossing within CROSS_WAIT_S: the clock stays from GO
-    s = StartLine(countdown_s=0.0)
-    s.observe(0.0, lk(match=ME)); s.observe(0.25, lk(match=ME))
-    s.observe(0.5, lk(hand="right")); s.observe(1.0, lk(hand="right"))
-    acts = [a for t in range(2, 14) for a in s.observe(float(t), lk())]
-    assert acts == [("cross_missed", 7)]
+    assert s.observe(3.0, Look(False, line=True)) == [] and s.state == "idle" and s.reason == "stepped_away"
+    # the examiner started them meanwhile: the crossing within CROSS_WAIT_S still sets the clock
+    s = StartLine()
+    s.observe(0.0, lk(match=ME))
+    s.examiner_started(0.5, 7, 0.5)
+    assert s.observe(2.0, lk(over=True)) == [("crossed", 7)]
+    acts = [a for t in range(3, 15) for a in StartLine().observe(float(t), lk())]
+    assert acts == []
     # without a line, nothing is awaited
     s = StartLine(countdown_s=0.0)
     s.observe(0.0, Look(True, ME)); s.observe(0.25, Look(True, ME))
@@ -433,9 +438,173 @@ def test_the_run_is_timed_from_the_start_line_crossing(monkeypatch):
             clock["t"] = t0 + timedelta(seconds=dt)
             return c.post("/api/engine/start/obs", json={"present": True, "line": True, **kw}).json()
 
-        look(0.0, emb=emb); look(0.25, emb=emb)
-        look(0.5, hand="right"); look(1.0, hand="right")              # GO (no countdown)
-        go = c.get(f"/api/entries/{e}").json()["run_started_at"]
-        look(1.4); look(2.2, over=True)                                # crosses 1.2 s after GO
-        started = c.get(f"/api/entries/{e}").json()["run_started_at"]
-        assert started > go and started.startswith((t0 + timedelta(seconds=2.2)).isoformat()[:21])
+        look(0.0, emb=emb)
+        assert look(0.25, emb=emb)["state"] == "go"                    # recognised: GO, no hand
+        assert c.get(f"/api/entries/{e}").json()["status"] == "lined_up"
+        look(1.4); look(2.2, over=True)                                # crosses the line
+        started = c.get(f"/api/entries/{e}").json()
+        assert started["status"] == "running"
+        assert started["run_started_at"].startswith((t0 + timedelta(seconds=2.2)).isoformat()[:21])
+
+
+def test_a_512_float_face_from_the_start_camera_is_recognised(monkeypatch):
+    """AdaFace's vectors (512 floats) must be matched as SFace's were: they were ignored once."""
+    import base64
+
+    from fastapi.testclient import TestClient
+    from sqlalchemy.pool import StaticPool
+    from test_faces import A, FakeEngine
+
+    from testpoint.api import models
+    from testpoint.api.app import create_app
+
+    wide = lambda v: (np.tile(np.asarray(v, np.float32), 4) / 2).astype(np.float32)   # 512, still unit length
+
+    class Fake512(FakeEngine):
+        dim = 512
+
+        def face_from_bytes(self, data, require_single=False):
+            f = super().face_from_bytes(data, require_single)
+            f.embedding = wide(f.embedding)
+            return f
+
+    real = models.create_engine
+    monkeypatch.setattr(models, "create_engine", lambda url, **kw: real(url, poolclass=StaticPool, **kw))
+    app = create_app(db_url="sqlite:///:memory:", web_dir="none", today=lambda: "2026-10-20", face_engine=lambda: Fake512())
+    with TestClient(app) as c:
+        c.post("/api/entries/import", content=b"external_id,name,bib,gender,dob\nC-1,Alpha,11,M,2000-01-01\n")
+        eid = c.get("/api/entries").json()[0]["id"]
+        assert c.post(f"/api/entries/{eid}/face", content=b"face:A").status_code == 200
+        c.post(f"/api/entries/{eid}/weigh-in", json={"weight_kg": 70, "height_cm": 175, "accept": True})
+        emb = base64.b64encode(wide(A).tobytes()).decode()
+        states = [c.post("/api/engine/start/obs", json={"present": True, "emb": emb}).json()["state"] for _ in range(3)]
+        assert "raise_hand" in states, states
+
+
+def test_rolling_start_recognises_runners_on_the_move_and_starts_them_at_the_line(monkeypatch):
+    import base64
+    from datetime import timedelta
+
+    from fastapi.testclient import TestClient
+    from sqlalchemy.pool import StaticPool
+    from test_faces import FakeEngine
+
+    from testpoint.api import app as app_mod
+    from testpoint.api import models
+    from testpoint.api.app import create_app
+
+    real = models.create_engine
+    monkeypatch.setattr(models, "create_engine", lambda url, **kw: real(url, poolclass=StaticPool, **kw))
+    app = create_app(db_url="sqlite:///:memory:", web_dir="none", today=lambda: "2026-10-20", face_engine=lambda: FakeEngine())
+    t0 = models.utcnow()
+    monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0)
+    pic = lambda who: base64.b64encode(b"face:" + who).decode()
+    with TestClient(app) as c:
+        c.post("/api/entries/import", content=b"external_id,name,bib,gender,dob\nC-1,Alpha,11,M,2000-01-01\nC-2,Bravo,12,M,2000-01-01\nC-3,Charlie,13,M,2000-01-01\n")
+        ids = {e["candidate"]["bib"]: e["id"] for e in c.get("/api/entries").json()}
+        for bib, who in (("11", b"A"), ("12", b"B")):
+            c.post(f"/api/entries/{ids[bib]}/face", content=b"face:" + who)
+        for bib in ("11", "13"):
+            c.post(f"/api/entries/{ids[bib]}/weigh-in", json={"weight_kg": 70, "height_cm": 175, "accept": True})
+        cross = lambda faces, lat=0.4: c.post("/api/engine/start/crossing", json={"latency_s": lat, "faces": faces}).json()
+
+        # Alpha walks up and crosses: recognised on the way, started at the crossing (not when reported)
+        r = cross([pic(b"A"), pic(b"A")])
+        assert r["status"] == "started" and r["runner"]["bib"] == "11"
+        e = c.get(f"/api/entries/{ids['11']}").json()
+        assert e["status"] == "running" and e["run_started_at"].startswith((t0 - timedelta(seconds=0.4)).isoformat()[:21])
+        # crossing again (walking back): nothing changes
+        assert cross([pic(b"A")])["status"] == "ignored"
+        # a start by mistake is cancelled: the same person is not started again by the next crossing
+        assert c.post(f"/api/entries/{ids['11']}/start/cancel").status_code == 200
+        r = cross([pic(b"A"), pic(b"A")])
+        assert r["status"] == "ignored" and r["reason"] == "just_cancelled"
+        # Bravo is not weighed in: recognised, refused with the reason, not started
+        r = cross([pic(b"B")])
+        assert r["status"] == "refused" and r["reason"] == "not_weighed"
+        assert c.get(f"/api/entries/{ids['12']}").json()["status"] != "running"
+        # someone the camera cannot tie to anyone: listed; the examiner names Charlie, started from then
+        r = cross([pic(b"C")], lat=1.0)
+        assert r["status"] == "review" and r["needs_review"]
+        todo = [x for x in c.get("/api/startline/crossings").json() if x["status"] in ("review", "refused")]
+        assert {x["id"] for x in todo} >= {r["id"]}
+        ok = c.post(f"/api/startline/crossings/{r['id']}/assign", json={"entry_id": ids["13"]})
+        assert ok.status_code == 200 and ok.json()["status"] == "started", ok.text
+        e = c.get(f"/api/entries/{ids['13']}").json()
+        assert e["status"] == "running" and e["run_started_at"].startswith((t0 - timedelta(seconds=1.0)).isoformat()[:21])
+        # the refused one is discarded by the examiner
+        refused = next(x for x in c.get("/api/startline/crossings").json() if x["status"] == "refused")
+        assert c.delete(f"/api/startline/crossings/{refused['id']}").status_code == 204
+        assert all(x["status"] != "refused" for x in c.get("/api/startline/crossings").json())
+
+
+def test_rolling_start_with_nobody_waiting_ignores_whoever_crosses(monkeypatch):
+    from fastapi.testclient import TestClient
+    from sqlalchemy.pool import StaticPool
+    from test_faces import FakeEngine
+
+    from testpoint.api import models
+    from testpoint.api.app import create_app
+
+    real = models.create_engine
+    monkeypatch.setattr(models, "create_engine", lambda url, **kw: real(url, poolclass=StaticPool, **kw))
+    app = create_app(db_url="sqlite:///:memory:", web_dir="none", today=lambda: "2026-10-20", face_engine=lambda: FakeEngine())
+    with TestClient(app) as c:
+        r = c.post("/api/engine/start/crossing", json={"faces": []}).json()
+        assert r["status"] == "ignored" and r["reason"] == "nobody_waiting" and not r["needs_review"]
+
+
+def test_a_sure_rolling_start_keeps_the_start_cameras_pictures_for_the_finish(monkeypatch):
+    import base64
+
+    from fastapi.testclient import TestClient
+    from sqlalchemy import func, select
+    from sqlalchemy.pool import StaticPool
+    from test_faces import FakeEngine
+
+    from testpoint.api import models
+    from testpoint.api.app import create_app
+
+    real = models.create_engine
+    monkeypatch.setattr(models, "create_engine", lambda url, **kw: real(url, poolclass=StaticPool, **kw))
+    app = create_app(db_url="sqlite:///:memory:", web_dir="none", today=lambda: "2026-10-20", face_engine=lambda: FakeEngine())
+    pic = lambda data: base64.b64encode(data).decode()
+    learnt = lambda: app.state.sessionmaker().scalar(select(func.count()).select_from(models.FaceTemplate).where(models.FaceTemplate.source == "start"))
+    with TestClient(app) as c:
+        c.post("/api/entries/import", content=b"external_id,name,bib,gender,dob\nC-1,Alpha,11,M,2000-01-01\nC-2,Bravo,12,M,2000-01-01\n")
+        ids = {e["candidate"]["bib"]: e["id"] for e in c.get("/api/entries").json()}
+        for bib, who in (("11", b"A"), ("12", b"B")):
+            c.post(f"/api/entries/{ids[bib]}/face", content=b"face:" + who)
+            c.post(f"/api/entries/{ids[bib]}/weigh-in", json={"weight_kg": 70, "height_cm": 175, "accept": True})
+        # two pictures agree: started, nothing learnt (too few to be sure enough to learn)
+        r = c.post("/api/engine/start/crossing", json={"faces": [pic(b"face:B:venue:sharp")] * 2}).json()
+        assert r["status"] == "started" and learnt() == 0
+        # three: started, and the course camera's picture kept for the finish
+        r = c.post("/api/engine/start/crossing", json={"faces": [pic(b"face:A:venue:sharp")] * 3}).json()
+        assert r["status"] == "started" and r["runner"]["bib"] == "11"
+        assert learnt() >= 1
+
+
+def test_cameras_screen_feed_lists_what_each_camera_recognised(monkeypatch):
+    import base64
+
+    from fastapi.testclient import TestClient
+    from sqlalchemy.pool import StaticPool
+    from test_faces import FakeEngine
+
+    from testpoint.api import models
+    from testpoint.api.app import create_app
+
+    real = models.create_engine
+    monkeypatch.setattr(models, "create_engine", lambda url, **kw: real(url, poolclass=StaticPool, **kw))
+    app = create_app(db_url="sqlite:///:memory:", web_dir="none", today=lambda: "2026-10-20", face_engine=lambda: FakeEngine())
+    with TestClient(app) as c:
+        c.post("/api/entries/import", content=b"external_id,name,bib,gender,dob\nC-1,Alpha,11,M,2000-01-01\n")
+        eid = c.get("/api/entries").json()[0]["id"]
+        c.post(f"/api/entries/{eid}/face", content=b"face:A")
+        c.post(f"/api/entries/{eid}/weigh-in", json={"weight_kg": 70, "height_cm": 175, "accept": True})
+        c.post("/api/engine/start/crossing", json={"faces": [base64.b64encode(b"face:A").decode()] * 2})
+        f = c.get("/api/cameras/feed").json()
+        assert set(f["live"]) == {"start", "finish", "exercise", "weigh"} and not f["live"]["start"]["live"]
+        assert f["start"][0]["what"] == "started" and f["start"][0]["who"]["bib"] == "11"
+        assert f["finish"] == [] and f["station"] == [] and f["station_now"]["state"] == "idle"

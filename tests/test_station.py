@@ -102,7 +102,7 @@ def test_the_station_camera_runs_pushups_then_crunches(monkeypatch):
     monkeypatch.setattr(app_mod.S, "utcnow", lambda: clock["t"])
     emb = base64.b64encode(np.asarray(A, np.float32).tobytes()).decode()
     with TestClient(app) as c:
-        c.put("/api/settings", json={"start_countdown_s": 3})   # with a 3-2-1 (the default is none)
+        c.put("/api/settings", json={"start_countdown_s": 3, "station_first_rep": False})   # the start position and a 3-2-1
         c.post("/api/entries/import", content=b"external_id,name,bib,gender,dob\nC-1,Alpha,11,M,2000-01-01\n")
         e = c.get("/api/entries").json()[0]["id"]
         c.post(f"/api/entries/{e}/face", content=b"face:A")
@@ -209,6 +209,35 @@ def test_no_rep_yet_is_not_stopping():
     f.observe(61.0, StationLook(True, count=1))
     assert f.observe(81.5, StationLook(True, count=1)) == [("finish", 55, "no_reps")]
 
+
+
+def test_standing_up_during_the_test_ends_it_with_the_count_so_far():
+    f = StationFlow(countdown_s=3.0, time_s=120.0, idle_s=20.0, out_s=3.0)
+    under_way(f)
+    f.observe(30.0, StationLook(True, count=20))
+    # a slip out of position (the pose's jitter, a wobble) and back: the test goes on
+    assert f.observe(31.0, StationLook(True, count=20, out=True)) == []
+    assert f.view(32.0)["out_left"] == 2.0                          # the screen warns
+    assert f.observe(32.5, StationLook(True, count=20)) == []
+    assert f.view(32.6)["out_left"] is None
+    # stood up and stayed up: over after out_s, with the 20 reps
+    f.observe(40.0, StationLook(True, count=20, out=True))
+    assert f.observe(42.0, StationLook(True, count=20, out=True)) == []
+    assert f.observe(43.0, StationLook(True, count=20, out=True)) == [("finish", 55, "left_position")]
+    assert f.state == "done" and f.view(43.5)["ended"] == "left_position"
+    # off (0): only the other rules end it
+    off = StationFlow(countdown_s=3.0, time_s=120.0, out_s=0.0)
+    under_way(off)
+    assert off.observe(20.0, StationLook(True, count=5, out=True)) == []
+    assert off.observe(40.0, StationLook(True, count=5, out=True)) == []
+
+
+def test_a_face_seen_but_not_recognised_is_said_on_the_screen():
+    f = StationFlow()
+    assert f.view(0.0)["reason"] is None
+    f.unknown_face(10.0)
+    assert f.view(11.0)["reason"] == "face_not_recognised"
+    assert f.view(15.0)["reason"] is None                            # for a few seconds only
 
 
 def test_resting_in_the_start_position_is_not_stopping():
@@ -336,3 +365,59 @@ def test_without_a_countdown_the_count_starts_as_soon_as_they_are_ready():
     acts = f.observe(1.0 + READY_HOLD_S, StationLook(True, ready=True))
     acts += f.observe(1.1 + READY_HOLD_S, StationLook(True, ready=True))
     assert ("start", 7, "pushup") in acts and f.state == "testing" and f.go_at == 1.0 + READY_HOLD_S   # GO = ready
+
+
+def test_out_of_position_with_no_rep_just_after_go_is_a_false_start_not_a_zero():
+    f = StationFlow(countdown_s=3.0, time_s=120.0, idle_s=20.0, out_s=3.0)
+    under_way(f)                                                    # GO at 4.0
+    f.observe(5.0, StationLook(True, count=0, out=True))            # sat up to adjust, no rep yet
+    assert f.observe(8.0, StationLook(True, count=0, out=True)) == [("cancel", 55, "left_position")]
+    assert f.state == "position" and f.reason == "false_start" and f.attempt_id is None
+    # the same person goes again: in position, 3-2-1, a new attempt
+    f.go_now(9.0)
+    f.observe(12.1, StationLook(True))
+    f.started(56)
+    assert f.state == "testing"
+    # with a rep done, leaving is the end of the test (the count stands)
+    f.observe(13.0, StationLook(True, count=1))
+    f.observe(14.0, StationLook(True, count=1, out=True))
+    assert f.observe(17.0, StationLook(True, count=1, out=True)) == [("finish", 56, "left_position")]
+
+
+def test_no_rep_long_after_go_then_leaving_is_a_result_of_zero():
+    f = StationFlow(countdown_s=3.0, time_s=120.0, idle_s=20.0, out_s=3.0)
+    under_way(f)
+    f.observe(20.0, StationLook(True, count=0, out=True))
+    assert f.observe(23.0, StationLook(True, count=0, out=True)) == [("finish", 55, "left_position")]
+
+
+def test_clock_from_the_first_rep_no_posture_no_go():
+    f = StationFlow(countdown_s=3.0, time_s=120.0, idle_s=20.0, out_s=3.0, first_rep=True)
+    recognise(f, 0.0)
+    assert f.state == "position"
+    # recognised: under way at once, no start posture held, no countdown
+    assert f.observe(1.0, StationLook(True)) == [("start", 7, "pushup")]
+    f.started(55)
+    v = f.view(1.5)
+    assert f.state == "testing" and v["go_at"] is None and v["ends_at"] is None
+    # getting down, adjusting, standing up again before the first rep: nothing ends
+    assert f.observe(5.0, StationLook(True, count=0, out=True)) == []
+    assert f.observe(30.0, StationLook(True, count=0, out=True)) == []
+    # the first rep: the clock starts now, the time limit from here
+    assert f.observe(40.0, StationLook(True, count=1)) == [("clock", 55, 40.0)]
+    assert f.view(41.0)["ends_at"] == 160.0
+    assert f.observe(159.0, StationLook(True, count=30)) == []
+    assert f.observe(160.0, StationLook(True, count=31)) == [("finish", 55, None)]
+
+
+def test_clock_from_the_first_rep_leaving_without_a_rep_saves_nothing():
+    f = StationFlow(countdown_s=3.0, time_s=120.0, first_rep=True)
+    recognise(f, 0.0)
+    f.observe(1.0, StationLook(True)); f.started(55)
+    f.observe(2.0, StationLook(False))                          # walked off the mat
+    assert f.observe(7.5, StationLook(False)) == [("cancel", 55, "left_mat")]
+    assert f.state == "idle"
+    g = StationFlow(countdown_s=3.0, time_s=120.0, first_rep=True)
+    recognise(g, 0.0)
+    g.observe(1.0, StationLook(True)); g.started(56)
+    assert g.observe(62.0, StationLook(True, count=0)) == [("cancel", 56, "timeout")]

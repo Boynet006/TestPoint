@@ -146,6 +146,15 @@ def test_full_day(client, monkeypatch):
     assert ok(client.get(f"/api/entries/{ids[13]}"))["verdict"] == "fail"       # run below 60 %
     assert ok(client.get(f"/api/entries/{ids[12]}"))["verdict"] == "no_standard"
 
+    # exact percentages (age 27, band 23-30: push-ups 36/42/58, crunches 42/47/61, run 18:30/17:40/15:10)
+    e11 = ok(client.get(f"/api/entries/{ids[11]}"))
+    assert e11["events"]["pushup"]["percent"] == round(70 + 30 * (45 - 42) / (58 - 42), 1)   # 75.6
+    assert e11["events"]["crunch"]["percent"] == round(60 * 10 / 42, 1)               # below 60 %: in proportion
+    assert e11["run_percent"] == 100.0                                                # 14:12, under 15:10
+    assert e11["overall_percent"] == round((100.0 + 75.6 + 14.3) / 3, 1)
+    r = ok(client.get(f"/api/entries/{ids[11]}/results"))
+    assert r["overall_percent"] == e11["overall_percent"] and [t["percent"] for t in r["tests"]] == [100.0, 75.6, 14.3]
+
     # an examiner corrects a saved result: a reason, regraded, the admin PIN when one is set
     err(client.post(f"/api/entries/{ids[11]}/correct", json={"test": "crunch", "value": 40, "reason": " "}), 409, "override_reason_required")
     e = ok(client.post(f"/api/entries/{ids[11]}/correct", json={"test": "crunch", "value": 80, "reason": "camera missed reps"}))
@@ -158,6 +167,18 @@ def test_full_day(client, monkeypatch):
     assert client.post(f"/api/entries/{ids[11]}/correct", json={"test": "run", "value": 852, "reason": "back"},
                        headers={"X-Admin-Pin": "2468"}).status_code == 200
     client.put("/api/settings/admin-pin", json={"pin": ""}, headers={"X-Admin-Pin": "2468"})
+
+    # reset one result so that test is done again: the crunches, then the run
+    e = ok(client.post(f"/api/entries/{ids[11]}/reset", json={"test": "crunch"}))
+    assert "crunch" not in e["events"] and e["events"]["pushup"]["count"] == 45 and e["status"] == "run_passed"
+    err(client.post(f"/api/entries/{ids[11]}/reset", json={"test": "crunch"}), 409, "no_result")
+    mine = [c["id"] for c in ok(client.get("/api/run/crossings")) if c["entry_id"] == ids[11]]
+    assert mine
+    e = ok(client.post(f"/api/entries/{ids[11]}/reset", json={"test": "run"}))
+    assert e["status"] == "accepted" and e["run_time_s"] is None and e["events"]["pushup"]["count"] == 45
+    # its crossing is gone (not left as an unnamed finisher); the audit log keeps it
+    assert not {c["id"] for c in ok(client.get("/api/run/crossings"))} & set(mine)
+    err(client.post(f"/api/entries/{ids[11]}/reset", json={"test": "run"}), 409, "no_result")
 
     # a cancelled attempt can be retried
     att3 = ok(client.post("/api/attempts", json={"entry_id": ids[12], "event": "pushup"}), 201)
@@ -217,8 +238,8 @@ def test_bibs_are_assigned_automatically_when_asked(client):
 
 def test_station_settings_defaults_update_and_audit(client):
     assert ok(client.get("/api/settings")) == {
-        "auto_identify": True, "camera_background": "off", "camera_bg_places": ["weigh", "start", "photo"], "backdrop_color": "#8a949e", "face_match": "normal", "face_required": False, "face_fresh_min": 120, "finish_setup_shown": True, "station_choose_first": True, "walk_ins": True,
-        "default_gender": "M", "default_unit": "combat", "bib_start": 1, "lanes": 3, "station_stop_after_s": 20, "start_countdown_s": 0, "cancel_window_s": 120, "finish_face_threshold": 0.0, "site_name": "", "default_language": "en", "trouble_run_cutoff_s": 0, "count_tuning": {}, "evidence_keep_days": 30, "evidence_max_gb": 0, "evidence_min_free_gb": 5, "evidence_held_days": [], "camera_sources": {"weigh": ["webcam", "video", "photo", "ipcam"], "start": ["webcam", "video", "photo", "ipcam"], "results": ["webcam", "video", "photo"], "finish": ["webcam", "video", "ipcam"], "station": ["webcam", "video", "ipcam"]}, "theme": "night",
+        "auto_identify": True, "camera_background": "off", "camera_bg_places": ["weigh", "start", "photo"], "backdrop_color": "#8a949e", "face_match": "normal", "face_required": False, "face_fresh_min": 120, "start_rolling": True, "start_line_on": True, "start_setup_shown": True, "finish_line_on": True, "finish_setup_shown": True, "station_choose_first": True, "walk_ins": True,
+        "default_gender": "M", "default_unit": "combat", "bib_start": 1, "lanes": 3, "station_stop_after_s": 20, "station_first_rep": True, "station_out_s": 3, "finish_shutter": "auto", "go_styles": {}, "go_effect": "racing", "go_dim": 60, "go_size": 100, "go_speed": 100, "go_duration": 1.7, "go_opacity": 100, "go_lines": 100, "go_lines_count": 220, "go_lines_opacity": 100, "start_countdown_s": 0, "cancel_window_s": 120, "finish_face_threshold": 0.0, "site_name": "", "default_language": "en", "trouble_run_cutoff_s": 0, "count_tuning": {}, "evidence_keep_days": 30, "evidence_max_gb": 0, "evidence_min_free_gb": 5, "evidence_held_days": [], "camera_sources": {"weigh": ["webcam", "video", "photo", "ipcam"], "start": ["webcam", "video", "photo", "ipcam"], "results": ["webcam", "video", "photo"], "finish": ["webcam", "video", "ipcam"], "station": ["webcam", "video", "ipcam"]}, "theme": "night",
         "admin_pin_set": False, "background_image": None}
     s = ok(client.put("/api/settings", json={"auto_identify": False, "bib_start": 500}))
     assert s["auto_identify"] is False and s["bib_start"] == 500 and s["default_gender"] == "M"

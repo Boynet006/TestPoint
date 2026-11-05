@@ -1,15 +1,25 @@
-﻿# Continue on another machine
+# Continue on another machine
 
-Everything needed is on GitHub in the `feat/camera-settings` branch, except what is private to
-the station PC: the database (`data/dev.db`: people, faces, results, the cameras' passwords), the
-HTTPS certificates and the recordings in `data/`. Those are not in git on purpose.
+Everything needed is on GitHub, except what is private to the station PC: the database
+(`data/dev.db`: people, faces, results, the cameras' passwords), the HTTPS certificates and the
+recordings in `data/`. Those are not in git on purpose.
+
+## Where things are (2026-11-04)
+
+| Branch / tag | What |
+|---|---|
+| `main`, tag `v1.0` | Shipped: daily face photos, start line camera (hand to start, start line timing, false start), finish by face, one-mat station, results, desktop icon |
+| `feat/percentages` (PR #81) | **Latest work, not merged:** correct a saved result (PR #80), exact percentages per test and overall, the overall as a ring on the results card |
+| `phase2/out-of-position` | Phase two, kept apart: leaving the exercise position ends the station test |
+
+Work continues on `feat/percentages` (it contains everything in `main` too).
 
 ## 1. Get the code
 
 ```bash
 git clone https://github.com/Boynet006/TestPoint.git
 cd TestPoint
-git checkout feat/camera-settings
+git checkout feat/percentages
 ```
 
 ## 2. Set it up (Windows, Python 3.12)
@@ -21,35 +31,94 @@ py -3.12 -m venv .venv
 winget install --id Gyan.FFmpeg -e        # browser-playable evidence clips (H.264)
 ```
 
+The stronger face model (AdaFace IR-101, used instead of SFace when its file is there; the
+stored faces are made again with it by themselves). Once, with the internet; PyTorch is only
+needed for this step:
+
+```
+.venv\Scripts\python.exe -m pip install torch safetensors onnx
+.venv\Scripts\python.exe scripts\build_adaface.py
+```
+
+Measured 2026-11-05 on LFW (13,233 faces) with the pictures shrunk and blurred as the finish camera
+sees a runner: 96.9 % right against SFace's 90.3 %; at the normal threshold, with the same rate of
+wrong matches (3 in 10,000), the right person is found 97 % of the time (SFace 65 %). Scores and
+thresholds stay on SFace's scale (`faces.common_score`). `TESTPOINT_FACE_MODEL=sface` keeps SFace.
+
 GPU: install `onnxruntime-gpu` as the README says; without it everything runs on the CPU, slower.
+The fonts are in the app (`web/station/fonts`): no internet needed once set up.
 
 ## 3. Run it
 
+Once: `scripts\https-cert.ps1` (README, "HTTPS"), then put the icon on the desktop:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\make-shortcut.ps1
+```
+
+The **TestPoint** icon starts the app and the camera service (logs in `data\logs`) and opens
+Chrome; each screen starts its own camera. While developing, run them by hand instead (the app
+then reloads on code changes):
+
 ```powershell
 $env:DISABLE_SQLALCHEMY_CEXT_RUNTIME = "1"
-.venv\Scripts\python.exe -m testpoint.api.app --host 127.0.0.1 --port 8000 --db sqlite:///data/dev.db --reload
+.venv\Scripts\python.exe -m testpoint.api.app --host 0.0.0.0 --port 8000 --db sqlite:///data/dev.db --reload --https
 .venv\Scripts\python.exe -m testpoint.camhost        # second window: the cameras
 ```
 
-Open http://127.0.0.1:8000. For tablets and other PCs use `--host 0.0.0.0 --https` after
-`scripts\https-cert.ps1` (README, "HTTPS").
+TestPoint opens by this PC's name (e.g. `https://desktop-d1l2fsd:8000/ui/`), never its address, so
+a new address changes nothing. The certificate must carry the name: `scripts\https-cert.ps1` adds it.
+
+## Offline and online: the TestPoint Network icon
+
+![TestPoint Network](network.png)
+
+- **Offline mode:** this PC gets a fixed address on the cameras' network (default
+  192.168.250.240, checked free first): works with no router and no internet.
+- **Online mode:** back to automatic (DHCP) for the internet.
+- It shows this PC's address, the internet, each camera (answering or not) and TestPoint, and
+  starts TestPoint. The cameras keep their fixed addresses (.241 start, .242 finish, .243 station);
+  they are only checked. Windows asks for administrator permission when a mode button is pressed.
+- Settings: `data\network.json` (the offline address, the camera list).
 
 ## 4. What to redo on the new machine
 
 - **Cameras:** Settings > Cameras: type each camera's address with its password again.
-- **People:** the database starts empty; register candidates again.
-- **Try the counting without a camera:** Exercise station > Camera > Video file. The videos in
-  `test-videos/` (true counts in its README) are listed there.
-- **Check the counting:** `.venv\Scripts\python.exe -m pytest -q`. `tests/test_counting_recordings.py`
-  replays the two real station recordings and must count 10 push-ups and 10 crunches.
+- **Camera picture quality** (set in each camera, not in the app): main stream 2688x1520, 25 fps,
+  H.264 High, constant bitrate 8192 kbps (their maximum). Set on all three on 2026-11-05.
+- **Camera image** (2026-11-05): WDR **auto** on all three (on by itself against the sun outdoors,
+  off in even light); day/night automatic; stream smoothing 30; a one-push focus on each once it
+  is in its final place (refocus after moving a camera). Shutter 1/250 s at the start line and the
+  station (people stand still or move slowly). The **finish** shutter follows the light by itself
+  (Settings > Cameras > Finish camera shutter, Automatic; `src/testpoint/api/light.py`): it tries
+  1/500 then 1/1000 s every 20 minutes and keeps it only when the picture stays as bright and clean,
+  goes slower when the picture gets dark, and never tries while someone is running. Indoors here it
+  stays at 1/250 s (1/500 s halved the brightness); outdoors in daylight it goes faster.
+- **Station clock from the first rep** (Settings > Exercise station, on by default): recognised, the
+  person just starts; no start position to hold, no 3-2-1, no GO. The test's time runs from the first
+  rep counted (`StationFlow.first_rep`, the attempt's start moved there). Leaving without a rep, or
+  none for 60 s, cancels the attempt (nothing saved). Off: start position, countdown, GO.
+- **Cameras screen** (screen selector > Cameras): every camera live, side by side, with whom each
+  recognised (`/api/cameras/feed`); fits the window; drag a tile by its title to swap places.
+- **Not on GitHub** (stay on the old PC, set up again here): `data/` (the database with people and
+  faces, camera passwords, certificates), the face models (`--download`, then
+  `scripts/build_adaface.py`), the test clips in `data/clips`, the LFW benchmark.
+- **Rolling start** (Settings > Run start, on by default): no stop, no hand, no GO. The start
+  camera runs the finish camera's program (`finishcam --report start`): it follows each person, keeps
+  face pictures on the way, and times the instant the feet cross the start line; the app
+  (`service.rolling_start`) starts the one recognised (all the pictures agree on one person, who is
+  weighed in and has not run) with the clock from that crossing. Line to line, timed the same way
+  at both ends. Not recognised: listed on the start screen, the examiner names the runner (the clock
+  still from the crossing) or discards it. Already running or done: ignored. Off: line + GO or hand.
+- **Fair finish times:** a crossing is timed at the instant the feet cross the line, interpolated
+  between the two camera frames around it, from when those frames arrived from the camera, not when
+  the analysis got to them (the GPU's load no longer changes anyone's time).
+- **People:** the database starts empty; register candidates again (fresh face photos each day).
+- **Lines:** the finish and start line positions are kept per browser: set them again on the
+  finish and start line screens (Line set-up).
 
-## Where things stand (2026-11-02)
+## 5. Tests
 
-- Station: one screen, manual start, Start now, Redo a test, video upload, big timer.
-- Counting: 10/10 on one person's recordings. Push-ups count by the shoulders' drop as well as the
-  elbow; crunches by the torso's rise. Auto-calibration learns "back at the start" from each
-  person's first 3 reps (they count too); the depth that counts is the same for everyone and is
-  set with the sliders (Tune) until the official rules are known.
-- Speed: the person detector runs every 5th frame: about 26 fps with three cameras.
-- Not checked yet: that shallow push-ups and half crunches are rejected; 5-8 more people.
-- Management deck: `docs/presentation/TestPoint-management-2026-11-02.pptx` (7 slides); its screenshots and `build-deck.js` are next to it.
+```powershell
+$env:DISABLE_SQLALCHEMY_CEXT_RUNTIME = "1"; .venv\Scripts\python.exe -m pytest -q
+```

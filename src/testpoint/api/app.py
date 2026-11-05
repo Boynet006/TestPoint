@@ -40,6 +40,7 @@ from sqlalchemy.orm import Session
 
 from .. import retention as R
 from . import journey as J
+from .light import FinishLight
 from . import service as S
 from .startline import Look, StartLine
 from .station import CHOICES, StationFlow, StationLook, next_event
@@ -53,13 +54,20 @@ def iso(dt: datetime | None) -> str | None:
     return None if dt is None else dt.isoformat(timespec="milliseconds") + "Z"
 
 
+def day_rules(day: Day | None) -> DayRules:
+    """The rules the day is scored by (fixed once it started), for the percentages."""
+    return DayRules.from_dict(json.loads(day.rules_json)) if day is not None and day.rules_json else DayRules()
+
+
 def entry_out(e: Entry, day: Day | None = None, faces: int | None = None) -> dict:
     c = e.candidate
+    pc = S.percents(e, day_rules(day))
     events = {}
     for a in e.attempts:
         if a.status in ("running", "finished"):
             events[a.event] = {"attempt_id": a.id, "status": a.status, "count": a.count,
-                               "rejected": a.rejected, "passed": a.passed, "grade": a.grade, "lane": a.lane}
+                               "rejected": a.rejected, "passed": a.passed, "grade": a.grade, "lane": a.lane,
+                               "percent": pc[a.event] if a.status == "finished" else None}
     out = {
         "id": e.id, "status": e.status,
         "candidate": {"id": c.id, "external_id": c.external_id, "name": c.name,
@@ -69,6 +77,7 @@ def entry_out(e: Entry, day: Day | None = None, faces: int | None = None) -> dic
         "standard": {"age": e.age, "band": e.band, "level": e.level},
         "run_started_at": iso(e.run_started_at),
         "run_grade": e.run_grade, "verdict": S.verdict(e),
+        "run_percent": pc["run"], "overall_percent": pc["overall"],
     }
     if faces is not None:
         out["faces"] = faces
@@ -134,6 +143,10 @@ class SettingsIn(BaseModel):
     face_required: bool | None = None
     walk_ins: bool | None = None
     finish_setup_shown: bool | None = None
+    start_setup_shown: bool | None = None
+    start_line_on: bool | None = None
+    start_rolling: bool | None = None
+    finish_line_on: bool | None = None
     station_choose_first: bool | None = None
     default_gender: Literal["M", "F", ""] | None = None
     default_unit: Literal["combat", "admin", "special"] | None = None
@@ -147,6 +160,19 @@ class SettingsIn(BaseModel):
     trouble_run_cutoff_s: int | None = Field(default=None, ge=0, le=3600)
     count_tuning: dict[str, dict[str, float]] | None = None
     station_stop_after_s: int | None = Field(default=None, ge=0, le=120)
+    station_out_s: int | None = Field(default=None, ge=0, le=30)
+    station_first_rep: bool | None = None
+    finish_shutter: Literal["auto", "1/1000", "1/500", "1/250"] | None = None
+    go_styles: dict[Literal["start", "pushup", "crunch", "finish"], dict[Literal["effect", "dim", "size", "speed", "duration", "lines", "lines_count", "lines_opacity", "opacity"], float | str]] | None = None
+    go_effect: Literal["racing", "racing2", "scoreboard", "shockwave", "slam", "neon", "hyperspace", "fireworks", "off"] | None = None
+    go_dim: int | None = Field(default=None, ge=0, le=100)
+    go_size: int | None = Field(default=None, ge=50, le=150)
+    go_speed: int | None = Field(default=None, ge=50, le=200)
+    go_duration: float | None = Field(default=None, ge=0.1, le=5.0)
+    go_opacity: int | None = Field(default=None, ge=0, le=100)
+    go_lines: int | None = Field(default=None, ge=0, le=100)
+    go_lines_count: int | None = Field(default=None, ge=10, le=400)
+    go_lines_opacity: int | None = Field(default=None, ge=0, le=100)
     evidence_keep_days: int | None = Field(default=None, ge=0, le=3650)
     evidence_max_gb: float | None = Field(default=None, ge=0, le=100000)
     evidence_min_free_gb: float | None = Field(default=None, ge=0, le=10000)
@@ -222,6 +248,10 @@ class StationCamIn(BaseModel):
     dividers: list[float] = Field(default=[], max_length=3)
     app_url: str = Field(max_length=100)
     loop: bool = False
+
+
+class ResetIn(BaseModel):
+    test: Literal["run", "pushup", "crunch"]
 
 
 class CorrectIn(BaseModel):
@@ -353,7 +383,9 @@ class EngineLaneIn(BaseModel):
     # posture, and the face of the person on the mat while nobody is being tested
     exercise: str | None = None
     ready: bool = False
-    face: str | None = Field(default=None, max_length=2000)
+    out: bool = False
+    """Seen, but not in the exercise's posture (standing, sitting up, kneeling)."""
+    face: str | None = Field(default=None, max_length=4000)
     hand: list[float] | None = Field(default=None, min_length=2, max_length=2)
     """Where a raised hand points on the screen (0..1 each): choosing the first test."""
 
@@ -376,6 +408,10 @@ class PlayerIn(BaseModel):
     speed: float | None = Field(default=None, gt=0, le=4)
 
 
+class AssignStartIn(BaseModel):
+    entry_id: int
+
+
 class CrossingIn(BaseModel):
     """A finish-line crossing seen by the camera (src/testpoint/finishcam.py)."""
     bib: str | None = None
@@ -395,6 +431,8 @@ class CrossingIn(BaseModel):
 ENGINE_STALE_S = 2.0
 MAX_VIDEO = 2 * 1024 * 1024 * 1024
 FRAME_STALE_S = 5.0
+FACE_DIMS = ((128,), (512,))
+"""Face vector sizes the cameras send: SFace 128, AdaFace 512 (api/faces.py)."""
 """A camera picture older than this is not shown (the engine stopped)."""
 class StationStartIn(BaseModel):
     query: str
@@ -404,8 +442,8 @@ class StartObsIn(BaseModel):
     """What the start-line camera sees at the mark (testpoint.startcam), a few times a second."""
     present: bool
     hand: Literal["left", "right", "both"] | None = None
-    emb: str | None = Field(default=None, max_length=2000)
-    """The face embedding (128 float32, base64) when a face was looked at in this frame."""
+    emb: str | None = Field(default=None, max_length=4000)
+    """The face embedding (128 float32 SFace or 512 AdaFace, base64) when a face was looked at in this frame."""
     quality: float | None = None
     over: bool = False
     """With a start line: the person at the mark has a foot over it."""
@@ -453,7 +491,9 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     @asynccontextmanager
     async def lifespan(_app):
         job = start_retention()      # defined below, with the evidence routes
+        finish_light.start()
         yield
+        finish_light.stop()
         if job is not None:
             job.cancel()
 
@@ -474,12 +514,36 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     _last_frame: dict[str, tuple[float, bytes]] = {}
     _frame_waiters: dict[str, asyncio.Event] = {}   # wakes the open streams when a new picture comes
     _streams: set[str] = set()                      # the live streams open now, by the key the page gave
+
+    def _finish_picture() -> bytes | None:
+        seen = _last_frame.get("finish")
+        return seen[1] if seen and clock() - seen[0] <= FRAME_STALE_S else None
+
+    def _finish_url() -> str | None:
+        with SessionLocal() as db:
+            return S.camera_urls(db).get("finish")
+
+    def _finish_mode() -> str:
+        with SessionLocal() as db:
+            return S.get_settings(db)["finish_shutter"]
+
+    def _anyone_running() -> bool:
+        with SessionLocal() as db:
+            return db.scalar(select(Entry.id).where(Entry.status == J.RUNNING).limit(1)) is not None
+
+    finish_light = FinishLight(_finish_picture, _finish_url, _finish_mode, _anyone_running)
+    """The finish camera's shutter following the light (light.py); its state in /api/cameras/light."""
     _watchers: dict[str, int] = {}                  # open live streams per camera: nobody watching, the camera sends 1 a second
     _frame_times: dict[str, deque] = {}             # arrival times of the latest pictures, for the picture rate
 
     def engine():
         if "e" not in _engine_cache:
-            _engine_cache["e"] = face_engine()
+            _engine_cache["e"] = eng = face_engine()
+            if eng is not None:      # faces saved by another model: made again by this one, once
+                with SessionLocal() as db:
+                    made, left = S.reembed_templates(db, eng)
+                if made or left:
+                    print(f"face templates: {made} made again with {getattr(eng, 'model', '?')}, {left} without a face left as they were")
         return _engine_cache["e"]
 
     def get_db() -> Iterator[Session]:
@@ -896,7 +960,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
     def entry_results(entry_id: int, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
         """The results card: each test, its grade against the required level, the verdict."""
         e = S.get_entry(db, day, entry_id)
-        return S.results_for(e) | {"entry": entry_out(e, day, S.face_count(db, e.candidate_id, day))}
+        return S.results_for(e, S.rules_for(db, day, rules)) | {"entry": entry_out(e, day, S.face_count(db, e.candidate_id, day))}
 
     @app.post("/api/entries/{entry_id}/standard")
     def standard(entry_id: int, body: StandardIn, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
@@ -957,6 +1021,21 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         if late:
             S.check_admin_pin(db, request.headers.get("x-admin-pin"))
         return entry_out(S.cancel_start(db, day, S.get_entry(db, day, entry_id), late=late), day)
+
+    @app.post("/api/entries/{entry_id}/reset", dependencies=[Depends(admin)])
+    def reset_result(entry_id: int, body: ResetIn, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        """Take one result back so that test is done again: the run, the push-ups or the crunches
+        (the admin PIN when one is set; the audit log keeps what was there)."""
+        e = S.get_entry(db, day, entry_id)
+        if body.test == "run":
+            e = S.reset_run(db, day, e)
+        else:
+            a = next((x for x in e.attempts if x.event == body.test and x.status == "finished"), None)
+            if a is None:
+                raise S.ServiceError("no_result", f"{e.candidate.name} has no {body.test} result to reset")
+            e = S.redo_attempt(db, day, S.rules_for(db, day, rules), a.id)
+            station_flow(db, day).recent.pop(e.id, None)     # the station may take them again at once
+        return entry_out(e, day, S.face_count(db, e.candidate_id, day))
 
     @app.post("/api/entries/{entry_id}/correct", dependencies=[Depends(admin)])
     def correct_result(entry_id: int, body: CorrectIn, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
@@ -1100,6 +1179,39 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         now = clock()
         recent = [t for t in ts if now - t <= 2.0]
         return round(len(recent) / 2.0, 1) if recent else 0.0
+
+    @app.get("/api/cameras/feed")
+    def cameras_feed(db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        """The Cameras screen: every camera, whether its picture is live, what it is doing now and
+        whom it recognised lately (newest first)."""
+        from .models import StartCrossing
+        def who(e) -> dict | None:
+            return {"id": e.id, "bib": e.candidate.bib, "name": e.candidate.name, "name_ar": e.candidate.name_ar} if e else None
+        now = clock()
+        live = {st: {"live": st in _last_frame and now - _last_frame[st][0] <= FRAME_STALE_S, "fps": picture_rate(st)}
+                for st in ("start", "finish", "exercise", "weigh")}
+        start = [{"at": iso(c.at), "who": who(db.get(Entry, c.entry_id) if c.entry_id else None), "what": c.status,
+                  "reason": c.note_code, "score": c.score}
+                 for c in db.scalars(select(StartCrossing).where(StartCrossing.day_id == day.id)
+                                     .order_by(StartCrossing.id.desc()).limit(8))]
+        finish = [{"at": iso(c.at), "who": who(db.get(Entry, c.entry_id) if c.entry_id else None),
+                   "what": "review" if c.needs_review else "finished", "time_s": c.time_s, "reason": c.note_code,
+                   "score": c.confidence}
+                  for c in db.scalars(select(Crossing).where(Crossing.day_id == day.id).order_by(Crossing.id.desc()).limit(8))]
+        station = [{"at": iso(a.started_at), "who": who(a.entry), "what": a.event, "count": a.count if a.count is not None else a.auto_count,
+                    "status": a.status}
+                   for a in db.scalars(select(Attempt).join(Entry, Attempt.entry_id == Entry.id).where(Entry.day_id == day.id)
+                                       .order_by(Attempt.id.desc()).limit(8))]
+        flow = station_flow(db, day).view(wall())
+        fe = flow.get("entry")
+        return {"live": live, "start": start, "finish": finish, "station": station,
+                "station_now": {"state": flow.get("state"), "event": flow.get("event"), "who": fe,
+                                "count": (flow.get("live") or {}).get("count")}}
+
+    @app.get("/api/cameras/light")
+    def cameras_light() -> dict:
+        """The finish camera's shutter now, and the picture's brightness and grain it is chosen from."""
+        return finish_light.status()
 
     @app.get("/api/engine/live")
     def engine_live() -> dict:
@@ -1347,7 +1459,11 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
 
     @app.post("/api/startcam/start")
     def startcam_start(body: StartCamIn, request: Request, db: Session = Depends(get_db)) -> dict:
-        return _shown(_camhost("POST", "/startcam/start", _source(db, "start", body.model_dump()) | {"app_url": _loopback(request)}, timeout=10.0))
+        cfg = _source(db, "start", body.model_dump()) | {"app_url": _loopback(request)}
+        # rolling start (Settings > Run start): the camera recognises runners on the move and starts
+        # their clock at the line; it needs the line
+        cfg["rolling"] = bool(S.get_settings(db)["start_rolling"] and cfg.get("line_y") is not None)
+        return _shown(_camhost("POST", "/startcam/start", cfg, timeout=10.0))
 
     @app.get("/testpoint-ca.crt")
     def https_ca() -> Response:
@@ -1469,6 +1585,52 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         v["since"] = at_wall(v["since"])
         return v
 
+    def start_crossing_out(c, e) -> dict:
+        return {"id": c.id, "at": iso(c.at), "status": c.status, "reason": c.note_code, "score": c.score, "clip": c.clip_path,
+                "entry": {"id": e.id, "bib": e.candidate.bib, "name": e.candidate.name, "name_ar": e.candidate.name_ar} if e else None}
+
+    @app.post("/api/engine/start/crossing", status_code=201)
+    def engine_start_crossing(body: CrossingIn, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        """Rolling start: the start camera (finishcam --report start) saw someone cross the start line."""
+        import base64
+        import binascii
+        at = S.utcnow() - timedelta(seconds=body.latency_s)
+        shots = []
+        for b in [*body.faces, *([body.face] if body.face else [])]:
+            try:
+                shots.append(base64.b64decode(b, validate=True))
+            except (binascii.Error, ValueError):
+                pass
+        eng = None
+        try:
+            eng = engine()
+        except Exception:      # no face models: every crossing goes to the examiner
+            eng = None
+        if eng is None:
+            shots = []
+        c, e = S.rolling_start(db, day, S.rules_for(db, day, rules), at, shots, eng, body.clip)
+        out = start_crossing_out(c, e)
+        return out | {"runner": out["entry"] if c.status in ("started", "ignored", "refused") else None,
+                      "needs_review": c.status == "review"}
+
+    @app.get("/api/startline/crossings")
+    def start_crossings(db: Session = Depends(get_db), day: Day = Depends(get_day)) -> list[dict]:
+        """Today's start-line crossings, newest first (the start screen: who started, who to name)."""
+        from .models import StartCrossing
+        rows = db.scalars(select(StartCrossing).where(StartCrossing.day_id == day.id, StartCrossing.status != "discarded")
+                          .order_by(StartCrossing.id.desc()).limit(30)).all()
+        return [start_crossing_out(c, db.get(Entry, c.entry_id) if c.entry_id else None) for c in rows]
+
+    @app.post("/api/startline/crossings/{crossing_id}/assign")
+    def start_crossing_assign(crossing_id: int, body: AssignStartIn, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        e = S.get_entry(db, day, body.entry_id)
+        c = S.assign_start_crossing(db, day, S.rules_for(db, day, rules), crossing_id, e)
+        return start_crossing_out(c, e)
+
+    @app.delete("/api/startline/crossings/{crossing_id}", status_code=204)
+    def start_crossing_discard(crossing_id: int, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> None:
+        S.discard_start_crossing(db, day, crossing_id)
+
     @app.post("/api/engine/start/obs")
     def start_obs(body: StartObsIn, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
         import base64
@@ -1486,9 +1648,9 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
                     crop = base64.b64decode(body.crop, validate=True)
                 except ValueError:
                     crop = None
-            if emb.shape == (128,) and sl.state == "idle":
+            if emb.shape in FACE_DIMS and sl.state == "idle":
                 match = start_match(db, day, emb, body.quality, crop)
-            elif emb.shape == (128,) and sl.state in ("raise_hand", "countdown") and sl.entry_id:
+            elif emb.shape in FACE_DIMS and sl.state in ("raise_hand", "countdown", "go") and sl.entry_id:
                 m = start_face_match(db, day, emb)     # more pictures while they wait at the line
                 if m.candidate_id == sl.entry_id:
                     keep_start_face(m, emb, body.quality, crop)
@@ -1499,6 +1661,9 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
                     S.line_up(db, day, e, by="face")
                 elif act == "start":
                     S.start_runner(db, day, S.rules_for(db, day, rules), e, countdown_s=round(sl.countdown_s), by="camera")
+                    learn_start_face(db, day, e)
+                elif act == "start_now":            # crossed the start line: their clock starts now
+                    S.start_runner(db, day, S.rules_for(db, day, rules), e, countdown_s=0, by="start_line")
                     learn_start_face(db, day, e)
                 elif act == "cancel" and e.status == J.RUNNING:
                     S.cancel_start(db, day, e)
@@ -1556,7 +1721,9 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
             adopt_running(db, day, f)
         st = S.get_settings(db)
         f.idle_s = float(st["station_stop_after_s"])    # a change applies to the next check
+        f.out_s = float(st["station_out_s"])
         f.countdown_s = float(st["start_countdown_s"])
+        f.first_rep = bool(st["station_first_rep"])
         if f.attempt_id is not None and f.state == "testing":
             a = db.get(Attempt, f.attempt_id)
             if a is None or a.status != "running":       # saved or cancelled by the examiner
@@ -1591,6 +1758,15 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
                 if act[0] == "start":
                     a = S.start_attempt(db, day, S.get_entry(db, day, act[1]), act[2], S.EXERCISE_LANE)
                     flow.started(a.id)
+                elif act[0] == "clock":             # clock from the first rep: it starts now
+                    a = db.get(Attempt, act[1])
+                    if a is not None and a.status == "running":
+                        S.attempt_clock(db, day, a, datetime.fromtimestamp(act[2], timezone.utc).replace(tzinfo=None))
+                elif act[0] == "cancel":            # a false start: no result, they go again
+                    a = db.get(Attempt, act[1])
+                    if a is not None and a.status == "running":
+                        S.note_false_start(db, day, a, act[2] if len(act) > 2 else "", round(wall() - (flow.go_at or wall()), 1))
+                        S.cancel_attempt(db, day, a.id)
                 elif act[0] == "finish":
                     a = db.get(Attempt, act[1])
                     if a is not None and a.status == "running":
@@ -1620,15 +1796,18 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
                 emb = np.frombuffer(base64.b64decode(lane.face, validate=True), np.float32)
             except ValueError:
                 emb = None
-            if emb is not None and emb.shape == (128,):
+            if emb is not None and emb.shape in FACE_DIMS:
                 match = flow_match(db, day, emb)
+                if match is None:
+                    flow.unknown_face(wall())
         ready = lane.ready and lane.exercise is not None and lane.exercise == flow.watching
         counting = flow.state == "testing" and flow.attempt_id is not None and lane.attempt_id == flow.attempt_id
         if (body.player or {}).get("paused"):
             flow.hold(wall())
         hand = (lane.hand[0], lane.hand[1]) if lane.hand else None
         ready_ex = lane.exercise if lane.ready and flow.state == "choose" else None
-        flow_act(db, day, flow, flow.observe(wall(), StationLook(lane.person, match, ready, lane.count if counting else None, hand, ready_ex)))
+        out = lane.out and lane.exercise is not None and lane.exercise == flow.watching
+        flow_act(db, day, flow, flow.observe(wall(), StationLook(lane.person, match, ready, lane.count if counting else None, hand, ready_ex, out)))
 
     @app.get("/api/stationflow")
     def stationflow_view(db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
@@ -1640,7 +1819,8 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         v["entry"] = ({"id": e.id, "bib": e.candidate.bib, "name": e.candidate.name, "name_ar": e.candidate.name_ar,
                        "faces": S.face_count(db, e.candidate_id, day), "done": sorted(S.done_events(e)), "status": e.status} if e else None)
         a = db.get(Attempt, v["attempt_id"]) if v["attempt_id"] else None
-        v["result"] = ({"count": a.count, "passed": a.passed, "grade": a.grade, "status": a.status} if a and a.status == "finished" else None)
+        v["result"] = ({"count": a.count, "passed": a.passed, "grade": a.grade, "status": a.status,
+                        "percent": S.percents(a.entry, S.rules_for(db, day, rules))[a.event]} if a and a.status == "finished" else None)
         seen = _last_report.get(S.EXERCISE_STATION)
         lane = seen[1].lanes.get(S.EXERCISE_LANE) if seen and clock() - seen[0] <= ENGINE_STALE_S else None
         v["live"] = ({"count": lane.count, "rejected": lane.rejected, "phase": lane.phase, "person": lane.person,

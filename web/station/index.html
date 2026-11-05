@@ -306,6 +306,7 @@
   .hmenu-pop .sw::after { content: ""; position: absolute; top: 2px; inset-inline-start: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--text); transition: inset-inline-start .15s; }
   .hmenu-pop button.active .sw { background: var(--amber); } .hmenu-pop button.active .sw::after { inset-inline-start: 18px; background: var(--amber-ink); }
   .seg button.active { background: var(--amber); color: var(--amber-ink); font-weight: 700; }
+  .seg.goplaces { margin-top: 8px; } .seg.goplaces button { flex: 1 1 0; padding: 10px 8px; }
   .conn { font-family: var(--cond); font-size: 14px; letter-spacing: 1px; text-transform: uppercase; }
   .conn.ok { color: var(--go); } .conn.bad { color: var(--stop); }
   main { padding: 14px 20px 14px; max-width: 1500px; margin: 0 auto; }
@@ -336,7 +337,55 @@
     body.fit #t-settings .setpanels { overflow: auto; min-height: 0; padding-inline-end: 4px; }
   }
   .lanes { display: grid; grid-template-columns: repeat(var(--lanes, 3), minmax(0, 1fr)); gap: 16px; }
+  #v-results.grid2 { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); }
+  .camwall { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .camtile { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .camtile .ct-head { display: flex; align-items: center; gap: 8px; }
+  .camtile .ct-head h2 { margin: 0; }
+  .camtile .ct-head { cursor: grab; touch-action: none; user-select: none; }
+  .camtile .ct-head::before { content: "⠿"; color: var(--muted); font-size: 18px; line-height: 1; }
+  .camtile.dragging { opacity: .45; }
+  .camtile.drop { outline: 2px dashed var(--amber); outline-offset: 3px; }
+  .camtile .ct-pic { position: relative; background: #000; aspect-ratio: 16 / 9; display: grid; place-items: center; overflow: hidden; }
+  /* the whole screen without scrolling (wide screens): two rows of tiles in the window's height, each
+     picture taking what its tile has left, the last 3 recognised under it */
+  .camwall.fit { grid-template-rows: repeat(2, minmax(0, 1fr)); }
+  .camwall.fit .camtile { min-height: 0; overflow: hidden; padding-top: 10px; padding-bottom: 10px; }
+  .camwall.fit .ct-pic { flex: 1 1 0; min-height: 0; aspect-ratio: auto; }
+  .camwall.fit .ct-now { min-height: 0; font-size: 17px; }
+  .camwall.fit table tr:nth-child(n+4) { display: none; }
+  .camwall.fit td { padding: 3px 6px; }
+  .camtile .ct-pic img { width: 100%; height: 100%; object-fit: contain; }
+  .camtile .ct-pic .ct-off { color: var(--muted); font-family: var(--cond); letter-spacing: 1px; text-transform: uppercase; }
+  .camtile .ct-now { font-family: var(--cond); font-size: 20px; min-height: 26px; }
+  .camtile table { width: 100%; border-collapse: collapse; }
+  .camtile td { padding: 5px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  .camtile td.t { font-family: var(--cond); white-space: nowrap; color: var(--muted); }
+  .camtile td.w { font-weight: 600; }
+  @media (max-width: 1050px) { .camwall { grid-template-columns: 1fr; } }
+  .rb-sum { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin: 14px 0 10px; }
+  .rb-sum button { background: var(--bg2); border: 1px solid var(--line); color: var(--text); padding: 8px 6px; cursor: pointer; text-align: start; font: inherit; }
+  .rb-sum button:disabled { cursor: default; }
+  .rb-sum button.active { border-color: var(--amber); box-shadow: inset 0 -3px 0 var(--amber); }
+  .rb-sum b { display: block; font-family: var(--cond); font-size: 28px; line-height: 1.1; }
+  .rb-sum span { font-family: var(--cond); font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+  .rb-sum .pass b { color: var(--go); } .rb-sum .fail b { color: var(--stop); } .rb-sum .pending b { color: var(--amber); }
+  .rbtable { width: 100%; border-collapse: collapse; }
+  .rbtable th { font-family: var(--cond); font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); text-align: start; padding: 6px 8px; border-bottom: 1px solid var(--line); cursor: pointer; white-space: nowrap; user-select: none; }
+  .rbtable th.on { color: var(--amber); }
+  .rbtable td { padding: 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  .rbtable tbody tr { cursor: pointer; } .rbtable tbody tr:hover td { background: var(--bg2); }
+  .rbtable tr.hit td { background: color-mix(in srgb, var(--amber) 14%, transparent); }
+  .rbtable .num { font-family: var(--cond); font-size: 18px; white-space: nowrap; }
+  .rbtable .num small { display: block; font-size: 12px; color: var(--muted); }
+  .rbtable .num.ok small { color: var(--go); } .rbtable .num.no small, .rbtable .num.no { color: var(--stop); }
+  .rbtable .who { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .rbtable .who img { width: 32px; height: 32px; object-fit: cover; border-radius: 50%; flex: 0 0 auto; }
+  .rbtable .who .ph { width: 32px; height: 32px; border-radius: 50%; background: var(--bg2); flex: 0 0 auto; }
+  .rbtable .ovr { font-family: var(--cond); font-size: 20px; font-weight: 700; }
+  .rb-empty { padding: 24px 8px; text-align: center; }
   @media (max-width: 1050px) { .grid2, .lanes { grid-template-columns: 1fr; } }
+  @media (max-width: 700px) { .rb-sum { grid-template-columns: repeat(3, minmax(0, 1fr)); } .rbtable .opt { display: none; } }
   .card { background: var(--panel); border: 1px solid var(--line); padding: 16px; }
   .card h2 { margin: 0 0 12px; font-family: var(--cond); font-size: 18px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
   .bar { display: flex; align-items: center; gap: 14px; padding: 12px 16px; background: var(--panel); border: 1px solid var(--line); margin-bottom: 16px; flex-wrap: wrap; }
@@ -485,7 +534,11 @@
   .grades td { font-size: 22px; font-weight: 700; }
   .grades .need { background: color-mix(in srgb, var(--go) 14%, transparent); color: var(--go); }
   .grades th small { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }
+  .gofx-h { font-family: var(--cond); font-size: 15px; letter-spacing: 2px; text-transform: uppercase; color: var(--amber); margin: 22px 0 6px; border-top: 1px solid var(--line); padding-top: 14px; }
+  canvas.gofx { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 9999; pointer-events: none;
+    margin: 0; padding: 0; border: 0; max-width: none; max-height: none; background: transparent; overflow: visible; }
   .grades .got { border-inline-start: 2px solid var(--line); color: var(--ink, inherit); white-space: nowrap; }
+  .grades .rsbtn { padding: 2px 8px; margin-inline-start: 6px; font-size: 14px; vertical-align: middle; }
   .rcgrid { display: grid; grid-template-columns: minmax(220px, 300px) 1fr; gap: 16px; margin-top: 10px; }
   @media (max-width: 900px) { .rcgrid { grid-template-columns: 1fr; } }
   .rclist { max-height: 70vh; overflow: auto; border: 1px solid var(--line); background: var(--bg2); }
@@ -539,7 +592,21 @@
   .camsel { display: flex; gap: 8px; flex: 1; min-width: 0; } .camsel select { flex: 1; min-width: 0; } .camsel input { flex: 2; min-width: 0; }
   /* the results card: pass / fail and every test, large, closes by itself */
   .rcard { max-width: 760px; width: 92vw; padding: 0; }
-  .rcard .rc-head { display: grid; grid-template-columns: auto 1fr; gap: 18px; align-items: center; padding: 22px 24px; border-bottom: 1px solid var(--line); }
+  .rcard .rc-head { display: grid; grid-template-columns: auto 1fr auto; gap: 18px; align-items: center; padding: 22px 24px; border-bottom: 1px solid var(--line); }
+  /* the overall score: a ring that fills to it, the number large inside, a tick at the level needed */
+  .rcard .rc-ring { position: relative; width: 190px; height: 190px; }
+  .rcard .rc-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .rcard .rc-ring .trk { fill: none; stroke: var(--line); stroke-width: 14; }
+  .rcard .rc-ring .arc { fill: none; stroke-width: 14; stroke-linecap: round; transition: stroke-dashoffset 1.1s cubic-bezier(.2,.8,.2,1); }
+  .rcard .rc-ring .tick { stroke: var(--text, #f1e8d7); stroke-width: 4; }
+  .rcard .rc-ring .mid { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
+  .rcard .rc-ring .num { font-family: var(--cond); font-size: 64px; font-weight: 800; line-height: .9; }
+  .rcard .rc-ring .num small { font-size: 28px; }
+  .rcard .rc-ring .lbl { font-family: var(--cond); font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
+  .rcard .rc-ring.pass .arc, .rcard .rc-ring.pass .num { stroke: var(--go); color: var(--go); }
+  .rcard .rc-ring.fail .arc, .rcard .rc-ring.fail .num { stroke: var(--bad); color: var(--bad); }
+  .rcard .rc-ring.pending .arc, .rcard .rc-ring.pending .num { stroke: var(--amber); color: var(--amber); }
+  @media (max-width: 640px) { .rcard .rc-head { grid-template-columns: auto 1fr; } .rcard .rc-ring { grid-column: 1 / -1; justify-self: center; } }
   .rcard .rc-head img { width: 110px; height: 138px; object-fit: cover; border-radius: 6px; background: var(--bg); }
   .rcard .rc-name { font-family: var(--cond); font-size: 30px; font-weight: 700; }
   .rcard .rc-verdict { font-family: var(--cond); font-size: 64px; font-weight: 800; line-height: 1; margin-top: 6px; }
@@ -764,6 +831,7 @@
     <option value="finish" data-t="r_finish"></option>
     <option value="station" data-t="r_station"></option>
     <option value="results" data-t="r_results"></option>
+    <option value="cameras" data-t="r_cameras"></option>
   </select>
   <span class="conn" id="conn"></span>
   <span class="spacer"></span>
@@ -881,6 +949,7 @@
     </div>
     <label class="lbl" style="margin-top:8px"><span data-t="correct_reason"></span><input id="cReason" autocomplete="off" required></label>
     <p class="hint" data-t="correct_hint"></p>
+    <div class="row" id="cResets" style="gap:8px;margin-top:6px;flex-wrap:wrap"></div>
     <div id="correctMsg"></div>
     <div class="row" style="margin-top:8px"><button class="btn amber" type="submit" data-t="finish_save"></button></div>
   </form>
@@ -960,6 +1029,7 @@
         <summary><span data-t="sl_setup"></span><small data-t="sl_setup_hint"></small></summary>
         <p class="hint camlegend"><span style="color:#ffc800">■</span> <span data-t="sl_box_mark"></span> &nbsp; <span style="color:#50dc50">■</span> <span data-t="sl_box_hand"></span> &nbsp; <span style="color:#f0f0f0">━</span> <span data-t="sl_box_line"></span></p>
         <div class="settings" style="margin-top:8px">
+          <p class="hint hidden" id="slRollHint" data-t="sl_roll_hint" style="grid-column:1/-1"></p>
           <label for="slOn" data-t="sl_on"></label>
           <select id="slOn" onchange="StartLineCfg.changed()"><option value="0" data-t="off"></option><option value="1" data-t="on"></option></select>
           <span class="hint" data-t="sl_on_hint"></span>
@@ -1033,6 +1103,11 @@
   </div>
 
   <!-- RESULTS: anyone looks at the camera and sees their results (pass / fail, each test). -->
+  <!-- CAMERAS: every camera at once, live, and whom each recognised lately -->
+  <div id="v-cameras" class="hidden">
+    <div class="camwall" id="camWall"></div>
+  </div>
+
   <div id="v-results" class="grid2 hidden">
     <div class="card">
       <div class="row" style="align-items:center"><h2 style="margin:0" data-t="r_results"></h2><span class="spacer"></span><span class="camb-slot" id="camBadgeSlot-results"></span></div>
@@ -1042,7 +1117,9 @@
     <div class="card">
       <h2 data-t="rc_title"></h2>
       <p class="hint" data-t="rc_hint"></p>
-      <div class="search" style="margin-top:10px"><input id="rQuery" data-tp="ph_bib" autocomplete="off" onkeydown="if(event.key==='Enter')resultsByBib()"><button class="btn amber" onclick="resultsByBib()" data-t="rc_show"></button></div>
+      <div class="search" style="margin-top:10px"><input id="rQuery" data-tp="ph_bib" autocomplete="off" oninput="ResultsBoard.render()" onkeydown="if(event.key==='Enter')resultsByBib()"><button class="btn amber" onclick="resultsByBib()" data-t="rc_show"></button></div>
+      <div class="rb-sum" id="rbSum"></div>
+      <div class="tablewrap"><table class="rbtable" id="rbTable"></table></div>
     </div>
   </div>
 
@@ -1053,6 +1130,8 @@
       <div class="row" style="align-items:center"><h2 style="margin:0" data-t="r_start"></h2><span class="spacer"></span><span class="camb-slot" id="camBadgeSlot-start"></span></div>
       <div id="camSlot-start"></div>
       <div id="sCall" class="callbox hidden"></div>
+      <div id="sRoll" class="card hidden" style="margin-top:10px"><h3 class="sec" style="margin-top:0" data-t="roll_title"></h3><p class="hint" data-t="roll_hint"></p><div class="tablewrap"><table id="sRollTable"></table></div></div>
+      <div id="sRecent" class="card hidden" style="margin-top:10px"><h3 class="sec" style="margin-top:0" data-t="roll_recent"></h3><div class="tablewrap"><table id="sRecentTable"></table></div></div>
       <div class="search" style="margin-top:10px"><input id="sQuery" data-tp="ph_bib" autocomplete="off" onkeydown="if(event.key==='Enter')lineUp()"><button class="btn amber" onclick="lineUp()" data-t="mark_present"></button></div>
       <div id="sMsg"></div>
       <div id="sLast" class="lastmark hidden"></div>
@@ -1103,6 +1182,9 @@
           <summary><span data-t="fc_setup"></span><small data-t="fc_setup_hint"></small></summary>
           <p class="hint camlegend"><span style="color:#00b4ff">■</span> <span data-t="fc_box_open"></span> &nbsp; <span style="color:#00c800">■</span> <span data-t="fc_box_crossed"></span> &nbsp; <span style="color:#e00000">━</span> <span data-t="fc_box_line"></span></p>
         <div class="settings" style="margin-top:8px">
+          <label for="fcOn" data-t="set_fl_on"></label>
+          <select id="fcOn" onchange="FinishCam.onChanged()"><option value="1" data-t="on"></option><option value="0" data-t="off"></option></select>
+          <span class="hint" data-t="fc_on_hint"></span>
           <label for="fcLineY" data-t="fc_line"></label>
           <input id="fcLineY" type="range" min="5" max="95" step="1" oninput="FinishCam.showLine()" onchange="FinishCam.lineChanged()">
           <span class="hint" data-t="fc_line_hint"></span>
@@ -1331,6 +1413,7 @@
       <button type="button" data-p="camerabg" onclick="SetNav.show('camerabg')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span data-t="sec_camera_bg"></span><i class="dot"></i></button>
       <button type="button" data-p="evidence" onclick="SetNav.show('evidence')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8" cy="12" r="2.2"/><path d="M13 10h5M13 14h3"/></svg><span data-t="sec_evidence"></span><i class="dot"></i></button>
       <button type="button" data-p="look" onclick="SetNav.show('look')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="8" cy="10" r="1.3"/><circle cx="12" cy="7.5" r="1.3"/><circle cx="16" cy="10" r="1.3"/><path d="M12 21c-1.5 0-2-1-1.5-2.2.6-1.4 2-1.8 3.5-1.8H17"/></svg><span data-t="sec_look"></span><i class="dot"></i></button>
+<button type="button" data-p="gofx" onclick="SetNav.show('gofx')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg><span data-t="sec_gofx"></span><i class="dot"></i></button>
       <div class="grp" data-t="nav_device"></div>
       <button type="button" data-p="screen" onclick="SetNav.show('screen')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="1"/><path d="M8 20h8M12 16v4"/></svg><span data-t="sec_screen"></span><i class="dot"></i></button>
       <button type="button" data-p="sounds" onclick="SetNav.show('sounds')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg><span data-t="sec_sounds_nav"></span><i class="dot"></i></button>
@@ -1388,6 +1471,15 @@
         <label for="setCancelWin" data-t="set_cancel_win"></label>
         <select id="setCancelWin"><option value="120" data-t="min_2"></option><option value="300" data-t="min_5"></option><option value="600" data-t="min_10"></option><option value="1800" data-t="min_30"></option><option value="0" data-t="until_first_finisher"></option></select>
         <span class="hint" data-t="set_cancel_win_hint"></span>
+        <label for="setRolling" data-t="set_rolling"></label>
+        <select id="setRolling"><option value="1" data-t="on"></option><option value="0" data-t="off"></option></select>
+        <span class="hint" data-t="set_rolling_hint"></span>
+        <label for="setStartLineOn" data-t="set_sl_on"></label>
+        <select id="setStartLineOn"><option value="1" data-t="on"></option><option value="0" data-t="off"></option></select>
+        <span class="hint" data-t="set_sl_on_hint"></span>
+        <label for="setSlSetup" data-t="set_sl_setup"></label>
+        <select id="setSlSetup"><option value="1" data-t="set_shown"></option><option value="0" data-t="set_hidden"></option></select>
+        <span class="hint" data-t="set_sl_setup_hint"></span>
       </div>
     </div>
     <div class="card setpanel" data-p="finish" data-scope="station">
@@ -1397,6 +1489,9 @@
         <label for="setFinishFace" data-t="set_finish_face"></label>
         <select id="setFinishFace"><option value="0" data-t="ff_auto"></option><option value="0.3">0.30</option><option value="0.33">0.33</option><option value="0.36">0.36</option><option value="0.4">0.40</option><option value="0.45">0.45</option><option value="0.5">0.50</option><option value="0.55">0.55</option><option value="0.6" data-t="ff_060"></option><option value="0.65" data-t="ff_065"></option><option value="0.7" data-t="ff_070"></option></select>
         <span class="hint" data-t="set_finish_face_hint"></span>
+        <label for="setFinishLineOn" data-t="set_fl_on"></label>
+        <select id="setFinishLineOn"><option value="1" data-t="on"></option><option value="0" data-t="off"></option></select>
+        <span class="hint" data-t="set_fl_on_hint"></span>
         <label for="setFcSetup" data-t="set_fc_setup"></label>
         <select id="setFcSetup"><option value="1" data-t="set_shown"></option><option value="0" data-t="set_hidden"></option></select>
         <span class="hint" data-t="set_fc_setup_hint"></span>
@@ -1409,6 +1504,12 @@
         <label for="setLanes" data-t="set_lanes"></label>
         <select id="setLanes"><option>1</option><option>2</option><option>3</option><option>4</option></select>
         <span class="hint" data-t="set_lanes_hint"></span>
+        <label for="setFirstRep" data-t="set_first_rep"></label>
+        <select id="setFirstRep"><option value="1" data-t="first_rep_on"></option><option value="0" data-t="first_rep_off"></option></select>
+        <span class="hint" data-t="set_first_rep_hint"></span>
+        <label for="setOutS" data-t="set_out_s"></label>
+        <select id="setOutS"><option value="0" data-t="out_off"></option><option value="2" data-t="out_2"></option><option value="3" data-t="out_3"></option><option value="5" data-t="out_5"></option></select>
+        <span class="hint" data-t="set_out_s_hint"></span>
         <label for="setStopAfter" data-t="set_stop_after"></label>
         <select id="setStopAfter"><option value="0" data-t="stop_off"></option><option value="10" data-t="stop_10"></option><option value="15" data-t="stop_15"></option><option value="20" data-t="stop_20"></option><option value="30" data-t="stop_30"></option><option value="60" data-t="stop_60"></option></select>
         <span class="hint" data-t="set_stop_after_hint"></span>
@@ -1479,6 +1580,13 @@
         <span class="hint" id="ipcStationNow"></span>
       </div>
       <div id="ipcMsg"></div>
+      <h3 class="sec" data-t="fs_title"></h3>
+      <p class="hint" data-t="fs_hint"></p>
+      <div class="settings wide">
+        <label for="setFinishShutter" data-t="fs_label"></label>
+        <select id="setFinishShutter"><option value="auto" data-t="fs_auto"></option><option value="1/1000">1/1000 s</option><option value="1/500">1/500 s</option><option value="1/250">1/250 s</option></select>
+        <span class="hint" id="fsNow"></span>
+      </div>
     </div>
     <div class="card setpanel" data-p="camerabg" data-scope="station">
       <h2 data-t="sec_camera_bg"></h2>
@@ -1533,6 +1641,57 @@
         <button class="btn ghost sm" style="flex:0 0 auto" type="button" onclick="Evidence.load()" data-t="fc_refresh"></button>
       </div>
       <div id="evMsg"></div>
+    </div>
+    <div class="card setpanel" data-p="gofx" data-scope="station">
+      <h2 data-t="sec_gofx"></h2>
+      <p class="hint" data-t="gofx_intro"></p>
+      <h3 class="gofx-h" data-t="gofx_for"></h3>
+      <div class="seg goplaces" id="goPlaces"><button type="button" data-g="start" onclick="GoStyle.pick('start')" data-t="sl_on"></button><button type="button" data-g="pushup" onclick="GoStyle.pick('pushup')" data-t="pushup"></button><button type="button" data-g="crunch" onclick="GoStyle.pick('crunch')" data-t="crunch"></button><button type="button" data-g="finish" onclick="GoStyle.pick('finish')" data-t="set_fl_on"></button></div>
+      <p class="hint" data-t="gofx_for_hint" style="margin-top:6px"></p>
+      <input type="hidden" id="setGoStyles">
+      <h3 class="gofx-h" data-t="gofx_g_effect"></h3>
+      <div class="settings">
+        <label for="setGoFx" data-t="set_gofx"></label>
+        <span class="row" style="gap:8px"><select id="setGoFx" onchange="GoFX.preview()"><option value="racing" data-t="gofx_racing"></option><option value="racing2" data-t="gofx_racing2"></option><option value="scoreboard" data-t="gofx_scoreboard"></option><option value="shockwave" data-t="gofx_shockwave"></option><option value="slam" data-t="gofx_slam"></option><option value="neon" data-t="gofx_neon"></option><option value="hyperspace" data-t="gofx_hyperspace"></option><option value="fireworks" data-t="gofx_fireworks"></option><option value="off" data-t="off"></option></select>
+          <button class="btn amber" type="button" onclick="GoFX.preview()" data-t="gofx_preview"></button></span>
+        <span class="hint" data-t="set_gofx_hint"></span>
+      </div>
+      <h3 class="gofx-h" data-t="gofx_g_word"></h3>
+      <div class="settings">
+        <label for="setGoSize" data-t="set_gosize"></label>
+        <span class="row" style="gap:10px"><input id="setGoSize" type="range" min="50" max="150" step="5" style="flex:1" oninput="$('setGoSizeV').textContent = this.value + '%'" onchange="GoFX.preview()"><b id="setGoSizeV" class="t"></b></span>
+        <span class="hint" data-t="set_gosize_hint"></span>
+        <label for="setGoA" data-t="set_goa"></label>
+        <span class="row" style="gap:10px"><input id="setGoA" type="range" min="0" max="100" step="5" style="flex:1" oninput="$('setGoAV').textContent = this.value + '%'" onchange="GoFX.preview()"><b id="setGoAV" class="t"></b></span>
+        <span class="hint" data-t="set_goa_hint"></span>
+      </div>
+      <h3 class="gofx-h" data-t="gofx_g_back"></h3>
+      <div class="settings">
+        <label for="setGoDim" data-t="set_godim"></label>
+        <span class="row" style="gap:10px"><input id="setGoDim" type="range" min="0" max="100" step="5" style="flex:1" oninput="$('setGoDimV').textContent = this.value + '%'" onchange="GoFX.preview()"><b id="setGoDimV" class="t"></b></span>
+        <span class="hint" data-t="set_godim_hint"></span>
+      </div>
+      <h3 class="gofx-h" data-t="gofx_g_lines"></h3>
+      <div class="settings">
+        <label for="setGoLines" data-t="set_golines"></label>
+        <span class="row" style="gap:10px"><input id="setGoLines" type="range" min="0" max="100" step="5" style="flex:1" oninput="$('setGoLinesV').textContent = this.value + '%'" onchange="GoFX.preview()"><b id="setGoLinesV" class="t"></b></span>
+        <span class="hint" data-t="set_golines_hint"></span>
+        <label for="setGoCount" data-t="set_gocount"></label>
+        <span class="row" style="gap:10px"><input id="setGoCount" type="range" min="10" max="400" step="10" style="flex:1" oninput="$('setGoCountV').textContent = this.value" onchange="GoFX.preview()"><b id="setGoCountV" class="t"></b></span>
+        <span class="hint" data-t="set_gocount_hint"></span>
+        <label for="setGoLineA" data-t="set_golinea"></label>
+        <span class="row" style="gap:10px"><input id="setGoLineA" type="range" min="0" max="100" step="5" style="flex:1" oninput="$('setGoLineAV').textContent = this.value + '%'" onchange="GoFX.preview()"><b id="setGoLineAV" class="t"></b></span>
+        <span class="hint" data-t="set_golinea_hint"></span>
+      </div>
+      <h3 class="gofx-h" data-t="gofx_g_time"></h3>
+      <div class="settings">
+        <label for="setGoSpeed" data-t="set_gospeed"></label>
+        <span class="row" style="gap:10px"><input id="setGoSpeed" type="range" min="50" max="200" step="10" style="flex:1" oninput="$('setGoSpeedV').textContent = this.value + '%'" onchange="GoFX.preview()"><b id="setGoSpeedV" class="t"></b></span>
+        <span class="hint" data-t="set_gospeed_hint"></span>
+        <label for="setGoDur" data-t="set_godur"></label>
+        <span class="row" style="gap:10px"><input id="setGoDur" type="range" min="0.1" max="5" step="0.1" style="flex:1" oninput="$('setGoDurV').textContent = this.value + ' s'" onchange="GoFX.preview()"><b id="setGoDurV" class="t"></b></span>
+        <span class="hint" data-t="set_godur_hint"></span>
+      </div>
     </div>
     <div class="card setpanel" data-p="look" data-scope="station">
       <h2 data-t="sec_look"></h2>
@@ -1655,21 +1814,27 @@ const I18N = {
     cs_webcam_d: "The device's or the PC's camera", cs_video_d: "A recorded video, for testing", cs_photo_d: "A still picture, for testing", cs_ipcam_d: "A network camera (its address below)",
     cs_one: "Keep at least one camera choice on each screen.", cs_na: "This screen cannot use this source",
     ipc_hint: "The IP cameras' addresses, saved on the station PC: rtsp://user:password@ip:554/Streaming/Channels/101. Screens never see the password; a camera screen whose IP camera box is left empty uses the address saved here. Type a dash (-) to remove one.",
+    fs_title: "Finish camera shutter", fs_hint: "Runners cross the line fast: a faster shutter keeps their face and body sharp, but needs more light. On Automatic the app uses the fastest shutter the light allows, morning to evening, indoors or out: it tries a faster one now and then and keeps it only if the picture stays as bright and clean. The start line and the exercise station stay at 1/250 s (people there stand still or move slowly).",
+    fs_label: "Shutter", fs_auto: "Automatic (follows the light)", fs_now: "Now {s} · brightness {b} · grain {n}", fs_trying: " · trying a faster shutter", fs_none: "No live picture from the finish camera yet.",
     sec_ipcams: "Cameras", sec_cameras: "Cameras", sec_camera_bg: "Camera background", ipc_title: "IP camera addresses",
-    rc_run: "3.2 km run", today_col: "Today", correct: "Correct", correct_title: "Correct a result", correct_reason: "Reason (required)", correct_hint: "Change what is wrong: the grade and the result follow. The old and new values and the reason go in the audit log.", correct_bad_time: "The run time as m:ss (for example 15:42.5)", corrected: "{name}: result corrected",
+    rc_run: "3.2 km run", rc_overall: "Overall", today_col: "Today", correct: "Correct", correct_title: "Correct or reset a result", reset_run: "Reset the run", reset_pushup: "Reset push-ups", reset_crunch: "Reset crunches", sure_reset_test: "Take it back? Press again", reset_done: "{name}: {test} reset, the test can be done again", correct_reason: "Reason (required)", correct_hint: "Change what is wrong: the grade and the result follow. The old and new values and the reason go in the audit log.", correct_bad_time: "The run time as m:ss (for example 15:42.5)", corrected: "{name}: result corrected",
     rc_pending: "to do",
     rc_pending_all: "NOT FINISHED YET",
     rc_fail: "FAIL",
     rc_pass: "PASS",
     rc_show: "Show",
-    rc_hint: "Look at the camera to see your results, or type a bib.",
-    rc_title: "Your results",
-    r_results: "Results",
+    rc_hint: "Look at the camera to see your own card, or type a bib. Tap a row for anyone's card; tap a box to filter.",
+    rc_title: "Today's results", rb_all: "Tested", rb_pass: "Passed", rb_fail: "Failed", rb_pending: "In progress", rb_rate: "Pass rate",
+    rb_name: "Name", rb_overall: "Overall", rb_none: "No results yet today.", rb_nomatch: "Nobody matches.", rb_running: "on now",
+    r_results: "Results", r_cameras: "Cameras",
+    cw_start: "Start line", cw_finish: "Finish line", cw_exercise: "Exercise station", cw_weigh: "Weigh-in", cw_off: "No picture", cw_none: "Nobody recognised yet today.",
+    cw_started: "started", cw_review: "to name", cw_refused: "refused", cw_ignored: "ignored", cw_discarded: "discarded", cw_finished: "finished",
+    cw_station_now: "Now: {who} · {what}", cw_idle: "Waiting for someone", cw_drag: "Drag onto another camera to swap them",
     e_all_done: "Push-ups and crunches are both done",
     st_reset: "Reset",
     st_end: "End test", st_end_sure: "End it? Press again", st_end_hint: "The person cannot go on: the test ends now and the count so far is their result.",
     st_cancel: "Cancel", st_cancel_sure: "Cancel? Press again", st_cancel_hint: "Not scored: the test is thrown away and they do it again.",
-    st_ended_examiner: "Ended by the examiner before the time.", st_ended_left_mat: "Ended: they left the mat.", st_ended_no_reps: "Ended: no more reps.",
+    st_ended_examiner: "Ended by the examiner before the time.", st_ended_left_mat: "Ended: they left the mat.", st_ended_no_reps: "Ended: no more reps.", st_ended_left_position: "Ended: they left the exercise position (stood up, sat up or knelt).", st_back_in_position: "Back into position! The test ends in {n} s", set_out_s: "End the test when out of position for", set_out_s_hint: "One-mat station: standing up, sitting up and staying up, or kneeling ends the test with the count so far (the only rest allowed is the start position: arms straight, or lying back). The screen warns meanwhile.", out_off: "Off (only the time, no reps, leaving the mat)", out_2: "2 seconds", out_3: "3 seconds", out_5: "5 seconds",
     st_ends_in: "No rep: the test ends in {n} s", set_stop_after: "End the test after no rep for", set_stop_after_hint: "One-mat station: when the person stops (after their first rep, no rep this long while out of the start position; resting in it is allowed), the test ends with the count so far. Leaving the mat for 5 s also ends it. A paused test video does not count.",
     stop_off: "Never (only the time)", stop_10: "10 s", stop_15: "15 s", stop_20: "20 s", stop_30: "30 s", stop_60: "1 minute",
     cal_title: "Auto-calibration, live", cal_sliders: "Adjust", cal_off: "Off", cal_learning: "Learning {n}/{m}", cal_done: "Calibrated", cal_nobody: "Nobody measured yet",
@@ -1685,16 +1850,24 @@ const I18N = {
     st_all_done: "All tests done",
     st_come_back: "Take a break: come back for the next test",
     st_left_position: "Back into the start position",
+    st_false_start: "False start, not counted: get into the start position again",
+    st_first_rep: "Start when you are ready: your time starts with your first rep",
+    set_first_rep: "Station clock", set_first_rep_hint: "From the first rep: recognised, the person just starts (no start position to hold, no 3-2-1, no GO); their time runs from their first rep. Leaving without a rep saves nothing. Off: hold the start position, then the countdown and GO.", first_rep_on: "From the first rep", first_rep_off: "After the start position and GO",
+    call_rolling: "Walk to the start line and go: your time starts as you cross it", roll_started: "started",
+    roll_title: "Start crossings to name", roll_hint: "Someone crossed the start line and the camera could not say who. Pick the runner: their time starts from that crossing. Not a runner: discard.",
+    roll_assign: "Start them", roll_recent: "Recent starts", e_nobody_waiting: "Nobody waiting to start (not a runner)", e_just_cancelled: "Start just cancelled: not started again",
+    sl_roll_hint: "Rolling start: put the line on the floor where the runners' feet cross it, and face the camera towards the runners coming (their faces are recognised on the way to the line).", e_already_running: "Already running", e_not_recognised: "Not recognised", e_cannot_start: "Cannot start now",
+    set_rolling: "Rolling start", set_rolling_hint: "On: no stopping, no hand, no GO. The start camera recognises each runner on the way and their time starts the moment they cross the start line, as the finish camera does (timed the same way at both lines). Someone it cannot recognise is listed on the start screen for the examiner to name. Off: the start line and hand settings below. Restart the start camera after a change.",
     st_timeout: "Not in position in time: step onto the mat again",
     st_stepped_away: "They stepped away: step onto the mat again",
     st_hold: "hold still…",
     st_position: "get into the start position",
     st_no_camera: "The station camera is not sending: start it with Camera",
-    st_step_up: "Step onto the mat and look at the camera",
+    st_step_up: "Step onto the mat and look at the camera", st_face_not_recognised: "Not recognised: stand facing the camera for a moment (or the examiner types the bib)",
     n_face_bib_disagree: "the bib read and the face disagree: the face looks like bib {bib}",
     call_timeout: "No hand raised: step onto the mark again",
     call_stepped_away: "The runner stepped away: step onto the mark again",
-    call_raise: "Raise a hand to start", call_behind_line: "Step back behind the line", call_false_start: "False start: over the line before GO. Step back behind the line", sl_setup: "Start line set-up", sl_setup_hint: "Colour key, line position, runners' direction.", sl_box_mark: "the runner at the mark", sl_box_hand: "a hand raised", sl_box_line: "the start line (red while a foot is over it)", sl_on: "Start line", sl_on_hint: "On: the runner stands behind the line; their clock starts when they cross it after GO (not seen within 10 s: from GO). Over it before GO is a false start (the start is cancelled)", sl_line: "Line position", sl_line_hint: "The white line on the picture: put it on the floor where the runners' toes go. It turns red when someone is over it.", sl_dir: "Running direction", sl_dir_down: "Towards the camera (down the picture)", sl_dir_up: "Away from the camera (up the picture)", sl_dir_hint: "Which side of the line is the course",
+    call_raise: "Raise a hand to start", set_gofx: "Effect", set_godim: "Darkness", set_gosize: "Size", set_goa: "Opacity", set_goa_hint: "How solid the word GO is: 100% full, lower lets the screen show through.", set_golines: "Area", set_gocount: "Count", set_gocount_hint: "How many lines (speed streaks): fewer for a cleaner look.", set_golinea: "Opacity", set_golinea_hint: "How strong the lines, rings and sparks are: 100% full, 0% invisible.", set_golines_hint: "How much of the screen the lines take (speed streaks, rings, bursts): 100% the whole screen, less a box around GO, 0% no lines.", set_gospeed: "Speed", set_gospeed_hint: "How fast the effect moves: 100% as designed, 200% twice as fast.", set_godur: "Duration", set_godur_hint: "How long GO stays on the screen, fading out at the end.", set_gosize_hint: "How big GO is drawn: 100% fills most of the screen height.", set_godim_hint: "How dark the screen goes behind GO: 0% the screen stays as it is, 100% black. Preview shows it.", set_gofx_hint: "Shown full screen at GO on the start line and when a station test starts.", gofx_preview: "Preview", gofx_racing: "Racing", gofx_scoreboard: "Scoreboard", gofx_racing2: "Racing 2 (no trails)", sec_gofx: "GO effect", gofx_for: "Settings for", gofx_for_hint: "Each place has its own effect: GO at the start line and when push-ups or crunches start; at the finish line the runner's name and time when they cross. Pick one, set it, Preview; Save settings keeps all four on every screen.", gofx_intro: "The full-screen GO on the start line and when a station test starts. Let go of a slider to see it; Save settings keeps it on every device.", gofx_g_effect: "Effect", gofx_g_word: "The word GO", gofx_g_back: "Background", gofx_g_lines: "Lines", gofx_g_time: "Timing", gofx_shockwave: "Shockwave", gofx_slam: "Slam", gofx_neon: "Neon", gofx_hyperspace: "Hyperspace", gofx_fireworks: "Fireworks", call_go_line: "GO! Your time starts when you cross the line", call_behind_line: "Step back behind the line", call_false_start: "False start: over the line before GO. Step back behind the line", sl_setup: "Start line set-up", sl_setup_hint: "Colour key, line position, runners' direction.", sl_box_mark: "the runner at the mark", sl_box_hand: "a hand raised", sl_box_line: "the start line (red while a foot is over it)", sl_on: "Start line", sl_on_hint: "On: no hand to raise. Recognised behind the line, the runner sees GO and their clock starts the moment they cross it. Off: a raised hand gives GO.", sl_line: "Line position", sl_line_hint: "The white line on the picture: put it on the floor where the runners' toes go. It turns red when someone is over it.", sl_dir: "Running direction", sl_dir_down: "Towards the camera (down the picture)", sl_dir_up: "Away from the camera (up the picture)", sl_dir_hint: "Which side of the line is the course",
     call_no_camera: "The start camera is not sending: check it below",
     call_step_up: "Step onto the mark and look at the camera",
     e_low_quality: "The photo is not good enough to recognise them by later (blurred, dark or too small): take another",
@@ -1720,7 +1893,7 @@ const I18N = {
     bmi_range: "accepted {min} – {max}", out_of_range: "Outside the accepted range. Accepting needs a reason.",
     accepted_go: "Accepted · go to the run line-up", rejected_done: "Rejected · finished for today",
     waiting_line: "Accepted, not at the line", at_line: "At the line", not_weighed_yet: "Not weighed yet",
-    mark_present: "At the line", start: "Start", confirm_start: "Press again: countdown and start", start_hint: "One runner at a time: press Start, 3-2-1-GO, and their own clock runs from GO. The next runner can start as soon as GO is given.",
+    mark_present: "At the line", start: "Start", confirm_start: "Press again: countdown and start", start_hint: "One runner at a time: recognised by the camera, then a raised hand (or Start) gives GO and their own clock runs from it. With a start line: no hand, their clock starts when they cross it.",
     wave_n: "Wave {n}", wave_short: "W{n}", wave_fill: "{n} / {max} at the line", wave_runners: "{n} runners", start_wave: "Start wave {n}", line_empty: "Nobody at the line yet",
     on_course: "On the course", wave_counts: "{out} out · {fin} in", review_n: "{n} to review", cutoff_in: "cut-off in {t}", cutoff_passed: "cut-off passed: closes itself", all_in_closing: "everyone in: closes itself in {t}",
     close_wave: "Close wave", close_wave_n: "Close wave {n}", wave_closed: "Wave {n} closed: anyone still out is DNF.",
@@ -1746,7 +1919,7 @@ const I18N = {
     fc_line: "Finish line position", fc_line_hint: "The red line on the picture is the finish line: put it on the floor where the runners' feet cross. It applies at once.",
     fc_dir: "Runners come", fc_dir_down: "Towards the camera (down)", fc_dir_up: "Away from the camera (up)", fc_dir_any: "Either way",
     fc_dir_hint: "A crossing counts only in this direction.", fc_start: "Start camera", fc_restart: "Restart with these settings", fc_stop: "Stop camera",
-    fc_offline: "The camera service is not running on the station PC. Start TestPoint.cmd starts it (or run: python -m testpoint.camhost). Until then, time by hand with CROSSING.",
+    fc_offline: "The camera service is not running on the station PC: the TestPoint desktop icon starts it. Until then, time by hand with CROSSING.",
     fc_state_offline: "service off", fc_state_live: "live", fc_state_starting: "starting…", fc_state_error: "stopped with an error", fc_state_stopped: "off",
     fc_no_webcam: "No free webcam (in use by another program?)", fc_no_video: "No videos found", fc_gpu: "GPU", fc_cpu: "CPU only: slower",
     fc_pick_source: "Pick a source first", fc_started: "Finish camera starting: the picture appears in a few seconds.", fc_stopped: "Finish camera stopped.",
@@ -1755,7 +1928,7 @@ const I18N = {
     fcam_live: "Finish camera live", cam_last: "last read {bib}", cam_off_manual: "Camera off · time by hand",
     review_queue: "Review queue", clip: "clip", assign: "Assign", finishers: "Finishers", time: "Time", status: "Status", bib: "Bib", name: "Name", run: "Run",
     pushup: "Push-ups", crunch: "Crunches", time_limit: "Time limit", pass_mark: "Pass", waiting_here: "Ran, not done here",
-    sc_camera: "Camera", sc_title: "Station camera", sc_offline: "The camera service is not running on the station PC. Start TestPoint.cmd starts it (or run: python -m testpoint.camhost). Until then, count by hand.",
+    sc_camera: "Camera", sc_title: "Station camera", sc_offline: "The camera service is not running on the station PC: the TestPoint desktop icon starts it. Until then, count by hand.",
     sc_what: "Counts {ex} in {n} lanes (the exercise and lanes on this page).", sc_what_1: "Counts {ex} for one person (the whole picture).", sc_what_mat: "One mat: counts push-ups, then crunches, for the person checked in (the whole picture).", sc_running: "Running", sc_equal: "Equal lanes",
     sc_div_hint: "Drag the dashed lines so each lane holds one person; then Restart with these settings.", sc_cpu: "CPU only: counting will be slow",
     sc_followed: "Camera switched to {ex}, {n} lanes.", sc_started: "Station camera starting: the picture appears in a few seconds.", sc_stopped: "Station camera stopped.",
@@ -1815,8 +1988,12 @@ const I18N = {
     e_not_testing: "No test is running at this station", e_unknown_camera: "Unknown camera", e_unknown_setting: "Unknown setting", st_choose: "Choose your first test", st_choose_how: "Raise a hand: the circle follows it. Hold it on one test.", st_choose_left: "{n} s, then {ex}.",
     set_choose_first: "People choose their first test", set_choose_first_hint: "One mat: with both tests still to do, the person picks push-ups or crunches first with a raised hand (a circle follows it; held on one test 1.5 s), or by getting into its start position. Not with a test video. Off: push-ups first.",
     ph_date: "dd-mm-yyyy", pick_date: "Pick a date", fc_setup: "Finish line set-up", fc_setup_hint: "Colour key, line position, runners' direction.",
-    set_fc_setup: "Line set-up on the start and finish screens", set_shown: "Shown", set_hidden: "Hidden",
-    set_fc_setup_hint: "The fold-out with the colour key, the finish line position and the runners' direction. Hide it once they are set, so the test day screen stays simple.",
+    set_fc_setup: "Finish line set-up", set_shown: "Shown", set_hidden: "Hidden",
+    set_fc_setup_hint: "The fold-out on the finish screen with the colour key, the finish line position and the runners' direction. Hide it once they are set, so the test day screen stays simple.",
+    set_sl_setup: "Start line set-up", set_sl_setup_hint: "The fold-out on the start screen with the start line on/off, its position, the runners' direction and the colour key. Hide it once they are set.",
+    set_fl_on: "Finish line", set_fl_on_hint: "The default on every finish screen. On: the finish camera times each runner the moment they cross the line. Off: no finish camera; the examiner times by hand. Saving applies it to every finish screen; the set-up on a finish screen can still change it there.",
+    fc_on_hint: "On: the camera times each crossing. Off: the camera stops and the examiner times by hand.",
+    set_sl_on: "Start line", set_sl_on_hint: "The default on every start screen. On: no hand to raise; recognised behind the line, the runner sees GO and their clock starts the moment they cross it. Off: a raised hand gives GO. Saving applies it to every start screen; the set-up on a start screen can still change it there.",
     set_walk: "Register walk-ins at the desk", set_walk_hint: "Off: only people on today's list (CSV or Advanced) can be tested.",
     walk_ins_off: "Not on today's list. Registering at the desk is switched off: add them in Advanced.",
     set_lanes: "Lanes per station", set_lanes_hint: "Must match the cameras the engine watches (--lanes).", lanes_wait: "The lane change waits until those lanes are free.",
@@ -1832,7 +2009,7 @@ const I18N = {
     c_studio: "Studio grey", c_light: "Light grey", c_white: "White", c_navy: "Navy", c_charcoal: "Charcoal", c_green: "Green", c_custom: "Custom…",
     set_bg_image: "Background picture", bg_choose: "Choose picture…", bg_remove: "Remove",
     set_bg_image_hint: "JPEG or PNG; landscape works best. The same picture on every desk. Without one, the backdrop colour is used.",
-    bg_uploaded: "Picture saved. Save settings to keep Picture as the camera background.", e_bad_image: "Use a JPEG or PNG picture",
+    bg_uploaded: "Picture saved. Save settings to keep Picture as the camera background.", 
     set_bg_hint: "What is shown behind the person, like a video call, on the places ticked below.",
     set_auto: "Auto-identify faces at weigh-in", set_auto_hint: "On: the camera keeps checking who is in front; off: the examiner presses Identify.",
     set_gender: "Default gender for new candidates", set_gender_hint: "Pre-selected in the registration form; the examiner can change it.",
@@ -1874,7 +2051,7 @@ const I18N = {
     s_expected: "expected", s_accepted: "accepted", s_rejected: "rejected at weigh-in", s_lined_up: "at the line", s_absent: "absent",
     s_running: "running", s_run_passed: "run passed", s_run_failed: "run failed", s_dnf: "DNF", s_complete: "complete",
     e_not_on_todays_list: "Not on today's list", e_already_weighed: "Already weighed in today", weighed_next: "{name} is weighed in today ✓ · next: the run", e_not_weighed: "Not weighed in yet", e_no_photos_today: "No face photos from today: go back to the weigh-in desk for them", photos_today: "New face photos: look at the camera",
-    e_has_not_run: "Has not run yet", e_still_running: "Still running", e_rejected_at_weigh_in: "Rejected at weigh-in",
+    e_has_not_run: "Has not run yet", e_rejected_at_weigh_in: "Rejected at weigh-in",
     e_missed_the_run: "Missed the run", e_run_not_passed: "Run not passed", e_run_not_finished: "Run not finished (DNF)",
     e_event_already_done: "Already done this exercise today", e_already_lined_up: "Already at the line",
     e_run_already_started: "The run has already started", e_not_eligible: "Not eligible", e_bmi_out_of_range: "BMI out of range: give a reason",
@@ -1966,7 +2143,7 @@ const I18N = {
     set_dots: "Dots in the moving background", set_dots_hint: "Neural Aurora, Mirage and Desert Stars. Fewer dots are calmer and lighter on the PC.", dots_auto: "Auto",
     sec_look: "Appearance", sec_screen: "Theme and motion", sec_sounds_nav: "Sounds", ph_search_settings: "Search settings",
     set_no_match: "No setting matches.", screen_hint: "Only this device: each screen can look and move its own way.",
-    unsaved: "Unsaved changes", unsaved_hint: "Station settings apply to every device once saved.", discard: "Discard",
+    unsaved: "Unsaved changes", unsaved_hint: "Station settings apply to every device once saved.", 
     sure_discard: "Leave without saving? Press again",
     sec_sounds: "Sounds (this screen)", sounds_hint: "Each device keeps its own sounds and volume. Press ▶ to hear one. The start-line countdown and horn always play.",
     snd_ev_capture: "Face photo saved", snd_ev_capture_hint: "Each of the three photos (straight, left, right).",
@@ -2064,21 +2241,27 @@ const I18N = {
     cs_webcam_d: "كاميرا الجهاز أو الحاسوب", cs_video_d: "فيديو مسجّل للتجربة", cs_photo_d: "صورة ثابتة للتجربة", cs_ipcam_d: "كاميرا شبكة (عنوانها أدناه)",
     cs_one: "أبقِ خياراً واحداً للكاميرا على الأقل في كل شاشة.", cs_na: "هذه الشاشة لا تستخدم هذا المصدر",
     ipc_hint: "عناوين كاميرات IP محفوظة على جهاز المحطة: rtsp://user:password@ip:554/Streaming/Channels/101. لا تظهر كلمة المرور على أي شاشة؛ وإذا تُرك حقل كاميرا IP فارغاً تُستخدم العنوان المحفوظ هنا. اكتب (-) لحذف عنوان.",
+    fs_title: "سرعة غالق كاميرا خط النهاية", fs_hint: "يعبر المتسابقون الخط بسرعة: الغالق الأسرع يُبقي الوجه والجسم واضحين لكنه يحتاج إضاءة أكثر. في الوضع التلقائي يستخدم التطبيق أسرع غالق تسمح به الإضاءة صباحاً ومساءً، داخل المبنى أو خارجه: يجرّب غالقاً أسرع من حين لآخر ولا يُبقيه إلا إذا بقيت الصورة بنفس الإضاءة والنقاء. يبقى خط البداية ومحطة التمارين على 1/250 ثانية (الأشخاص هناك ثابتون أو يتحركون ببطء).",
+    fs_label: "الغالق", fs_auto: "تلقائي (يتبع الإضاءة)", fs_now: "الآن {s} · الإضاءة {b} · التشويش {n}", fs_trying: " · يجرّب غالقاً أسرع", fs_none: "لا توجد صورة مباشرة من كاميرا خط النهاية بعد.",
     sec_ipcams: "الكاميرات", sec_cameras: "الكاميرات", sec_camera_bg: "خلفية الكاميرا", ipc_title: "عناوين كاميرات IP",
-    rc_run: "جري 3.2 كم", today_col: "اليوم", correct: "تصحيح", correct_title: "تصحيح نتيجة", correct_reason: "السبب (مطلوب)", correct_hint: "غيّر ما هو خطأ: الدرجة والنتيجة تتبعان. القيم القديمة والجديدة والسبب تُسجّل في سجل التدقيق.", correct_bad_time: "زمن الجري بصيغة د:ث (مثلاً 15:42.5)", corrected: "{name}: صُحّحت النتيجة",
+    rc_run: "جري 3.2 كم", rc_overall: "المجموع", today_col: "اليوم", correct: "تصحيح", correct_title: "تصحيح نتيجة أو إعادة تعيينها", reset_run: "إعادة تعيين الجري", reset_pushup: "إعادة تعيين الضغط", reset_crunch: "إعادة تعيين البطن", sure_reset_test: "التراجع عنها؟ اضغط مرة أخرى", reset_done: "{name}: أُعيد تعيين {test}، يمكن إعادة الاختبار", correct_reason: "السبب (مطلوب)", correct_hint: "غيّر ما هو خطأ: الدرجة والنتيجة تتبعان. القيم القديمة والجديدة والسبب تُسجّل في سجل التدقيق.", correct_bad_time: "زمن الجري بصيغة د:ث (مثلاً 15:42.5)", corrected: "{name}: صُحّحت النتيجة",
     rc_pending: "متبقٍ",
     rc_pending_all: "لم يكتمل بعد",
     rc_fail: "راسب",
     rc_pass: "ناجح",
     rc_show: "عرض",
-    rc_hint: "انظر إلى الكاميرا لترى نتائجك، أو اكتب الرقم.",
-    rc_title: "نتائجك",
-    r_results: "النتائج",
+    rc_hint: "انظر إلى الكاميرا لترى بطاقتك، أو اكتب الرقم. اضغط على صف لعرض بطاقة أي شخص؛ اضغط على مربع للتصفية.",
+    rc_title: "نتائج اليوم", rb_all: "المختبَرون", rb_pass: "ناجح", rb_fail: "راسب", rb_pending: "قيد الاختبار", rb_rate: "نسبة النجاح",
+    rb_name: "الاسم", rb_overall: "الإجمالي", rb_none: "لا توجد نتائج اليوم بعد.", rb_nomatch: "لا يوجد تطابق.", rb_running: "الآن",
+    r_results: "النتائج", r_cameras: "الكاميرات",
+    cw_start: "خط البداية", cw_finish: "خط النهاية", cw_exercise: "محطة التمارين", cw_weigh: "الوزن", cw_off: "لا توجد صورة", cw_none: "لم يُتعرّف على أحد اليوم بعد.",
+    cw_started: "انطلق", cw_review: "بحاجة إلى تسمية", cw_refused: "مرفوض", cw_ignored: "تم تجاهله", cw_discarded: "محذوف", cw_finished: "أنهى",
+    cw_station_now: "الآن: {who} · {what}", cw_idle: "بانتظار شخص", cw_drag: "اسحب إلى كاميرا أخرى لتبديل مكانيهما",
     e_all_done: "أُنجز الضغط والبطن كلاهما",
     st_reset: "إعادة",
     st_end: "إنهاء الاختبار", st_end_sure: "إنهاء؟ اضغط مرة أخرى", st_end_hint: "لا يستطيع المتابعة: ينتهي الاختبار الآن ويُحتسب العدد حتى الآن نتيجةً له.",
     st_cancel: "إلغاء", st_cancel_sure: "إلغاء؟ اضغط مرة أخرى", st_cancel_hint: "لا يُحتسب: يُلغى الاختبار ويُعيده.",
-    st_ended_examiner: "أنهاه الفاحص قبل الوقت.", st_ended_left_mat: "انتهى: غادر البساط.", st_ended_no_reps: "انتهى: توقف عن التكرار.",
+    st_ended_examiner: "أنهاه الفاحص قبل الوقت.", st_ended_left_mat: "انتهى: غادر البساط.", st_ended_no_reps: "انتهى: توقف عن التكرار.", st_ended_left_position: "انتهى: خرج من وضعية التمرين (وقف أو جلس أو جثا).", st_back_in_position: "عُد إلى الوضعية! ينتهي الاختبار خلال {n} ث", set_out_s: "إنهاء الاختبار عند الخروج من الوضعية لمدة", set_out_s_hint: "محطة البساط الواحد: الوقوف، أو الجلوس والبقاء جالساً، أو الجثو ينهي الاختبار بالعدد حتى الآن (الراحة المسموحة فقط في وضعية البداية: الذراعان مستقيمتان أو الاستلقاء). تظهر الشاشة تحذيراً خلال ذلك.", out_off: "متوقف (الوقت، عدم التكرار، مغادرة البساط فقط)", out_2: "ثانيتان", out_3: "3 ثوانٍ", out_5: "5 ثوانٍ",
     st_ends_in: "لا تكرار: ينتهي الاختبار خلال {n} ث", set_stop_after: "إنهاء الاختبار بعد عدم التكرار لمدة", set_stop_after_hint: "محطة البساط الواحد: عندما يتوقف الشخص (بعد أول تكرار، لا تكرار طوال هذه المدة وهو خارج وضعية البداية؛ الراحة فيها مسموحة) ينتهي الاختبار بالعدد حتى الآن. مغادرة البساط 5 ث تنهيه أيضاً. لا يُحتسب إيقاف فيديو الاختبار مؤقتاً.",
     stop_off: "أبداً (الوقت فقط)", stop_10: "10 ث", stop_15: "15 ث", stop_20: "20 ث", stop_30: "30 ث", stop_60: "دقيقة",
     cal_title: "المعايرة التلقائية مباشرة", cal_sliders: "الضبط", cal_off: "متوقفة", cal_learning: "تتعلم {n}/{m}", cal_done: "تمت المعايرة", cal_nobody: "لم يُقَس أحد بعد",
@@ -2094,16 +2277,24 @@ const I18N = {
     st_all_done: "اكتملت جميع الاختبارات",
     st_come_back: "استرح: عد للاختبار التالي",
     st_left_position: "عد إلى وضعية البداية",
+    st_false_start: "بداية خاطئة، لم تُحتسب: عد إلى وضعية البداية",
+    st_first_rep: "ابدأ عندما تكون جاهزاً: يبدأ وقتك مع أول تكرار",
+    set_first_rep: "ساعة المحطة", set_first_rep_hint: "من أول تكرار: بعد التعرّف يبدأ الشخص مباشرة (بلا وضعية بداية ولا عدّ تنازلي ولا إشارة انطلاق)؛ يبدأ وقته مع أول تكرار. المغادرة بلا تكرار لا تحفظ شيئاً. متوقف: وضعية البداية ثم العدّ التنازلي والانطلاق.", first_rep_on: "من أول تكرار", first_rep_off: "بعد وضعية البداية والانطلاق",
+    call_rolling: "امشِ إلى خط البداية وانطلق: يبدأ وقتك لحظة عبوره", roll_started: "انطلق",
+    roll_title: "عبور لخط البداية بحاجة إلى تسمية", roll_hint: "عبر شخص خط البداية ولم تتعرف عليه الكاميرا. اختر العدّاء: يبدأ وقته من لحظة ذلك العبور. ليس عدّاءً: احذفه.",
+    roll_assign: "أطلقه", roll_recent: "آخر الانطلاقات", e_nobody_waiting: "لا أحد بانتظار الانطلاق (ليس عدّاءً)", e_just_cancelled: "أُلغي انطلاقه للتو: لم يُطلق مجدداً",
+    sl_roll_hint: "انطلاق متحرك: ضع الخط على الأرض حيث تعبره أقدام العدّائين، ووجّه الكاميرا نحو العدّائين القادمين (يُتعرّف على وجوههم في طريقهم إلى الخط).", e_already_running: "يجري الآن", e_not_recognised: "لم يتم التعرّف", e_cannot_start: "لا يمكنه الانطلاق الآن",
+    set_rolling: "انطلاق متحرك", set_rolling_hint: "مفعّل: بلا توقف ولا رفع يد ولا إشارة انطلاق. تتعرّف كاميرا البداية على كل عدّاء في طريقه ويبدأ وقته لحظة عبوره خط البداية، كما تفعل كاميرا النهاية (التوقيت بنفس الطريقة عند الخطين). من لا تتعرّف عليه يظهر في شاشة البداية ليسمّيه الفاحص. متوقف: إعدادات خط البداية واليد أدناه. أعد تشغيل كاميرا البداية بعد التغيير.",
     st_timeout: "لم يتخذ الوضعية في الوقت: قف على البساط مجدداً",
     st_stepped_away: "ابتعد: قف على البساط مجدداً",
     st_hold: "اثبت…",
     st_position: "اتخذ وضعية البداية",
     st_no_camera: "كاميرا المحطة لا ترسل: شغّلها من زر الكاميرا",
-    st_step_up: "قف على البساط وانظر إلى الكاميرا",
+    st_step_up: "قف على البساط وانظر إلى الكاميرا", st_face_not_recognised: "لم يتم التعرّف: قف مواجهاً للكاميرا لحظة (أو يكتب الفاحص الرقم)",
     n_face_bib_disagree: "الرقم المقروء والوجه لا يتطابقان: الوجه يشبه الرقم {bib}",
     call_timeout: "لم تُرفع اليد: قف على العلامة مجدداً",
     call_stepped_away: "ابتعد العدّاء: قف على العلامة مجدداً",
-    call_raise: "ارفع يدك للبدء", call_behind_line: "ارجع خلف الخط", call_false_start: "بداية خاطئة: تجاوز الخط قبل الانطلاق. ارجع خلف الخط", sl_setup: "إعداد خط البداية", sl_setup_hint: "دليل الألوان، موضع الخط، اتجاه العدّائين.", sl_box_mark: "العدّاء عند العلامة", sl_box_hand: "يد مرفوعة", sl_box_line: "خط البداية (أحمر عند تجاوز قدم له)", sl_on: "خط البداية", sl_on_hint: "مفعّل: يقف العدّاء خلف الخط؛ يبدأ وقته عند عبوره بعد الانطلاق (إن لم يُرَ خلال 10 ثوانٍ: من الانطلاق). تجاوزه قبل الانطلاق بداية خاطئة (تُلغى البداية)", sl_line: "موضع الخط", sl_line_hint: "الخط الأبيض على الصورة: ضعه على الأرض حيث تكون أصابع قدمي العدّاء. يصبح أحمر عند تجاوزه.", sl_dir: "اتجاه الجري", sl_dir_down: "نحو الكاميرا (إلى أسفل الصورة)", sl_dir_up: "بعيداً عن الكاميرا (إلى أعلى الصورة)", sl_dir_hint: "أي جانب من الخط هو المسار",
+    call_raise: "ارفع يدك للبدء", set_gofx: "التأثير", set_godim: "العتمة", set_gosize: "الحجم", set_goa: "الشفافية", set_goa_hint: "مدى وضوح كلمة الانطلاق: 100% كاملة، أقل تظهر الشاشة من خلالها.", set_golines: "المساحة", set_gocount: "العدد", set_gocount_hint: "عدد الخطوط (خطوط السرعة): أقل لمظهر أنظف.", set_golinea: "الشفافية", set_golinea_hint: "قوة الخطوط والحلقات والشرر: 100% كاملة، 0% غير مرئية.", set_golines_hint: "كم تأخذ الخطوط من الشاشة (خطوط السرعة، الحلقات، الانفجارات): 100% الشاشة كلها، أقل منطقة حول الكلمة، 0% بلا خطوط.", set_gospeed: "السرعة", set_gospeed_hint: "سرعة حركة التأثير: 100% كما صُمم، 200% أسرع بمرتين.", set_godur: "المدة", set_godur_hint: "مدة بقاء إشارة الانطلاق على الشاشة، مع تلاشيها في النهاية.", set_gosize_hint: "حجم كلمة الانطلاق: 100% تملأ معظم ارتفاع الشاشة.", set_godim_hint: "مدى إعتام الشاشة خلف إشارة الانطلاق: 0% تبقى الشاشة كما هي، 100% سوداء. المعاينة تعرضه.", set_gofx_hint: "يظهر بملء الشاشة عند الانطلاق في خط البداية وعند بدء اختبار في المحطة.", gofx_preview: "معاينة", gofx_racing: "سباق", gofx_scoreboard: "لوحة النتائج", gofx_racing2: "سباق 2 (بلا ظلال)", sec_gofx: "تأثير الانطلاق", gofx_for: "الإعدادات لـ", gofx_for_hint: "لكل مكان تأثيره الخاص: الانطلاق في خط البداية وعند بدء الضغط أو البطن؛ وفي خط النهاية اسم العدّاء ووقته عند عبوره. اختر مكاناً واضبطه ثم اضغط معاينة؛ حفظ الإعدادات يحفظ الأربعة على كل الشاشات.", gofx_intro: "إشارة الانطلاق بملء الشاشة في خط البداية وعند بدء اختبار في المحطة. اترك المؤشر لترى التغيير؛ حفظ الإعدادات يعتمده على كل الأجهزة.", gofx_g_effect: "التأثير", gofx_g_word: "كلمة الانطلاق", gofx_g_back: "الخلفية", gofx_g_lines: "الخطوط", gofx_g_time: "التوقيت", gofx_shockwave: "موجة صدمة", gofx_slam: "ارتطام", gofx_neon: "نيون", gofx_hyperspace: "سرعة الضوء", gofx_fireworks: "ألعاب نارية", call_go_line: "انطلق! يبدأ وقتك عند عبورك الخط", call_behind_line: "ارجع خلف الخط", call_false_start: "بداية خاطئة: تجاوز الخط قبل الانطلاق. ارجع خلف الخط", sl_setup: "إعداد خط البداية", sl_setup_hint: "دليل الألوان، موضع الخط، اتجاه العدّائين.", sl_box_mark: "العدّاء عند العلامة", sl_box_hand: "يد مرفوعة", sl_box_line: "خط البداية (أحمر عند تجاوز قدم له)", sl_on: "خط البداية", sl_on_hint: "مفعّل: لا حاجة لرفع اليد. عند التعرّف عليه خلف الخط يرى العدّاء إشارة الانطلاق ويبدأ وقته لحظة عبوره. متوقف: رفع اليد يعطي الانطلاق.", sl_line: "موضع الخط", sl_line_hint: "الخط الأبيض على الصورة: ضعه على الأرض حيث تكون أصابع قدمي العدّاء. يصبح أحمر عند تجاوزه.", sl_dir: "اتجاه الجري", sl_dir_down: "نحو الكاميرا (إلى أسفل الصورة)", sl_dir_up: "بعيداً عن الكاميرا (إلى أعلى الصورة)", sl_dir_hint: "أي جانب من الخط هو المسار",
     call_no_camera: "كاميرا البداية لا ترسل: تحقق منها أدناه",
     call_step_up: "قف على العلامة وانظر إلى الكاميرا",
     e_low_quality: "?????? ??? ????? ?????? ???? ?????? (??? ????? ?? ????? ?? ?????): ????? ???? ????",
@@ -2129,7 +2320,7 @@ const I18N = {
     bmi_range: "المقبول {min} – {max}", out_of_range: "خارج النطاق المقبول. القبول يحتاج إلى سبب.",
     accepted_go: "مقبول · التوجه إلى خط البداية", rejected_done: "مرفوض · انتهى اليوم",
     waiting_line: "مقبولون لم يصلوا", at_line: "عند الخط", not_weighed_yet: "لم يُوزنوا",
-    mark_present: "عند الخط", start: "انطلاق", confirm_start: "اضغط مرة أخرى: العد التنازلي والانطلاق", start_hint: "عدّاء واحد في كل مرة: اضغط انطلاق، 3-2-1-انطلق، ويبدأ وقته من لحظة الانطلاق. يمكن أن ينطلق التالي فور انطلاق من قبله.",
+    mark_present: "عند الخط", start: "انطلاق", confirm_start: "اضغط مرة أخرى: العد التنازلي والانطلاق", start_hint: "عدّاء واحد في كل مرة: تتعرّف عليه الكاميرا، ثم ترفع اليد (أو زر انطلاق) إشارة الانطلاق ويبدأ وقته منها. مع خط البداية: لا حاجة لرفع اليد، يبدأ وقته عند عبوره الخط.",
     wave_n: "الموجة {n}", wave_short: "م{n}", wave_fill: "{n} / {max} عند الخط", wave_runners: "{n} عدّاء", start_wave: "انطلاق الموجة {n}", line_empty: "لا أحد عند الخط بعد",
     on_course: "في المسار", wave_counts: "{out} في المسار · {fin} وصلوا", review_n: "{n} للمراجعة", cutoff_in: "الحد الأقصى بعد {t}", cutoff_passed: "انتهى الحد الأقصى: تُغلق تلقائياً", all_in_closing: "وصل الجميع: تُغلق تلقائياً بعد {t}",
     close_wave: "إغلاق الموجة", close_wave_n: "إغلاق الموجة {n}", wave_closed: "أُغلقت الموجة {n}: من بقي في المسار لم يُكمل.",
@@ -2155,7 +2346,7 @@ const I18N = {
     fc_line: "موضع خط النهاية", fc_line_hint: "الخط الأحمر على الصورة هو خط النهاية: ضعه على الأرض حيث تعبر أقدام العدّائين. يُطبّق فوراً.",
     fc_dir: "اتجاه العدّائين", fc_dir_down: "نحو الكاميرا (لأسفل)", fc_dir_up: "بعيداً عن الكاميرا (لأعلى)", fc_dir_any: "أي اتجاه",
     fc_dir_hint: "يُحتسب العبور في هذا الاتجاه فقط.", fc_start: "تشغيل الكاميرا", fc_restart: "إعادة التشغيل بهذه الإعدادات", fc_stop: "إيقاف الكاميرا",
-    fc_offline: "خدمة الكاميرا لا تعمل على جهاز المحطة. Start TestPoint.cmd يشغّلها (أو: python -m testpoint.camhost). حتى ذلك الحين، وقّت يدوياً بزر عبور.",
+    fc_offline: "خدمة الكاميرا لا تعمل على جهاز المحطة: أيقونة TestPoint على سطح المكتب تشغّلها. حتى ذلك الحين، وقّت يدوياً بزر عبور.",
     fc_state_offline: "الخدمة متوقفة", fc_state_live: "تعمل", fc_state_starting: "تبدأ…", fc_state_error: "توقفت بخطأ", fc_state_stopped: "متوقفة",
     fc_no_webcam: "لا توجد كاميرا متاحة (مستخدمة من برنامج آخر؟)", fc_no_video: "لا توجد فيديوهات", fc_gpu: "GPU", fc_cpu: "المعالج فقط: أبطأ",
     fc_pick_source: "اختر المصدر أولاً", fc_started: "كاميرا النهاية تبدأ: تظهر الصورة خلال ثوانٍ.", fc_stopped: "أُوقفت كاميرا النهاية.",
@@ -2164,7 +2355,7 @@ const I18N = {
     fcam_live: "كاميرا النهاية تعمل", cam_last: "آخر قراءة {bib}", cam_off_manual: "الكاميرا متوقفة · التوقيت يدوي",
     review_queue: "قائمة المراجعة", clip: "مقطع", assign: "تعيين", finishers: "المنهون", time: "الزمن", status: "الحالة", bib: "الرقم", name: "الاسم", run: "الجري",
     pushup: "الضغط", crunch: "البطن", time_limit: "الحد الزمني", pass_mark: "النجاح", waiting_here: "أنهوا الجري ولم يختبروا هنا",
-    sc_camera: "الكاميرا", sc_title: "كاميرا المحطة", sc_offline: "خدمة الكاميرا لا تعمل على جهاز المحطة. Start TestPoint.cmd يشغّلها (أو: python -m testpoint.camhost). حتى ذلك الحين، العدّ يدوي.",
+    sc_camera: "الكاميرا", sc_title: "كاميرا المحطة", sc_offline: "خدمة الكاميرا لا تعمل على جهاز المحطة: أيقونة TestPoint على سطح المكتب تشغّلها. حتى ذلك الحين، العدّ يدوي.",
     sc_what: "تعدّ {ex} في {n} مسارات (التمرين والمسارات في هذه الصفحة).", sc_what_1: "تعدّ {ex} لشخص واحد (الصورة كاملة).", sc_what_mat: "بساط واحد: تعدّ الضغط ثم البطن للشخص المسجّل (الصورة كاملة).", sc_running: "تعمل", sc_equal: "مسارات متساوية",
     sc_div_hint: "اسحب الخطوط المتقطعة ليحوي كل مسار شخصاً واحداً، ثم أعد التشغيل بهذه الإعدادات.", sc_cpu: "المعالج فقط: العدّ سيكون بطيئاً",
     sc_followed: "تحولت الكاميرا إلى {ex}، {n} مسارات.", sc_started: "كاميرا المحطة تبدأ: تظهر الصورة خلال ثوانٍ.", sc_stopped: "أُوقفت كاميرا المحطة.",
@@ -2224,8 +2415,12 @@ const I18N = {
     e_not_testing: "لا اختبار جارٍ في هذه المحطة", e_unknown_camera: "كاميرا غير معروفة", e_unknown_setting: "إعداد غير معروف", st_choose: "اختر اختبارك الأول", st_choose_how: "ارفع يدك: الدائرة تتبعها. أبقِها على اختبار واحد.", st_choose_left: "{n} ث، ثم {ex}.",
     set_choose_first: "يختار الشخص اختباره الأول", set_choose_first_hint: "بساط واحد: إذا بقي الاختباران، يختار الشخص الضغط أو البطن أولاً برفع يده (دائرة تتبعها؛ يبقيها على اختبار 1.5 ث)، أو باتخاذ وضعية بدايته. ليس مع فيديو تجريبي. إيقاف: الضغط أولاً.",
     ph_date: "يوم-شهر-سنة", pick_date: "اختر تاريخاً", fc_setup: "إعداد خط النهاية", fc_setup_hint: "دليل الألوان، موضع الخط، اتجاه العدّائين.",
-    set_fc_setup: "إعداد الخط في شاشتي البداية والنهاية", set_shown: "ظاهر", set_hidden: "مخفي",
-    set_fc_setup_hint: "دليل الألوان وموضع خط النهاية واتجاه العدّائين. أخفِها بعد ضبطها لتبقى شاشة يوم الاختبار بسيطة.",
+    set_fc_setup: "إعداد خط النهاية", set_shown: "ظاهر", set_hidden: "مخفي",
+    set_fc_setup_hint: "القائمة في شاشة النهاية: دليل الألوان وموضع خط النهاية واتجاه العدّائين. أخفِها بعد ضبطها لتبقى شاشة يوم الاختبار بسيطة.",
+    set_sl_setup: "إعداد خط البداية", set_sl_setup_hint: "القائمة في شاشة البداية: تشغيل خط البداية أو إيقافه وموضعه واتجاه العدّائين ودليل الألوان. أخفِها بعد ضبطها.",
+    set_fl_on: "خط النهاية", set_fl_on_hint: "الوضع الافتراضي في كل شاشات النهاية. مفعّل: تسجّل كاميرا النهاية وقت كل عدّاء لحظة عبوره الخط. متوقف: لا كاميرا للنهاية؛ يسجّل الفاحص الوقت يدوياً. الحفظ يطبّقه على كل شاشات النهاية، ويمكن تغييره من الإعداد في شاشة النهاية.",
+    fc_on_hint: "مفعّل: تسجّل الكاميرا كل عبور. متوقف: تتوقف الكاميرا ويسجّل الفاحص الوقت يدوياً.",
+    set_sl_on: "خط البداية", set_sl_on_hint: "الوضع الافتراضي في كل شاشات البداية. مفعّل: لا حاجة لرفع اليد؛ عند التعرّف عليه خلف الخط يرى العدّاء إشارة الانطلاق ويبدأ وقته لحظة عبوره. متوقف: رفع اليد يعطي الانطلاق. الحفظ يطبّقه على كل شاشات البداية، ويمكن تغييره من الإعداد في شاشة البداية.",
     set_walk: "تسجيل الحضور غير المدرجين", set_walk_hint: "إيقاف: فقط المدرجون في قائمة اليوم يمكن اختبارهم.",
     walk_ins_off: "غير موجود في قائمة اليوم. التسجيل عند المكتب متوقف: أضفه من القائمة المتقدمة.",
     set_lanes: "عدد المسارات في المحطة", set_lanes_hint: "يجب أن يطابق الكاميرات التي يراقبها المحرك.", lanes_wait: "تغيير المسارات ينتظر حتى تفرغ.",
@@ -2241,7 +2436,7 @@ const I18N = {
     c_studio: "رمادي استوديو", c_light: "رمادي فاتح", c_white: "أبيض", c_navy: "كحلي", c_charcoal: "فحمي", c_green: "أخضر", c_custom: "مخصص…",
     set_bg_image: "صورة الخلفية", bg_choose: "اختر صورة…", bg_remove: "إزالة",
     set_bg_image_hint: "JPEG أو PNG؛ الصورة الأفقية أفضل. نفس الصورة على كل مكتب. بدونها يُستخدم لون الخلفية.",
-    bg_uploaded: "تم حفظ الصورة. احفظ الإعدادات لاعتماد الصورة كخلفية للكاميرا.", e_bad_image: "استخدم صورة JPEG أو PNG",
+    bg_uploaded: "تم حفظ الصورة. احفظ الإعدادات لاعتماد الصورة كخلفية للكاميرا.", 
     set_bg_hint: "ما يُعرض خلف الشخص، كما في مكالمات الفيديو، في الأماكن المحددة أدناه.",
     set_auto: "التعرف التلقائي على الوجه عند الوزن", set_auto_hint: "تشغيل: تتحقق الكاميرا باستمرار ممن أمامها؛ إيقاف: يضغط الممتحن زر التعرف.",
     set_gender: "الجنس الافتراضي للمتقدمين الجدد", set_gender_hint: "يُختار مسبقاً في نموذج التسجيل؛ يمكن للممتحن تغييره.",
@@ -2283,7 +2478,7 @@ const I18N = {
     s_expected: "متوقع", s_accepted: "مقبول", s_rejected: "مرفوض في الوزن", s_lined_up: "عند الخط", s_absent: "غائب",
     s_running: "يجري", s_run_passed: "اجتاز الجري", s_run_failed: "رسب في الجري", s_dnf: "لم يكمل", s_complete: "مكتمل",
     e_not_on_todays_list: "غير موجود في قائمة اليوم", e_already_weighed: "تم وزنه اليوم", weighed_next: "{name} تم وزنه اليوم ✓ · التالي: الجري", e_not_weighed: "لم يُوزن بعد", e_no_photos_today: "لا صور وجه من اليوم: ارجع إلى طاولة الوزن لالتقاطها", photos_today: "صور وجه جديدة: انظر إلى الكاميرا",
-    e_has_not_run: "لم يجرِ بعد", e_still_running: "ما زال يجري", e_rejected_at_weigh_in: "مرفوض في الوزن",
+    e_has_not_run: "لم يجرِ بعد", e_rejected_at_weigh_in: "مرفوض في الوزن",
     e_missed_the_run: "فاته الجري", e_run_not_passed: "لم يجتز الجري", e_run_not_finished: "لم يكمل الجري",
     e_event_already_done: "أدى هذا التمرين اليوم", e_already_lined_up: "موجود عند الخط",
     e_run_already_started: "بدأ الجري بالفعل", e_not_eligible: "غير مؤهل", e_bmi_out_of_range: "الكتلة خارج النطاق: أدخل سبباً",
@@ -2375,7 +2570,7 @@ const I18N = {
     set_dots: "عدد النقاط في الخلفية المتحركة", set_dots_hint: "الشفق الذكي والسراب ونجوم الصحراء. نقاط أقل أهدأ وأخف على الجهاز.", dots_auto: "تلقائي",
     sec_look: "المظهر", sec_screen: "المظهر والحركة", sec_sounds_nav: "الأصوات", ph_search_settings: "ابحث في الإعدادات",
     set_no_match: "لا يوجد إعداد مطابق.", screen_hint: "لهذا الجهاز فقط: لكل شاشة مظهرها وحركتها.",
-    unsaved: "تغييرات غير محفوظة", unsaved_hint: "إعدادات المحطة تُطبّق على كل الأجهزة بعد الحفظ.", discard: "تجاهل",
+    unsaved: "تغييرات غير محفوظة", unsaved_hint: "إعدادات المحطة تُطبّق على كل الأجهزة بعد الحفظ.", 
     sure_discard: "الخروج دون حفظ؟ اضغط مرة أخرى",
     sec_sounds: "الأصوات (هذه الشاشة)", sounds_hint: "لكل جهاز أصواته ومستوى صوته. اضغط ▶ لسماع الصوت. العد التنازلي وبوق الانطلاق يعملان دائماً.",
     snd_ev_capture: "حفظ صورة الوجه", snd_ev_capture_hint: "كل صورة من الثلاث (مستقيم، يسار، يمين).",
@@ -2535,12 +2730,13 @@ function render() {
   if (!S.state) return;
   $("hdrDate").textContent = fmtDate(S.state.date);
   if (mode === "advanced") renderAdvanced();
-  else ({ weigh: renderWeigh, start: renderStart, finish: renderFinish, station: renderStation, results: () => {} })[role]();
+  else ({ weigh: renderWeigh, start: renderStart, finish: renderFinish, station: renderStation, results: () => ResultsBoard.render(), cameras: () => {} })[role]();
 }
 function setRole(r) { if (settingsOpen) closeSettings(); role = r;
   /* one camera, moved to the station in use */ const bs = $("camBadgeSlot-" + r); if (bs && !bs.contains($("camBadge"))) bs.appendChild($("camBadge"));
   const slot = $("camSlot-" + r); if (slot && !slot.contains($("camBlock"))) { slot.appendChild($("camBlock")); clearBox(); const v = $("camVideo"); if (v.srcObject || v.getAttribute("src")) v.play().catch(() => {}); }   /* moving a video pauses it */
-   save("role", r); $("role").value = r; document.body.classList.remove("st-one", "st-fit");  BgFx.refresh(); if (r !== "station" && typeof LiveTune !== "undefined") LiveTune.toggle(false); for (const x of ["weigh", "start", "finish", "station", "results"]) $("v-" + x).classList.toggle("hidden", x !== r);
+   save("role", r); $("role").value = r; document.body.classList.remove("st-one", "st-fit");  BgFx.refresh(); if (r !== "station" && typeof LiveTune !== "undefined") LiveTune.toggle(false); for (const x of ["weigh", "start", "finish", "station", "results", "cameras"]) $("v-" + x).classList.toggle("hidden", x !== r);
+  if (typeof CamWall !== "undefined") CamWall.toggle(r === "cameras");
   if (booted) {
     const want = CAM_ROLES.includes(r) ? Cam.kindFor(r) : null;
     if (want && want !== Cam.kind && ["webcam", "ipcam"].includes(want)) Cam.use(want);
@@ -2976,7 +3172,10 @@ const Cam = {
 // ---- start line: an IP camera (Hikvision etc.) instead of this device's webcam. A browser cannot
 // open rtsp://, so the camera service on the station PC runs testpoint.startcam, which sends the
 // picture to the app; the page shows it as a live stream and identifies faces on its newest frame.
-const RELAY_ROLES = ["weigh", "start"];   // screens that can show a camera through the camera service
+const RELAY_ROLES = ["weigh", "start"];
+// A camera whose last run was a test video (played to its end, or stopped) is not replaced by the
+// IP camera by itself: another screen played it on purpose. Auto-start is for a PC just started.
+const ranVideo = st => !!(st && st.config && st.config.kind === "video");   // screens that can show a camera through the camera service
 const StartCam = {
   live: false, retry: null, svcWebcam: false,
   // The start line's camera runs the start (recognise, raise a hand, 3-2-1-GO); the weigh-in's only
@@ -3018,7 +3217,7 @@ const StartCam = {
     this.buttons(st);
     if (!st || !st.available) { msg(c.box, "bad", t("e_camera_service_offline")); Cam.show(); return; }
     if (st.running && !(st.config && st.config.kind === "webcam")) await this.watch();
-    else if (SavedCams.has(c.saved) && !load(c.stopped, "")) await this.start();     // its saved camera, by itself
+    else if (SavedCams.has(c.saved) && !load(c.stopped, "") && !ranVideo(st)) await this.start();     // its saved camera, by itself
     else { msg(c.box, "warn", t("ip_not_running")); Cam.show(); }
   },
   buttons(st) {
@@ -3310,6 +3509,10 @@ const FaceTrack = {
       const fresh = Date.now() - this.at < 4000;
       this.drawing = true;
       drawBox(r.box, r.w, r.h, fresh ? this.label : "", fresh && this.ok);
+      // On sight: a face not recognised in the last moment is checked at once (a full check takes
+      // about 0.1 s), again every 0.3 s until it is; then the usual check every 1.5 s keeps it.
+      const named = this.ok && Date.now() - this.at < 2000;
+      if (!named && !idBusy && Date.now() - (this.asked || 0) >= 300 && autoReady()) { this.asked = Date.now(); identifyNow(true); }
     } catch { /* the next look */ }
     finally { this.drawing = false; this.busy = false; }
   },
@@ -3317,11 +3520,17 @@ const FaceTrack = {
 setInterval(() => FaceTrack.tick(), 100);
 
 let autoId = false, autoTimer = null, idBusy = false;
+// May the screen look for a face by itself now (Auto on, nobody being weighed, ...)?
+function autoReady() {
+  if (!autoId || mode !== "simple" || settingsOpen) return false;
+  if (role === "start") return !startingNow() && !StartCall.active();
+  if (role === "results") return !ResultsCard.isOpen();
+  return role === "weigh" && !wEntry && wSource !== "typed" && !enrolBusy && $("wNew").classList.contains("hidden");
+}
 function toggleAuto() { autoId = !autoId; $("autoBtn").textContent = autoId ? t("auto_on") : t("auto_off"); $("autoBtn").classList.toggle("on", autoId);
-  clearInterval(autoTimer); if (autoId) autoTimer = setInterval(() => { if (mode !== "simple" || settingsOpen) return;
-    if (role === "start") { if (!startingNow() && !StartCall.active()) identifyNow(true); return; }
+  clearInterval(autoTimer); if (autoId) autoTimer = setInterval(() => {
     if (role === "results") return;      // its own, faster loop (resultsLoop)
-    if (!wEntry && wSource !== "typed" && !enrolBusy && $("wNew").classList.contains("hidden") && role === "weigh") identifyNow(true); }, 1500); }
+    if (autoReady()) identifyNow(true); }, 1500); }
 async function identifyNow(quiet) {
   if (role === "start") return lineIdentify(quiet);
   if (role === "results") return resultsIdentify(quiet);
@@ -3828,7 +4037,8 @@ const camShown = (k, screen) => {
 $("fcSetupBox").open = load("fcSetupOpen", "1") === "1";   // the finish set-up fold-out, open or closed as this device left it
 function applyCamSources() {
   // the finish line's set-up (colour key, line position, direction): hidden once it is set, if chosen
-  document.querySelectorAll(".fcsetup").forEach(e => e.classList.toggle("hidden", setting("finish_setup_shown") === false));
+  $("fcSetupBox").classList.toggle("hidden", setting("finish_setup_shown") === false);
+  try { StartLineCfg.show(); } catch { /* still loading */ }   // its own setting (start_setup_shown) and default (start_line_on)
   if (typeof Cam === "undefined") return;
   // the desk camera: a hidden choice in use gives way to the first one shown that runs by itself
   if (CAM_ROLES.includes(role) && Cam.kind && !camShown(Cam.kind, role) && !Cam.opening) {
@@ -3912,10 +4122,17 @@ function camChoice(selId, inputId) {
 // kept on this device, sent with each start of the camera; a change restarts a running camera so
 // the line drawn on the picture is always the one in use.
 const StartLineCfg = {
-  pref() { try { return JSON.parse(load("startLine", "{}")) || {}; } catch { return {}; } },
+  // On or off: the station's default (Settings > Run), unless this screen switched it since that
+  // default was last saved (a new default reaches every start screen).
+  pref() {
+    let p = {}; try { p = JSON.parse(load("startLine", "{}")) || {}; } catch { /* none */ }
+    const def = setting("start_line_on") !== false;
+    if (p.base !== def) p.on = def;
+    return p;
+  },
   show() {
     const p = this.pref(), box = $("slSetupBox");
-    box.classList.toggle("hidden", role !== "start" || !Cam.relayed() || setting("finish_setup_shown") === false);
+    box.classList.toggle("hidden", role !== "start" || !Cam.relayed() || setting("start_setup_shown") === false);
     if (!this.opened) { box.open = load("slSetupOpen", "1") === "1"; this.opened = true; }   // as this device left it
     $("slOn").value = p.on ? "1" : "0"; $("slLineY").value = Math.round((p.y ?? 0.85) * 100); $("slDir").value = p.dir || "down";
     $("slLineY").disabled = $("slDir").disabled = !p.on;
@@ -3934,9 +4151,10 @@ const StartLineCfg = {
     const s = Math.min(vw / iw, vh / ih), top = (vh - ih * s) / 2;
     el.style.top = (top + ih * s * y / 100) + "px";
   },
-  body() { const p = this.pref(); return p.on ? { line_y: p.y ?? 0.85, direction: p.dir || "down" } : {}; },
+  // the line goes to the camera when it is on, and always with a rolling start (it starts the clock)
+  body() { const p = this.pref(); return p.on || setting("start_rolling") !== false ? { line_y: p.y ?? 0.85, direction: p.dir || "down" } : {}; },
   changed() {
-    save("startLine", JSON.stringify({ on: $("slOn").value === "1", y: +$("slLineY").value / 100, dir: $("slDir").value }));
+    save("startLine", JSON.stringify({ on: $("slOn").value === "1", y: +$("slLineY").value / 100, dir: $("slDir").value, base: setting("start_line_on") !== false }));
     this.show();
     if (StartCam.live) { msg("sMsg", "warn", t("fc_line_applying")); StartCam.start(); }
   },
@@ -3944,19 +4162,86 @@ const StartLineCfg = {
 const StartCall = {
   sig: "", busy: false,
   active: () => role === "start" && mode === "simple" && Cam.relayed() && StartCam.live,
+  rolling: () => !!(StartCam.st && StartCam.st.config && StartCam.st.config.rolling),
+  // rolling start: no hand, no stop at the line, no bib at the line: those controls go
+  tidy(r) {
+    const onStart = role === "start";
+    $("idBtn").parentElement.classList.toggle("hidden", onStart && r);
+    $("sQuery").parentElement.classList.toggle("hidden", onStart && r);
+    $("slRollHint").classList.toggle("hidden", !r);
+    for (const id of ["slOn"]) { const el = $(id); el.classList.toggle("hidden", r); el.previousElementSibling.classList.toggle("hidden", r); el.nextElementSibling.classList.toggle("hidden", r); }
+    if (r) $("slLineY").disabled = $("slDir").disabled = false;
+  },
   async poll() {
     const box = $("sCall");
-    if (!this.active()) { box.classList.add("hidden"); this.sig = ""; return; }
+    this.tidy(this.active() && this.rolling());
+    if (!this.active()) { box.classList.add("hidden"); $("sRoll").classList.add("hidden"); $("sRecent").classList.add("hidden"); this.sig = ""; return; }
     if (this.busy) return; this.busy = true;
+    if (this.rolling()) {
+      try { this.rows = await api("GET", "/api/startline/crossings"); } catch { this.rows = null; } finally { this.busy = false; }
+      this.renderRolling(); return;
+    }
+    $("sRoll").classList.add("hidden"); $("sRecent").classList.add("hidden");
     try { this.v = await api("GET", "/api/startline"); } catch { this.v = null; } finally { this.busy = false; }
     this.render();
+  },
+  // Rolling start: the newest crossing in the call box (a runner started: their name and GO, full
+  // screen), the ones to name below with the runners who may start.
+  renderRolling() {
+    const rows = this.rows; if (!rows) return;
+    const box = $("sCall"), now = serverNow(), last = rows[0], fresh = last && now - Date.parse(last.at) < 8000;
+    const name = e => e ? `${esc(e.bib ?? "")} · ${esc(cname(e))}` : "";
+    let cls = "", html;
+    if (fresh && last.status === "started") { cls = "go"; html = `<span></span><div><div class="c-who">${name(last.entry)}</div><div class="c-num">${esc(t("go"))}</div></div>`; }
+    else if (fresh && last.status === "refused") { cls = "no"; html = `<span></span><div><div class="c-who">${name(last.entry)}</div><div class="c-say">${esc(err({ code: last.reason }))}</div></div>`; }
+    else html = `<span></span><div><div class="c-say">${esc(t("call_rolling"))}</div></div>`;
+    box.classList.remove("hidden");
+    if (cls + html !== this.sig) { box.className = "callbox " + cls; box.innerHTML = html; this.sig = cls + html; }
+    if (fresh && last.status === "started" && this.fxFor !== last.id) {
+      this.fxFor = last.id; GoFX.go("start", `${cname(last.entry)}\n${t("go")}`); refresh();
+    }
+    if (this.fxFor === undefined && last) this.fxFor = last.id;          // not the ones from before the page opened
+    // the last starts, each with Cancel start (someone who only walked over the line)
+    const recent = rows.filter(c => c.status === "started").slice(0, 5), byId = Object.fromEntries(S.entries.map(e => [e.id, e]));
+    $("sRecent").classList.toggle("hidden", !recent.length);
+    const rsig = lang + "|" + recent.map(c => c.id + ":" + (byId[c.entry.id] || {}).status).join(",");
+    if (rsig !== this.recentSig) {
+      this.recentSig = rsig;
+      $("sRecentTable").innerHTML = recent.map(c => { const e = byId[c.entry.id], on = e && e.status === "running" && e.run_started_at && Math.abs(Date.parse(e.run_started_at) - Date.parse(c.at)) < 1000;
+        return `<tr><td class="t">${esc(new Date(c.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }))}</td><td>${name(c.entry)}</td>`
+          + `<td>${e ? statusPill(e.status) : ""}</td>`
+          + `<td style="text-align:end">${on ? `<button class="btn ghost sm" onclick="confirmClick('rcs${c.id}', this, () => cancelRunnerStart(${c.entry.id}, false))">${esc(t("cancel_start"))}</button>` : ""}</td></tr>`; }).join("");
+    }
+    // to name: a select of who may start (weighed in, not run), Start them / Discard
+    const todo = rows.filter(c => c.status === "review" || c.status === "refused");
+    $("sRoll").classList.toggle("hidden", !todo.length);
+    const can = S.entries.filter(e => ["accepted", "lined_up"].includes(e.status)).sort((a, b) => bibNum(a) - bibNum(b));
+    const sig = lang + "|" + todo.map(c => c.id + c.status).join(",") + "|" + can.map(e => e.id).join(",");
+    if (sig === this.rollSig) return;
+    this.rollSig = sig;
+    $("sRollTable").innerHTML = todo.map(c => `<tr><td class="t">${esc(new Date(c.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }))}</td>`
+      + `<td class="hint">${esc(c.entry ? `${cname(c.entry)}: ` : "")}${esc(err({ code: c.reason || "not_recognised" }))}${c.clip ? ` <a class="btn ghost sm" target="_blank" rel="noopener" href="/api/evidence/${c.clip.split("/").map(encodeURIComponent).join("/")}">▶</a>` : ""}</td>`
+      + `<td><select id="sr-${c.id}"><option value="">—</option>${can.map(e => `<option value="${e.id}" ${c.entry && c.entry.id === e.id ? "selected" : ""}>${esc(e.candidate.bib ?? "")} · ${esc(cname(e.candidate))}</option>`).join("")}</select></td>`
+      + `<td style="white-space:nowrap"><button class="btn amber sm" onclick="StartCall.assign(${c.id})">${esc(t("roll_assign"))}</button> <button class="btn ghost sm" onclick="confirmClick('sdis${c.id}', this, () => StartCall.discard(${c.id}))">${esc(t("discard"))}</button></td></tr>`).join("");
+  },
+  async assign(id) {
+    const v = $("sr-" + id).value; if (!v) return;
+    try { await api("POST", `/api/startline/crossings/${id}/assign`, { entry_id: +v }); msg("sMsg"); this.rollSig = ""; refresh(); this.poll(); }
+    catch (e) { msg("sMsg", "bad", err(e)); }
+  },
+  async discard(id) {
+    try { await api("DELETE", `/api/startline/crossings/${id}`); this.rollSig = ""; this.poll(); }
+    catch (e) { msg("sMsg", "bad", err(e)); }
   },
   render() {
     const v = this.v, box = $("sCall"); if (!v) return;
     const e = v.entry, who = e ? `${esc(e.bib ?? "")} · ${esc(cname(e))}` : "";
     const photo = e && e.faces ? `<img src="/api/entries/${e.id}/face.jpg" alt="">` : "<span></span>";
     let cls = "", body = "";
-    if (v.state === "raise_hand") {
+    if (v.state === "go") {         // a start line: no hand; the clock starts at the crossing
+      cls = "go";
+      body = `<div><div class="c-who">${who}</div><div class="c-num">${esc(t("go"))}</div><div class="c-say">${esc(t("call_go_line"))}</div></div>`;
+    } else if (v.state === "raise_hand") {
       cls = "ask";
       body = `<div><div class="c-who">${who}</div><div class="c-say">${v.over ? esc(t("call_behind_line")) : `✋ ${esc(t("call_raise"))}`}</div></div>`;
     } else if (v.state === "countdown" || v.state === "started") {
@@ -3975,7 +4260,11 @@ const StartCall = {
     box.classList.remove("hidden");
     if (sig !== this.sig) { box.className = "callbox " + cls; box.innerHTML = html; this.sig = sig; }
     if (v.state === "countdown" && this.lastState !== "countdown") refresh();     // the runner list updates at once
-    if (v.state !== this.lastState && v.state === "raise_hand") Sound.chime();
+    if (v.state !== this.lastState && (v.state === "raise_hand" || v.state === "go")) Sound.chime();
+    if (v.state === "go" && this.lastState !== "go") GoFX.go("start");
+    if ((v.state === "countdown" || v.state === "started") && v.go_at && Date.parse(v.go_at) <= serverNow() && this.fxFor !== v.go_at) {
+      this.fxFor = v.go_at; if (Date.parse(v.go_at) > serverNow() - 1500) GoFX.go("start");   // the moment of GO, not a late page load
+    }
     this.lastState = v.state;
   },
 };
@@ -4075,9 +4364,23 @@ const FinishCam = {
     if (this.st.available && !this.src) this.sources(false);
     // opened with its IP camera not running (the PC just started): it starts by itself, with this
     // screen's line, as the start line's does, unless the examiner stopped it here
-    if (!this.autoTried && role === "finish" && this.st.available && !this.st.running && !this.busy
-        && this.pref.kind === "url" && !load("fcStopped", "") && $("fcCamSel").value) { this.autoTried = true; this.start(); }
+    if (!this.autoTried && role === "finish" && this.st.available && !this.st.running && !this.busy && this.lineOn()
+        && this.pref.kind === "url" && !load("fcStopped", "") && $("fcCamSel").value && !ranVideo(this.st)) { this.autoTried = true; this.start(); }
+    // the finish line switched off (here, or a new station default): the camera stops, hand timing takes over
+    if (role === "finish" && this.st.running && !this.busy && !this.lineOn()) { this.autoTried = false; this.stop(true); }
     this.render();
+  },
+  // On or off: the station's default (Settings > Run), unless this screen switched it since that
+  // default was last saved (a new default reaches every finish screen), as the start line.
+  lineOn() {
+    const def = setting("finish_line_on") !== false;
+    return this.pref.base === def && this.pref.on != null ? this.pref.on : def;
+  },
+  onChanged() {
+    this.pref.on = $("fcOn").value === "1"; this.pref.base = setting("finish_line_on") !== false; this.save();
+    this.handTouched = false;
+    if (this.pref.on && this.st && this.st.available && !this.st.running) this.start();
+    else this.poll(true);
   },
   render() {
     const st = this.st || { available: false };
@@ -4097,6 +4400,8 @@ const FinishCam = {
     $("fcLog").textContent = log; $("fcLogBox").classList.toggle("hidden", !log || (st.running && live));
     if (st.exit_code && !this.logOpened) { $("fcLogBox").open = true; this.logOpened = true; } if (!st.exit_code) this.logOpened = false;
     // Hand timing is the backup: folded while the camera times, open when it does not (unless the examiner chose).
+    const on = this.lineOn(); $("fcOn").value = on ? "1" : "0";
+    $("fcLineY").disabled = $("fcDir").disabled = $("fcStart").disabled = !on || !st.available || this.busy;
     const timing = !!(st.running && live);
     if (timing !== this.timing) { this.timing = timing; this.handTouched = false; }
     if (!this.handTouched) { const d = $("fHand"); if (d.open === timing) { d.open = !timing; this.handTouched = false; } }
@@ -4130,8 +4435,8 @@ const FinishCam = {
     } catch (e) { msg("fcMsg", "bad", err(e)); }
     finally { this.busy = false; this.render(); }
   },
-  async stop() {
-    save("fcStopped", "1");          // stopped here on purpose: not started again by itself
+  async stop(lineOff) {
+    if (!lineOff) save("fcStopped", "1");   // stopped here on purpose: not started again by itself
     this.busy = true; this.render();
     try { this.st = { available: true, ...(await api("POST", "/api/finishcam/stop")) }; msg("fcMsg", "ok", t("fc_stopped")); }
     catch (e) { msg("fcMsg", "bad", err(e)); }
@@ -4145,8 +4450,178 @@ const FinishCam = {
 };
 
 // ---- exercise station: start and time signals (one beep at the start, two at 10 s left, a long one at time)
+// ---- GO, as a full-screen moment: an overlay effect chosen in Settings (go_effect), about 1.6 s,
+// drawn on one canvas above everything and gone again. Played on the start line at GO and at the
+// station when a test starts. "Reduce motion" on the device: a plain fade.
+const GoFX = {
+  KINDS: ["racing", "racing2", "scoreboard", "shockwave", "slam", "neon", "hyperspace", "fireworks", "off"],
+  // Settings > GO effect: plays with what the page shows now (each slider calls it when let go)
+  preview() {
+    GoStyle.keep();
+    const v = id => +$(id).value;
+    this.playing = false; document.querySelectorAll("canvas.gofx").forEach(c => c.remove());
+    this.play($("setGoFx").value === "off" ? "racing" : $("setGoFx").value, GoStyle.place === "finish" ? `${t("rb_name")}
+12:34.5` : undefined, v("setGoDim"), v("setGoSize"), v("setGoSpeed"),
+              v("setGoDur"), v("setGoLines"), v("setGoCount"), v("setGoLineA"), v("setGoA"));
+  },
+  playing: false,
+  // the GO of a place (start, pushup, crunch) or the finish's name and time, with that place's style
+  go(place, text) {
+    const s = goStyle(place);
+    this.play(s.effect || "racing", text ?? t("go"), s.dim ?? 60, s.size ?? 100, s.speed ?? 100, s.duration ?? 1.7, s.lines ?? 100,
+              s.lines_count ?? 220, s.lines_opacity ?? 100, s.opacity ?? 100);
+  },
+  play(kind = setting("go_effect") || "racing", text = t("go"), dim = setting("go_dim") ?? 60, size = setting("go_size") ?? 100,
+       speed = setting("go_speed") ?? 100, secs = setting("go_duration") ?? 1.7, lines = setting("go_lines") ?? 100,
+       count = setting("go_lines_count") ?? 220, lineAlpha = setting("go_lines_opacity") ?? 100, goAlpha = setting("go_opacity") ?? 100) {
+    if (kind === "off" || this.playing || document.hidden) return;
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) kind = "fade";
+    this.playing = true;
+    // in the browser's top layer (a popover), so it is above an open card or window as well
+    const c = document.createElement("canvas"); c.className = "gofx"; c.setAttribute("popover", "manual");
+    document.body.appendChild(c); try { c.showPopover(); } catch { /* an older browser: z-index only */ }
+    const g = c.getContext("2d"), dpr = Math.min(2, devicePixelRatio || 1);
+    const W = innerWidth, H = innerHeight; c.width = W * dpr; c.height = H * dpr; g.scale(dpr, dpr);
+    const css = getComputedStyle(document.documentElement), GO = css.getPropertyValue("--go").trim() || "#19d27a";
+    const AMB = css.getPropertyValue("--amber").trim() || "#ffb000", cx = W / 2, cy = H / 2;
+    const font = s => `900 ${s}px "Barlow Condensed", "Cairo", Impact, sans-serif`;
+    const rows = String(text).split("\n");            // the finish: the name, then the time
+    const fit = (() => {                                // longer words get smaller so they fit the screen
+      g.font = font(100); const wid = Math.max(...rows.map(r => g.measureText(r).width)) || 1;
+      return Math.min(1, (W * 0.86) / (wid / 100 * Math.min(W * 0.34, H * 0.5)), rows.length > 1 ? (H * 0.8) / (rows.length * Math.min(W * 0.34, H * 0.5)) : 1);
+    })();
+    const big = Math.min(W * 0.34, H * 0.5) * fit * (rows.length === 1 && text.length > 3 && fit === 1 ? 0.8 : 1) * Math.max(.3, Math.min(2, +size / 100));   // GO size (Settings)
+    const parts = [], rnd = (a, b) => a + Math.random() * (b - a);
+    const burst = (x, y, n, col, sp) => { for (let i = 0; i < n; i++) { const a = rnd(0, 6.283), v = rnd(sp * .35, sp); parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: rnd(.6, 1.1), col }); } };
+    // the lines: how many (GO lines count) and how strong (GO lines opacity), Settings
+    const stars = Array.from({ length: Math.max(0, Math.min(400, Math.round(+count || 0))) }, () => ({ a: rnd(0, 6.283), r: rnd(0, 40), v: rnd(.6, 1.6) }));
+    const LO = Math.max(0, Math.min(100, +lineAlpha)) / 100;
+    const GA = Math.max(0, Math.min(100, +goAlpha)) / 100;          // how solid GO itself is (GO opacity)
+    const word = (s, alpha, col, glow, dx = 0, dy = 0, stroke) => {
+      g.save(); g.globalAlpha = Math.max(0, Math.min(1, alpha)) * GA; g.font = font(s); g.textAlign = "center"; g.textBaseline = "alphabetic";
+      const cols = Array.isArray(col) ? col : [col];
+      if (glow) { g.shadowColor = cols[0]; g.shadowBlur = glow; }
+      rows.forEach((r, i) => {                         // several rows: stacked around the middle
+        const m = g.measureText(r), mid = ((m.actualBoundingBoxAscent || s * .7) - (m.actualBoundingBoxDescent || 0)) / 2;   // the letters' own middle
+        const y = cy + dy + (i - (rows.length - 1) / 2) * s * 1.02 + mid;
+        g.fillStyle = cols[i % cols.length]; if (glow) g.shadowColor = g.fillStyle; g.fillText(r, cx + dx, y);
+        if (stroke) { g.save(); g.shadowBlur = 0; g.lineWidth = Math.max(2, s / 40); g.strokeStyle = stroke; g.strokeText(r, cx + dx, y); g.restore(); }
+      });
+      g.restore();
+    };
+    const shake = amp => { document.body.style.transform = amp > .5 ? `translate(${rnd(-amp, amp)}px, ${rnd(-amp, amp)}px)` : ""; };
+    const ease = x => 1 - Math.pow(1 - Math.min(1, Math.max(0, x)), 3);
+    const D = Math.max(0, Math.min(100, +dim)) / 100;               // how dark behind GO (Settings)
+    // how much of the screen the lines take (Settings: GO lines area): the streaks, rings and
+    // bursts stay in a box around GO this share of the screen; 0: no lines at all
+    const LA = Math.max(0, Math.min(100, +lines)) / 100, LW = W * LA, LH = H * LA;
+    const inArea = draw => { if (LA <= 0) return; g.save(); g.beginPath(); g.rect(cx - LW / 2, cy - LH / 2, LW, LH); g.clip(); draw(); g.restore(); };
+    // how long it stays (Settings: GO duration) and how fast it moves (GO speed): the animation's
+    // clock runs at the speed, the whole effect lasts the duration and fades out in its last fifth
+    const dur = Math.max(.1, Math.min(6, +secs || 1.7)) * 1000, SP = Math.max(.25, Math.min(3, (+speed || 100) / 100));
+    let t0 = null, popped = false;
+    const frame = now => {
+      t0 = t0 ?? now; const t = (now - t0) / dur, ms = (now - t0) * SP;
+      g.clearRect(0, 0, W, H);
+      const out = t > .8 ? 1 - (t - .8) / .2 : 1;                 // everything fades out at the end
+      if (kind === "shockwave") {
+        g.fillStyle = `rgba(255,255,255,${Math.max(0, .85 - ms / 180)})`; g.fillRect(0, 0, W, H);   // the flash
+        g.fillStyle = `rgba(0,0,0,${D * out})`; g.fillRect(0, 0, W, H);
+        inArea(() => { for (let k = 0; k < 3; k++) {                  // the rings, as far as the lines area
+          const p = ease((ms - k * 120) / 900); if (p <= 0) continue;
+          g.beginPath(); g.arc(cx, cy, p * Math.hypot(LW, LH) * .6, 0, 6.283);
+          g.strokeStyle = GO; g.globalAlpha = (1 - p) * out * LO; g.lineWidth = 26 * (1 - p) + 2; g.stroke(); g.globalAlpha = 1;
+        } });
+        const s = big * (1 + 2.2 * (1 - ease(ms / 260)));
+        word(s, out, "#fff", 60, 0, 0, GO); shake(ms < 420 ? 18 * (1 - ms / 420) : 0);
+      } else if (kind === "slam") {
+        g.fillStyle = `rgba(0,0,0,${D * out})`; g.fillRect(0, 0, W, H);
+        const fall = Math.min(1, ms / 220), dy = (1 - fall * fall) * -H * .7;
+        const bounce = ms > 220 ? Math.sin((ms - 220) / 70) * 18 * Math.exp(-(ms - 220) / 160) : 0;
+        if (ms > 220 && !popped) { popped = true; burst(cx, cy + big * .35, 90, AMB, 16); burst(cx, cy + big * .35, 50, "#fff", 10); }
+        shake(ms > 220 && ms < 600 ? 22 * (1 - (ms - 220) / 380) : 0);
+        word(big * (ms < 220 ? 1.15 : 1), out, AMB, 30, 0, dy + bounce, "#1a1200");
+      } else if (kind === "neon") {
+        g.fillStyle = `rgba(4,8,12,${D * out})`; g.fillRect(0, 0, W, H);
+        for (let y = 0; y < H; y += 4) { g.fillStyle = "rgba(255,255,255,.03)"; g.fillRect(0, y, W, 1); }   // scanlines
+        const flick = ms < 520 ? (Math.random() < .55 ? 1 : .15) : 1;  // the sign catching
+        word(big, out * flick, GO, 70 * flick, 0, 0); word(big, out * flick * .9, "#eafff3", 18, 0, 0);
+        const lw = big * 1.25 * ease(ms / 600);                         // a bar of light under it
+        g.globalAlpha = out * flick; g.fillStyle = GO; g.shadowColor = GO; g.shadowBlur = 40; g.fillRect(cx - lw / 2, cy + big * .62, lw, 6); g.shadowBlur = 0; g.globalAlpha = 1;
+      } else if (kind === "hyperspace") {
+        g.fillStyle = `rgba(0,0,0,${D * out})`; g.fillRect(0, 0, W, H);
+        const sp = ease(ms / 700);
+        g.lineCap = "round";
+        for (const s of stars) s.r += s.v * (8 + 60 * sp) * Math.max(LA, .2);
+        inArea(() => { for (const s of stars) {                         // the streaks, in the lines area
+          const r0 = s.r, r1 = s.r + (40 + 260 * sp * s.v) * Math.max(LA, .2);
+          g.strokeStyle = `rgba(200,255,230,${.75 * out * LO})`; g.lineWidth = 1 + 2 * s.v;
+          g.beginPath(); g.moveTo(cx + Math.cos(s.a) * r0, cy + Math.sin(s.a) * r0); g.lineTo(cx + Math.cos(s.a) * r1, cy + Math.sin(s.a) * r1); g.stroke();
+        } });
+        const z = ms < 500 ? .2 + .8 * ease(ms / 500) : 1 + (ms > 1100 ? (ms - 1100) / 300 : 0);
+        word(big * z, out, "#fff", 50, 0, 0, GO);
+      } else if (kind === "racing" || kind === "racing2") {
+        // a racing game's start: a green flash, a slanted GO! bursts in
+        // from the right with motion trails and speed streaks, the screen kicks
+        g.fillStyle = `rgba(0,0,0,${D * out})`; g.fillRect(0, 0, W, H);
+        {
+          const k = ms;
+          if (k < 120) { g.fillStyle = `rgba(34,255,122,${.4 * (1 - k / 120)})`; g.fillRect(0, 0, W, H); }   // green flash
+          g.lineCap = "round";
+          inArea(() => { for (const s of stars) {                      // speed streaks, right to left, in the lines area
+            const len = (80 + 420 * s.v) * Math.max(LA, .25), x0 = cx - LW / 2;
+            const y = cy - LH / 2 + (s.a / 6.283) * LH, x = x0 + LW - ((k * (1.2 + s.v) * Math.max(LA, .25) + s.r * 30 * LA) % (LW + len));
+            g.strokeStyle = `rgba(120,255,170,${Math.min(1, .35 * s.v) * out * LO})`; g.lineWidth = 1 + 2 * s.v;
+            g.beginPath(); g.moveTo(x, y); g.lineTo(x + len, y); g.stroke();
+          } });
+          const slide = (1 - ease(k / 260)) * W * .8, ty = 0;
+          g.save(); g.translate(cx, cy + ty); g.transform(1, 0, -.22, 1, 0, 0); g.translate(-cx, -(cy + ty));   // slanted, as in a racing title
+          if (kind === "racing")                                        // motion trails behind it (Racing 2: none, easier to read)
+            for (let j = 4; j >= 1; j--) word(big * 1.05, out * .12 * (5 - j), "#22ff7a", 0, slide + j * (30 + slide * .15), ty);
+          word(big * 1.05, out, "#22ff7a", kind === "racing" ? 50 : 24, slide, ty);   // green, no outline
+          g.restore();
+          shake(k < 380 ? 16 * (1 - k / 380) : 0);
+        }
+      } else if (kind === "scoreboard") {
+        // calm and readable: a dark band slides across the middle, the name in white and the time
+        // in green on it, no trails; a thin streak of light runs along its edges
+        g.fillStyle = `rgba(0,0,0,${D * out})`; g.fillRect(0, 0, W, H);
+        const open = ease(ms / 280), bh = rows.length * big * 1.02 + big * .5;
+        const bw = W * open, x0 = cx - bw / 2, y0 = cy - bh / 2;
+        g.fillStyle = `rgba(6,10,14,${.88 * out})`; g.fillRect(x0, y0, bw, bh);
+        g.fillStyle = GO; g.globalAlpha = out; g.fillRect(x0, y0, bw, 5); g.fillRect(x0, y0 + bh - 5, bw, 5); g.globalAlpha = 1;
+        inArea(() => {                                   // the edge streaks (Lines area / count / opacity)
+          const n = Math.min(stars.length, 24);
+          for (let i = 0; i < n; i++) {
+            const s = stars[i], len = 60 + 160 * s.v, x = ((ms * (.6 + s.v) + s.r * 40) % (W + len)) - len;
+            g.strokeStyle = `rgba(120,255,170,${.5 * out * LO})`; g.lineWidth = 2;
+            const y = i % 2 ? y0 - 10 - s.r : y0 + bh + 10 + s.r;
+            g.beginPath(); g.moveTo(x, y); g.lineTo(x + len, y); g.stroke();
+          }
+        });
+        if (ms > 160) word(big, Math.min(1, (ms - 160) / 220) * out, ["#ffffff", GO], 0);
+      } else if (kind === "fireworks") {
+        g.fillStyle = `rgba(0,0,0,${D * out})`; g.fillRect(0, 0, W, H);
+        for (const [at, x, y, col] of [[0, .5, .35, GO], [180, .22, .3, AMB], [340, .78, .32, "#4cc2ff"], [560, .35, .2, "#ff5fa2"], [760, .66, .22, GO]])
+          if (LA > 0 && ms >= at && ms - 18 < at) burst(cx + (x - .5) * LW, cy + (y - .5) * LH, 120, col, 11 * Math.max(LA, .3));
+        word(big * (.8 + .2 * ease(ms / 300)), out, "#fff", 40, 0, 0, AMB);
+      } else {
+        g.fillStyle = `rgba(0,0,0,${D * out})`; g.fillRect(0, 0, W, H);
+        word(big, Math.min(1, ms / 200) * out, GO, 30);
+      }
+      for (const p of parts) {                                        // sparks, with gravity
+        p.x += p.vx * SP; p.y += p.vy * SP; p.vy += .25 * SP; p.vx *= .985; p.life -= .016 * SP;
+        if (p.life > 0) { g.globalAlpha = Math.min(1, p.life) * out * LO; g.fillStyle = p.col; g.fillRect(p.x, p.y, 3, 3); }
+      }
+      g.globalAlpha = 1;
+      if (t < 1) requestAnimationFrame(frame);
+      else { c.remove(); shake(0); this.playing = false; }
+    };
+    requestAnimationFrame(frame);
+  },
+};
 const Signal = {
-  start() { if (Sound.ctx) Sound.tone(Sound.ctx.currentTime, 880, 0.35, 0.3); },
+  start(ev) { if (Sound.ctx) Sound.tone(Sound.ctx.currentTime, 880, 0.35, 0.3); GoFX.go(ev === "crunch" ? "crunch" : "pushup"); },
   warn() { if (Sound.ctx) { const t0 = Sound.ctx.currentTime; Sound.tone(t0, 990, 0.12, 0.25); Sound.tone(t0 + 0.2, 990, 0.12, 0.25); } },
   end() { if (Sound.ctx) { const t0 = Sound.ctx.currentTime; Sound.tone(t0, 660, 1.2, 0.35); Sound.tone(t0, 440, 1.2, 0.2); } },
 };
@@ -4271,7 +4746,7 @@ const StationCam = {
   autoStart() {
     const st = this.st;
     if (this.autoTried || role !== "station" || !st || !st.available || st.running || this.busy) return;
-    if (this.pref.kind !== "url" || load("scStopped", "") || !$("scCamSel").value) return;
+    if (this.pref.kind !== "url" || load("scStopped", "") || !$("scCamSel").value || ranVideo(st)) return;
     this.autoTried = true; this.start();
   },
   // One mat: the engine follows the person checked in ("auto"); several: the exercise on this page.
@@ -4592,6 +5067,22 @@ function camHtml(c) {
   const conf = c.confidence != null ? ` ${Math.round(c.confidence * 100)}%` : "";
   return ` <span class="pill">📷${conf}</span>` + (c.clip ? ` <a class="hint" href="/api/evidence/${encodeURI(c.clip)}" target="_blank">${t("clip")}</a>` : "");
 }
+// The finish line's effect: a runner identified over the line -> their name and time, full screen,
+// in the finish line's style (Settings > GO effect > Finish line). Only new crossings, not the ones
+// already there when the screen opened.
+const FinishFx = {
+  seen: null,
+  check(done, byId) {
+    const ids = done.filter(c => c.entry_id).map(c => c.id);
+    if (this.seen === null) { this.seen = new Set(ids); return; }
+    for (const c of done) {
+      if (!c.entry_id || this.seen.has(c.id)) continue;
+      this.seen.add(c.id);
+      const e = byId[c.entry_id], fresh = !c.at || Date.parse(c.at) > serverNow() - 15000;
+      if (e && fresh && role === "finish" && mode === "simple") GoFX.go("finish", `${cname(e.candidate)}\n${fmt(c.time_s)}`);
+    }
+  },
+};
 function renderFinish() {
   const out = runnersOut(), cd = startingNow(), byId = Object.fromEntries(S.entries.map(e => [e.id, e]));
   const startOf = Object.fromEntries(((S.state && S.state.runners) || []).map(r => [r.entry_id, r.started_at]));
@@ -4612,6 +5103,7 @@ function renderFinish() {
     || `<tr><td class="hint">—</td></tr>`);
   // finishers, newest first, with the result against the runner's own required level
   const done = S.crossings.filter(c => !c.needs_review);
+  FinishFx.check(done, byId);
   $("fCount").textContent = done.length;
   setHTML("fTable", done.slice().reverse().map((c, i) => { const e = byId[c.entry_id]; const fixable = e && !Object.keys(e.events || {}).length;
     return `<tr class="${i === 0 ? "newest" : ""}"><td>${done.length - i}</td><td class="t">${esc(e?.candidate.bib ?? c.bib_read ?? "?")}</td><td>${esc(e ? cname(e.candidate) : "—")}</td><td class="t">${fmt(c.time_s)}</td><td>${resultPill(e)}${camHtml(c)}</td><td style="text-align:end">${fixable ? `<button class="btn ghost sm" onclick="confirmClick('unassign${c.id}', this, () => unassignCrossing(${c.id}))">${t("wrong_bib")}</button>` : ""}</td></tr>`; }).join("") || `<tr><td colspan="6" class="hint">—</td></tr>`);
@@ -4720,7 +5212,7 @@ async function startLane(n) {
   try {
     l.attempt = await api("POST", "/api/attempts", { entry_id: l.entry.id, event, lane: String(n) });
     Object.assign(l, { state: "running", count: 0, rejected: 0, t0: Date.now(), left: limit(), error: null, auto: null, fix: 0, fixRej: 0, live: null, why: "", needWhy: false, warned: false, dots: [], seen: null, lastFault: null });
-    if (!quietStart) Signal.start();
+    if (!quietStart) Signal.start(event);
   } catch (e) {
     if (e.code === "attempt_in_progress") l.reason = "attempt_in_progress"; else l.error = err(e);
   } finally { l.busy = false; }
@@ -5218,16 +5710,21 @@ const StationCall = {
       cls = "ask";
       body = `<div><div class="c-who">${who} · ${esc(ex)}</div><div class="c-num">${n > 0 ? n : t("go")}</div></div>`;
       Sound.countdown(Date.parse(v.go_at));
+    } else if (v.state === "testing" && !v.go_at) {
+      // clock from the first rep: nothing to wait for, no GO; the time starts with their first rep
+      cls = "ask";
+      body = `<div><div class="c-who">${who} · ${esc(ex)}</div><div class="c-say">${esc(t("st_first_rep"))}</div></div>`;
     } else if (v.state === "testing") {
       const left = Math.max(0, (Date.parse(v.ends_at) - serverNow()) / 1000), live = v.live || {};
       cls = "go";
       const still = v.idle_s && v.last_rep_at ? Math.ceil(v.idle_s - (serverNow() - Date.parse(v.last_rep_at)) / 1000) : null;
-      const stop = still != null && still <= Math.min(10, v.idle_s / 2) && still > 0 ? `<div class="hint c-stop">${esc(t("st_ends_in", { n: still }))}</div>` : "";
+      const stop = v.out_left != null ? `<div class="c-say c-stop" style="color:var(--stop)">${esc(t("st_back_in_position", { n: Math.ceil(v.out_left) }))}</div>`
+        : still != null && still <= Math.min(10, v.idle_s / 2) && still > 0 ? `<div class="hint c-stop">${esc(t("st_ends_in", { n: still }))}</div>` : "";
       body = `<div><div class="c-who">${who} · ${esc(ex)}</div><div class="c-big"><div><div class="c-num">${live.count ?? 0}</div><div class="c-label">${esc(t("st_reps"))}</div></div><div><div class="c-time${left <= 10 ? " low" : ""}">${mmss(left)}</div><div class="c-label">${esc(t("st_time_left"))}</div></div></div>${(live.faults || []).length ? `<div class="hint">${esc(live.faults.map(f => t("f_" + f)).join(" · "))}</div>` : ""}${stop}</div>`;
     } else if (v.state === "done") {
       const r = v.result || {};
       cls = r.passed === false ? "no" : "go";
-      body = `<div><div class="c-who">${who} · ${esc(ex)}</div><div class="c-say">${r.count ?? "—"} ${r.grade != null ? "· " + esc(gradeTxt(r.grade)) : ""} ${r.passed === true ? "✓" : r.passed === false ? "✗" : ""}</div>${v.ended ? `<div class="hint">${esc(t("st_ended_" + v.ended))}</div>` : ""}<div class="hint">${esc(t(e && e.done && e.done.length >= 2 ? "st_all_done" : "st_come_back"))}</div></div>`;
+      body = `<div><div class="c-who">${who} · ${esc(ex)}</div><div class="c-say">${r.count ?? "—"} ${r.percent != null ? "· " + pct(r.percent) : r.grade != null ? "· " + esc(gradeTxt(r.grade)) : ""} ${r.passed === true ? "✓" : r.passed === false ? "✗" : ""}</div>${v.ended ? `<div class="hint">${esc(t("st_ended_" + v.ended))}</div>` : ""}<div class="hint">${esc(t(e && e.done && e.done.length >= 2 ? "st_all_done" : "st_come_back"))}</div></div>`;
     } else if (v.state === "refused") {
       cls = "no";
       body = `<div><div class="c-who">${who}</div><div class="c-say">${esc(t("e_" + v.reason))}</div></div>`;
@@ -5256,9 +5753,12 @@ const StationCall = {
     }
     if (v.state !== this.last) {
       if (v.state === "position" || v.state === "choose") Sound.chime();
-      if (v.state === "testing") Signal.start();
+      if (v.state === "testing" && v.go_at) Signal.start(v.event);      // with a clock from the first rep: no GO here
       if (v.state === "done") { Signal.end(); refresh(); if (e && e.done && e.done.length >= 2) setTimeout(() => ResultsCard.show(e.id), 800); }
     }
+    // clock from the first rep: a short beep when it starts (no GO effect)
+    if (v.state === "testing" && v.go_at && this.lastGo === null && this.last === "testing" && Sound.ctx) Sound.tone(Sound.ctx.currentTime, 880, 0.25, 0.25);
+    this.lastGo = v.state === "testing" ? (v.go_at || null) : undefined;
     this.last = v.state;
   },
   async choose(ex) {
@@ -5401,14 +5901,29 @@ const ResultsCard = {
     const e = r.entry, c = e.candidate, v = r.verdict || "pending";
     const val = x => x.test === "run" ? (x.dnf ? "DNF" : x.value != null ? mmss(x.value) : "—") : (x.value ?? "—");
     const redoable = role === "station" || mode === "advanced";   // the examiner's, not on the candidates' results screen
-    const mark = x => x.passed === true ? `<span style="color:var(--go)">✓ ${esc(gradeTxt(x.grade))}</span>` : x.passed === false ? `<span style="color:var(--bad)">✗ ${esc(gradeTxt(x.grade))}</span>` : `<span class="hint">${esc(t("rc_pending"))}</span>`;
+    const shown = x => x.percent != null ? pct(x.percent) : gradeTxt(x.grade);
+    const mark = x => x.passed === true ? `<span style="color:var(--go)">✓ ${esc(shown(x))}</span>` : x.passed === false ? `<span style="color:var(--bad)">✗ ${esc(shown(x))}</span>` : `<span class="hint">${esc(t("rc_pending"))}</span>`;
     $("rcBody").innerHTML = `<div class="rc-head">${e.faces ? `<img src="/api/entries/${e.id}/face.jpg" alt="">` : "<span></span>"}`
       + `<div><div class="rc-name">${esc(c.bib ?? "")} · ${esc(cname(c))}</div><div class="hint">${r.level ? esc(t("std_needs", { level: r.level })) : ""}</div>`
-      + `<div class="rc-verdict ${v === "pass" ? "pass" : v === "fail" ? "fail" : "pending"}">${esc(t("rc_" + (["pass", "fail"].includes(v) ? v : "pending_all")))}</div></div></div>`
+      + `<div class="rc-verdict ${v === "pass" ? "pass" : v === "fail" ? "fail" : "pending"}">${esc(t("rc_" + (["pass", "fail"].includes(v) ? v : "pending_all")))}</div></div>`
+      + this.ring(r.overall_percent, r.level, v) + `</div>`
       + `<table>${r.tests.map(x => `<tr><td>${esc(t(x.test === "run" ? "rc_run" : x.test))}</td><td class="v">${esc(String(val(x)))}</td><td style="text-align:end">${mark(x)}</td>${redoable ? `<td style="text-align:end">${x.attempt_id ? `<button class="btn ghost sm" onclick="ResultsCard.redo(${x.attempt_id}, ${e.id}, this)">${esc(t("st_redo"))}</button>` : ""}</td>` : ""}</tr>`).join("")}</table>`;
     $("resultsDlg").showModal();
     if (v === "pass") Sound.done?.(); 
     clearTimeout(this.timer); this.timer = setTimeout(() => this.close(), ms);
+  },
+  // The overall score, the headline of the card: a ring filling to it (green pass, red fail), the
+  // number large inside, and a tick on the ring at the level the person needed.
+  ring(p, level, v) {
+    if (p == null) return "<span></span>";
+    const C = 2 * Math.PI * 80, cls = v === "pass" ? "pass" : v === "fail" ? "fail" : "pending";
+    const at = a => { const r = a / 100 * 2 * Math.PI; return [100 + 72 * Math.cos(r), 100 + 72 * Math.sin(r), 100 + 95 * Math.cos(r), 100 + 95 * Math.sin(r)]; };
+    const tick = level ? (([x1, y1, x2, y2]) => `<line class="tick" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`)(at(level)) : "";
+    const whole = Math.round(p * 10) / 10, [n, d] = String(whole).split(".");
+    setTimeout(() => { const a = document.querySelector("#rcBody .rc-ring .arc"); if (a) a.style.strokeDashoffset = C * (1 - Math.min(100, p) / 100); }, 60);
+    return `<div class="rc-ring ${cls}" title="${esc(t("rc_overall"))}"><svg viewBox="0 0 200 200"><circle class="trk" cx="100" cy="100" r="80"/>`
+      + `<circle class="arc" cx="100" cy="100" r="80" stroke-dasharray="${C}" stroke-dashoffset="${C}"/>${tick}</svg>`
+      + `<div class="mid"><div class="num">${n}<small>${d ? "." + d : ""}%</small></div><div class="lbl">${esc(t("rc_overall"))}</div></div></div>`;
   },
   close() { clearTimeout(this.timer); if (this.isOpen()) $("resultsDlg").close(); },
   redo(id, entryId, btn) {
@@ -5427,11 +5942,145 @@ async function resultsIdentify(quiet) {
   try {
     const f = await Cam.frame();
     const r = await apiImage(`/api/face/identify?station=results${Cam.relayed() ? "&learn=0" : ""}`, f.blob);
-    if (r.entry) { drawBox(r.box, f.w, f.h, `${cname(r.entry.candidate)} ${r.score.toFixed(2)}`, true); ResultsCard.show(r.entry.id); msg("rMsg"); }
+    if (r.entry) { drawBox(r.box, f.w, f.h, `${cname(r.entry.candidate)} ${r.score.toFixed(2)}`, true); ResultsCard.show(r.entry.id); ResultsBoard.hit = r.entry.id; ResultsBoard.render(); msg("rMsg"); }
     else { drawBox(r.box, f.w, f.h, `? ${r.score.toFixed(2)}`, false); if (!quiet) msg("rMsg", "warn", t("not_recognised")); }
   } catch (e) { clearBox(); if (!quiet) msg("rMsg", "bad", err(e)); }
   finally { idBusy = false; }
 }
+// The Cameras screen: every camera's live picture, side by side, with what it is doing now and whom it
+// recognised lately. The pictures are the cameras' own (the same streams the other screens show).
+const CamWall = {
+  CAMS: [["start", "cw_start"], ["finish", "cw_finish"], ["exercise", "cw_exercise"], ["weigh", "cw_weigh"]],
+  timer: 0, built: false, live: {},
+  toggle(on) {
+    clearInterval(this.timer);
+    if (!on) { document.querySelectorAll("#camWall img").forEach(i => { i.removeAttribute("src"); }); this.live = {}; return; }
+    this.build(); this.fit(); this.poll(); this.timer = setInterval(() => this.poll(), 2000);
+  },
+  // wide screens: the four tiles fill the window below the header, no scrolling; narrow ones scroll
+  fit() {
+    const w = $("camWall"); if (!w || role !== "cameras") return;
+    const wide = innerWidth > 1050;
+    w.classList.toggle("fit", wide);
+    w.style.height = wide ? Math.max(360, innerHeight - w.getBoundingClientRect().top - 14) + "px" : "";
+  },
+  // the tiles' order, kept on this screen: drag a tile by its title onto another to swap them
+  order() {
+    let o = []; try { o = JSON.parse(load("camOrder", "[]")) || []; } catch { /* none */ }
+    const all = this.CAMS.map(c => c[0]);
+    return [...o.filter(s => all.includes(s)), ...all.filter(s => !o.includes(s))];
+  },
+  drag(e, st) {
+    if (e.button !== 0) return;
+    const tile = $("ct-" + st); let over = null;
+    tile.classList.add("dragging"); e.target.setPointerCapture?.(e.pointerId);
+    const move = ev => {
+      const el = document.elementFromPoint(ev.clientX, ev.clientY)?.closest(".camtile");
+      const target = el && el !== tile ? el : null;
+      if (target !== over) { over?.classList.remove("drop"); over = target; over?.classList.add("drop"); }
+    };
+    const up = ev => {
+      if (ev && ev.type === "pointerup") move(ev);          // where it was let go decides
+      removeEventListener("pointermove", move); removeEventListener("pointerup", up); removeEventListener("pointercancel", up);
+      tile.classList.remove("dragging"); over?.classList.remove("drop");
+      if (!over) return;
+      const o = this.order(), a = o.indexOf(st), b = o.indexOf(over.id.slice(3));
+      [o[a], o[b]] = [o[b], o[a]]; save("camOrder", JSON.stringify(o));
+      const w = $("camWall"); o.forEach(s => w.appendChild($("ct-" + s)));   // the same tiles moved: the live pictures go on
+    };
+    addEventListener("pointermove", move); addEventListener("pointerup", up); addEventListener("pointercancel", up);
+  },
+  build() {
+    if (this.built) return; this.built = true;
+    const by = Object.fromEntries(this.CAMS);
+    $("camWall").innerHTML = this.order().map(st => [st, by[st]]).map(([st, label]) => `<div class="card camtile" id="ct-${st}">`
+      + `<div class="ct-head" onpointerdown="CamWall.drag(event, '${st}')" title="${esc(t("cw_drag"))}"><h2 data-t="${label}">${esc(t(label))}</h2><span class="spacer"></span><span class="pill" id="ctl-${st}"></span></div>`
+      + `<div class="ct-pic"><img alt="" id="cti-${st}" class="hidden"><span class="ct-off" id="cto-${st}">${esc(t("cw_off"))}</span></div>`
+      + `<div class="ct-now" id="ctn-${st}"></div><table id="ctf-${st}"></table></div>`).join("");
+  },
+  who: w => w ? `${esc(w.bib ?? "")} · ${esc(lang === "ar" && w.name_ar ? w.name_ar : w.name)}` : `<span class="hint">?</span>`,
+  hhmm: at => at ? esc(new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })) : "",
+  rows(list, cell) { return list.length ? list.map(cell).join("") : `<tr><td class="hint">${esc(t("cw_none"))}</td></tr>`; },
+  async poll() {
+    if (role !== "cameras") return;
+    let f; try { f = await api("GET", "/api/cameras/feed"); } catch { return; }
+    for (const [st] of this.CAMS) {
+      const l = f.live[st] || {}, img = $("cti-" + st);
+      $("ctl-" + st).className = "pill " + (l.live ? "ok" : "bad");
+      $("ctl-" + st).textContent = l.live ? `${t("live")}${l.fps ? " · " + l.fps + " fps" : ""}` : t("cw_off");
+      if (l.live && !this.live[st]) img.src = `/api/engine/stream/${st}?t=${Date.now()}`;   // (re)open the stream
+      if (!l.live) img.removeAttribute("src");
+      img.classList.toggle("hidden", !l.live); $("cto-" + st).classList.toggle("hidden", !!l.live);
+      this.live[st] = l.live;
+    }
+    const st = (w, cls, txt) => `<span class="pill ${cls}">${esc(txt)}</span>`;
+    $("ctf-start").innerHTML = this.rows(f.start, c => `<tr><td class="t">${this.hhmm(c.at)}</td><td class="w">${this.who(c.who)}</td>`
+      + `<td>${st(c.who, c.what === "started" ? "ok" : c.what === "review" || c.what === "refused" ? "warn" : "", t("cw_" + c.what))}${c.reason ? ` <span class="hint">${esc(err({ code: c.reason }))}</span>` : ""}</td>`
+      + `<td class="t">${c.score != null ? "FACE " + Math.round(c.score * 100) + "%" : ""}</td></tr>`);
+    $("ctf-finish").innerHTML = this.rows(f.finish, c => `<tr><td class="t">${this.hhmm(c.at)}</td><td class="w">${this.who(c.who)}</td>`
+      + `<td>${c.what === "review" ? st(c.who, "warn", t("cw_review")) : esc(fmt(c.time_s))}</td>`
+      + `<td class="t">${c.reason === "identified_by_face" && c.score != null ? "FACE " + Math.round(c.score * 100) + "%" : ""}</td></tr>`);
+    $("ctf-exercise").innerHTML = this.rows(f.station, a => `<tr><td class="t">${this.hhmm(a.at)}</td><td class="w">${this.who(a.who)}</td>`
+      + `<td>${esc(t(a.what))}</td><td class="t">${a.count ?? ""} ${a.status === "running" ? st(null, "warn", t("live")) : ""}</td></tr>`);
+    $("ctf-weigh").innerHTML = "";
+    const n = f.station_now || {};
+    $("ctn-exercise").innerHTML = n.who ? esc(t("cw_station_now", { who: `${n.who.bib ?? ""} ${lang === "ar" && n.who.name_ar ? n.who.name_ar : n.who.name}`, what: n.event ? t(n.event) : t("st_" + n.state) }))
+      + (n.count != null && n.state === "testing" ? ` · <b>${n.count}</b>` : "") : `<span class="hint">${esc(t("cw_idle"))}</span>`;
+    const ls = f.start[0], lf = f.finish[0];
+    $("ctn-start").innerHTML = ls && Date.now() - Date.parse(ls.at) < 15000 ? `${this.who(ls.who)} · ${esc(t("cw_" + ls.what))}` : "";
+    $("ctn-finish").innerHTML = lf && Date.now() - Date.parse(lf.at) < 15000 ? `${this.who(lf.who)} · ${esc(fmt(lf.time_s))}` : "";
+  },
+};
+addEventListener("resize", () => CamWall.fit());
+// The results screen's board: everyone tested today, live, with each test's result against the
+// person's required level, the overall percentage and the verdict. Boxes at the top count and filter;
+// the headers sort; typing filters by bib or name; a row opens that person's card.
+const ResultsBoard = {
+  filter: "all", sort: "bib", dir: 1, hit: null,
+  setFilter(f) { this.filter = this.filter === f ? "all" : f; this.render(); },
+  setSort(k) { this.dir = this.sort === k ? -this.dir : (k === "bib" || k === "name" || k === "run" ? 1 : -1); this.sort = k; this.render(); },
+  open(id) { ResultsCard.shown[id] = 0; ResultsCard.show(id, 20000); },
+  cell(e, test) {
+    const lvl = e.standard && e.standard.level, on = `<td class="num"><span class="pill warn">${esc(t("rb_running"))}</span></td>`;
+    if (test === "run") {
+      if (e.status === "dnf" && e.run_time_s == null) return `<td class="num no">DNF</td>`;
+      if (e.run_time_s == null) return e.status === "running" ? on : `<td class="num hint">—</td>`;
+      const ok = e.run_grade != null && lvl ? e.run_grade >= lvl : null;
+      return `<td class="num ${ok === true ? "ok" : ok === false ? "no" : ""}">${mmss(e.run_time_s)}${e.run_percent != null ? `<small>${esc(pct(e.run_percent))}</small>` : ""}</td>`;
+    }
+    const a = e.events && e.events[test];
+    if (!a) return `<td class="num hint">—</td>`;
+    if (a.status === "running") return on;
+    return `<td class="num ${a.passed === true ? "ok" : a.passed === false ? "no" : ""}">${a.count ?? "—"}${a.percent != null ? `<small>${esc(pct(a.percent))}</small>` : ""}</td>`;
+  },
+  key(e, k) {
+    const ev = x => e.events && e.events[x] && e.events[x].status === "finished" ? e.events[x].percent ?? -1 : -2;
+    return { bib: bibNum(e), name: cname(e.candidate).toLowerCase(), run: e.run_time_s ?? 1e9, pushup: ev("pushup"), crunch: ev("crunch"),
+             overall: e.overall_percent ?? -1, result: { pass: 3, pending: 2, no_standard: 1, fail: 0 }[e.verdict] ?? -1 }[k];
+  },
+  render() {
+    const sum = $("rbSum"), tab = $("rbTable"); if (!sum || !S.entries) return;
+    const pend = e => ["pending", "no_standard"].includes(e.verdict);
+    const all = S.entries.filter(e => e.verdict != null);
+    const np = all.filter(e => e.verdict === "pass").length, nf = all.filter(e => e.verdict === "fail").length, done = np + nf;
+    const box = (f, num, label) => `<button type="button" class="${f} ${this.filter === f ? "active" : ""}" onclick="ResultsBoard.setFilter('${f}')"><b>${num}</b><span>${esc(t(label))}</span></button>`;
+    sum.innerHTML = box("all", all.length, "rb_all") + box("pass", np, "rb_pass") + box("fail", nf, "rb_fail") + box("pending", all.filter(pend).length, "rb_pending")
+      + `<button type="button" disabled><b>${done ? Math.round(np / done * 100) + "%" : "—"}</b><span>${esc(t("rb_rate"))}</span></button>`;
+    const q = ($("rQuery").value || "").trim().toLowerCase();
+    let rows = all.filter(e => this.filter === "all" || (this.filter === "pending" ? pend(e) : e.verdict === this.filter));
+    if (q) rows = rows.filter(e => [e.candidate.bib, e.candidate.name, e.candidate.name_ar, e.candidate.external_id].some(x => x != null && String(x).toLowerCase().includes(q)));
+    rows.sort((a, b) => { const x = this.key(a, this.sort), y = this.key(b, this.sort); return x < y ? -this.dir : x > y ? this.dir : bibNum(a) - bibNum(b); });
+    const th = (k, label, cls = "") => `<th class="${cls} ${this.sort === k ? "on" : ""}" onclick="ResultsBoard.setSort('${k}')">${esc(t(label))}${this.sort === k ? (this.dir > 0 ? " ▲" : " ▼") : ""}</th>`;
+    const head = `<thead><tr>${th("bib", "bib")}${th("name", "rb_name")}${th("run", "run")}${th("pushup", "pushup")}${th("crunch", "crunch")}${th("overall", "rb_overall", "opt")}${th("result", "result")}</tr></thead>`;
+    if (!rows.length) { tab.innerHTML = head + `<tbody><tr><td colspan="7" class="rb-empty hint">${esc(t(all.length ? "rb_nomatch" : "rb_none"))}</td></tr></tbody>`; return; }
+    tab.innerHTML = head + `<tbody>${rows.map(e => `<tr class="${this.hit === e.id ? "hit" : ""}" onclick="ResultsBoard.open(${e.id})">`
+      + `<td class="num">${esc(e.candidate.bib ?? "")}</td>`
+      + `<td><div class="who">${e.faces ? `<img src="/api/entries/${e.id}/face.jpg" alt="" loading="lazy">` : `<span class="ph"></span>`}<span>${esc(cname(e.candidate))}</span></div></td>`
+      + this.cell(e, "run") + this.cell(e, "pushup") + this.cell(e, "crunch")
+      + `<td class="ovr opt">${e.overall_percent != null ? esc(pct(e.overall_percent)) : "—"}</td>`
+      + `<td>${verdictPill(e.verdict)}</td></tr>`).join("")}</tbody>`;
+  },
+};
 async function resultsByBib() {
   const q = $("rQuery").value.trim(); if (!q) return;
   try { const r = await api("POST", "/api/checkin", { station: "pushup", query: q }); ResultsCard.shown[r.entry.id] = 0; ResultsCard.show(r.entry.id); $("rQuery").value = ""; }
@@ -5461,7 +6110,21 @@ const CorrectDlg = {
     $("cRun").value = e.run_time_s != null ? fmt(e.run_time_s) : ""; $("cRun").disabled = e.run_time_s == null;
     $("cPush").value = ev("pushup") ?? ""; $("cPush").disabled = ev("pushup") == null;
     $("cCrunch").value = ev("crunch") ?? ""; $("cCrunch").disabled = ev("crunch") == null;
-    $("cReason").value = ""; msg("correctMsg"); $("correctDlg").showModal();
+    $("cReason").value = ""; msg("correctMsg");
+    // reset: take one result back so that test is done again (confirmed; the audit log keeps it)
+    const tests = [["run", e.run_time_s != null || ["dnf", "running", "lined_up"].includes(e.status)], ["pushup", ev("pushup") != null], ["crunch", ev("crunch") != null]];
+    $("cResets").innerHTML = tests.filter(([, has]) => has).map(([k]) =>
+      `<button class="btn ghost sm danger" type="button" onclick="confirmClick('reset${k}${e.id}', this, () => CorrectDlg.reset('${k}'), 'sure_reset_test')">${esc(t("reset_" + k))}</button>`).join("");
+    if (!$("correctDlg").open) $("correctDlg").showModal();
+  },
+  async reset(test) {
+    const e = this.e;
+    try {
+      await api("POST", `/api/entries/${e.id}/reset`, { test });
+      const what = t(test === "run" ? "rc_run" : test);
+      msg("aMsg", "ok", t("reset_done", { name: cname(e.candidate), test: what })); refresh();
+      await this.open(e.id); msg("correctMsg", "ok", t("reset_done", { name: cname(e.candidate), test: what }));
+    } catch (x) { msg("correctMsg", "bad", err(x)); }
   },
   async save() {
     const e = this.e, reason = $("cReason").value.trim(), todo = [];
@@ -5549,8 +6212,16 @@ function needsCard(entry, age, band, level, rows, res) {
   const dob = c.dob || ($("wDob") && $("wDob").value) || "";
   setHTML("wNeedsBody", `<div class="needs-who"><b>${esc(cname(c))}</b><span class="age">${t("age_n", { age })}</span><span class="spacer"></span><button class="btn ghost sm" onclick="EditDlg.open(${entry.id})">${t("edit_details")}</button></div>`
     + `<div class="needs-sub">${dob ? `${t("born")} ${esc(fmtDate(dob))} · ` : ""}${t("band_n", { band: band.replace("-", "–") })}${unit ? ` · ${t("unit_" + unit)}` : ""} · <b>${t("std_needs", { level })}</b></div>`
-    + gradeTable(rows, level, res) + `<p class="hint" style="margin:8px 0 0">${t("needs_note")}</p>`);
+    + gradeTable(rows, level, res, entry.id) + `<p class="hint" style="margin:8px 0 0">${t("needs_note")}</p>`);
   $("wNeeds").classList.remove("hidden");
+}
+// a result reset from the weigh-in's panel: the test is done again; the panel shows it at once
+async function resetFromNeeds(id, test) {
+  try {
+    const e = await api("POST", `/api/entries/${id}/reset`, { test });
+    msg("wMsg", "ok", t("reset_done", { name: cname(e.candidate), test: t(test === "run" ? "rc_run" : test) }));
+    needsFor = null; showNeeds(e); refresh();
+  } catch (x) { msg("wMsg", "bad", err(x)); }
 }
 function showNeeds(entry) {
   const b = bandOf(entry);
@@ -5617,19 +6288,24 @@ function dateFields() {
 }
 dateFields();
 // What each grade needs, one row per test; the column this person must reach is marked.
-// ``res``: today's results by test (/api/entries/{id}/results), shown in a last column with a mark.
-function gradeTable(rows, level, res) {
+// ``res``: today's results by test (/api/entries/{id}/results), shown in a last column with a mark;
+// with ``resetId`` (the weigh-in's panel) each result has a reset button (the test is done again).
+function gradeTable(rows, level, res, resetId) {
   const head = `<tr><th></th>${GRADES.map(g => `<th class="${g === level ? "need" : ""}">${g}%${g === level ? ` <small>${t("required")}</small>` : ""}</th>`).join("")}${res ? `<th>${t("today_col")}</th>` : ""}</tr>`;
   const got = test => {
     const x = res && res[test]; if (!x) return "";
     const v = x.test === "run" ? (x.dnf ? "DNF" : x.value != null ? mmss(x.value) : "—") : (x.value ?? "—");
     const mark = x.passed === true ? `<span style="color:var(--go)">✓</span>` : x.passed === false ? `<span style="color:var(--bad)">✗</span>` : "";
-    return `<td class="got">${esc(String(v))} ${mark}</td>`;
+    const has = x.value != null || x.dnf;
+    const rs = resetId && has ? ` <button class="btn ghost sm danger rsbtn" type="button" title="${esc(t("reset_" + test))}" onclick="confirmClick('nrs${test}${resetId}', this, () => resetFromNeeds(${resetId}, '${test}'), 'sure_reset_test')">↺</button>` : "";
+    return `<td class="got">${esc(String(v))} ${mark}${x.percent != null ? ` <small class="hint">${pct(x.percent)}</small>` : ""}${rs}</td>`;
   };
   const body = rows.map(([test, vals]) => `<tr><th>${t(test)} <small>${test === "run" ? "≤" : "≥"}</small></th>${vals.map((v, i) =>
     `<td class="${GRADES[i] === level ? "need" : ""}">${test === "run" || test === "run_s" ? mmss0(v) : v}</td>`).join("")}${res ? got(test) : ""}</tr>`).join("");
   return `<table class="grades">${head}${body}</table>`;
 }
+// an exact percentage as shown everywhere: 83.1 % (whole numbers without the .0)
+const pct = p => `${Number.isInteger(p) ? p : p.toFixed(1)}%`;
 const verdictPill = v => v ? `<span class="pill ${v === "pass" ? "ok" : v === "fail" ? "bad" : ""}">${t("v_" + v)}</span>` : "—";
 
 /* ============================== advanced ============================== */
@@ -5653,8 +6329,8 @@ function renderAdvanced() {
   renderReview();
   const c = S.state.counts;
   $("aCounts").innerHTML = Object.entries(c).filter(([, v]) => v).map(([k, v]) => `${statusPill(k)} <b>${v}</b>`).join(" &nbsp; ") || "—";
-  const ev = (e, k) => { const a = e.events[k]; return !a ? "—" : a.status === "running" ? `<span class="pill info">…</span>` : `${a.count}${a.grade != null ? ` <small class="hint">${gradeTxt(a.grade)}</small>` : ""}`; };
-  const runCell = e => e.run_time_s == null ? "—" : `${fmt(e.run_time_s)}${e.run_grade != null ? ` <small class="hint">${gradeTxt(e.run_grade)}</small>` : ""}`;
+  const ev = (e, k) => { const a = e.events[k]; return !a ? "—" : a.status === "running" ? `<span class="pill info">…</span>` : `${a.count}${a.percent != null ? ` <small class="hint">${pct(a.percent)}</small>` : a.grade != null ? ` <small class="hint">${gradeTxt(a.grade)}</small>` : ""}`; };
+  const runCell = e => e.run_time_s == null ? "—" : `${fmt(e.run_time_s)}${e.run_percent != null ? ` <small class="hint">${pct(e.run_percent)}</small>` : e.run_grade != null ? ` <small class="hint">${gradeTxt(e.run_grade)}</small>` : ""}`;
   // Face: status (thumbnail and n/3, or "no face"), then camera capture (main), photo upload (fallback)
   // and remove (confirmed: it deletes personal data).
   const faceCell = e => {
@@ -5676,7 +6352,7 @@ function renderAdvanced() {
     else b.push(`<button class="btn ghost sm danger" onclick="confirmClick('delete${e.id}', this, () => removeEntry(${e.id}, true), 'sure_delete')">${t("delete_entry")}</button>`);
     return `<td style="white-space:nowrap">${b.join(" ")}</td>`;
   };
-  setHTML("aTable", S.entries.map(e => `<tr>${faceCell(e)}<td>${esc(e.candidate.external_id)}</td><td>${esc(cname(e.candidate))}</td><td class="t">${esc(e.candidate.bib ?? "—")}</td><td>${e.bmi ?? "—"}</td><td>${statusPill(e.status)}</td><td class="t">${runCell(e)}</td><td>${ev(e, "pushup")}</td><td>${ev(e, "crunch")}</td><td>${verdictPill(e.verdict)}</td>${actions(e)}</tr>`).join("") || `<tr><td colspan="11" class="hint">—</td></tr>`);
+  setHTML("aTable", S.entries.map(e => `<tr>${faceCell(e)}<td>${esc(e.candidate.external_id)}</td><td>${esc(cname(e.candidate))}</td><td class="t">${esc(e.candidate.bib ?? "—")}</td><td>${e.bmi ?? "—"}</td><td>${statusPill(e.status)}</td><td class="t">${runCell(e)}</td><td>${ev(e, "pushup")}</td><td>${ev(e, "crunch")}</td><td style="white-space:nowrap">${verdictPill(e.verdict)}${e.overall_percent != null ? ` <b class="t">${pct(e.overall_percent)}</b>` : ""}</td>${actions(e)}</tr>`).join("") || `<tr><td colspan="11" class="hint">—</td></tr>`);
 }
 
 /* ============================== candidates register ============================== */
@@ -6097,8 +6773,35 @@ const CamLive = {
 /* ============================== settings ============================== */
 // Station settings from the server (shared by every device); see service.SETTINGS.
 const SETTING_DEFAULTS = { auto_identify: true, camera_background: "off", camera_bg_places: ["weigh", "start", "photo"], backdrop_color: "#8a949e", background_image: null, face_match: "normal", face_required: false, face_fresh_min: 120, walk_ins: true, default_gender: "M", default_unit: "combat",
-                           bib_start: 1, lanes: 3, start_countdown_s: 3, cancel_window_s: 120, finish_face_threshold: 0, site_name: "", default_language: "en", theme: "night", admin_pin_set: false };
+                           bib_start: 1, lanes: 3, start_countdown_s: 3, cancel_window_s: 120, finish_face_threshold: 0, site_name: "", default_language: "en", theme: "night", admin_pin_set: false, finish_shutter: "auto", station_first_rep: true, go_styles: {}, start_line_on: true, start_rolling: true, start_setup_shown: true, finish_line_on: true, go_effect: "racing", go_dim: 60, go_size: 100, go_speed: 100, go_duration: 1.7, go_lines: 100, go_lines_count: 220, go_lines_opacity: 100, go_opacity: 100 };
 const setting = k => (S.settings && k in S.settings ? S.settings[k] : SETTING_DEFAULTS[k]);
+// The GO effect per place (Settings > GO effect > Settings for): start line, push-ups, crunches,
+// finish line. What a place has not set comes from the station's go_* settings.
+const GO_KEYS = { effect: "setGoFx", dim: "setGoDim", size: "setGoSize", speed: "setGoSpeed", duration: "setGoDur", lines: "setGoLines", lines_count: "setGoCount", lines_opacity: "setGoLineA", opacity: "setGoA" };
+const GO_PLACE_DEFAULTS = { finish: { duration: 3, effect: "racing2" } };   // a name and a time: longer, and a calm board to read
+const goStyle = place => {
+  const st = setting("go_styles") || {}, own = st[place] || {}, out = {};
+  for (const k of Object.keys(GO_KEYS)) out[k] = own[k] ?? (GO_PLACE_DEFAULTS[place] || {})[k] ?? setting("go_" + k);
+  return out;
+};
+const GoStyle = {
+  place: "start",
+  all() { try { return JSON.parse($("setGoStyles").value || "{}") || {}; } catch { return {}; } },
+  show() {   // the sliders: the chosen place's values as they are on the page (saved or not yet)
+    const own = this.all()[this.place] || {};
+    for (const [k, id] of Object.entries(GO_KEYS)) {
+      const v = own[k] ?? (GO_PLACE_DEFAULTS[this.place] || {})[k] ?? setting("go_" + k), f = SET_FIELDS[id];
+      $(id).value = f && f[2] ? f[2](v) : v;
+    }
+    document.querySelectorAll("#goPlaces button").forEach(b => b.classList.toggle("active", b.dataset.g === this.place));
+  },
+  pick(p) { this.place = p; this.show(); },
+  keep() {   // each change of a slider goes into the chosen place
+    const all = this.all(), o = {};
+    for (const [k, id] of Object.entries(GO_KEYS)) { const f = SET_FIELDS[id]; o[k] = f && f[1] ? f[1]($(id).value) : $(id).value; }
+    all[this.place] = o; $("setGoStyles").value = JSON.stringify(all); SetNav.check?.();
+  },
+};
 function applySettings(first) {
   if (first && load("lang", null) == null && setting("default_language") !== lang) setLang(setting("default_language"), false);
   if (first && setting("auto_identify") !== autoId) toggleAuto();
@@ -6394,14 +7097,17 @@ const Evidence = {
 };
 const SET_FIELDS = {   // input id -> [setting, read, write]
   setAuto: ["auto_identify", v => v === "1", v => (v ? "1" : "0")], setBg: ["camera_background"], setMatch: ["face_match"], setFaceReq: ["face_required", v => v === "1", v => (v ? "1" : "0")], setFaceFresh: ["face_fresh_min", v => parseInt(v, 10), String],
-  setChooseFirst: ["station_choose_first", v => v === "1", v => (v ? "1" : "0")], setFcSetup: ["finish_setup_shown", v => v === "1", v => (v ? "1" : "0")], setWalk: ["walk_ins", v => v === "1", v => (v ? "1" : "0")], setGender: ["default_gender"], setUnit: ["default_unit"], setBib: ["bib_start", v => parseInt(v, 10)],
-  setLanes: ["lanes", v => parseInt(v, 10), String], setStopAfter: ["station_stop_after_s", v => parseInt(v, 10) || 0, String],
-  setCountdown: ["start_countdown_s", v => parseInt(v, 10), String], setCancelWin: ["cancel_window_s", v => parseInt(v, 10), String], setFinishFace: ["finish_face_threshold", v => parseFloat(v) || 0, v => String(+v || 0)], setSite: ["site_name", v => v.trim()], setCamSrc: ["camera_sources", v => JSON.parse(v || "{}"), o => JSON.stringify(o || {})], setEvKeep: ["evidence_keep_days", v => parseInt(v, 10), String],
+  setChooseFirst: ["station_choose_first", v => v === "1", v => (v ? "1" : "0")], setFcSetup: ["finish_setup_shown", v => v === "1", v => (v ? "1" : "0")], setSlSetup: ["start_setup_shown", v => v === "1", v => (v === false ? "0" : "1")], setStartLineOn: ["start_line_on", v => v === "1", v => (v === false ? "0" : "1")], setRolling: ["start_rolling", v => v === "1", v => (v === false ? "0" : "1")], setFinishLineOn: ["finish_line_on", v => v === "1", v => (v === false ? "0" : "1")], setWalk: ["walk_ins", v => v === "1", v => (v ? "1" : "0")], setGender: ["default_gender"], setUnit: ["default_unit"], setBib: ["bib_start", v => parseInt(v, 10)],
+  setLanes: ["lanes", v => parseInt(v, 10), String], setStopAfter: ["station_stop_after_s", v => parseInt(v, 10) || 0, String], setOutS: ["station_out_s", v => parseInt(v, 10) || 0, String], setFirstRep: ["station_first_rep", v => v === "1", v => (v === false ? "0" : "1")],
+  setCountdown: ["start_countdown_s", v => parseInt(v, 10), String], setGoFx: ["go_effect"], setGoSpeed: ["go_speed", v => parseInt(v, 10), v => { const x = String(v ?? 100); $("setGoSpeedV").textContent = x + "%"; return x; }],
+    setGoDur: ["go_duration", v => parseFloat(v), v => { const x = String(v ?? 1.7); $("setGoDurV").textContent = x + " s"; return x; }], setGoCount: ["go_lines_count", v => parseInt(v, 10), v => { const x = String(v ?? 220); $("setGoCountV").textContent = x; return x; }],
+    setGoLineA: ["go_lines_opacity", v => parseInt(v, 10), v => { const x = String(v ?? 100); $("setGoLineAV").textContent = x + "%"; return x; }], setGoA: ["go_opacity", v => parseInt(v, 10), v => { const x = String(v ?? 100); $("setGoAV").textContent = x + "%"; return x; }], setGoLines: ["go_lines", v => parseInt(v, 10), v => { const x = String(v ?? 100); $("setGoLinesV").textContent = x + "%"; return x; }], setGoSize: ["go_size", v => parseInt(v, 10), v => { const x = String(v ?? 100); $("setGoSizeV").textContent = x + "%"; return x; }], setGoDim: ["go_dim", v => parseInt(v, 10), v => { const x = String(v ?? 60); $("setGoDimV").textContent = x + "%"; return x; }], setCancelWin: ["cancel_window_s", v => parseInt(v, 10), String], setFinishFace: ["finish_face_threshold", v => parseFloat(v) || 0, v => String(+v || 0)], setSite: ["site_name", v => v.trim()], setCamSrc: ["camera_sources", v => JSON.parse(v || "{}"), o => JSON.stringify(o || {})], setEvKeep: ["evidence_keep_days", v => parseInt(v, 10), String],
   setEvMax: ["evidence_max_gb", v => Math.max(0, parseFloat(v) || 0), v => String(+v || 0)], setEvFree: ["evidence_min_free_gb", v => Math.max(0, parseFloat(v) || 0), v => String(+v || 0)],
-  setEvHeld: ["evidence_held_days", v => (v ? v.split(",") : []), a => (a || []).slice().sort().join(",")], setTuning: ["count_tuning", v => JSON.parse(v || "{}"), o => JSON.stringify(o || {})], setTroubleRun: ["trouble_run_cutoff_s", v => parseInt(v, 10) || 0, String], setBgPlaces: ["camera_bg_places", v => (v ? v.split(",") : []), a => (a || []).join(",")], setLang: ["default_language"], setTheme: ["theme"],
+  setEvHeld: ["evidence_held_days", v => (v ? v.split(",") : []), a => (a || []).slice().sort().join(",")], setTuning: ["count_tuning", v => JSON.parse(v || "{}"), o => JSON.stringify(o || {})], setTroubleRun: ["trouble_run_cutoff_s", v => parseInt(v, 10) || 0, String], setBgPlaces: ["camera_bg_places", v => (v ? v.split(",") : []), a => (a || []).join(",")], setLang: ["default_language"], setTheme: ["theme"], setFinishShutter: ["finish_shutter"], setGoStyles: ["go_styles", v => JSON.parse(v || "{}"), o => JSON.stringify(o || {})],
 };
 function showSettings() {
   for (const [id, [k, , out]] of Object.entries(SET_FIELDS)) $(id).value = out ? out(setting(k)) : setting(k);
+  GoStyle.show();
   const col = setting("backdrop_color"), preset = [...$("setBgColor").options].some(o => o.value === col);
   $("setBgColor").value = preset ? col : "custom"; $("setBgCustom").value = col;
   bgColorPicked(); bgPreview(); bgRows(); themeCards(); bgPlacesShow(); camSourcesShow(); tuningRows(); Evidence.render();
@@ -6487,6 +7193,7 @@ async function removeBg() {
 async function saveSettings() {
   const body = { backdrop_color: bgColor() };
   for (const [id, [k, read]] of Object.entries(SET_FIELDS)) body[k] = read ? read($(id).value) : $(id).value;
+  for (const id of Object.values(GO_KEYS)) body[SET_FIELDS[id][0]] = setting(SET_FIELDS[id][0]);   // the GO sliders edit go_styles
   if (!(body.bib_start >= 1)) { msg("setMsg", "bad", t("e_bad_input")); return; }
   try {
     const before = S.settings || SETTING_DEFAULTS;
@@ -6540,12 +7247,26 @@ const setAdminPin = v => { try { v ? sessionStorage.setItem("tp_admin_pin", v) :
 let settingsOpen = false;
 // ---- settings navigation: one section at a time, search across all of them, and a save bar
 // that appears only when a station setting differs from what is saved (and marks its section).
+const FinishLight = {   // Settings > Cameras: the finish camera's shutter now (src/testpoint/api/light.py)
+  timer: 0,
+  watch() { clearInterval(this.timer); this.show(); this.timer = setInterval(() => { if (SetNav.cur === "camera" && document.querySelector('#t-settings .setpanel[data-p="camera"].on')) this.show(); else clearInterval(this.timer); }, 5000); },
+  async show() {
+    let st = null;
+    try { st = await (await fetch("/api/cameras/light")).json(); } catch (e) { /* offline: leave it */ return; }
+    const el = $("fsNow"); if (!el) return;
+    el.textContent = st && st.shutter && st.brightness != null
+      ? t("fs_now").replace("{s}", st.shutter + " s").replace("{b}", st.brightness).replace("{n}", st.noise) + (st.trying ? t("fs_trying") : "")
+      : t("fs_none");
+  },
+};
+
 const SetNav = {
   cur: null, timer: 0,
   show(key) {
     if (key === "ipcams") key = "camera";   // merged into Cameras
     this.cur = document.querySelector(`#t-settings .setpanel[data-p="${key}"]`) ? key : "rules"; save("setPanel", this.cur);
     if (this.cur === "evidence") Evidence.load();
+    if (this.cur === "camera") FinishLight.watch();
     $("setSearch").value = ""; this.search(""); window.scrollTo(0, 0);
     document.querySelector(`#setNav button[data-p="${this.cur}"]`).scrollIntoView({ block: "nearest", inline: "nearest" });
   },
@@ -6580,6 +7301,7 @@ const SetNav = {
   changed() {   // station settings that differ from the saved ones, as {field id: true}
     const out = {};
     for (const [id, [k, read]] of Object.entries(SET_FIELDS)) {
+      if (Object.values(GO_KEYS).includes(id)) continue;   // the GO sliders edit go_styles (its own field)
       const v = read ? read($(id).value) : $(id).value;
       if (JSON.stringify(v) !== JSON.stringify(setting(k))) out[id] = true;
     }
@@ -6618,6 +7340,7 @@ const SetNav = {
   },
   fill(scope, def) {   // put the default values into the form fields inside ``scope``
     for (const [id, [k, , out]] of Object.entries(SET_FIELDS)) if (scope.contains($(id)) && k in def) $(id).value = out ? out(def[k]) : def[k];
+    if (scope.contains($("setGoStyles"))) GoStyle.show();
     if (scope.contains($("setBgColor")) && def.backdrop_color) {
       const col = def.backdrop_color, preset = [...$("setBgColor").options].some(o => o.value === col);
       $("setBgColor").value = preset ? col : "custom"; $("setBgCustom").value = col;

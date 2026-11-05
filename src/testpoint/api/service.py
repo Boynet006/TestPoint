@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 import numpy as np
 
 from . import journey as J
-from .faces import FaceError, QUALITY_OK, match as face_match, normalise
+from .faces import FaceError, QUALITY_OK, common_score, match as face_match, normalise
 from .models import Attempt, AuditLog, Candidate, Crossing, Day, Entry, FaceTemplate, Rep, Setting, Wave, utcnow
 from .rules import EVENTS, GRADES, UNITS, DayRules, age_on, bmi as compute_bmi
 
@@ -234,6 +234,10 @@ SETTINGS: dict[str, object] = {
     "face_fresh_min": 120,       # face photos older than this (minutes) are taken again at the desk, and pictures
                                  # learnt at the cameras stop being used (the light changes); 0 = the whole day
     # registration
+    "start_rolling": True,       # rolling start: runners are recognised on the way and their clock starts as they cross the start line (no stop, no hand, no GO)
+    "start_line_on": True,       # the start line by default: on (recognised behind the line, GO, the clock starts at the line) or off (a raised hand gives GO)
+    "start_setup_shown": True,   # the start screen shows its line set-up (on/off, position, direction, colour key)
+    "finish_line_on": True,      # the finish line by default: on (the finish camera times each crossing) or off (the examiner times by hand)
     "finish_setup_shown": True,  # the finish screen shows its line position, direction and colour key (hide them once set)
     "station_choose_first": True,   # the one-mat station: the person picks push-ups or crunches first, with a raised hand
     "walk_ins": True,            # the weigh-in desk may register people who are not on the list
@@ -242,13 +246,27 @@ SETTINGS: dict[str, object] = {
     "bib_start": 1,              # first number for automatically assigned bibs
     # exercise station
     "lanes": 3,                  # lanes per exercise station (must match the engine's --lanes)
-    "station_stop_after_s": 20,  # one-mat station: no rep for this long ends the test (the person stopped); 0 = off
+    "station_stop_after_s": 20,
+    "station_first_rep": True,   # the station's clock starts at the first rep (no start posture, no 3-2-1, no GO)
+    "station_out_s": 3,          # one-mat station: out of the exercise's posture (standing, sitting up, kneeling) this
+                                 # long during the test ends it with the count so far; 0 = off  # one-mat station: no rep for this long ends the test (the person stopped); 0 = off
     # run start
     "start_countdown_s": 0,      # a 3-2-1 before GO (start line and station); 0: GO as soon as they are ready, the clock and the count start there
     "cancel_window_s": 120,      # a start can be cancelled without the admin PIN this long; 0 = until the first finisher
     "finish_face_threshold": 0.0, # face match needed at the finish (0.30-0.60); 0 = automatic (normal while few are out)
     # display
     "site_name": "",             # shown in the header; empty = "Fitness examination station"
+    "finish_shutter": "auto",    # the finish camera's shutter: auto (as fast as the light allows), 1/1000, 1/500 or 1/250
+    "go_styles": {},             # the GO effect per place (start, pushup, crunch, finish): {place: {effect, dim, size, ...}}; what is not set comes from the go_* below
+    "go_effect": "racing",       # the full-screen GO: racing, shockwave, slam, neon, hyperspace, fireworks or off
+    "go_dim": 60,                # how dark the screen goes behind GO, 0-100 %
+    "go_size": 100,              # how big GO is drawn, 50-150 %
+    "go_speed": 100,             # how fast the GO effect moves, 50-200 %
+    "go_duration": 1.7,          # how long GO stays on the screen, 0.1-5 s
+    "go_opacity": 100,           # how solid the word GO is, 0-100 %
+    "go_lines": 100,             # how much of the screen the GO effect's lines take, 0-100 %
+    "go_lines_count": 220,       # how many lines, 10-400
+    "go_lines_opacity": 100,     # how strong the lines, rings and sparks are, 0-100 %
     "default_language": "en",    # a device that never chose a language: "en" or "ar"
     "trouble_run_cutoff_s": 0,
     "count_tuning": {},          # counting rules changed from the calibrated ones: {exercise: {rule: value}}   # troubleshooting: a short run cut-off in seconds instead of the rule's (0 = off)
@@ -698,20 +716,43 @@ def verdict(entry: Entry) -> str | None:
     return "pass" if all(g is not None for g in grades) else "pending"
 
 
-def results_for(entry: Entry) -> dict:
-    """The day's results for the results card: each test with what was done, the grade reached
-    and whether it meets the person's required level, and the overall verdict."""
+def percents(entry: Entry, rules: DayRules) -> dict:
+    """The exact percentage of each test done (rules.percent) and the overall one: the average of
+    the three, once all three are done. Pass or fail stays each test at the required level."""
+    band = rules.find_band(entry.band)
+    out: dict = {"run": None, "pushup": None, "crunch": None, "overall": None}
+    if band is None:
+        return out
+    if entry.run_time_s is not None:
+        out["run"] = rules.percent("run", entry.run_time_s, band)
+    elif entry.status == J.DNF:
+        out["run"] = 0.0
+    for a in entry.attempts:
+        if a.status == "finished" and a.event in EVENTS and a.count is not None:
+            out[a.event] = rules.percent(a.event, a.count, band)
+    if all(out[t] is not None for t in ("run", *EVENTS)):
+        out["overall"] = round(sum(out[t] for t in ("run", *EVENTS)) / 3, 1)
+    return out
+
+
+def results_for(entry: Entry, rules: DayRules | None = None) -> dict:
+    """The day's results for the results card: each test with what was done, the grade reached,
+    its exact percentage and whether it meets the person's required level; the overall percentage
+    and verdict."""
     finished = {a.event: a for a in entry.attempts if a.status == "finished"}
     level = entry.level
-    tests = [{"test": "run", "value": entry.run_time_s, "grade": entry.run_grade,
+    pc = percents(entry, rules) if rules is not None else {}
+    tests = [{"test": "run", "value": entry.run_time_s, "grade": entry.run_grade, "percent": pc.get("run"),
               "passed": (entry.run_grade >= level) if entry.run_grade is not None and level else None,
               "dnf": entry.status == J.DNF and entry.run_time_s is None}]
     for ev in EVENTS:
         a = finished.get(ev)
         tests.append({"test": ev, "value": a.count if a else None, "grade": a.grade if a else None,
-                      "passed": a.passed if a else None, "dnf": False, "attempt_id": a.id if a else None})
+                      "percent": pc.get(ev), "passed": a.passed if a else None, "dnf": False,
+                      "attempt_id": a.id if a else None})
     return {"entry_id": entry.id, "status": entry.status, "verdict": verdict(entry), "level": level,
-            "band": entry.band, "age": entry.age, "complete": entry.status == J.COMPLETE, "tests": tests}
+            "band": entry.band, "age": entry.age, "complete": entry.status == J.COMPLETE, "tests": tests,
+            "overall_percent": pc.get("overall")}
 
 
 def done_events(entry: Entry) -> set[str]:
@@ -785,6 +826,35 @@ def _current(t: FaceTemplate, day: Day, since: datetime) -> bool:
     return t.day_id == day.id and t.created_at is not None and t.created_at >= since
 
 
+def camera_face(engine) -> dict:
+    """How small a face may be in a camera's picture, for an engine that says (the real one)."""
+    px = getattr(engine, "camera_min_px", None)
+    return {"min_px": px} if px else {}
+
+
+def reembed_templates(db: Session, engine) -> tuple[int, int]:
+    """Face templates made by another recognition model (another size, e.g. SFace's 128 after the
+    switch to AdaFace's 512) made again from their photo by the model in use. A photo in which no
+    face is found any more leaves its template as it was (no longer matched). (made, left)"""
+    dim = getattr(engine, "dim", None)
+    if engine is None or not dim:
+        return 0, 0
+    made = left = 0
+    for t in db.scalars(select(FaceTemplate)):
+        if len(t.embedding) == dim * 4:
+            continue
+        try:
+            face = engine.face_from_bytes(t.photo_jpeg)
+        except FaceError:
+            left += 1
+            continue
+        t.embedding = np.asarray(face.embedding, np.float32).tobytes()
+        made += 1
+    if made:
+        db.commit()
+    return made, left
+
+
 def face_count(db: Session, candidate_id: int, day: Day | None = None, fresh: bool = True) -> int:
     """Face photos on file; with ``day``, the registration photos taken that day and, ``fresh``,
     within face_window (the screens ask for a new set when there are none)."""
@@ -839,7 +909,10 @@ def last_visit_check(db: Session, day: Day, cid: int, emb) -> dict | None:
     if not prev:
         return None
     q = normalise(np.asarray(emb, np.float32))
-    score = max(float(np.dot(q, normalise(np.frombuffer(t.embedding, np.float32)))) for t in prev)
+    prev = [t for t in prev if len(t.embedding) == q.size * 4]          # made by the model in use
+    if not prev:
+        return None
+    score = common_score(max(float(np.dot(q, normalise(np.frombuffer(t.embedding, np.float32)))) for t in prev), q.size)
     newest = max(prev, key=lambda t: t.created_at)
     return {"score": round(score, 3), "differs": score < FACE_MATCH["normal"][0],
             "taken_at": newest.created_at.isoformat()}
@@ -926,7 +999,7 @@ def adapt_template(db: Session, day: Day, entry: Entry, face, score: float, runn
         db.delete(t)
         kept.remove(t)
     emb = np.asarray(face.embedding, np.float32)
-    if any(float(np.dot(emb, normalise(np.frombuffer(t.embedding, np.float32)))) >= ADAPT_NEW for t in kept):
+    if any(len(t.embedding) == emb.size * 4 and common_score(float(np.dot(emb, normalise(np.frombuffer(t.embedding, np.float32)))), emb.size) >= ADAPT_NEW for t in kept):
         return False
     same = [t for t in kept if t.source == source]
     for t in same[:max(0, len(same) - limit + 1)]:
@@ -1209,7 +1282,7 @@ def start_runner(db: Session, day: Day, rules: DayRules, entry: Entry, countdown
     now = now or utcnow()
     if entry.status != J.LINED_UP:
         require_gate(entry, day, "lineup")
-    busy = counting_down(db, day, now)
+    busy = counting_down(db, day, max(now, utcnow()))    # a 3-2-1 still to come now (a start at a past crossing is not one)
     if busy is not None and busy.id != entry.id:
         raise ServiceError("start_in_progress", f"{busy.candidate.name} is starting now; wait for their GO")
     go = now + timedelta(seconds=countdown_s)
@@ -1220,6 +1293,106 @@ def start_runner(db: Session, day: Day, rules: DayRules, entry: Entry, countdown
     _audit(db, day, "start", "runner_start", entry, at=go, countdown_s=countdown_s, by=by)
     db.commit()
     return entry
+
+
+ROLLING_AFTER_CANCEL_S = 30.0
+"""A start cancelled by mistake: the same person is not started again by a crossing this soon."""
+ROLLING_LEARN_VOTES = 3
+"""A rolling start learns the start camera's pictures of the runner only when at least this many of
+them agree (a wrong person learnt would follow them to the finish)."""
+
+
+def rolling_start(db: Session, day: Day, rules: DayRules, at: datetime, shots: list[bytes], engine,
+                  clip: str | None = None) -> tuple["StartCrossing", Entry | None]:
+    """Rolling start: someone crossed the start line on the start camera. Their face, from the
+    pictures taken on the way to the line, is looked for among today's people; a confident match
+    who may start now (weighed in, not run yet) is started with their clock from ``at``, the
+    crossing itself (as the finish times it: line to line). Not recognised: the examiner names
+    them, the clock still from ``at``. Already running or done (walking back): ignored."""
+    from .models import StartCrossing
+    gallery = day_gallery(db, day)
+    threshold, margin = FACE_MATCH.get(get_settings(db)["face_match"], FACE_MATCH["normal"])
+    votes: dict[int, int] = {}
+    best: dict[int, float] = {}
+    seen: list[tuple] = []
+    looked = 0
+    for shot in shots:
+        try:
+            face = engine.face_from_bytes(shot, require_single=False, **camera_face(engine))
+        except FaceError:
+            continue
+        looked += 1
+        m = face_match(face.embedding, gallery, threshold=threshold, margin=margin)
+        if m.candidate_id is not None:
+            votes[m.candidate_id] = votes.get(m.candidate_id, 0) + 1
+            best[m.candidate_id] = max(best.get(m.candidate_id, 0.0), m.score)
+            seen.append((m.candidate_id, face, m.score, m.runner_up))
+    # one person, never two: the pictures agree (several pictures of one face, or one clear one)
+    eid = next(iter(votes)) if len(votes) == 1 else None
+    entry = db.get(Entry, eid) if eid is not None else None
+    c = StartCrossing(day_id=day.id, at=at, entry_id=entry.id if entry else None, clip_path=clip,
+                      score=round(best[eid], 3) if eid is not None else None, status="review")
+    if entry is None:
+        waiting = [e for e in list_entries(db, day) if e.status in (J.ACCEPTED, J.LINED_UP)]
+        c.status, c.note_code = ("review", "not_recognised" if looked else "no_face") if waiting else ("ignored", "nobody_waiting")
+    elif entry.status == J.RUNNING or entry.run_time_s is not None or entry.status in (J.DNF, J.COMPLETE):
+        c.status, c.note_code = "ignored", "already_ran" if entry.status != J.RUNNING else "already_running"
+    elif db.scalar(select(AuditLog.id).where(AuditLog.entry_id == entry.id, AuditLog.action == "cancel_start",
+                                             AuditLog.at >= at - timedelta(seconds=ROLLING_AFTER_CANCEL_S)).limit(1)):
+        c.status, c.note_code = "ignored", "just_cancelled"
+    else:
+        gate = gate_for(entry, day, "lineup")
+        if entry.status != J.LINED_UP and not gate.ok:
+            c.status, c.note_code = "refused", gate.reason
+        elif not face_count(db, entry.candidate_id, day, fresh=False):
+            c.status, c.note_code = "refused", "no_photos_today"
+        else:
+            try:
+                start_runner(db, day, rules, entry, countdown_s=0, now=at, by="rolling_start")
+                c.status = "started"
+            except ServiceError as e:
+                c.status, c.note_code = "review", e.code
+            if c.status == "started" and votes[eid] >= ROLLING_LEARN_VOTES:
+                # the course camera's own pictures of them (its light, its distance): templates for
+                # the finish camera, which sees them the same way, from very sure matches only
+                learnt = 0
+                for cid, face, score, runner_up in sorted(seen, key=lambda s: -s[2]):
+                    if cid == eid and learnt < MAX_START and adapt_template(
+                            db, day, entry, face, score, runner_up, min_score=ADAPT_START_SCORE,
+                            min_quality=ADAPT_START_QUALITY, source="start", limit=MAX_START):
+                        learnt += 1
+                        db.flush()
+    db.add(c)
+    _audit(db, day, "start", "rolling_start", entry, at=at, status=c.status, reason=c.note_code,
+           score=c.score, pictures=len(shots), faces=looked, votes=votes)
+    db.commit()
+    return c, entry
+
+
+def assign_start_crossing(db: Session, day: Day, rules: DayRules, crossing_id: int, entry: Entry):
+    """The examiner names the runner of a start crossing the camera could not tie to anyone: their
+    clock runs from that crossing."""
+    from .models import StartCrossing
+    c = db.get(StartCrossing, crossing_id)
+    if c is None or c.day_id != day.id or c.status not in ("review", "refused"):
+        raise ServiceError("not_found", f"no start crossing {crossing_id} to name", 404)
+    if entry.status not in (J.ACCEPTED, J.LINED_UP):
+        raise ServiceError("cannot_start", f"{entry.candidate.name} cannot start now", 409)
+    start_runner(db, day, rules, entry, countdown_s=0, now=c.at, by="examiner_rolling")
+    c.entry_id, c.status, c.note_code = entry.id, "started", "named_by_examiner"
+    _audit(db, day, "start", "assign_start_crossing", entry, crossing_id=c.id, at=c.at)
+    db.commit()
+    return c
+
+
+def discard_start_crossing(db: Session, day: Day, crossing_id: int) -> None:
+    from .models import StartCrossing
+    c = db.get(StartCrossing, crossing_id)
+    if c is None or c.day_id != day.id or c.status not in ("review", "refused"):
+        raise ServiceError("not_found", f"no start crossing {crossing_id}", 404)
+    c.status = "discarded"
+    _audit(db, day, "start", "discard_start_crossing", None, crossing_id=c.id, at=c.at)
+    db.commit()
 
 
 START_CROSS_MAX_S = 15.0
@@ -1315,6 +1488,7 @@ def _assign(day: Day, rules: DayRules, crossing: Crossing, entry: Entry) -> None
     entry.run_grade = rules.grade("run", crossing.time_s, band) if band else None
     pass_s = band.run_s[GRADES.index(entry.level)] if band and entry.level in GRADES else None
     entry.status = J.after_finish(crossing.time_s, pass_s, rules.run_cutoff_s)
+    entry.status = J.after_event(done_events(entry), entry.status)   # a run done again after both exercises
 
 
 def resolve_crossing(db: Session, day: Day, rules: DayRules, crossing_id: int,
@@ -1370,7 +1544,7 @@ def face_for_crossing(db: Session, day: Day, rules: DayRules, crossing: Crossing
     found = 0
     for shot in shots:
         try:
-            face = engine.face_from_bytes(shot, require_single=False)
+            face = engine.face_from_bytes(shot, require_single=False, **camera_face(engine))
         except Exception:        # no face in this snapshot (looking down, an arm across it)
             continue
         found += 1
@@ -1429,7 +1603,7 @@ def check_finish_face(db: Session, day: Day, crossing: Crossing, data: list[byte
     best = None
     for shot in data:
         try:
-            face = engine.face_from_bytes(shot, require_single=False)
+            face = engine.face_from_bytes(shot, require_single=False, **camera_face(engine))
         except Exception:                # noqa: BLE001 - no face in this snapshot
             continue
         m = face_match(face.embedding, gallery, threshold=threshold, margin=margin)
@@ -1676,6 +1850,20 @@ def note_ended_early(db: Session, day: Day, attempt: Attempt, why: str, after_s:
            count=attempt.auto_count or 0)
 
 
+def attempt_clock(db: Session, day: Day, attempt: Attempt, at: datetime) -> None:
+    """Clock from the first rep: the test's time runs from ``at`` (its first rep), not from when the
+    station got ready."""
+    attempt.started_at = at
+    _audit(db, day, attempt.event, "clock_at_first_rep", attempt.entry, attempt_id=attempt.id, at=at)
+    db.commit()
+
+
+def note_false_start(db: Session, day: Day, attempt: Attempt, why: str, after_s: float) -> None:
+    """The audit trail of a station test cancelled as a false start (out of the exercise with no
+    rep just after GO): no result was saved; the person goes again."""
+    _audit(db, day, attempt.event, "false_start", attempt.entry, attempt_id=attempt.id, why=why, after_s=after_s)
+
+
 def note_manual_start(db: Session, day: Day, entry: Entry, event: str, step: str) -> None:
     """The audit trail of a station test the examiner started by hand."""
     _audit(db, day, event, "manual_start", entry, step=step)
@@ -1687,6 +1875,27 @@ def note_calibration(db: Session, day: Day, attempt: Attempt, calibration: dict 
     if calibration:
         _audit(db, day, attempt.event, "calibration", attempt.entry, attempt_id=attempt.id, **calibration)
         db.commit()
+
+
+def reset_run(db: Session, day: Day, entry: Entry) -> Entry:
+    """The run is taken back so the person runs again (it went wrong): back to weighed in, ready
+    to line up; the time, the start and the finish are cleared (their crossings are removed, so
+    the finish screen does not list them as unnamed finishers). Exercise results already saved
+    stay. The audit log keeps what was there, the crossings too."""
+    if entry.run_time_s is None and entry.status not in (J.DNF, J.RUNNING, J.LINED_UP) and not (
+            entry.status == J.COMPLETE and entry.run_started_at is not None):
+        raise ServiceError("no_result", f"{entry.candidate.name} has no run to reset")
+    crossings = list(db.scalars(select(Crossing).where(Crossing.entry_id == entry.id)))
+    _audit(db, day, "admin", "reset_run", entry, status=entry.status, run_time_s=entry.run_time_s,
+           run_grade=entry.run_grade, started_at=entry.run_started_at, finished_at=entry.finished_at,
+           crossings=[{"id": c.id, "at": c.at, "time_s": c.time_s, "source": c.source, "clip": c.clip_path} for c in crossings])
+    for c in crossings:
+        db.delete(c)
+    entry.run_time_s = entry.run_grade = entry.finished_at = None
+    entry.run_started_at = entry.run_cutoff_at = entry.lined_up_at = None
+    entry.status = J.ACCEPTED
+    db.commit()
+    return entry
 
 
 def redo_attempt(db: Session, day: Day, rules: DayRules, attempt_id: int) -> Entry:

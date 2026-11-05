@@ -156,3 +156,19 @@ class SFaceOrt:
             blob = cv2.cvtColor(a, cv2.COLOR_BGR2RGB).astype(np.float32).transpose(2, 0, 1)[None]
             out[i] = self.s.run(None, {self.inp: blob})[0].reshape(-1)
         return out
+
+
+class AdaFaceOrt:
+    """AdaFace IR-101 on ONNX Runtime: a 512-d embedding per aligned 112x112 face (BGR, as
+    alignCrop gives; the model takes RGB scaled to -1..1). Several faces in one run."""
+
+    def __init__(self, path: Path, device: str = "cuda") -> None:
+        self.s = _session(path, device)
+        self.inp = self.s.get_inputs()[0].name
+
+    def features(self, aligned: list[np.ndarray]) -> np.ndarray:
+        if not aligned:
+            return np.zeros((0, 512), np.float32)
+        x = np.stack([cv2.cvtColor(a, cv2.COLOR_BGR2RGB) for a in aligned]).astype(np.float32)
+        x = ((x / 255.0 - 0.5) / 0.5).transpose(0, 3, 1, 2)
+        return np.concatenate([self.s.run(None, {self.inp: x[i:i + 32]})[0] for i in range(0, len(x), 32)]).astype(np.float32)

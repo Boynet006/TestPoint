@@ -378,3 +378,51 @@ def test_photos_are_taken_again_later_the_same_day(client, monkeypatch):
     client.post(f"/api/entries/{i['12']}/face", content=b"face:B")
     monkeypatch.setattr(S, "utcnow", lambda: morning + timedelta(hours=3))
     assert client.post(f"/api/entries/{i['12']}/face", content=b"face:C").json()["last_visit"]["differs"] is True
+
+
+def test_adaface_scores_are_put_on_sface_scale_and_other_models_templates_are_left_out():
+    from testpoint.api.faces import ADA_TO_SFACE, common_score
+    assert common_score(0.5, 128) == 0.5                                   # SFace: as it is
+    xs = [common_score(y, 512) for y in np.linspace(-0.2, 1.0, 50)]
+    assert all(b >= a for a, b in zip(xs, xs[1:]))                         # the same order
+    ys, sf = zip(*ADA_TO_SFACE)
+    assert list(ys) == sorted(ys) and list(sf) == sorted(sf)
+    rng = np.random.default_rng(0)
+    a = rng.normal(size=512).astype(np.float32)
+    gallery = {1: [rng.normal(size=128).astype(np.float32)], 2: [a + 0.05 * rng.normal(size=512).astype(np.float32)]}
+    m = match(a, gallery)
+    assert m.candidate_id == 2 and [c for c, _ in m.ranking] == [2]             # the 128-d template is not compared
+
+
+def test_templates_of_another_model_are_made_again_from_their_photo():
+    from sqlalchemy import select
+    from testpoint.api import service as S
+
+    class Eng:
+        dim = 512
+        def face_from_bytes(self, data, require_single=False):
+            if data == b"none":
+                raise FaceError("no_face")
+            return Face((0, 0, 10, 10), 0.9, np.ones(512, np.float32), b"")
+
+    sm = models.make_sessionmaker("sqlite:///:memory:")
+    with sm() as db:
+        c = models.Candidate(name="A", external_id="1")
+        db.add(c); db.flush()
+        for photo in (b"ok", b"none"):
+            db.add(models.FaceTemplate(candidate_id=c.id, embedding=np.zeros(128, np.float32).tobytes(), photo_jpeg=photo))
+        db.add(models.FaceTemplate(candidate_id=c.id, embedding=np.zeros(512, np.float32).tobytes(), photo_jpeg=b"x"))
+        db.commit()
+        assert S.reembed_templates(db, Eng()) == (1, 1)
+        sizes = sorted(len(t.embedding) for t in db.scalars(select(models.FaceTemplate)))
+        assert sizes == [512, 2048, 2048]
+        assert S.reembed_templates(db, Eng()) == (0, 1)                      # once
+
+
+def test_a_512_float_face_vector_fits_the_camera_reports():
+    import base64
+    from testpoint.api.app import EngineLaneIn, StartObsIn
+    emb = base64.b64encode(np.zeros(512, np.float32).tobytes()).decode()
+    for model, field in ((StartObsIn, "emb"), (EngineLaneIn, "face")):
+        limit = next(m.max_length for m in model.model_fields[field].metadata if hasattr(m, "max_length"))
+        assert limit >= len(emb), model.__name__

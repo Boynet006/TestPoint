@@ -45,6 +45,12 @@ from .vision.sources import SourceError, VideoPlayer, iter_frames, open_source
 from .vision.tracker import IoUTracker, Track
 
 CROSSING_PATH = "/api/engine/crossing"
+START_CROSSING_PATH = "/api/engine/start/crossing"
+START_MIN_APPROACH, START_MIN_TRAVEL = 0.12, 0.15
+"""Rolling start: the person comes from at least this far behind the line and travels at least this
+far (shares of the picture), more than at the finish (0.05, 0.06)."""
+"""--report start: the same camera work at the start line (rolling start): a runner recognised on
+the way, their clock started as they cross it."""
 
 
 @dataclass
@@ -75,8 +81,8 @@ class CrossingPoster:
     """Sends crossings to the app from a thread, in order, retrying while unreachable."""
 
     def __init__(self, app_url: str, timeout_s: float = 3.0, log: Callable[[str], None] = print,
-                 on_reply: Callable[[Crossing, dict], None] | None = None) -> None:
-        self.url = app_url.rstrip("/") + CROSSING_PATH
+                 on_reply: Callable[[Crossing, dict], None] | None = None, path: str = CROSSING_PATH) -> None:
+        self.url = app_url.rstrip("/") + path
         self.on_reply = on_reply
         """Told what the app made of each crossing (who it was), for the picture."""
         self.timeout_s = timeout_s
@@ -221,6 +227,8 @@ class FinishCam:
     FACE_LOOK_S = 0.12
     """With a face finder: how often each runner's face is looked for while they approach."""
     MIN_FACE_PX = 40
+    min_face_px = MIN_FACE_PX
+    """The smallest face snapshot kept; the face engine's camera_min_px when it has one (AdaFace: 24)."""
 
     def _keep_head(self, track_id: int, frame: np.ndarray, box, t: float = 0.0) -> None:
         shots = self._heads.setdefault(track_id, [])
@@ -239,7 +247,7 @@ class FinishCam:
             if not found:
                 return
             fx, fy, fw, fh, score = found
-            if min(fw, fh) < self.MIN_FACE_PX:
+            if min(fw, fh) < self.min_face_px:
                 return
             # the head with room around it, at most 320 wide: plenty for recognition, small to send
             m = 0.7 * max(fw, fh)
@@ -259,8 +267,18 @@ class FinishCam:
         shots.append((t, crop.copy()))
         del shots[:-self.FACE_SNAPSHOTS]
 
+    t_origin: float | None = None
+    """``time.monotonic()`` of frame time 0 on a live camera (set by the frame loop): a crossing's
+    wall time is then its interpolated instant between the two frames around the line, as they
+    arrived from the camera, not when the analysis got to it. Without it (video files), now."""
+
+    def wall_of(self, t: float) -> float:
+        if self.t_origin is None:
+            return time.time()
+        return time.time() - max(0.0, time.monotonic() - (self.t_origin + t))
+
     def _crossing(self, ev: CrossEvent) -> Crossing | None:
-        wall = time.time()
+        wall = self.wall_of(ev.t)
         crops = self.reader.take(ev.track_id) if self.reader is not None else []
         heads = [crop for _t, crop in self._heads.pop(ev.track_id, [])]
         clip = None
@@ -405,6 +423,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--out", help="write an annotated video here")
     p.add_argument("--show", action="store_true", help="preview window (q quits)")
     p.add_argument("--station", default="finish", help="screen this camera shows on (default finish)")
+    p.add_argument("--report", default="finish", choices=["finish", "start"],
+                   help="finish: crossings end runs (default); start: rolling start, crossings start them")
     p.add_argument("--no-preview", action="store_true", help="do not send the live picture to the app")
     p.add_argument("--realtime", action="store_true",
                    help="play a video file at its own speed, as a live camera would (demos, training)")
@@ -444,7 +464,8 @@ def main(argv: list[str] | None = None) -> int:
     def heard(c: Crossing, reply: dict) -> None:
         r = reply.get("runner")
         names[c.track_id] = f"{r.get('bib') or ''} {r.get('name') or ''}".strip() if r else "to review" if reply.get("needs_review") else ""
-    poster = None if args.no_app else CrossingPoster(args.app, on_reply=heard)
+    poster = None if args.no_app else CrossingPoster(args.app, on_reply=heard,
+                                                      path=START_CROSSING_PATH if args.report == "start" else CROSSING_PATH)
     finder = None
     try:
         from .api.faces import get_engine
@@ -459,15 +480,21 @@ def main(argv: list[str] | None = None) -> int:
         print(f"faces looked for on {eng.device}")
     except Exception as e:          # noqa: BLE001 - no face models: upper-body snapshots as before
         print(f"face snapshots without a face finder ({e})")
-    cam = FinishCam(detector, line, reader, evidence=evidence,
+    cam = FinishCam(detector, line, reader, evidence=evidence, evidence_folder="start" if args.report == "start" else "run",
                     on_crossing=(poster.post if poster else None), ocr_async=True, face_finder=finder)
     cam.names = names
+    if args.report == "start":
+        # a rolling start is someone setting off: from well behind the line and a real distance,
+        # not someone sitting or shifting near it (that started a seated examiner, twice)
+        line.MIN_APPROACH, line.MIN_TRAVEL = START_MIN_APPROACH, START_MIN_TRAVEL
+    if finder is not None:
+        cam.min_face_px = getattr(eng, "camera_min_px", FinishCam.MIN_FACE_PX)
     print(f"finish cam: source {getattr(source, 'display_url', args.source)}  line {args.line} {args.direction}"
           f"  crop {args.crop or 'full'}  app {'off' if args.no_app else args.app}  ocr {'off' if reader is None else 'on'}")
 
     preview = None
     if poster is not None and not args.no_preview:
-        preview = FramePublisher(args.app, args.station, lambda img, fps_now: draw(img, cam, fps_now))
+        preview = FramePublisher(args.app, args.station, lambda img, fps_now: draw(img, cam, fps_now), max_width=1920, quality=85)
         preview.tap(source, None if crop is None else lambda f: f[int(crop[1] * f.shape[0]):int(crop[3] * f.shape[0]),
                                                                     int(crop[0] * f.shape[1]):int(crop[2] * f.shape[1])])
         if isinstance(source, VideoPlayer):
@@ -492,6 +519,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         # realtime: a crossing in a video is reported when it happens on screen
         for frame, t in iter_frames(source, realtime=args.realtime):
+            if source.is_live:
+                cam.t_origin = getattr(source, "t_origin", None)
             if crop is not None:
                 h, w = frame.shape[:2]
                 frame = frame[int(crop[1] * h):int(crop[3] * h), int(crop[0] * w):int(crop[2] * w)]

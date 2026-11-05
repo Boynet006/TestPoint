@@ -8,8 +8,10 @@
 
 A test ends when the time is up, or earlier when the person cannot go on (as in an official
 fitness test, the count so far stands): the examiner presses End test, the person leaves the mat
-for LEFT_MAT_S, or, after their first rep, no rep has been counted for ``idle_s`` while they are out of
-the start position (kneeling, sitting, standing; resting in it is allowed) (a setting; 0 = only the time).
+for LEFT_MAT_S, they leave the exercise's posture (stand up, sit up and stay up, kneel: the only
+rest allowed is the start position, arms straight or lying back) for ``out_s`` (a setting; the
+screen warns meanwhile), or, after their first rep, no rep has been counted for ``idle_s`` while
+they are out of the start position (a setting; 0 = only the time).
 
 Push-ups first, crunches when they come back (after a break, others testing meanwhile); or, with
 both still to do and the setting on, the person chooses which first: a raised hand moves a cursor
@@ -28,12 +30,15 @@ from dataclasses import dataclass, field
 RECOGNISE_VOTES, VOTE_WINDOW = 2, 3
 READY_HOLD_S = 1.0          # the start posture held this long: 3-2-1
 POSITION_TIMEOUT_S = 60.0   # never got into position: back to waiting
+ARMED_TIMEOUT_S = 60.0      # clock from the first rep: no rep this long after being recognised, back to waiting
 AWAY_S = 5.0                # nobody on the mat this long before GO: back to waiting
 REFUSED_S = 5.0
 DONE_S = 8.0                # the score stays on screen
 COOLDOWN_S = 20.0           # the person just tested is not picked up again meanwhile
 STALE_S = 3.0               # no word from the camera this long before GO: idle
 LEFT_MAT_S = 5.0            # off the mat this long during the test: it ends with the count so far
+FALSE_START_S = 10.0        # left the position or the mat with no rep this soon after GO: a false start,
+                            # not a result of 0 (the attempt is cancelled, they get into position again)
 CHOOSE_DWELL_S = 1.5        # the cursor held on one test this long picks it
 CHOOSE_TIMEOUT_S = 20.0     # no choice: push-ups, as without choosing
 CHOICES = ("pushup", "crunch")   # on the screen left to right (push-ups first, as without choosing)
@@ -59,6 +64,8 @@ class StationLook:
     """Where a raised hand points on the screen (0..1 each), for choosing the first test."""
     ready_ex: str | None = None
     """The exercise whose start position the person holds now (the one the camera watches)."""
+    out: bool = False
+    """Seen, but not in the exercise's posture: standing, sitting up, kneeling."""
 
 
 @dataclass
@@ -67,6 +74,13 @@ class StationFlow:
     time_s: float = 120.0
     idle_s: float = 0.0
     """No rep for this long during the test: it ends (the person stopped). 0 = off."""
+    out_s: float = 0.0
+    """Out of the exercise's posture this long during the test: it ends. 0 = off."""
+    first_rep: bool = False
+    """The clock starts at the first rep: recognised, the test is under way at once (no start
+    posture to hold, no 3-2-1, no GO); its time runs from the first rep counted. Before it, getting
+    down, adjusting or standing up again is not the end of anything; leaving without a rep, or none
+    for ARMED_TIMEOUT_S, cancels the attempt (nothing is saved)."""
     state: str = "idle"
     entry_id: int | None = None
     event: str | None = None
@@ -81,8 +95,11 @@ class StationFlow:
     votes: deque = field(default_factory=lambda: deque(maxlen=VOTE_WINDOW))
     recent: dict = field(default_factory=dict)
     ended: str | None = None
-    """Why the last test ended before its time: "examiner", "left_mat" or "no_reps"."""
+    """Why the last test ended before its time: "examiner", "left_mat", "left_position" or "no_reps"."""
     last_count: int = -1
+    out_since: float | None = None
+    unknown_at: float = float("-inf")
+    """When a face was last seen on the mat but not recognised (the screen says so for a while)."""
     last_rep_at: float = 0.0
     off_since: float | None = None
     hand: tuple[float, float] | None = None
@@ -96,13 +113,18 @@ class StationFlow:
             self.entry_id = self.event = self.go_at = self.attempt_id = self.ended = None
             self.votes.clear()
         if state == "testing":
-            self.ended, self.last_count, self.off_since = None, -1, None
+            self.ended, self.last_count, self.off_since, self.out_since = None, -1, None, None
             self.last_rep_at = kw.get("go_at", now)
         for k, v in kw.items():
             setattr(self, k, v)
 
     def reset(self, now: float) -> None:
         self._to("idle", now)
+
+    def unknown_face(self, now: float) -> None:
+        """A face was seen on the mat and matched nobody: the screen asks them to face the camera."""
+        if self.state == "idle":
+            self.unknown_at = now
 
     @property
     def watching(self) -> str | None:
@@ -122,8 +144,24 @@ class StationFlow:
         if self.state == "countdown" and self.go_at is not None and now >= self.go_at:
             acts.append(("start", self.entry_id, self.event))
             self._to("testing", now, entry_id=self.entry_id, event=self.event, go_at=self.go_at)
-        if self.state == "testing" and self.attempt_id is not None and now >= self.go_at + self.time_s:
+        if self.state == "testing" and self.attempt_id is not None and self.go_at is not None and now >= self.go_at + self.time_s:
             acts += self._finish(now, None)
+        return acts
+
+    def _cancel_armed(self, now: float, why: str) -> list[tuple]:
+        """Clock from the first rep, and no rep: nothing to save. Back to waiting for someone."""
+        acts = [("cancel", self.attempt_id, why)]
+        self.recent[self.entry_id] = now + COOLDOWN_S if why == "left_mat" else now + REFUSED_S
+        self._to("idle", now, reason=why)
+        return acts
+
+    def _false_start(self, now: float, why: str) -> list[tuple]:
+        """No rep yet and out of the exercise just after GO (getting settled, a slip, sitting up to
+        adjust): not a test of 0. The attempt is cancelled and the same person gets into position
+        again for a new 3-2-1."""
+        acts = [("cancel", self.attempt_id, why)]
+        self._to("position", now, entry_id=self.entry_id, event=self.event, reason="false_start")
+        self.attempt_id = self.go_at = None
         return acts
 
     def _finish(self, now: float, why: str | None) -> list[tuple]:
@@ -136,7 +174,7 @@ class StationFlow:
     def hold(self, now: float) -> None:
         """The picture is a paused test video: a pause is not the person stopping."""
         if self.state == "testing":
-            self.last_rep_at, self.off_since = now, None
+            self.last_rep_at, self.off_since, self.out_since = now, None, None
 
     def end_now(self, now: float, why: str = "examiner") -> list[tuple]:
         """End the test being done with the count so far (the person cannot go on)."""
@@ -193,12 +231,30 @@ class StationFlow:
             if now - self.last_seen > AWAY_S:
                 self._to("idle", now, reason="stepped_away")
                 return acts
+            if self.first_rep:
+                acts.append(("start", self.entry_id, self.event))
+                self._to("testing", now, entry_id=self.entry_id, event=self.event)
+                self.go_at = None            # the clock waits for the first rep
+                return acts
             if look.ready:
                 self.ready_since = self.ready_since if self.ready_since is not None else now
                 if now - self.ready_since >= READY_HOLD_S:
                     self._to("countdown", now, entry_id=self.entry_id, event=self.event, go_at=now + self.countdown_s)
             else:
                 self.ready_since = None
+            return acts
+
+        if self.state == "testing" and self.attempt_id is not None and self.go_at is None:
+            # clock from the first rep: waiting for it. Off the mat or no rep for long: cancelled.
+            self.off_since = None if look.present else (self.off_since if self.off_since is not None else now)
+            if look.count is not None and look.count > 0:
+                self.go_at = self.last_rep_at = now
+                self.last_count, self.out_since = look.count, None
+                return acts + [("clock", self.attempt_id, now)]
+            if self.off_since is not None and now - self.off_since >= LEFT_MAT_S:
+                return acts + self._cancel_armed(now, "left_mat")
+            if now - self.since >= ARMED_TIMEOUT_S:
+                return acts + self._cancel_armed(now, "timeout")
             return acts
 
         if self.state == "testing" and self.attempt_id is not None:
@@ -210,8 +266,14 @@ class StationFlow:
                 self.last_count = look.count
             if look.ready:          # resting in the start position (arms straight, lying back) is allowed
                 self.last_rep_at = now
+            early = self.last_count <= 0 and self.go_at is not None and now - self.go_at < FALSE_START_S
             if self.off_since is not None and now - self.off_since >= LEFT_MAT_S:
-                return acts + self._finish(now, "left_mat")
+                return acts + (self._false_start(now, "left_mat") if early else self._finish(now, "left_mat"))
+            # left the exercise (stood up, sat up and stayed up, kneeling): a short grace for the
+            # pose's jitter and a slip; then the test is over with the count so far
+            self.out_since = (self.out_since if self.out_since is not None else now) if look.present and look.out else None
+            if self.out_s > 0 and self.out_since is not None and now - self.out_since >= self.out_s:
+                return acts + (self._false_start(now, "left_position") if early else self._finish(now, "left_position"))
             # "stopped": no rep for idle_s after doing some; before the first rep (getting down on
             # the mat, a slow start) only the time, the examiner or leaving the mat ends the test
             if self.idle_s > 0 and self.last_count > 0 and now - self.last_rep_at >= self.idle_s:
@@ -246,8 +308,12 @@ class StationFlow:
 
     def view(self, now: float) -> dict:
         self.tick(now)
-        return {"state": self.state, "entry_id": self.entry_id, "event": self.event, "reason": self.reason, "ended": self.ended,
+        reason = self.reason or ("face_not_recognised" if self.state == "idle" and now - self.unknown_at < 4.0 else None)
+        return {"state": self.state, "entry_id": self.entry_id, "event": self.event, "reason": reason, "ended": self.ended,
                 "idle_s": self.idle_s, "last_rep_at": self.last_rep_at if self.state == "testing" else None,
+                # out of the exercise's posture: seconds before the test ends (the screen warns)
+                "out_left": (round(max(0.0, self.out_s - (now - self.out_since)), 1)
+                             if self.state == "testing" and self.out_s > 0 and self.out_since is not None else None),
                 "attempt_id": self.attempt_id, "go_at": self.go_at, "since": self.since,
                 "ends_at": (self.go_at + self.time_s) if self.go_at is not None and self.state in ("testing", "done") else None,
                 "ready": self.ready_since is not None, "camera": now - self.last_look <= STALE_S,
