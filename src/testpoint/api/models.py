@@ -148,6 +148,23 @@ class Crossing(Base):
     """Legacy (group starts): see ``Wave``."""
 
 
+class StartCrossing(Base):
+    """Someone crossing the start line on the start camera (rolling start): who it was and what
+    became of it. ``status``: started (their clock runs from ``at``), review (not recognised: the
+    examiner names them, the clock still from ``at``), refused (recognised, may not start now:
+    ``note_code`` says why), ignored (already running or done), discarded (not a runner)."""
+
+    __tablename__ = "start_crossing"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    day_id: Mapped[int] = mapped_column(ForeignKey("day.id"), index=True)
+    entry_id: Mapped[int | None] = mapped_column(ForeignKey("entry.id"))
+    at: Mapped[datetime] = mapped_column(DateTime)
+    status: Mapped[str] = mapped_column(String(12))
+    note_code: Mapped[str | None] = mapped_column(String(32))
+    score: Mapped[float | None] = mapped_column(Float)
+    clip_path: Mapped[str | None] = mapped_column(String(300))
+
+
 class Attempt(Base):
     __tablename__ = "attempt"
     id: Mapped[int] = mapped_column(primary_key=True)

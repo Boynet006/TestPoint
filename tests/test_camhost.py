@@ -325,3 +325,14 @@ def test_the_service_opens_only_face_photo_folders(svc):
     c, _ = svc
     for rel in ("../../Windows", "logs", "faces/../logs", "faces/nobody-here"):
         assert c.post("/open", json={"rel": rel}).status_code == 404
+
+
+def test_rolling_start_runs_the_line_camera_work_at_the_start():
+    from testpoint.camhost import StartLineIn, start_command
+    base = dict(kind="url", source="rtsp://u:example-pw@10.0.0.1/s", app_url="https://127.0.0.1:8000")
+    cmd = start_command(StartLineIn(**base, line_y=0.9, rolling=True))
+    assert cmd[cmd.index("-m") + 1] == "testpoint.finishcam" and "--report" in cmd and cmd[cmd.index("--report") + 1] == "start"
+    assert cmd[cmd.index("--line") + 1] == "0,0.9,1,0.9" and cmd[cmd.index("--station") + 1] == "start"
+    # without a line (or rolling off): the start camera as before
+    assert start_command(StartLineIn(**base, rolling=True))[2] == "testpoint.startcam"
+    assert start_command(StartLineIn(**base, line_y=0.9))[2] == "testpoint.startcam"

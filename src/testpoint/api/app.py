@@ -145,6 +145,7 @@ class SettingsIn(BaseModel):
     finish_setup_shown: bool | None = None
     start_setup_shown: bool | None = None
     start_line_on: bool | None = None
+    start_rolling: bool | None = None
     finish_line_on: bool | None = None
     station_choose_first: bool | None = None
     default_gender: Literal["M", "F", ""] | None = None
@@ -404,6 +405,10 @@ class PlayerIn(BaseModel):
     t: float | None = Field(default=None, ge=0, le=36000)
     n: int = Field(default=1, ge=-300, le=300)
     speed: float | None = Field(default=None, gt=0, le=4)
+
+
+class AssignStartIn(BaseModel):
+    entry_id: int
 
 
 class CrossingIn(BaseModel):
@@ -1425,7 +1430,11 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
 
     @app.post("/api/startcam/start")
     def startcam_start(body: StartCamIn, request: Request, db: Session = Depends(get_db)) -> dict:
-        return _shown(_camhost("POST", "/startcam/start", _source(db, "start", body.model_dump()) | {"app_url": _loopback(request)}, timeout=10.0))
+        cfg = _source(db, "start", body.model_dump()) | {"app_url": _loopback(request)}
+        # rolling start (Settings > Run start): the camera recognises runners on the move and starts
+        # their clock at the line; it needs the line
+        cfg["rolling"] = bool(S.get_settings(db)["start_rolling"] and cfg.get("line_y") is not None)
+        return _shown(_camhost("POST", "/startcam/start", cfg, timeout=10.0))
 
     @app.get("/testpoint-ca.crt")
     def https_ca() -> Response:
@@ -1546,6 +1555,52 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
             v["go_at"] = at_wall(v["go_at"])
         v["since"] = at_wall(v["since"])
         return v
+
+    def start_crossing_out(c, e) -> dict:
+        return {"id": c.id, "at": iso(c.at), "status": c.status, "reason": c.note_code, "score": c.score, "clip": c.clip_path,
+                "entry": {"id": e.id, "bib": e.candidate.bib, "name": e.candidate.name, "name_ar": e.candidate.name_ar} if e else None}
+
+    @app.post("/api/engine/start/crossing", status_code=201)
+    def engine_start_crossing(body: CrossingIn, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        """Rolling start: the start camera (finishcam --report start) saw someone cross the start line."""
+        import base64
+        import binascii
+        at = S.utcnow() - timedelta(seconds=body.latency_s)
+        shots = []
+        for b in [*body.faces, *([body.face] if body.face else [])]:
+            try:
+                shots.append(base64.b64decode(b, validate=True))
+            except (binascii.Error, ValueError):
+                pass
+        eng = None
+        try:
+            eng = engine()
+        except Exception:      # no face models: every crossing goes to the examiner
+            eng = None
+        if eng is None:
+            shots = []
+        c, e = S.rolling_start(db, day, S.rules_for(db, day, rules), at, shots, eng, body.clip)
+        out = start_crossing_out(c, e)
+        return out | {"runner": out["entry"] if c.status in ("started", "ignored", "refused") else None,
+                      "needs_review": c.status == "review"}
+
+    @app.get("/api/startline/crossings")
+    def start_crossings(db: Session = Depends(get_db), day: Day = Depends(get_day)) -> list[dict]:
+        """Today's start-line crossings, newest first (the start screen: who started, who to name)."""
+        from .models import StartCrossing
+        rows = db.scalars(select(StartCrossing).where(StartCrossing.day_id == day.id, StartCrossing.status != "discarded")
+                          .order_by(StartCrossing.id.desc()).limit(30)).all()
+        return [start_crossing_out(c, db.get(Entry, c.entry_id) if c.entry_id else None) for c in rows]
+
+    @app.post("/api/startline/crossings/{crossing_id}/assign")
+    def start_crossing_assign(crossing_id: int, body: AssignStartIn, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        e = S.get_entry(db, day, body.entry_id)
+        c = S.assign_start_crossing(db, day, S.rules_for(db, day, rules), crossing_id, e)
+        return start_crossing_out(c, e)
+
+    @app.delete("/api/startline/crossings/{crossing_id}", status_code=204)
+    def start_crossing_discard(crossing_id: int, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> None:
+        S.discard_start_crossing(db, day, crossing_id)
 
     @app.post("/api/engine/start/obs")
     def start_obs(body: StartObsIn, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:

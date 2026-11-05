@@ -45,6 +45,9 @@ from .vision.sources import SourceError, VideoPlayer, iter_frames, open_source
 from .vision.tracker import IoUTracker, Track
 
 CROSSING_PATH = "/api/engine/crossing"
+START_CROSSING_PATH = "/api/engine/start/crossing"
+"""--report start: the same camera work at the start line (rolling start): a runner recognised on
+the way, their clock started as they cross it."""
 
 
 @dataclass
@@ -75,8 +78,8 @@ class CrossingPoster:
     """Sends crossings to the app from a thread, in order, retrying while unreachable."""
 
     def __init__(self, app_url: str, timeout_s: float = 3.0, log: Callable[[str], None] = print,
-                 on_reply: Callable[[Crossing, dict], None] | None = None) -> None:
-        self.url = app_url.rstrip("/") + CROSSING_PATH
+                 on_reply: Callable[[Crossing, dict], None] | None = None, path: str = CROSSING_PATH) -> None:
+        self.url = app_url.rstrip("/") + path
         self.on_reply = on_reply
         """Told what the app made of each crossing (who it was), for the picture."""
         self.timeout_s = timeout_s
@@ -417,6 +420,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--out", help="write an annotated video here")
     p.add_argument("--show", action="store_true", help="preview window (q quits)")
     p.add_argument("--station", default="finish", help="screen this camera shows on (default finish)")
+    p.add_argument("--report", default="finish", choices=["finish", "start"],
+                   help="finish: crossings end runs (default); start: rolling start, crossings start them")
     p.add_argument("--no-preview", action="store_true", help="do not send the live picture to the app")
     p.add_argument("--realtime", action="store_true",
                    help="play a video file at its own speed, as a live camera would (demos, training)")
@@ -456,7 +461,8 @@ def main(argv: list[str] | None = None) -> int:
     def heard(c: Crossing, reply: dict) -> None:
         r = reply.get("runner")
         names[c.track_id] = f"{r.get('bib') or ''} {r.get('name') or ''}".strip() if r else "to review" if reply.get("needs_review") else ""
-    poster = None if args.no_app else CrossingPoster(args.app, on_reply=heard)
+    poster = None if args.no_app else CrossingPoster(args.app, on_reply=heard,
+                                                      path=START_CROSSING_PATH if args.report == "start" else CROSSING_PATH)
     finder = None
     try:
         from .api.faces import get_engine
@@ -471,7 +477,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"faces looked for on {eng.device}")
     except Exception as e:          # noqa: BLE001 - no face models: upper-body snapshots as before
         print(f"face snapshots without a face finder ({e})")
-    cam = FinishCam(detector, line, reader, evidence=evidence,
+    cam = FinishCam(detector, line, reader, evidence=evidence, evidence_folder="start" if args.report == "start" else "run",
                     on_crossing=(poster.post if poster else None), ocr_async=True, face_finder=finder)
     cam.names = names
     if finder is not None:

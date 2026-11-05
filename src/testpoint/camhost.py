@@ -143,6 +143,9 @@ class StartLineIn(SourceIn):
     """The start line across the picture, as a share of its height from the top; None: no line."""
     direction: str = Field(default="down", pattern="^(down|up)$")
     """Which way the runners set off on the picture: down (towards the camera) or up."""
+    rolling: bool = False
+    """Rolling start: the finish camera's work at the start line (testpoint.finishcam --report
+    start): runners recognised on the way, their clock started as they cross. Needs the line."""
 
 
 class StationIn(SourceIn):
@@ -269,6 +272,16 @@ def finish_command(cfg: StartIn) -> list[str]:
 
 
 def start_command(cfg: SourceIn) -> list[str]:
+    if getattr(cfg, "rolling", False) and getattr(cfg, "line_y", None) is not None:
+        y = round(cfg.line_y, 3)
+        cmd = [sys.executable, "-m", "testpoint.finishcam", "--source", cfg.source, "--line", f"0,{y},1,{y}",
+               "--direction", cfg.direction, "--device", device(), "--app", app_address(cfg.app_url),
+               "--station", "start", "--report", "start", "--no-ocr"]
+        if cfg.kind == "video":
+            cmd.append("--realtime")
+            if cfg.loop:
+                cmd.append("--loop")
+        return cmd
     cmd = [sys.executable, "-m", "testpoint.startcam", "--source", cfg.source, "--app", app_address(cfg.app_url)]
     if getattr(cfg, "line_y", None) is not None:
         cmd += ["--line", str(round(cfg.line_y, 3)), "--direction", cfg.direction]

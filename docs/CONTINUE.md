@@ -94,6 +94,13 @@ a new address changes nothing. The certificate must carry the name: `scripts\htt
   1/500 then 1/1000 s every 20 minutes and keeps it only when the picture stays as bright and clean,
   goes slower when the picture gets dark, and never tries while someone is running. Indoors here it
   stays at 1/250 s (1/500 s halved the brightness); outdoors in daylight it goes faster.
+- **Rolling start** (Settings > Run start, on by default): no stop, no hand, no GO. The start
+  camera runs the finish camera's program (`finishcam --report start`): it follows each person, keeps
+  face pictures on the way, and times the instant the feet cross the start line; the app
+  (`service.rolling_start`) starts the one recognised (all the pictures agree on one person, who is
+  weighed in and has not run) with the clock from that crossing. Line to line, timed the same way
+  at both ends. Not recognised: listed on the start screen, the examiner names the runner (the clock
+  still from the crossing) or discards it. Already running or done: ignored. Off: line + GO or hand.
 - **Fair finish times:** a crossing is timed at the instant the feet cross the line, interpolated
   between the two camera frames around it, from when those frames arrived from the camera, not when
   the analysis got to them (the GPU's load no longer changes anyone's time).

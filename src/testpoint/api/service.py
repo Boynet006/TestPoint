@@ -234,6 +234,7 @@ SETTINGS: dict[str, object] = {
     "face_fresh_min": 120,       # face photos older than this (minutes) are taken again at the desk, and pictures
                                  # learnt at the cameras stop being used (the light changes); 0 = the whole day
     # registration
+    "start_rolling": True,       # rolling start: runners are recognised on the way and their clock starts as they cross the start line (no stop, no hand, no GO)
     "start_line_on": True,       # the start line by default: on (recognised behind the line, GO, the clock starts at the line) or off (a raised hand gives GO)
     "start_setup_shown": True,   # the start screen shows its line set-up (on/off, position, direction, colour key)
     "finish_line_on": True,      # the finish line by default: on (the finish camera times each crossing) or off (the examiner times by hand)
@@ -1280,7 +1281,7 @@ def start_runner(db: Session, day: Day, rules: DayRules, entry: Entry, countdown
     now = now or utcnow()
     if entry.status != J.LINED_UP:
         require_gate(entry, day, "lineup")
-    busy = counting_down(db, day, now)
+    busy = counting_down(db, day, max(now, utcnow()))    # a 3-2-1 still to come now (a start at a past crossing is not one)
     if busy is not None and busy.id != entry.id:
         raise ServiceError("start_in_progress", f"{busy.candidate.name} is starting now; wait for their GO")
     go = now + timedelta(seconds=countdown_s)
@@ -1291,6 +1292,84 @@ def start_runner(db: Session, day: Day, rules: DayRules, entry: Entry, countdown
     _audit(db, day, "start", "runner_start", entry, at=go, countdown_s=countdown_s, by=by)
     db.commit()
     return entry
+
+
+def rolling_start(db: Session, day: Day, rules: DayRules, at: datetime, shots: list[bytes], engine,
+                  clip: str | None = None) -> tuple["StartCrossing", Entry | None]:
+    """Rolling start: someone crossed the start line on the start camera. Their face, from the
+    pictures taken on the way to the line, is looked for among today's people; a confident match
+    who may start now (weighed in, not run yet) is started with their clock from ``at``, the
+    crossing itself (as the finish times it: line to line). Not recognised: the examiner names
+    them, the clock still from ``at``. Already running or done (walking back): ignored."""
+    from .models import StartCrossing
+    gallery = day_gallery(db, day)
+    threshold, margin = FACE_MATCH.get(get_settings(db)["face_match"], FACE_MATCH["normal"])
+    votes: dict[int, int] = {}
+    best: dict[int, float] = {}
+    looked = 0
+    for shot in shots:
+        try:
+            face = engine.face_from_bytes(shot, require_single=False, **camera_face(engine))
+        except FaceError:
+            continue
+        looked += 1
+        m = face_match(face.embedding, gallery, threshold=threshold, margin=margin)
+        if m.candidate_id is not None:
+            votes[m.candidate_id] = votes.get(m.candidate_id, 0) + 1
+            best[m.candidate_id] = max(best.get(m.candidate_id, 0.0), m.score)
+    # one person, never two: the pictures agree (several pictures of one face, or one clear one)
+    eid = next(iter(votes)) if len(votes) == 1 else None
+    entry = db.get(Entry, eid) if eid is not None else None
+    c = StartCrossing(day_id=day.id, at=at, entry_id=entry.id if entry else None, clip_path=clip,
+                      score=round(best[eid], 3) if eid is not None else None, status="review")
+    if entry is None:
+        waiting = [e for e in list_entries(db, day) if e.status in (J.ACCEPTED, J.LINED_UP)]
+        c.status, c.note_code = ("review", "not_recognised" if looked else "no_face") if waiting else ("ignored", "nobody_waiting")
+    elif entry.status == J.RUNNING or entry.run_time_s is not None or entry.status in (J.DNF, J.COMPLETE):
+        c.status, c.note_code = "ignored", "already_ran" if entry.status != J.RUNNING else "already_running"
+    else:
+        gate = gate_for(entry, day, "lineup")
+        if entry.status != J.LINED_UP and not gate.ok:
+            c.status, c.note_code = "refused", gate.reason
+        elif not face_count(db, entry.candidate_id, day, fresh=False):
+            c.status, c.note_code = "refused", "no_photos_today"
+        else:
+            try:
+                start_runner(db, day, rules, entry, countdown_s=0, now=at, by="rolling_start")
+                c.status = "started"
+            except ServiceError as e:
+                c.status, c.note_code = "review", e.code
+    db.add(c)
+    _audit(db, day, "start", "rolling_start", entry, at=at, status=c.status, reason=c.note_code,
+           score=c.score, pictures=len(shots), faces=looked, votes=votes)
+    db.commit()
+    return c, entry
+
+
+def assign_start_crossing(db: Session, day: Day, rules: DayRules, crossing_id: int, entry: Entry):
+    """The examiner names the runner of a start crossing the camera could not tie to anyone: their
+    clock runs from that crossing."""
+    from .models import StartCrossing
+    c = db.get(StartCrossing, crossing_id)
+    if c is None or c.day_id != day.id or c.status not in ("review", "refused"):
+        raise ServiceError("not_found", f"no start crossing {crossing_id} to name", 404)
+    if entry.status not in (J.ACCEPTED, J.LINED_UP):
+        raise ServiceError("cannot_start", f"{entry.candidate.name} cannot start now", 409)
+    start_runner(db, day, rules, entry, countdown_s=0, now=c.at, by="examiner_rolling")
+    c.entry_id, c.status, c.note_code = entry.id, "started", "named_by_examiner"
+    _audit(db, day, "start", "assign_start_crossing", entry, crossing_id=c.id, at=c.at)
+    db.commit()
+    return c
+
+
+def discard_start_crossing(db: Session, day: Day, crossing_id: int) -> None:
+    from .models import StartCrossing
+    c = db.get(StartCrossing, crossing_id)
+    if c is None or c.day_id != day.id or c.status not in ("review", "refused"):
+        raise ServiceError("not_found", f"no start crossing {crossing_id}", 404)
+    c.status = "discarded"
+    _audit(db, day, "start", "discard_start_crossing", None, crossing_id=c.id, at=c.at)
+    db.commit()
 
 
 START_CROSS_MAX_S = 15.0

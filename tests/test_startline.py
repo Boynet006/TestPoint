@@ -479,3 +479,72 @@ def test_a_512_float_face_from_the_start_camera_is_recognised(monkeypatch):
         emb = base64.b64encode(wide(A).tobytes()).decode()
         states = [c.post("/api/engine/start/obs", json={"present": True, "emb": emb}).json()["state"] for _ in range(3)]
         assert "raise_hand" in states, states
+
+
+def test_rolling_start_recognises_runners_on_the_move_and_starts_them_at_the_line(monkeypatch):
+    import base64
+    from datetime import timedelta
+
+    from fastapi.testclient import TestClient
+    from sqlalchemy.pool import StaticPool
+    from test_faces import FakeEngine
+
+    from testpoint.api import app as app_mod
+    from testpoint.api import models
+    from testpoint.api.app import create_app
+
+    real = models.create_engine
+    monkeypatch.setattr(models, "create_engine", lambda url, **kw: real(url, poolclass=StaticPool, **kw))
+    app = create_app(db_url="sqlite:///:memory:", web_dir="none", today=lambda: "2026-10-20", face_engine=lambda: FakeEngine())
+    t0 = models.utcnow()
+    monkeypatch.setattr(app_mod.S, "utcnow", lambda: t0)
+    pic = lambda who: base64.b64encode(b"face:" + who).decode()
+    with TestClient(app) as c:
+        c.post("/api/entries/import", content=b"external_id,name,bib,gender,dob\nC-1,Alpha,11,M,2000-01-01\nC-2,Bravo,12,M,2000-01-01\nC-3,Charlie,13,M,2000-01-01\n")
+        ids = {e["candidate"]["bib"]: e["id"] for e in c.get("/api/entries").json()}
+        for bib, who in (("11", b"A"), ("12", b"B")):
+            c.post(f"/api/entries/{ids[bib]}/face", content=b"face:" + who)
+        for bib in ("11", "13"):
+            c.post(f"/api/entries/{ids[bib]}/weigh-in", json={"weight_kg": 70, "height_cm": 175, "accept": True})
+        cross = lambda faces, lat=0.4: c.post("/api/engine/start/crossing", json={"latency_s": lat, "faces": faces}).json()
+
+        # Alpha walks up and crosses: recognised on the way, started at the crossing (not when reported)
+        r = cross([pic(b"A"), pic(b"A")])
+        assert r["status"] == "started" and r["runner"]["bib"] == "11"
+        e = c.get(f"/api/entries/{ids['11']}").json()
+        assert e["status"] == "running" and e["run_started_at"].startswith((t0 - timedelta(seconds=0.4)).isoformat()[:21])
+        # crossing again (walking back): nothing changes
+        assert cross([pic(b"A")])["status"] == "ignored"
+        # Bravo is not weighed in: recognised, refused with the reason, not started
+        r = cross([pic(b"B")])
+        assert r["status"] == "refused" and r["reason"] == "not_weighed"
+        assert c.get(f"/api/entries/{ids['12']}").json()["status"] != "running"
+        # someone the camera cannot tie to anyone: listed; the examiner names Charlie, started from then
+        r = cross([pic(b"C")], lat=1.0)
+        assert r["status"] == "review" and r["needs_review"]
+        todo = [x for x in c.get("/api/startline/crossings").json() if x["status"] in ("review", "refused")]
+        assert {x["id"] for x in todo} >= {r["id"]}
+        ok = c.post(f"/api/startline/crossings/{r['id']}/assign", json={"entry_id": ids["13"]})
+        assert ok.status_code == 200 and ok.json()["status"] == "started", ok.text
+        e = c.get(f"/api/entries/{ids['13']}").json()
+        assert e["status"] == "running" and e["run_started_at"].startswith((t0 - timedelta(seconds=1.0)).isoformat()[:21])
+        # the refused one is discarded by the examiner
+        refused = next(x for x in c.get("/api/startline/crossings").json() if x["status"] == "refused")
+        assert c.delete(f"/api/startline/crossings/{refused['id']}").status_code == 204
+        assert all(x["status"] != "refused" for x in c.get("/api/startline/crossings").json())
+
+
+def test_rolling_start_with_nobody_waiting_ignores_whoever_crosses(monkeypatch):
+    from fastapi.testclient import TestClient
+    from sqlalchemy.pool import StaticPool
+    from test_faces import FakeEngine
+
+    from testpoint.api import models
+    from testpoint.api.app import create_app
+
+    real = models.create_engine
+    monkeypatch.setattr(models, "create_engine", lambda url, **kw: real(url, poolclass=StaticPool, **kw))
+    app = create_app(db_url="sqlite:///:memory:", web_dir="none", today=lambda: "2026-10-20", face_engine=lambda: FakeEngine())
+    with TestClient(app) as c:
+        r = c.post("/api/engine/start/crossing", json={"faces": []}).json()
+        assert r["status"] == "ignored" and r["reason"] == "nobody_waiting" and not r["needs_review"]

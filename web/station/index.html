@@ -1098,6 +1098,7 @@
       <div class="row" style="align-items:center"><h2 style="margin:0" data-t="r_start"></h2><span class="spacer"></span><span class="camb-slot" id="camBadgeSlot-start"></span></div>
       <div id="camSlot-start"></div>
       <div id="sCall" class="callbox hidden"></div>
+      <div id="sRoll" class="card hidden" style="margin-top:10px"><h3 class="sec" style="margin-top:0" data-t="roll_title"></h3><p class="hint" data-t="roll_hint"></p><div class="tablewrap"><table id="sRollTable"></table></div></div>
       <div class="search" style="margin-top:10px"><input id="sQuery" data-tp="ph_bib" autocomplete="off" onkeydown="if(event.key==='Enter')lineUp()"><button class="btn amber" onclick="lineUp()" data-t="mark_present"></button></div>
       <div id="sMsg"></div>
       <div id="sLast" class="lastmark hidden"></div>
@@ -1437,6 +1438,9 @@
         <label for="setCancelWin" data-t="set_cancel_win"></label>
         <select id="setCancelWin"><option value="120" data-t="min_2"></option><option value="300" data-t="min_5"></option><option value="600" data-t="min_10"></option><option value="1800" data-t="min_30"></option><option value="0" data-t="until_first_finisher"></option></select>
         <span class="hint" data-t="set_cancel_win_hint"></span>
+        <label for="setRolling" data-t="set_rolling"></label>
+        <select id="setRolling"><option value="1" data-t="on"></option><option value="0" data-t="off"></option></select>
+        <span class="hint" data-t="set_rolling_hint"></span>
         <label for="setStartLineOn" data-t="set_sl_on"></label>
         <select id="setStartLineOn"><option value="1" data-t="on"></option><option value="0" data-t="off"></option></select>
         <span class="hint" data-t="set_sl_on_hint"></span>
@@ -1808,6 +1812,10 @@ const I18N = {
     st_come_back: "Take a break: come back for the next test",
     st_left_position: "Back into the start position",
     st_false_start: "False start, not counted: get into the start position again",
+    call_rolling: "Walk to the start line and go: your time starts as you cross it", roll_started: "started",
+    roll_title: "Start crossings to name", roll_hint: "Someone crossed the start line and the camera could not say who. Pick the runner: their time starts from that crossing. Not a runner: discard.",
+    roll_assign: "Start them", e_already_running: "Already running", e_not_recognised: "Not recognised", e_cannot_start: "Cannot start now",
+    set_rolling: "Rolling start", set_rolling_hint: "On: no stopping, no hand, no GO. The start camera recognises each runner on the way and their time starts the moment they cross the start line, as the finish camera does (timed the same way at both lines). Someone it cannot recognise is listed on the start screen for the examiner to name. Off: the start line and hand settings below. Restart the start camera after a change.",
     st_timeout: "Not in position in time: step onto the mat again",
     st_stepped_away: "They stepped away: step onto the mat again",
     st_hold: "hold still…",
@@ -2225,6 +2233,10 @@ const I18N = {
     st_come_back: "استرح: عد للاختبار التالي",
     st_left_position: "عد إلى وضعية البداية",
     st_false_start: "بداية خاطئة، لم تُحتسب: عد إلى وضعية البداية",
+    call_rolling: "امشِ إلى خط البداية وانطلق: يبدأ وقتك لحظة عبوره", roll_started: "انطلق",
+    roll_title: "عبور لخط البداية بحاجة إلى تسمية", roll_hint: "عبر شخص خط البداية ولم تتعرف عليه الكاميرا. اختر العدّاء: يبدأ وقته من لحظة ذلك العبور. ليس عدّاءً: احذفه.",
+    roll_assign: "أطلقه", e_already_running: "يجري الآن", e_not_recognised: "لم يتم التعرّف", e_cannot_start: "لا يمكنه الانطلاق الآن",
+    set_rolling: "انطلاق متحرك", set_rolling_hint: "مفعّل: بلا توقف ولا رفع يد ولا إشارة انطلاق. تتعرّف كاميرا البداية على كل عدّاء في طريقه ويبدأ وقته لحظة عبوره خط البداية، كما تفعل كاميرا النهاية (التوقيت بنفس الطريقة عند الخطين). من لا تتعرّف عليه يظهر في شاشة البداية ليسمّيه الفاحص. متوقف: إعدادات خط البداية واليد أدناه. أعد تشغيل كاميرا البداية بعد التغيير.",
     st_timeout: "لم يتخذ الوضعية في الوقت: قف على البساط مجدداً",
     st_stepped_away: "ابتعد: قف على البساط مجدداً",
     st_hold: "اثبت…",
@@ -4090,7 +4102,8 @@ const StartLineCfg = {
     const s = Math.min(vw / iw, vh / ih), top = (vh - ih * s) / 2;
     el.style.top = (top + ih * s * y / 100) + "px";
   },
-  body() { const p = this.pref(); return p.on ? { line_y: p.y ?? 0.85, direction: p.dir || "down" } : {}; },
+  // the line goes to the camera when it is on, and always with a rolling start (it starts the clock)
+  body() { const p = this.pref(); return p.on || setting("start_rolling") !== false ? { line_y: p.y ?? 0.85, direction: p.dir || "down" } : {}; },
   changed() {
     save("startLine", JSON.stringify({ on: $("slOn").value === "1", y: +$("slLineY").value / 100, dir: $("slDir").value, base: setting("start_line_on") !== false }));
     this.show();
@@ -4100,12 +4113,55 @@ const StartLineCfg = {
 const StartCall = {
   sig: "", busy: false,
   active: () => role === "start" && mode === "simple" && Cam.relayed() && StartCam.live,
+  rolling: () => !!(StartCam.st && StartCam.st.config && StartCam.st.config.rolling),
   async poll() {
     const box = $("sCall");
-    if (!this.active()) { box.classList.add("hidden"); this.sig = ""; return; }
+    if (!this.active()) { box.classList.add("hidden"); $("sRoll").classList.add("hidden"); this.sig = ""; return; }
     if (this.busy) return; this.busy = true;
+    if (this.rolling()) {
+      try { this.rows = await api("GET", "/api/startline/crossings"); } catch { this.rows = null; } finally { this.busy = false; }
+      this.renderRolling(); return;
+    }
+    $("sRoll").classList.add("hidden");
     try { this.v = await api("GET", "/api/startline"); } catch { this.v = null; } finally { this.busy = false; }
     this.render();
+  },
+  // Rolling start: the newest crossing in the call box (a runner started: their name and GO, full
+  // screen), the ones to name below with the runners who may start.
+  renderRolling() {
+    const rows = this.rows; if (!rows) return;
+    const box = $("sCall"), now = serverNow(), last = rows[0], fresh = last && now - Date.parse(last.at) < 8000;
+    const name = e => e ? `${esc(e.bib ?? "")} · ${esc(cname(e))}` : "";
+    let cls = "", html;
+    if (fresh && last.status === "started") { cls = "go"; html = `<span></span><div><div class="c-who">${name(last.entry)}</div><div class="c-num">${esc(t("go"))}</div></div>`; }
+    else if (fresh && last.status === "refused") { cls = "no"; html = `<span></span><div><div class="c-who">${name(last.entry)}</div><div class="c-say">${esc(err({ code: last.reason }))}</div></div>`; }
+    else html = `<span></span><div><div class="c-say">${esc(t("call_rolling"))}</div></div>`;
+    box.classList.remove("hidden");
+    if (cls + html !== this.sig) { box.className = "callbox " + cls; box.innerHTML = html; this.sig = cls + html; }
+    if (fresh && last.status === "started" && this.fxFor !== last.id) {
+      this.fxFor = last.id; GoFX.go("start", `${cname(last.entry)}\n${t("go")}`); refresh();
+    }
+    if (this.fxFor === undefined && last) this.fxFor = last.id;          // not the ones from before the page opened
+    // to name: a select of who may start (weighed in, not run), Start them / Discard
+    const todo = rows.filter(c => c.status === "review" || c.status === "refused");
+    $("sRoll").classList.toggle("hidden", !todo.length);
+    const can = S.entries.filter(e => ["accepted", "lined_up"].includes(e.status)).sort((a, b) => bibNum(a) - bibNum(b));
+    const sig = lang + "|" + todo.map(c => c.id + c.status).join(",") + "|" + can.map(e => e.id).join(",");
+    if (sig === this.rollSig) return;
+    this.rollSig = sig;
+    $("sRollTable").innerHTML = todo.map(c => `<tr><td class="t">${esc(new Date(c.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }))}</td>`
+      + `<td class="hint">${esc(c.entry ? `${cname(c.entry)}: ` : "")}${esc(err({ code: c.reason || "not_recognised" }))}${c.clip ? ` <a class="btn ghost sm" target="_blank" rel="noopener" href="/api/evidence/${c.clip.split("/").map(encodeURIComponent).join("/")}">▶</a>` : ""}</td>`
+      + `<td><select id="sr-${c.id}"><option value="">—</option>${can.map(e => `<option value="${e.id}" ${c.entry && c.entry.id === e.id ? "selected" : ""}>${esc(e.candidate.bib ?? "")} · ${esc(cname(e.candidate))}</option>`).join("")}</select></td>`
+      + `<td style="white-space:nowrap"><button class="btn amber sm" onclick="StartCall.assign(${c.id})">${esc(t("roll_assign"))}</button> <button class="btn ghost sm" onclick="confirmClick('sdis${c.id}', this, () => StartCall.discard(${c.id}))">${esc(t("discard"))}</button></td></tr>`).join("");
+  },
+  async assign(id) {
+    const v = $("sr-" + id).value; if (!v) return;
+    try { await api("POST", `/api/startline/crossings/${id}/assign`, { entry_id: +v }); msg("sMsg"); this.rollSig = ""; refresh(); this.poll(); }
+    catch (e) { msg("sMsg", "bad", err(e)); }
+  },
+  async discard(id) {
+    try { await api("DELETE", `/api/startline/crossings/${id}`); this.rollSig = ""; this.poll(); }
+    catch (e) { msg("sMsg", "bad", err(e)); }
   },
   render() {
     const v = this.v, box = $("sCall"); if (!v) return;
@@ -6555,7 +6611,7 @@ const CamLive = {
 /* ============================== settings ============================== */
 // Station settings from the server (shared by every device); see service.SETTINGS.
 const SETTING_DEFAULTS = { auto_identify: true, camera_background: "off", camera_bg_places: ["weigh", "start", "photo"], backdrop_color: "#8a949e", background_image: null, face_match: "normal", face_required: false, face_fresh_min: 120, walk_ins: true, default_gender: "M", default_unit: "combat",
-                           bib_start: 1, lanes: 3, start_countdown_s: 3, cancel_window_s: 120, finish_face_threshold: 0, site_name: "", default_language: "en", theme: "night", admin_pin_set: false, finish_shutter: "auto", go_styles: {}, start_line_on: true, start_setup_shown: true, finish_line_on: true, go_effect: "racing", go_dim: 60, go_size: 100, go_speed: 100, go_duration: 1.7, go_lines: 100, go_lines_count: 220, go_lines_opacity: 100, go_opacity: 100 };
+                           bib_start: 1, lanes: 3, start_countdown_s: 3, cancel_window_s: 120, finish_face_threshold: 0, site_name: "", default_language: "en", theme: "night", admin_pin_set: false, finish_shutter: "auto", go_styles: {}, start_line_on: true, start_rolling: true, start_setup_shown: true, finish_line_on: true, go_effect: "racing", go_dim: 60, go_size: 100, go_speed: 100, go_duration: 1.7, go_lines: 100, go_lines_count: 220, go_lines_opacity: 100, go_opacity: 100 };
 const setting = k => (S.settings && k in S.settings ? S.settings[k] : SETTING_DEFAULTS[k]);
 // The GO effect per place (Settings > GO effect > Settings for): start line, push-ups, crunches,
 // finish line. What a place has not set comes from the station's go_* settings.
@@ -6879,7 +6935,7 @@ const Evidence = {
 };
 const SET_FIELDS = {   // input id -> [setting, read, write]
   setAuto: ["auto_identify", v => v === "1", v => (v ? "1" : "0")], setBg: ["camera_background"], setMatch: ["face_match"], setFaceReq: ["face_required", v => v === "1", v => (v ? "1" : "0")], setFaceFresh: ["face_fresh_min", v => parseInt(v, 10), String],
-  setChooseFirst: ["station_choose_first", v => v === "1", v => (v ? "1" : "0")], setFcSetup: ["finish_setup_shown", v => v === "1", v => (v ? "1" : "0")], setSlSetup: ["start_setup_shown", v => v === "1", v => (v === false ? "0" : "1")], setStartLineOn: ["start_line_on", v => v === "1", v => (v === false ? "0" : "1")], setFinishLineOn: ["finish_line_on", v => v === "1", v => (v === false ? "0" : "1")], setWalk: ["walk_ins", v => v === "1", v => (v ? "1" : "0")], setGender: ["default_gender"], setUnit: ["default_unit"], setBib: ["bib_start", v => parseInt(v, 10)],
+  setChooseFirst: ["station_choose_first", v => v === "1", v => (v ? "1" : "0")], setFcSetup: ["finish_setup_shown", v => v === "1", v => (v ? "1" : "0")], setSlSetup: ["start_setup_shown", v => v === "1", v => (v === false ? "0" : "1")], setStartLineOn: ["start_line_on", v => v === "1", v => (v === false ? "0" : "1")], setRolling: ["start_rolling", v => v === "1", v => (v === false ? "0" : "1")], setFinishLineOn: ["finish_line_on", v => v === "1", v => (v === false ? "0" : "1")], setWalk: ["walk_ins", v => v === "1", v => (v ? "1" : "0")], setGender: ["default_gender"], setUnit: ["default_unit"], setBib: ["bib_start", v => parseInt(v, 10)],
   setLanes: ["lanes", v => parseInt(v, 10), String], setStopAfter: ["station_stop_after_s", v => parseInt(v, 10) || 0, String], setOutS: ["station_out_s", v => parseInt(v, 10) || 0, String],
   setCountdown: ["start_countdown_s", v => parseInt(v, 10), String], setGoFx: ["go_effect"], setGoSpeed: ["go_speed", v => parseInt(v, 10), v => { const x = String(v ?? 100); $("setGoSpeedV").textContent = x + "%"; return x; }],
     setGoDur: ["go_duration", v => parseFloat(v), v => { const x = String(v ?? 1.7); $("setGoDurV").textContent = x + " s"; return x; }], setGoCount: ["go_lines_count", v => parseInt(v, 10), v => { const x = String(v ?? 220); $("setGoCountV").textContent = x; return x; }],
