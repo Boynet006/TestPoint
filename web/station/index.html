@@ -343,6 +343,14 @@
   .camtile .ct-head { display: flex; align-items: center; gap: 8px; }
   .camtile .ct-head h2 { margin: 0; }
   .camtile .ct-pic { position: relative; background: #000; aspect-ratio: 16 / 9; display: grid; place-items: center; overflow: hidden; }
+  /* the whole screen without scrolling (wide screens): two rows of tiles in the window's height, each
+     picture taking what its tile has left, the last 3 recognised under it */
+  .camwall.fit { grid-template-rows: repeat(2, minmax(0, 1fr)); }
+  .camwall.fit .camtile { min-height: 0; overflow: hidden; padding-top: 10px; padding-bottom: 10px; }
+  .camwall.fit .ct-pic { flex: 1 1 0; min-height: 0; aspect-ratio: auto; }
+  .camwall.fit .ct-now { min-height: 0; font-size: 17px; }
+  .camwall.fit table tr:nth-child(n+4) { display: none; }
+  .camwall.fit td { padding: 3px 6px; }
   .camtile .ct-pic img { width: 100%; height: 100%; object-fit: contain; }
   .camtile .ct-pic .ct-off { color: var(--muted); font-family: var(--cond); letter-spacing: 1px; text-transform: uppercase; }
   .camtile .ct-now { font-family: var(--cond); font-size: 20px; min-height: 26px; }
@@ -5929,7 +5937,14 @@ const CamWall = {
   toggle(on) {
     clearInterval(this.timer);
     if (!on) { document.querySelectorAll("#camWall img").forEach(i => { i.removeAttribute("src"); }); this.live = {}; return; }
-    this.build(); this.poll(); this.timer = setInterval(() => this.poll(), 2000);
+    this.build(); this.fit(); this.poll(); this.timer = setInterval(() => this.poll(), 2000);
+  },
+  // wide screens: the four tiles fill the window below the header, no scrolling; narrow ones scroll
+  fit() {
+    const w = $("camWall"); if (!w || role !== "cameras") return;
+    const wide = innerWidth > 1050;
+    w.classList.toggle("fit", wide);
+    w.style.height = wide ? Math.max(360, innerHeight - w.getBoundingClientRect().top - 14) + "px" : "";
   },
   build() {
     if (this.built) return; this.built = true;
@@ -5971,6 +5986,7 @@ const CamWall = {
     $("ctn-finish").innerHTML = lf && Date.now() - Date.parse(lf.at) < 15000 ? `${this.who(lf.who)} · ${esc(fmt(lf.time_s))}` : "";
   },
 };
+addEventListener("resize", () => CamWall.fit());
 // The results screen's board: everyone tested today, live, with each test's result against the
 // person's required level, the overall percentage and the verdict. Boxes at the top count and filter;
 // the headers sort; typing filters by bib or name; a row opens that person's card.
