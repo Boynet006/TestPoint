@@ -108,21 +108,26 @@ def test_over_the_start_line_before_go_is_a_false_start():
     assert s.observe(4.2, Look(True, None, None, over=True)) == [] and s.state == "started"
 
 
-def test_with_a_start_line_the_clock_starts_when_the_runner_crosses_it():
-    s = StartLine(countdown_s=0.0)
+def test_with_a_start_line_no_hand_the_clock_starts_at_the_crossing():
+    s = StartLine(countdown_s=3.0)
     lk = lambda **kw: Look(True, line=True, **kw)
+    s.observe(0.0, lk(match=ME))
+    assert s.observe(0.25, lk(match=ME)) == [("line_up", 7)] and s.state == "go"   # recognised: GO, no hand
+    assert s.observe(2.0, lk(hand="right")) == []                       # a hand changes nothing
+    assert all(s.observe(float(t), lk()) == [] for t in range(3, 10))   # waiting behind the line
+    assert s.observe(9.4, lk(over=True)) == [("start_now", 7)]          # crossed: the clock starts now
+    assert s.state == "started" and s.observe(9.6, lk(over=True)) == []
+    # stepped away instead: back to waiting, nothing started
+    s = StartLine()
     s.observe(0.0, lk(match=ME)); s.observe(0.25, lk(match=ME))
-    s.observe(0.5, lk(hand="right"))
-    assert s.observe(1.0, lk(hand="right")) == [("start", 7)]          # GO now
-    assert s.observe(1.3, lk()) == []                                   # still behind the line
-    assert s.observe(1.6, lk(over=True)) == [("crossed", 7)]            # the clock runs from here
-    assert s.observe(1.8, lk(over=True)) == []                          # once
-    # not seen crossing within CROSS_WAIT_S: the clock stays from GO
-    s = StartLine(countdown_s=0.0)
-    s.observe(0.0, lk(match=ME)); s.observe(0.25, lk(match=ME))
-    s.observe(0.5, lk(hand="right")); s.observe(1.0, lk(hand="right"))
-    acts = [a for t in range(2, 14) for a in s.observe(float(t), lk())]
-    assert acts == [("cross_missed", 7)]
+    assert s.observe(3.0, Look(False, line=True)) == [] and s.state == "idle" and s.reason == "stepped_away"
+    # the examiner started them meanwhile: the crossing within CROSS_WAIT_S still sets the clock
+    s = StartLine()
+    s.observe(0.0, lk(match=ME))
+    s.examiner_started(0.5, 7, 0.5)
+    assert s.observe(2.0, lk(over=True)) == [("crossed", 7)]
+    acts = [a for t in range(3, 15) for a in StartLine().observe(float(t), lk())]
+    assert acts == []
     # without a line, nothing is awaited
     s = StartLine(countdown_s=0.0)
     s.observe(0.0, Look(True, ME)); s.observe(0.25, Look(True, ME))
@@ -433,9 +438,10 @@ def test_the_run_is_timed_from_the_start_line_crossing(monkeypatch):
             clock["t"] = t0 + timedelta(seconds=dt)
             return c.post("/api/engine/start/obs", json={"present": True, "line": True, **kw}).json()
 
-        look(0.0, emb=emb); look(0.25, emb=emb)
-        look(0.5, hand="right"); look(1.0, hand="right")              # GO (no countdown)
-        go = c.get(f"/api/entries/{e}").json()["run_started_at"]
-        look(1.4); look(2.2, over=True)                                # crosses 1.2 s after GO
-        started = c.get(f"/api/entries/{e}").json()["run_started_at"]
-        assert started > go and started.startswith((t0 + timedelta(seconds=2.2)).isoformat()[:21])
+        look(0.0, emb=emb)
+        assert look(0.25, emb=emb)["state"] == "go"                    # recognised: GO, no hand
+        assert c.get(f"/api/entries/{e}").json()["status"] == "lined_up"
+        look(1.4); look(2.2, over=True)                                # crosses the line
+        started = c.get(f"/api/entries/{e}").json()
+        assert started["status"] == "running"
+        assert started["run_started_at"].startswith((t0 + timedelta(seconds=2.2)).isoformat()[:21])

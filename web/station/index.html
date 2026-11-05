@@ -1707,11 +1707,11 @@ const I18N = {
     st_hold: "hold still…",
     st_position: "get into the start position",
     st_no_camera: "The station camera is not sending: start it with Camera",
-    st_step_up: "Step onto the mat and look at the camera",
+    st_step_up: "Step onto the mat and look at the camera", st_face_not_recognised: "Not recognised: stand facing the camera for a moment (or the examiner types the bib)",
     n_face_bib_disagree: "the bib read and the face disagree: the face looks like bib {bib}",
     call_timeout: "No hand raised: step onto the mark again",
     call_stepped_away: "The runner stepped away: step onto the mark again",
-    call_raise: "Raise a hand to start", call_behind_line: "Step back behind the line", call_false_start: "False start: over the line before GO. Step back behind the line", sl_setup: "Start line set-up", sl_setup_hint: "Colour key, line position, runners' direction.", sl_box_mark: "the runner at the mark", sl_box_hand: "a hand raised", sl_box_line: "the start line (red while a foot is over it)", sl_on: "Start line", sl_on_hint: "On: the runner stands behind the line; their clock starts when they cross it after GO (not seen within 10 s: from GO). Over it before GO is a false start (the start is cancelled)", sl_line: "Line position", sl_line_hint: "The white line on the picture: put it on the floor where the runners' toes go. It turns red when someone is over it.", sl_dir: "Running direction", sl_dir_down: "Towards the camera (down the picture)", sl_dir_up: "Away from the camera (up the picture)", sl_dir_hint: "Which side of the line is the course",
+    call_raise: "Raise a hand to start", call_go_line: "GO! Your time starts when you cross the line", call_behind_line: "Step back behind the line", call_false_start: "False start: over the line before GO. Step back behind the line", sl_setup: "Start line set-up", sl_setup_hint: "Colour key, line position, runners' direction.", sl_box_mark: "the runner at the mark", sl_box_hand: "a hand raised", sl_box_line: "the start line (red while a foot is over it)", sl_on: "Start line", sl_on_hint: "On: no hand to raise. Recognised behind the line, the runner sees GO and their clock starts the moment they cross it. Off: a raised hand gives GO.", sl_line: "Line position", sl_line_hint: "The white line on the picture: put it on the floor where the runners' toes go. It turns red when someone is over it.", sl_dir: "Running direction", sl_dir_down: "Towards the camera (down the picture)", sl_dir_up: "Away from the camera (up the picture)", sl_dir_hint: "Which side of the line is the course",
     call_no_camera: "The start camera is not sending: check it below",
     call_step_up: "Step onto the mark and look at the camera",
     e_low_quality: "The photo is not good enough to recognise them by later (blurred, dark or too small): take another",
@@ -1737,7 +1737,7 @@ const I18N = {
     bmi_range: "accepted {min} – {max}", out_of_range: "Outside the accepted range. Accepting needs a reason.",
     accepted_go: "Accepted · go to the run line-up", rejected_done: "Rejected · finished for today",
     waiting_line: "Accepted, not at the line", at_line: "At the line", not_weighed_yet: "Not weighed yet",
-    mark_present: "At the line", start: "Start", confirm_start: "Press again: countdown and start", start_hint: "One runner at a time: press Start, 3-2-1-GO, and their own clock runs from GO. The next runner can start as soon as GO is given.",
+    mark_present: "At the line", start: "Start", confirm_start: "Press again: countdown and start", start_hint: "One runner at a time: recognised by the camera, then a raised hand (or Start) gives GO and their own clock runs from it. With a start line: no hand, their clock starts when they cross it.",
     wave_n: "Wave {n}", wave_short: "W{n}", wave_fill: "{n} / {max} at the line", wave_runners: "{n} runners", start_wave: "Start wave {n}", line_empty: "Nobody at the line yet",
     on_course: "On the course", wave_counts: "{out} out · {fin} in", review_n: "{n} to review", cutoff_in: "cut-off in {t}", cutoff_passed: "cut-off passed: closes itself", all_in_closing: "everyone in: closes itself in {t}",
     close_wave: "Close wave", close_wave_n: "Close wave {n}", wave_closed: "Wave {n} closed: anyone still out is DNF.",
@@ -1763,7 +1763,7 @@ const I18N = {
     fc_line: "Finish line position", fc_line_hint: "The red line on the picture is the finish line: put it on the floor where the runners' feet cross. It applies at once.",
     fc_dir: "Runners come", fc_dir_down: "Towards the camera (down)", fc_dir_up: "Away from the camera (up)", fc_dir_any: "Either way",
     fc_dir_hint: "A crossing counts only in this direction.", fc_start: "Start camera", fc_restart: "Restart with these settings", fc_stop: "Stop camera",
-    fc_offline: "The camera service is not running on the station PC. Start TestPoint.cmd starts it (or run: python -m testpoint.camhost). Until then, time by hand with CROSSING.",
+    fc_offline: "The camera service is not running on the station PC: the TestPoint desktop icon starts it. Until then, time by hand with CROSSING.",
     fc_state_offline: "service off", fc_state_live: "live", fc_state_starting: "starting…", fc_state_error: "stopped with an error", fc_state_stopped: "off",
     fc_no_webcam: "No free webcam (in use by another program?)", fc_no_video: "No videos found", fc_gpu: "GPU", fc_cpu: "CPU only: slower",
     fc_pick_source: "Pick a source first", fc_started: "Finish camera starting: the picture appears in a few seconds.", fc_stopped: "Finish camera stopped.",
@@ -1772,7 +1772,7 @@ const I18N = {
     fcam_live: "Finish camera live", cam_last: "last read {bib}", cam_off_manual: "Camera off · time by hand",
     review_queue: "Review queue", clip: "clip", assign: "Assign", finishers: "Finishers", time: "Time", status: "Status", bib: "Bib", name: "Name", run: "Run",
     pushup: "Push-ups", crunch: "Crunches", time_limit: "Time limit", pass_mark: "Pass", waiting_here: "Ran, not done here",
-    sc_camera: "Camera", sc_title: "Station camera", sc_offline: "The camera service is not running on the station PC. Start TestPoint.cmd starts it (or run: python -m testpoint.camhost). Until then, count by hand.",
+    sc_camera: "Camera", sc_title: "Station camera", sc_offline: "The camera service is not running on the station PC: the TestPoint desktop icon starts it. Until then, count by hand.",
     sc_what: "Counts {ex} in {n} lanes (the exercise and lanes on this page).", sc_what_1: "Counts {ex} for one person (the whole picture).", sc_what_mat: "One mat: counts push-ups, then crunches, for the person checked in (the whole picture).", sc_running: "Running", sc_equal: "Equal lanes",
     sc_div_hint: "Drag the dashed lines so each lane holds one person; then Restart with these settings.", sc_cpu: "CPU only: counting will be slow",
     sc_followed: "Camera switched to {ex}, {n} lanes.", sc_started: "Station camera starting: the picture appears in a few seconds.", sc_stopped: "Station camera stopped.",
@@ -1849,7 +1849,7 @@ const I18N = {
     c_studio: "Studio grey", c_light: "Light grey", c_white: "White", c_navy: "Navy", c_charcoal: "Charcoal", c_green: "Green", c_custom: "Custom…",
     set_bg_image: "Background picture", bg_choose: "Choose picture…", bg_remove: "Remove",
     set_bg_image_hint: "JPEG or PNG; landscape works best. The same picture on every desk. Without one, the backdrop colour is used.",
-    bg_uploaded: "Picture saved. Save settings to keep Picture as the camera background.", e_bad_image: "Use a JPEG or PNG picture",
+    bg_uploaded: "Picture saved. Save settings to keep Picture as the camera background.", 
     set_bg_hint: "What is shown behind the person, like a video call, on the places ticked below.",
     set_auto: "Auto-identify faces at weigh-in", set_auto_hint: "On: the camera keeps checking who is in front; off: the examiner presses Identify.",
     set_gender: "Default gender for new candidates", set_gender_hint: "Pre-selected in the registration form; the examiner can change it.",
@@ -1891,7 +1891,7 @@ const I18N = {
     s_expected: "expected", s_accepted: "accepted", s_rejected: "rejected at weigh-in", s_lined_up: "at the line", s_absent: "absent",
     s_running: "running", s_run_passed: "run passed", s_run_failed: "run failed", s_dnf: "DNF", s_complete: "complete",
     e_not_on_todays_list: "Not on today's list", e_already_weighed: "Already weighed in today", weighed_next: "{name} is weighed in today ✓ · next: the run", e_not_weighed: "Not weighed in yet", e_no_photos_today: "No face photos from today: go back to the weigh-in desk for them", photos_today: "New face photos: look at the camera",
-    e_has_not_run: "Has not run yet", e_still_running: "Still running", e_rejected_at_weigh_in: "Rejected at weigh-in",
+    e_has_not_run: "Has not run yet", e_rejected_at_weigh_in: "Rejected at weigh-in",
     e_missed_the_run: "Missed the run", e_run_not_passed: "Run not passed", e_run_not_finished: "Run not finished (DNF)",
     e_event_already_done: "Already done this exercise today", e_already_lined_up: "Already at the line",
     e_run_already_started: "The run has already started", e_not_eligible: "Not eligible", e_bmi_out_of_range: "BMI out of range: give a reason",
@@ -1983,7 +1983,7 @@ const I18N = {
     set_dots: "Dots in the moving background", set_dots_hint: "Neural Aurora, Mirage and Desert Stars. Fewer dots are calmer and lighter on the PC.", dots_auto: "Auto",
     sec_look: "Appearance", sec_screen: "Theme and motion", sec_sounds_nav: "Sounds", ph_search_settings: "Search settings",
     set_no_match: "No setting matches.", screen_hint: "Only this device: each screen can look and move its own way.",
-    unsaved: "Unsaved changes", unsaved_hint: "Station settings apply to every device once saved.", discard: "Discard",
+    unsaved: "Unsaved changes", unsaved_hint: "Station settings apply to every device once saved.", 
     sure_discard: "Leave without saving? Press again",
     sec_sounds: "Sounds (this screen)", sounds_hint: "Each device keeps its own sounds and volume. Press ▶ to hear one. The start-line countdown and horn always play.",
     snd_ev_capture: "Face photo saved", snd_ev_capture_hint: "Each of the three photos (straight, left, right).",
@@ -2116,11 +2116,11 @@ const I18N = {
     st_hold: "اثبت…",
     st_position: "اتخذ وضعية البداية",
     st_no_camera: "كاميرا المحطة لا ترسل: شغّلها من زر الكاميرا",
-    st_step_up: "قف على البساط وانظر إلى الكاميرا",
+    st_step_up: "قف على البساط وانظر إلى الكاميرا", st_face_not_recognised: "لم يتم التعرّف: قف مواجهاً للكاميرا لحظة (أو يكتب الفاحص الرقم)",
     n_face_bib_disagree: "الرقم المقروء والوجه لا يتطابقان: الوجه يشبه الرقم {bib}",
     call_timeout: "لم تُرفع اليد: قف على العلامة مجدداً",
     call_stepped_away: "ابتعد العدّاء: قف على العلامة مجدداً",
-    call_raise: "ارفع يدك للبدء", call_behind_line: "ارجع خلف الخط", call_false_start: "بداية خاطئة: تجاوز الخط قبل الانطلاق. ارجع خلف الخط", sl_setup: "إعداد خط البداية", sl_setup_hint: "دليل الألوان، موضع الخط، اتجاه العدّائين.", sl_box_mark: "العدّاء عند العلامة", sl_box_hand: "يد مرفوعة", sl_box_line: "خط البداية (أحمر عند تجاوز قدم له)", sl_on: "خط البداية", sl_on_hint: "مفعّل: يقف العدّاء خلف الخط؛ يبدأ وقته عند عبوره بعد الانطلاق (إن لم يُرَ خلال 10 ثوانٍ: من الانطلاق). تجاوزه قبل الانطلاق بداية خاطئة (تُلغى البداية)", sl_line: "موضع الخط", sl_line_hint: "الخط الأبيض على الصورة: ضعه على الأرض حيث تكون أصابع قدمي العدّاء. يصبح أحمر عند تجاوزه.", sl_dir: "اتجاه الجري", sl_dir_down: "نحو الكاميرا (إلى أسفل الصورة)", sl_dir_up: "بعيداً عن الكاميرا (إلى أعلى الصورة)", sl_dir_hint: "أي جانب من الخط هو المسار",
+    call_raise: "ارفع يدك للبدء", call_go_line: "انطلق! يبدأ وقتك عند عبورك الخط", call_behind_line: "ارجع خلف الخط", call_false_start: "بداية خاطئة: تجاوز الخط قبل الانطلاق. ارجع خلف الخط", sl_setup: "إعداد خط البداية", sl_setup_hint: "دليل الألوان، موضع الخط، اتجاه العدّائين.", sl_box_mark: "العدّاء عند العلامة", sl_box_hand: "يد مرفوعة", sl_box_line: "خط البداية (أحمر عند تجاوز قدم له)", sl_on: "خط البداية", sl_on_hint: "مفعّل: لا حاجة لرفع اليد. عند التعرّف عليه خلف الخط يرى العدّاء إشارة الانطلاق ويبدأ وقته لحظة عبوره. متوقف: رفع اليد يعطي الانطلاق.", sl_line: "موضع الخط", sl_line_hint: "الخط الأبيض على الصورة: ضعه على الأرض حيث تكون أصابع قدمي العدّاء. يصبح أحمر عند تجاوزه.", sl_dir: "اتجاه الجري", sl_dir_down: "نحو الكاميرا (إلى أسفل الصورة)", sl_dir_up: "بعيداً عن الكاميرا (إلى أعلى الصورة)", sl_dir_hint: "أي جانب من الخط هو المسار",
     call_no_camera: "كاميرا البداية لا ترسل: تحقق منها أدناه",
     call_step_up: "قف على العلامة وانظر إلى الكاميرا",
     e_low_quality: "?????? ??? ????? ?????? ???? ?????? (??? ????? ?? ????? ?? ?????): ????? ???? ????",
@@ -2146,7 +2146,7 @@ const I18N = {
     bmi_range: "المقبول {min} – {max}", out_of_range: "خارج النطاق المقبول. القبول يحتاج إلى سبب.",
     accepted_go: "مقبول · التوجه إلى خط البداية", rejected_done: "مرفوض · انتهى اليوم",
     waiting_line: "مقبولون لم يصلوا", at_line: "عند الخط", not_weighed_yet: "لم يُوزنوا",
-    mark_present: "عند الخط", start: "انطلاق", confirm_start: "اضغط مرة أخرى: العد التنازلي والانطلاق", start_hint: "عدّاء واحد في كل مرة: اضغط انطلاق، 3-2-1-انطلق، ويبدأ وقته من لحظة الانطلاق. يمكن أن ينطلق التالي فور انطلاق من قبله.",
+    mark_present: "عند الخط", start: "انطلاق", confirm_start: "اضغط مرة أخرى: العد التنازلي والانطلاق", start_hint: "عدّاء واحد في كل مرة: تتعرّف عليه الكاميرا، ثم ترفع اليد (أو زر انطلاق) إشارة الانطلاق ويبدأ وقته منها. مع خط البداية: لا حاجة لرفع اليد، يبدأ وقته عند عبوره الخط.",
     wave_n: "الموجة {n}", wave_short: "م{n}", wave_fill: "{n} / {max} عند الخط", wave_runners: "{n} عدّاء", start_wave: "انطلاق الموجة {n}", line_empty: "لا أحد عند الخط بعد",
     on_course: "في المسار", wave_counts: "{out} في المسار · {fin} وصلوا", review_n: "{n} للمراجعة", cutoff_in: "الحد الأقصى بعد {t}", cutoff_passed: "انتهى الحد الأقصى: تُغلق تلقائياً", all_in_closing: "وصل الجميع: تُغلق تلقائياً بعد {t}",
     close_wave: "إغلاق الموجة", close_wave_n: "إغلاق الموجة {n}", wave_closed: "أُغلقت الموجة {n}: من بقي في المسار لم يُكمل.",
@@ -2172,7 +2172,7 @@ const I18N = {
     fc_line: "موضع خط النهاية", fc_line_hint: "الخط الأحمر على الصورة هو خط النهاية: ضعه على الأرض حيث تعبر أقدام العدّائين. يُطبّق فوراً.",
     fc_dir: "اتجاه العدّائين", fc_dir_down: "نحو الكاميرا (لأسفل)", fc_dir_up: "بعيداً عن الكاميرا (لأعلى)", fc_dir_any: "أي اتجاه",
     fc_dir_hint: "يُحتسب العبور في هذا الاتجاه فقط.", fc_start: "تشغيل الكاميرا", fc_restart: "إعادة التشغيل بهذه الإعدادات", fc_stop: "إيقاف الكاميرا",
-    fc_offline: "خدمة الكاميرا لا تعمل على جهاز المحطة. Start TestPoint.cmd يشغّلها (أو: python -m testpoint.camhost). حتى ذلك الحين، وقّت يدوياً بزر عبور.",
+    fc_offline: "خدمة الكاميرا لا تعمل على جهاز المحطة: أيقونة TestPoint على سطح المكتب تشغّلها. حتى ذلك الحين، وقّت يدوياً بزر عبور.",
     fc_state_offline: "الخدمة متوقفة", fc_state_live: "تعمل", fc_state_starting: "تبدأ…", fc_state_error: "توقفت بخطأ", fc_state_stopped: "متوقفة",
     fc_no_webcam: "لا توجد كاميرا متاحة (مستخدمة من برنامج آخر؟)", fc_no_video: "لا توجد فيديوهات", fc_gpu: "GPU", fc_cpu: "المعالج فقط: أبطأ",
     fc_pick_source: "اختر المصدر أولاً", fc_started: "كاميرا النهاية تبدأ: تظهر الصورة خلال ثوانٍ.", fc_stopped: "أُوقفت كاميرا النهاية.",
@@ -2181,7 +2181,7 @@ const I18N = {
     fcam_live: "كاميرا النهاية تعمل", cam_last: "آخر قراءة {bib}", cam_off_manual: "الكاميرا متوقفة · التوقيت يدوي",
     review_queue: "قائمة المراجعة", clip: "مقطع", assign: "تعيين", finishers: "المنهون", time: "الزمن", status: "الحالة", bib: "الرقم", name: "الاسم", run: "الجري",
     pushup: "الضغط", crunch: "البطن", time_limit: "الحد الزمني", pass_mark: "النجاح", waiting_here: "أنهوا الجري ولم يختبروا هنا",
-    sc_camera: "الكاميرا", sc_title: "كاميرا المحطة", sc_offline: "خدمة الكاميرا لا تعمل على جهاز المحطة. Start TestPoint.cmd يشغّلها (أو: python -m testpoint.camhost). حتى ذلك الحين، العدّ يدوي.",
+    sc_camera: "الكاميرا", sc_title: "كاميرا المحطة", sc_offline: "خدمة الكاميرا لا تعمل على جهاز المحطة: أيقونة TestPoint على سطح المكتب تشغّلها. حتى ذلك الحين، العدّ يدوي.",
     sc_what: "تعدّ {ex} في {n} مسارات (التمرين والمسارات في هذه الصفحة).", sc_what_1: "تعدّ {ex} لشخص واحد (الصورة كاملة).", sc_what_mat: "بساط واحد: تعدّ الضغط ثم البطن للشخص المسجّل (الصورة كاملة).", sc_running: "تعمل", sc_equal: "مسارات متساوية",
     sc_div_hint: "اسحب الخطوط المتقطعة ليحوي كل مسار شخصاً واحداً، ثم أعد التشغيل بهذه الإعدادات.", sc_cpu: "المعالج فقط: العدّ سيكون بطيئاً",
     sc_followed: "تحولت الكاميرا إلى {ex}، {n} مسارات.", sc_started: "كاميرا المحطة تبدأ: تظهر الصورة خلال ثوانٍ.", sc_stopped: "أُوقفت كاميرا المحطة.",
@@ -2258,7 +2258,7 @@ const I18N = {
     c_studio: "رمادي استوديو", c_light: "رمادي فاتح", c_white: "أبيض", c_navy: "كحلي", c_charcoal: "فحمي", c_green: "أخضر", c_custom: "مخصص…",
     set_bg_image: "صورة الخلفية", bg_choose: "اختر صورة…", bg_remove: "إزالة",
     set_bg_image_hint: "JPEG أو PNG؛ الصورة الأفقية أفضل. نفس الصورة على كل مكتب. بدونها يُستخدم لون الخلفية.",
-    bg_uploaded: "تم حفظ الصورة. احفظ الإعدادات لاعتماد الصورة كخلفية للكاميرا.", e_bad_image: "استخدم صورة JPEG أو PNG",
+    bg_uploaded: "تم حفظ الصورة. احفظ الإعدادات لاعتماد الصورة كخلفية للكاميرا.", 
     set_bg_hint: "ما يُعرض خلف الشخص، كما في مكالمات الفيديو، في الأماكن المحددة أدناه.",
     set_auto: "التعرف التلقائي على الوجه عند الوزن", set_auto_hint: "تشغيل: تتحقق الكاميرا باستمرار ممن أمامها؛ إيقاف: يضغط الممتحن زر التعرف.",
     set_gender: "الجنس الافتراضي للمتقدمين الجدد", set_gender_hint: "يُختار مسبقاً في نموذج التسجيل؛ يمكن للممتحن تغييره.",
@@ -2300,7 +2300,7 @@ const I18N = {
     s_expected: "متوقع", s_accepted: "مقبول", s_rejected: "مرفوض في الوزن", s_lined_up: "عند الخط", s_absent: "غائب",
     s_running: "يجري", s_run_passed: "اجتاز الجري", s_run_failed: "رسب في الجري", s_dnf: "لم يكمل", s_complete: "مكتمل",
     e_not_on_todays_list: "غير موجود في قائمة اليوم", e_already_weighed: "تم وزنه اليوم", weighed_next: "{name} تم وزنه اليوم ✓ · التالي: الجري", e_not_weighed: "لم يُوزن بعد", e_no_photos_today: "لا صور وجه من اليوم: ارجع إلى طاولة الوزن لالتقاطها", photos_today: "صور وجه جديدة: انظر إلى الكاميرا",
-    e_has_not_run: "لم يجرِ بعد", e_still_running: "ما زال يجري", e_rejected_at_weigh_in: "مرفوض في الوزن",
+    e_has_not_run: "لم يجرِ بعد", e_rejected_at_weigh_in: "مرفوض في الوزن",
     e_missed_the_run: "فاته الجري", e_run_not_passed: "لم يجتز الجري", e_run_not_finished: "لم يكمل الجري",
     e_event_already_done: "أدى هذا التمرين اليوم", e_already_lined_up: "موجود عند الخط",
     e_run_already_started: "بدأ الجري بالفعل", e_not_eligible: "غير مؤهل", e_bmi_out_of_range: "الكتلة خارج النطاق: أدخل سبباً",
@@ -2392,7 +2392,7 @@ const I18N = {
     set_dots: "عدد النقاط في الخلفية المتحركة", set_dots_hint: "الشفق الذكي والسراب ونجوم الصحراء. نقاط أقل أهدأ وأخف على الجهاز.", dots_auto: "تلقائي",
     sec_look: "المظهر", sec_screen: "المظهر والحركة", sec_sounds_nav: "الأصوات", ph_search_settings: "ابحث في الإعدادات",
     set_no_match: "لا يوجد إعداد مطابق.", screen_hint: "لهذا الجهاز فقط: لكل شاشة مظهرها وحركتها.",
-    unsaved: "تغييرات غير محفوظة", unsaved_hint: "إعدادات المحطة تُطبّق على كل الأجهزة بعد الحفظ.", discard: "تجاهل",
+    unsaved: "تغييرات غير محفوظة", unsaved_hint: "إعدادات المحطة تُطبّق على كل الأجهزة بعد الحفظ.", 
     sure_discard: "الخروج دون حفظ؟ اضغط مرة أخرى",
     sec_sounds: "الأصوات (هذه الشاشة)", sounds_hint: "لكل جهاز أصواته ومستوى صوته. اضغط ▶ لسماع الصوت. العد التنازلي وبوق الانطلاق يعملان دائماً.",
     snd_ev_capture: "حفظ صورة الوجه", snd_ev_capture_hint: "كل صورة من الثلاث (مستقيم، يسار، يمين).",
@@ -3983,7 +3983,10 @@ const StartCall = {
     const e = v.entry, who = e ? `${esc(e.bib ?? "")} · ${esc(cname(e))}` : "";
     const photo = e && e.faces ? `<img src="/api/entries/${e.id}/face.jpg" alt="">` : "<span></span>";
     let cls = "", body = "";
-    if (v.state === "raise_hand") {
+    if (v.state === "go") {         // a start line: no hand; the clock starts at the crossing
+      cls = "go";
+      body = `<div><div class="c-who">${who}</div><div class="c-num">${esc(t("go"))}</div><div class="c-say">${esc(t("call_go_line"))}</div></div>`;
+    } else if (v.state === "raise_hand") {
       cls = "ask";
       body = `<div><div class="c-who">${who}</div><div class="c-say">${v.over ? esc(t("call_behind_line")) : `✋ ${esc(t("call_raise"))}`}</div></div>`;
     } else if (v.state === "countdown" || v.state === "started") {
@@ -4002,7 +4005,7 @@ const StartCall = {
     box.classList.remove("hidden");
     if (sig !== this.sig) { box.className = "callbox " + cls; box.innerHTML = html; this.sig = sig; }
     if (v.state === "countdown" && this.lastState !== "countdown") refresh();     // the runner list updates at once
-    if (v.state !== this.lastState && v.state === "raise_hand") Sound.chime();
+    if (v.state !== this.lastState && (v.state === "raise_hand" || v.state === "go")) Sound.chime();
     this.lastState = v.state;
   },
 };

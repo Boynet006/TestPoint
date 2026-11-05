@@ -6,8 +6,10 @@
       ├── cooldown ◄── started (GO shown) ◄── countdown (3-2-1, their clock runs from GO)
       └── refused (already ran, not weighed in, ...) for a few seconds
 
-With a start line on the camera, the clock runs from the moment the runner crosses it after GO
-(the start camera and the finish camera then time alike); not seen within CROSS_WAIT_S, it stays GO.
+With a start line on the camera there is no hand to raise: recognised, the runner sees GO
+("go" state) and their clock starts the moment they cross the line (the start camera and the finish
+camera then time alike). Started by the examiner meanwhile, the crossing within CROSS_WAIT_S of
+their GO still sets the clock; not seen, it stays GO.
 
 The camera process (testpoint.startcam) sends what it sees a few times a second: whether
 someone stands at the mark, their face embedding, and which hand is raised. This module
@@ -32,6 +34,7 @@ STARTED_S = 2.5              # "GO" stays on screen
 COOLDOWN_S = 8.0             # the runner just started is not recognised again meanwhile
 CROSS_WAIT_S = 10.0          # with a start line: the crossing that starts the clock, at most this long after GO
 STALE_S = 3.0                # no word from the camera this long: idle
+GO_WAIT_S = 120.0            # with a start line: GO shown this long without a crossing, then waiting again
 
 
 @dataclass
@@ -133,8 +136,21 @@ class StartLine:
                 if not ok:
                     self._to("refused", now, entry_id=entry_id, reason=reason, until=now + REFUSED_S)
                 else:
-                    self._to("raise_hand", now, entry_id=entry_id)
+                    self._to("go" if self.line else "raise_hand", now, entry_id=entry_id)
                     acts.append(("line_up", entry_id))
+            return acts
+
+        if self.state == "go":
+            # with a start line: GO is shown; the clock starts the moment they cross the line
+            if now - self.last_seen > AWAY_S:
+                self._to("idle", now, reason="stepped_away")
+            elif look.present and look.over:
+                entry_id = self.entry_id
+                self.recent[entry_id] = now + COOLDOWN_S
+                self._to("started", now, entry_id=entry_id, go_at=now, until=now + STARTED_S)
+                acts.append(("start_now", entry_id))
+            elif now - self.since > GO_WAIT_S:
+                self._to("idle", now, reason="timeout")
             return acts
 
         if self.state == "raise_hand":

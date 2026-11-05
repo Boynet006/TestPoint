@@ -1499,7 +1499,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
                     crop = None
             if emb.shape == (128,) and sl.state == "idle":
                 match = start_match(db, day, emb, body.quality, crop)
-            elif emb.shape == (128,) and sl.state in ("raise_hand", "countdown") and sl.entry_id:
+            elif emb.shape == (128,) and sl.state in ("raise_hand", "countdown", "go") and sl.entry_id:
                 m = start_face_match(db, day, emb)     # more pictures while they wait at the line
                 if m.candidate_id == sl.entry_id:
                     keep_start_face(m, emb, body.quality, crop)
@@ -1510,6 +1510,9 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
                     S.line_up(db, day, e, by="face")
                 elif act == "start":
                     S.start_runner(db, day, S.rules_for(db, day, rules), e, countdown_s=round(sl.countdown_s), by="camera")
+                    learn_start_face(db, day, e)
+                elif act == "start_now":            # crossed the start line: their clock starts now
+                    S.start_runner(db, day, S.rules_for(db, day, rules), e, countdown_s=0, by="start_line")
                     learn_start_face(db, day, e)
                 elif act == "cancel" and e.status == J.RUNNING:
                     S.cancel_start(db, day, e)
@@ -1634,6 +1637,8 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
                 emb = None
             if emb is not None and emb.shape == (128,):
                 match = flow_match(db, day, emb)
+                if match is None:
+                    flow.unknown_face(wall())
         ready = lane.ready and lane.exercise is not None and lane.exercise == flow.watching
         counting = flow.state == "testing" and flow.attempt_id is not None and lane.attempt_id == flow.attempt_id
         if (body.player or {}).get("paused"):

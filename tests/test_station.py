@@ -232,6 +232,14 @@ def test_standing_up_during_the_test_ends_it_with_the_count_so_far():
     assert off.observe(40.0, StationLook(True, count=5, out=True)) == []
 
 
+def test_a_face_seen_but_not_recognised_is_said_on_the_screen():
+    f = StationFlow()
+    assert f.view(0.0)["reason"] is None
+    f.unknown_face(10.0)
+    assert f.view(11.0)["reason"] == "face_not_recognised"
+    assert f.view(15.0)["reason"] is None                            # for a few seconds only
+
+
 def test_resting_in_the_start_position_is_not_stopping():
     f = StationFlow(countdown_s=3.0, time_s=120.0, idle_s=20.0)
     under_way(f)

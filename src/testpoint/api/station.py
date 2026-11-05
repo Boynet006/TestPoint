@@ -90,6 +90,8 @@ class StationFlow:
     """Why the last test ended before its time: "examiner", "left_mat", "left_position" or "no_reps"."""
     last_count: int = -1
     out_since: float | None = None
+    unknown_at: float = float("-inf")
+    """When a face was last seen on the mat but not recognised (the screen says so for a while)."""
     last_rep_at: float = 0.0
     off_since: float | None = None
     hand: tuple[float, float] | None = None
@@ -110,6 +112,11 @@ class StationFlow:
 
     def reset(self, now: float) -> None:
         self._to("idle", now)
+
+    def unknown_face(self, now: float) -> None:
+        """A face was seen on the mat and matched nobody: the screen asks them to face the camera."""
+        if self.state == "idle":
+            self.unknown_at = now
 
     @property
     def watching(self) -> str | None:
@@ -258,7 +265,8 @@ class StationFlow:
 
     def view(self, now: float) -> dict:
         self.tick(now)
-        return {"state": self.state, "entry_id": self.entry_id, "event": self.event, "reason": self.reason, "ended": self.ended,
+        reason = self.reason or ("face_not_recognised" if self.state == "idle" and now - self.unknown_at < 4.0 else None)
+        return {"state": self.state, "entry_id": self.entry_id, "event": self.event, "reason": reason, "ended": self.ended,
                 "idle_s": self.idle_s, "last_rep_at": self.last_rep_at if self.state == "testing" else None,
                 # out of the exercise's posture: seconds before the test ends (the screen warns)
                 "out_left": (round(max(0.0, self.out_s - (now - self.out_since)), 1)
