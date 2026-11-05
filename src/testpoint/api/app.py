@@ -1179,6 +1179,34 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         recent = [t for t in ts if now - t <= 2.0]
         return round(len(recent) / 2.0, 1) if recent else 0.0
 
+    @app.get("/api/cameras/feed")
+    def cameras_feed(db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        """The Cameras screen: every camera, whether its picture is live, what it is doing now and
+        whom it recognised lately (newest first)."""
+        from .models import StartCrossing
+        def who(e) -> dict | None:
+            return {"id": e.id, "bib": e.candidate.bib, "name": e.candidate.name, "name_ar": e.candidate.name_ar} if e else None
+        now = clock()
+        live = {st: {"live": st in _last_frame and now - _last_frame[st][0] <= FRAME_STALE_S, "fps": picture_rate(st)}
+                for st in ("start", "finish", "exercise", "weigh")}
+        start = [{"at": iso(c.at), "who": who(db.get(Entry, c.entry_id) if c.entry_id else None), "what": c.status,
+                  "reason": c.note_code, "score": c.score}
+                 for c in db.scalars(select(StartCrossing).where(StartCrossing.day_id == day.id)
+                                     .order_by(StartCrossing.id.desc()).limit(8))]
+        finish = [{"at": iso(c.at), "who": who(db.get(Entry, c.entry_id) if c.entry_id else None),
+                   "what": "review" if c.needs_review else "finished", "time_s": c.time_s, "reason": c.note_code,
+                   "score": c.confidence}
+                  for c in db.scalars(select(Crossing).where(Crossing.day_id == day.id).order_by(Crossing.id.desc()).limit(8))]
+        station = [{"at": iso(a.started_at), "who": who(a.entry), "what": a.event, "count": a.count if a.count is not None else a.auto_count,
+                    "status": a.status}
+                   for a in db.scalars(select(Attempt).join(Entry, Attempt.entry_id == Entry.id).where(Entry.day_id == day.id)
+                                       .order_by(Attempt.id.desc()).limit(8))]
+        flow = station_flow(db, day).view(wall())
+        fe = flow.get("entry")
+        return {"live": live, "start": start, "finish": finish, "station": station,
+                "station_now": {"state": flow.get("state"), "event": flow.get("event"), "who": fe,
+                                "count": (flow.get("live") or {}).get("count")}}
+
     @app.get("/api/cameras/light")
     def cameras_light() -> dict:
         """The finish camera's shutter now, and the picture's brightness and grain it is chosen from."""

@@ -583,3 +583,28 @@ def test_a_sure_rolling_start_keeps_the_start_cameras_pictures_for_the_finish(mo
         r = c.post("/api/engine/start/crossing", json={"faces": [pic(b"face:A:venue:sharp")] * 3}).json()
         assert r["status"] == "started" and r["runner"]["bib"] == "11"
         assert learnt() >= 1
+
+
+def test_cameras_screen_feed_lists_what_each_camera_recognised(monkeypatch):
+    import base64
+
+    from fastapi.testclient import TestClient
+    from sqlalchemy.pool import StaticPool
+    from test_faces import FakeEngine
+
+    from testpoint.api import models
+    from testpoint.api.app import create_app
+
+    real = models.create_engine
+    monkeypatch.setattr(models, "create_engine", lambda url, **kw: real(url, poolclass=StaticPool, **kw))
+    app = create_app(db_url="sqlite:///:memory:", web_dir="none", today=lambda: "2026-10-20", face_engine=lambda: FakeEngine())
+    with TestClient(app) as c:
+        c.post("/api/entries/import", content=b"external_id,name,bib,gender,dob\nC-1,Alpha,11,M,2000-01-01\n")
+        eid = c.get("/api/entries").json()[0]["id"]
+        c.post(f"/api/entries/{eid}/face", content=b"face:A")
+        c.post(f"/api/entries/{eid}/weigh-in", json={"weight_kg": 70, "height_cm": 175, "accept": True})
+        c.post("/api/engine/start/crossing", json={"faces": [base64.b64encode(b"face:A").decode()] * 2})
+        f = c.get("/api/cameras/feed").json()
+        assert set(f["live"]) == {"start", "finish", "exercise", "weigh"} and not f["live"]["start"]["live"]
+        assert f["start"][0]["what"] == "started" and f["start"][0]["who"]["bib"] == "11"
+        assert f["finish"] == [] and f["station"] == [] and f["station_now"]["state"] == "idle"

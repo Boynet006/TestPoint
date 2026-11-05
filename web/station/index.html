@@ -338,6 +338,19 @@
   }
   .lanes { display: grid; grid-template-columns: repeat(var(--lanes, 3), minmax(0, 1fr)); gap: 16px; }
   #v-results.grid2 { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); }
+  .camwall { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .camtile { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .camtile .ct-head { display: flex; align-items: center; gap: 8px; }
+  .camtile .ct-head h2 { margin: 0; }
+  .camtile .ct-pic { position: relative; background: #000; aspect-ratio: 16 / 9; display: grid; place-items: center; overflow: hidden; }
+  .camtile .ct-pic img { width: 100%; height: 100%; object-fit: contain; }
+  .camtile .ct-pic .ct-off { color: var(--muted); font-family: var(--cond); letter-spacing: 1px; text-transform: uppercase; }
+  .camtile .ct-now { font-family: var(--cond); font-size: 20px; min-height: 26px; }
+  .camtile table { width: 100%; border-collapse: collapse; }
+  .camtile td { padding: 5px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  .camtile td.t { font-family: var(--cond); white-space: nowrap; color: var(--muted); }
+  .camtile td.w { font-weight: 600; }
+  @media (max-width: 1050px) { .camwall { grid-template-columns: 1fr; } }
   .rb-sum { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin: 14px 0 10px; }
   .rb-sum button { background: var(--bg2); border: 1px solid var(--line); color: var(--text); padding: 8px 6px; cursor: pointer; text-align: start; font: inherit; }
   .rb-sum button:disabled { cursor: default; }
@@ -806,6 +819,7 @@
     <option value="finish" data-t="r_finish"></option>
     <option value="station" data-t="r_station"></option>
     <option value="results" data-t="r_results"></option>
+    <option value="cameras" data-t="r_cameras"></option>
   </select>
   <span class="conn" id="conn"></span>
   <span class="spacer"></span>
@@ -1077,6 +1091,11 @@
   </div>
 
   <!-- RESULTS: anyone looks at the camera and sees their results (pass / fail, each test). -->
+  <!-- CAMERAS: every camera at once, live, and whom each recognised lately -->
+  <div id="v-cameras" class="hidden">
+    <div class="camwall" id="camWall"></div>
+  </div>
+
   <div id="v-results" class="grid2 hidden">
     <div class="card">
       <div class="row" style="align-items:center"><h2 style="margin:0" data-t="r_results"></h2><span class="spacer"></span><span class="camb-slot" id="camBadgeSlot-results"></span></div>
@@ -1792,7 +1811,10 @@ const I18N = {
     rc_hint: "Look at the camera to see your own card, or type a bib. Tap a row for anyone's card; tap a box to filter.",
     rc_title: "Today's results", rb_all: "Tested", rb_pass: "Passed", rb_fail: "Failed", rb_pending: "In progress", rb_rate: "Pass rate",
     rb_name: "Name", rb_overall: "Overall", rb_none: "No results yet today.", rb_nomatch: "Nobody matches.", rb_running: "on now",
-    r_results: "Results",
+    r_results: "Results", r_cameras: "Cameras",
+    cw_start: "Start line", cw_finish: "Finish line", cw_exercise: "Exercise station", cw_weigh: "Weigh-in", cw_off: "No picture", cw_none: "Nobody recognised yet today.",
+    cw_started: "started", cw_review: "to name", cw_refused: "refused", cw_ignored: "ignored", cw_discarded: "discarded", cw_finished: "finished",
+    cw_station_now: "Now: {who} · {what}", cw_idle: "Waiting for someone",
     e_all_done: "Push-ups and crunches are both done",
     st_reset: "Reset",
     st_end: "End test", st_end_sure: "End it? Press again", st_end_hint: "The person cannot go on: the test ends now and the count so far is their result.",
@@ -1816,7 +1838,7 @@ const I18N = {
     st_false_start: "False start, not counted: get into the start position again",
     call_rolling: "Walk to the start line and go: your time starts as you cross it", roll_started: "started",
     roll_title: "Start crossings to name", roll_hint: "Someone crossed the start line and the camera could not say who. Pick the runner: their time starts from that crossing. Not a runner: discard.",
-    roll_assign: "Start them", roll_recent: "Recent starts",
+    roll_assign: "Start them", roll_recent: "Recent starts", e_nobody_waiting: "Nobody waiting to start (not a runner)", e_just_cancelled: "Start just cancelled: not started again",
     sl_roll_hint: "Rolling start: put the line on the floor where the runners' feet cross it, and face the camera towards the runners coming (their faces are recognised on the way to the line).", e_already_running: "Already running", e_not_recognised: "Not recognised", e_cannot_start: "Cannot start now",
     set_rolling: "Rolling start", set_rolling_hint: "On: no stopping, no hand, no GO. The start camera recognises each runner on the way and their time starts the moment they cross the start line, as the finish camera does (timed the same way at both lines). Someone it cannot recognise is listed on the start screen for the examiner to name. Off: the start line and hand settings below. Restart the start camera after a change.",
     st_timeout: "Not in position in time: step onto the mat again",
@@ -2214,7 +2236,10 @@ const I18N = {
     rc_hint: "انظر إلى الكاميرا لترى بطاقتك، أو اكتب الرقم. اضغط على صف لعرض بطاقة أي شخص؛ اضغط على مربع للتصفية.",
     rc_title: "نتائج اليوم", rb_all: "المختبَرون", rb_pass: "ناجح", rb_fail: "راسب", rb_pending: "قيد الاختبار", rb_rate: "نسبة النجاح",
     rb_name: "الاسم", rb_overall: "الإجمالي", rb_none: "لا توجد نتائج اليوم بعد.", rb_nomatch: "لا يوجد تطابق.", rb_running: "الآن",
-    r_results: "النتائج",
+    r_results: "النتائج", r_cameras: "الكاميرات",
+    cw_start: "خط البداية", cw_finish: "خط النهاية", cw_exercise: "محطة التمارين", cw_weigh: "الوزن", cw_off: "لا توجد صورة", cw_none: "لم يُتعرّف على أحد اليوم بعد.",
+    cw_started: "انطلق", cw_review: "بحاجة إلى تسمية", cw_refused: "مرفوض", cw_ignored: "تم تجاهله", cw_discarded: "محذوف", cw_finished: "أنهى",
+    cw_station_now: "الآن: {who} · {what}", cw_idle: "بانتظار شخص",
     e_all_done: "أُنجز الضغط والبطن كلاهما",
     st_reset: "إعادة",
     st_end: "إنهاء الاختبار", st_end_sure: "إنهاء؟ اضغط مرة أخرى", st_end_hint: "لا يستطيع المتابعة: ينتهي الاختبار الآن ويُحتسب العدد حتى الآن نتيجةً له.",
@@ -2238,7 +2263,7 @@ const I18N = {
     st_false_start: "بداية خاطئة، لم تُحتسب: عد إلى وضعية البداية",
     call_rolling: "امشِ إلى خط البداية وانطلق: يبدأ وقتك لحظة عبوره", roll_started: "انطلق",
     roll_title: "عبور لخط البداية بحاجة إلى تسمية", roll_hint: "عبر شخص خط البداية ولم تتعرف عليه الكاميرا. اختر العدّاء: يبدأ وقته من لحظة ذلك العبور. ليس عدّاءً: احذفه.",
-    roll_assign: "أطلقه", roll_recent: "آخر الانطلاقات",
+    roll_assign: "أطلقه", roll_recent: "آخر الانطلاقات", e_nobody_waiting: "لا أحد بانتظار الانطلاق (ليس عدّاءً)", e_just_cancelled: "أُلغي انطلاقه للتو: لم يُطلق مجدداً",
     sl_roll_hint: "انطلاق متحرك: ضع الخط على الأرض حيث تعبره أقدام العدّائين، ووجّه الكاميرا نحو العدّائين القادمين (يُتعرّف على وجوههم في طريقهم إلى الخط).", e_already_running: "يجري الآن", e_not_recognised: "لم يتم التعرّف", e_cannot_start: "لا يمكنه الانطلاق الآن",
     set_rolling: "انطلاق متحرك", set_rolling_hint: "مفعّل: بلا توقف ولا رفع يد ولا إشارة انطلاق. تتعرّف كاميرا البداية على كل عدّاء في طريقه ويبدأ وقته لحظة عبوره خط البداية، كما تفعل كاميرا النهاية (التوقيت بنفس الطريقة عند الخطين). من لا تتعرّف عليه يظهر في شاشة البداية ليسمّيه الفاحص. متوقف: إعدادات خط البداية واليد أدناه. أعد تشغيل كاميرا البداية بعد التغيير.",
     st_timeout: "لم يتخذ الوضعية في الوقت: قف على البساط مجدداً",
@@ -2686,12 +2711,13 @@ function render() {
   if (!S.state) return;
   $("hdrDate").textContent = fmtDate(S.state.date);
   if (mode === "advanced") renderAdvanced();
-  else ({ weigh: renderWeigh, start: renderStart, finish: renderFinish, station: renderStation, results: () => ResultsBoard.render() })[role]();
+  else ({ weigh: renderWeigh, start: renderStart, finish: renderFinish, station: renderStation, results: () => ResultsBoard.render(), cameras: () => {} })[role]();
 }
 function setRole(r) { if (settingsOpen) closeSettings(); role = r;
   /* one camera, moved to the station in use */ const bs = $("camBadgeSlot-" + r); if (bs && !bs.contains($("camBadge"))) bs.appendChild($("camBadge"));
   const slot = $("camSlot-" + r); if (slot && !slot.contains($("camBlock"))) { slot.appendChild($("camBlock")); clearBox(); const v = $("camVideo"); if (v.srcObject || v.getAttribute("src")) v.play().catch(() => {}); }   /* moving a video pauses it */
-   save("role", r); $("role").value = r; document.body.classList.remove("st-one", "st-fit");  BgFx.refresh(); if (r !== "station" && typeof LiveTune !== "undefined") LiveTune.toggle(false); for (const x of ["weigh", "start", "finish", "station", "results"]) $("v-" + x).classList.toggle("hidden", x !== r);
+   save("role", r); $("role").value = r; document.body.classList.remove("st-one", "st-fit");  BgFx.refresh(); if (r !== "station" && typeof LiveTune !== "undefined") LiveTune.toggle(false); for (const x of ["weigh", "start", "finish", "station", "results", "cameras"]) $("v-" + x).classList.toggle("hidden", x !== r);
+  if (typeof CamWall !== "undefined") CamWall.toggle(r === "cameras");
   if (booted) {
     const want = CAM_ROLES.includes(r) ? Cam.kindFor(r) : null;
     if (want && want !== Cam.kind && ["webcam", "ipcam"].includes(want)) Cam.use(want);
@@ -5895,6 +5921,56 @@ async function resultsIdentify(quiet) {
   } catch (e) { clearBox(); if (!quiet) msg("rMsg", "bad", err(e)); }
   finally { idBusy = false; }
 }
+// The Cameras screen: every camera's live picture, side by side, with what it is doing now and whom it
+// recognised lately. The pictures are the cameras' own (the same streams the other screens show).
+const CamWall = {
+  CAMS: [["start", "cw_start"], ["finish", "cw_finish"], ["exercise", "cw_exercise"], ["weigh", "cw_weigh"]],
+  timer: 0, built: false, live: {},
+  toggle(on) {
+    clearInterval(this.timer);
+    if (!on) { document.querySelectorAll("#camWall img").forEach(i => { i.removeAttribute("src"); }); this.live = {}; return; }
+    this.build(); this.poll(); this.timer = setInterval(() => this.poll(), 2000);
+  },
+  build() {
+    if (this.built) return; this.built = true;
+    $("camWall").innerHTML = this.CAMS.map(([st, label]) => `<div class="card camtile" id="ct-${st}">`
+      + `<div class="ct-head"><h2 data-t="${label}">${esc(t(label))}</h2><span class="spacer"></span><span class="pill" id="ctl-${st}"></span></div>`
+      + `<div class="ct-pic"><img alt="" id="cti-${st}" class="hidden"><span class="ct-off" id="cto-${st}">${esc(t("cw_off"))}</span></div>`
+      + `<div class="ct-now" id="ctn-${st}"></div><table id="ctf-${st}"></table></div>`).join("");
+  },
+  who: w => w ? `${esc(w.bib ?? "")} · ${esc(lang === "ar" && w.name_ar ? w.name_ar : w.name)}` : `<span class="hint">?</span>`,
+  hhmm: at => at ? esc(new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })) : "",
+  rows(list, cell) { return list.length ? list.map(cell).join("") : `<tr><td class="hint">${esc(t("cw_none"))}</td></tr>`; },
+  async poll() {
+    if (role !== "cameras") return;
+    let f; try { f = await api("GET", "/api/cameras/feed"); } catch { return; }
+    for (const [st] of this.CAMS) {
+      const l = f.live[st] || {}, img = $("cti-" + st);
+      $("ctl-" + st).className = "pill " + (l.live ? "ok" : "bad");
+      $("ctl-" + st).textContent = l.live ? `${t("live")}${l.fps ? " · " + l.fps + " fps" : ""}` : t("cw_off");
+      if (l.live && !this.live[st]) img.src = `/api/engine/stream/${st}?t=${Date.now()}`;   // (re)open the stream
+      if (!l.live) img.removeAttribute("src");
+      img.classList.toggle("hidden", !l.live); $("cto-" + st).classList.toggle("hidden", !!l.live);
+      this.live[st] = l.live;
+    }
+    const st = (w, cls, txt) => `<span class="pill ${cls}">${esc(txt)}</span>`;
+    $("ctf-start").innerHTML = this.rows(f.start, c => `<tr><td class="t">${this.hhmm(c.at)}</td><td class="w">${this.who(c.who)}</td>`
+      + `<td>${st(c.who, c.what === "started" ? "ok" : c.what === "review" || c.what === "refused" ? "warn" : "", t("cw_" + c.what))}${c.reason ? ` <span class="hint">${esc(err({ code: c.reason }))}</span>` : ""}</td>`
+      + `<td class="t">${c.score != null ? "FACE " + Math.round(c.score * 100) + "%" : ""}</td></tr>`);
+    $("ctf-finish").innerHTML = this.rows(f.finish, c => `<tr><td class="t">${this.hhmm(c.at)}</td><td class="w">${this.who(c.who)}</td>`
+      + `<td>${c.what === "review" ? st(c.who, "warn", t("cw_review")) : esc(fmt(c.time_s))}</td>`
+      + `<td class="t">${c.reason === "identified_by_face" && c.score != null ? "FACE " + Math.round(c.score * 100) + "%" : ""}</td></tr>`);
+    $("ctf-exercise").innerHTML = this.rows(f.station, a => `<tr><td class="t">${this.hhmm(a.at)}</td><td class="w">${this.who(a.who)}</td>`
+      + `<td>${esc(t(a.what))}</td><td class="t">${a.count ?? ""} ${a.status === "running" ? st(null, "warn", t("live")) : ""}</td></tr>`);
+    $("ctf-weigh").innerHTML = "";
+    const n = f.station_now || {};
+    $("ctn-exercise").innerHTML = n.who ? esc(t("cw_station_now", { who: `${n.who.bib ?? ""} ${lang === "ar" && n.who.name_ar ? n.who.name_ar : n.who.name}`, what: n.event ? t(n.event) : t("st_" + n.state) }))
+      + (n.count != null && n.state === "testing" ? ` · <b>${n.count}</b>` : "") : `<span class="hint">${esc(t("cw_idle"))}</span>`;
+    const ls = f.start[0], lf = f.finish[0];
+    $("ctn-start").innerHTML = ls && Date.now() - Date.parse(ls.at) < 15000 ? `${this.who(ls.who)} · ${esc(t("cw_" + ls.what))}` : "";
+    $("ctn-finish").innerHTML = lf && Date.now() - Date.parse(lf.at) < 15000 ? `${this.who(lf.who)} · ${esc(fmt(lf.time_s))}` : "";
+  },
+};
 // The results screen's board: everyone tested today, live, with each test's result against the
 // person's required level, the overall percentage and the verdict. Boxes at the top count and filter;
 // the headers sort; typing filters by bib or name; a row opens that person's card.
