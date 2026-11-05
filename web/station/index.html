@@ -4270,12 +4270,12 @@ const GoFX = {
           const lit = green || ms > i * 45, col = green ? "#22ff7a" : "#ff2a2a";
           g.beginPath(); g.arc(lx + i * gap, ly, r, 0, 6.283);
           g.fillStyle = lit ? col : "#1d232b"; g.shadowColor = col; g.shadowBlur = lit ? (green ? 60 : 25) : 0; g.fill();
-          g.shadowBlur = 0; g.fillStyle = "rgba(255,255,255,.35)"; g.beginPath(); g.arc(lx + i * gap - r * .3, ly - r * .3, r * .28, 0, 6.283); g.fill();
+          g.shadowBlur = 0; g.fillStyle = lit ? (green ? "rgba(170,255,200,.45)" : "rgba(255,150,150,.45)") : "rgba(80,90,100,.4)"; g.beginPath(); g.arc(lx + i * gap - r * .3, ly - r * .3, r * .28, 0, 6.283); g.fill();
         }
         g.restore();
         if (green) {
           const k = ms - 260;
-          if (k < 120) { g.fillStyle = `rgba(160,255,200,${.55 * (1 - k / 120)})`; g.fillRect(0, 0, W, H); }   // green flash
+          if (k < 120) { g.fillStyle = `rgba(34,255,122,${.4 * (1 - k / 120)})`; g.fillRect(0, 0, W, H); }   // green flash
           g.lineCap = "round";
           for (const s of stars) {                                     // speed streaks, right to left
             const y = (s.a / 6.283) * H, len = 80 + 420 * s.v, x = W - ((k * (1.2 + s.v) + s.r * 30) % (W + len));
@@ -4286,7 +4286,7 @@ const GoFX = {
           g.save(); g.translate(cx, cy + ty); g.transform(1, 0, -.22, 1, 0, 0); g.translate(-cx, -(cy + ty));   // slanted, as in a racing title
           for (let j = 4; j >= 1; j--)                                  // motion trails behind it
             word(big * 1.05, out * .12 * (5 - j), "#22ff7a", 0, slide + j * (30 + slide * .15), ty);
-          word(big * 1.05, out, "#22ff7a", 50, slide, ty, "#eafff2");
+          word(big * 1.05, out, "#22ff7a", 50, slide, ty, "#063d1f");   // green, outlined dark green (no white)
           g.restore();
           shake(k < 380 ? 16 * (1 - k / 380) : 0);
         }
