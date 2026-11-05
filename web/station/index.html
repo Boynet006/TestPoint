@@ -1147,6 +1147,9 @@
           <summary><span data-t="fc_setup"></span><small data-t="fc_setup_hint"></small></summary>
           <p class="hint camlegend"><span style="color:#00b4ff">■</span> <span data-t="fc_box_open"></span> &nbsp; <span style="color:#00c800">■</span> <span data-t="fc_box_crossed"></span> &nbsp; <span style="color:#e00000">━</span> <span data-t="fc_box_line"></span></p>
         <div class="settings" style="margin-top:8px">
+          <label for="fcOn" data-t="set_fl_on"></label>
+          <select id="fcOn" onchange="FinishCam.onChanged()"><option value="1" data-t="on"></option><option value="0" data-t="off"></option></select>
+          <span class="hint" data-t="fc_on_hint"></span>
           <label for="fcLineY" data-t="fc_line"></label>
           <input id="fcLineY" type="range" min="5" max="95" step="1" oninput="FinishCam.showLine()" onchange="FinishCam.lineChanged()">
           <span class="hint" data-t="fc_line_hint"></span>
@@ -1439,6 +1442,12 @@
         <label for="setSlSetup" data-t="set_sl_setup"></label>
         <select id="setSlSetup"><option value="1" data-t="set_shown"></option><option value="0" data-t="set_hidden"></option></select>
         <span class="hint" data-t="set_sl_setup_hint"></span>
+        <label for="setFinishLineOn" data-t="set_fl_on"></label>
+        <select id="setFinishLineOn"><option value="1" data-t="on"></option><option value="0" data-t="off"></option></select>
+        <span class="hint" data-t="set_fl_on_hint"></span>
+        <label for="setFcSetup" data-t="set_fc_setup"></label>
+        <select id="setFcSetup"><option value="1" data-t="set_shown"></option><option value="0" data-t="set_hidden"></option></select>
+        <span class="hint" data-t="set_fc_setup_hint"></span>
       </div>
     </div>
     <div class="card setpanel" data-p="finish" data-scope="station">
@@ -1448,9 +1457,6 @@
         <label for="setFinishFace" data-t="set_finish_face"></label>
         <select id="setFinishFace"><option value="0" data-t="ff_auto"></option><option value="0.3">0.30</option><option value="0.33">0.33</option><option value="0.36">0.36</option><option value="0.4">0.40</option><option value="0.45">0.45</option><option value="0.5">0.50</option><option value="0.55">0.55</option><option value="0.6" data-t="ff_060"></option><option value="0.65" data-t="ff_065"></option><option value="0.7" data-t="ff_070"></option></select>
         <span class="hint" data-t="set_finish_face_hint"></span>
-        <label for="setFcSetup" data-t="set_fc_setup"></label>
-        <select id="setFcSetup"><option value="1" data-t="set_shown"></option><option value="0" data-t="set_hidden"></option></select>
-        <span class="hint" data-t="set_fc_setup_hint"></span>
       </div>
     </div>
     <div class="card setpanel" data-p="station" data-scope="station">
@@ -1929,6 +1935,8 @@ const I18N = {
     set_fc_setup: "Finish line set-up", set_shown: "Shown", set_hidden: "Hidden",
     set_fc_setup_hint: "The fold-out on the finish screen with the colour key, the finish line position and the runners' direction. Hide it once they are set, so the test day screen stays simple.",
     set_sl_setup: "Start line set-up", set_sl_setup_hint: "The fold-out on the start screen with the start line on/off, its position, the runners' direction and the colour key. Hide it once they are set.",
+    set_fl_on: "Finish line", set_fl_on_hint: "The default on every finish screen. On: the finish camera times each runner the moment they cross the line. Off: no finish camera; the examiner times by hand. Saving applies it to every finish screen; the set-up on a finish screen can still change it there.",
+    fc_on_hint: "On: the camera times each crossing. Off: the camera stops and the examiner times by hand.",
     set_sl_on: "Start line", set_sl_on_hint: "The default on every start screen. On: no hand to raise; recognised behind the line, the runner sees GO and their clock starts the moment they cross it. Off: a raised hand gives GO. Saving applies it to every start screen; the set-up on a start screen can still change it there.",
     set_walk: "Register walk-ins at the desk", set_walk_hint: "Off: only people on today's list (CSV or Advanced) can be tested.",
     walk_ins_off: "Not on today's list. Registering at the desk is switched off: add them in Advanced.",
@@ -2343,6 +2351,8 @@ const I18N = {
     set_fc_setup: "إعداد خط النهاية", set_shown: "ظاهر", set_hidden: "مخفي",
     set_fc_setup_hint: "القائمة في شاشة النهاية: دليل الألوان وموضع خط النهاية واتجاه العدّائين. أخفِها بعد ضبطها لتبقى شاشة يوم الاختبار بسيطة.",
     set_sl_setup: "إعداد خط البداية", set_sl_setup_hint: "القائمة في شاشة البداية: تشغيل خط البداية أو إيقافه وموضعه واتجاه العدّائين ودليل الألوان. أخفِها بعد ضبطها.",
+    set_fl_on: "خط النهاية", set_fl_on_hint: "الوضع الافتراضي في كل شاشات النهاية. مفعّل: تسجّل كاميرا النهاية وقت كل عدّاء لحظة عبوره الخط. متوقف: لا كاميرا للنهاية؛ يسجّل الفاحص الوقت يدوياً. الحفظ يطبّقه على كل شاشات النهاية، ويمكن تغييره من الإعداد في شاشة النهاية.",
+    fc_on_hint: "مفعّل: تسجّل الكاميرا كل عبور. متوقف: تتوقف الكاميرا ويسجّل الفاحص الوقت يدوياً.",
     set_sl_on: "خط البداية", set_sl_on_hint: "الوضع الافتراضي في كل شاشات البداية. مفعّل: لا حاجة لرفع اليد؛ عند التعرّف عليه خلف الخط يرى العدّاء إشارة الانطلاق ويبدأ وقته لحظة عبوره. متوقف: رفع اليد يعطي الانطلاق. الحفظ يطبّقه على كل شاشات البداية، ويمكن تغييره من الإعداد في شاشة البداية.",
     set_walk: "تسجيل الحضور غير المدرجين", set_walk_hint: "إيقاف: فقط المدرجون في قائمة اليوم يمكن اختبارهم.",
     walk_ins_off: "غير موجود في قائمة اليوم. التسجيل عند المكتب متوقف: أضفه من القائمة المتقدمة.",
@@ -4218,9 +4228,23 @@ const FinishCam = {
     if (this.st.available && !this.src) this.sources(false);
     // opened with its IP camera not running (the PC just started): it starts by itself, with this
     // screen's line, as the start line's does, unless the examiner stopped it here
-    if (!this.autoTried && role === "finish" && this.st.available && !this.st.running && !this.busy
+    if (!this.autoTried && role === "finish" && this.st.available && !this.st.running && !this.busy && this.lineOn()
         && this.pref.kind === "url" && !load("fcStopped", "") && $("fcCamSel").value) { this.autoTried = true; this.start(); }
+    // the finish line switched off (here, or a new station default): the camera stops, hand timing takes over
+    if (role === "finish" && this.st.running && !this.busy && !this.lineOn()) { this.autoTried = false; this.stop(true); }
     this.render();
+  },
+  // On or off: the station's default (Settings > Run), unless this screen switched it since that
+  // default was last saved (a new default reaches every finish screen), as the start line.
+  lineOn() {
+    const def = setting("finish_line_on") !== false;
+    return this.pref.base === def && this.pref.on != null ? this.pref.on : def;
+  },
+  onChanged() {
+    this.pref.on = $("fcOn").value === "1"; this.pref.base = setting("finish_line_on") !== false; this.save();
+    this.handTouched = false;
+    if (this.pref.on && this.st && this.st.available && !this.st.running) this.start();
+    else this.poll(true);
   },
   render() {
     const st = this.st || { available: false };
@@ -4240,6 +4264,8 @@ const FinishCam = {
     $("fcLog").textContent = log; $("fcLogBox").classList.toggle("hidden", !log || (st.running && live));
     if (st.exit_code && !this.logOpened) { $("fcLogBox").open = true; this.logOpened = true; } if (!st.exit_code) this.logOpened = false;
     // Hand timing is the backup: folded while the camera times, open when it does not (unless the examiner chose).
+    const on = this.lineOn(); $("fcOn").value = on ? "1" : "0";
+    $("fcLineY").disabled = $("fcDir").disabled = $("fcStart").disabled = !on || !st.available || this.busy;
     const timing = !!(st.running && live);
     if (timing !== this.timing) { this.timing = timing; this.handTouched = false; }
     if (!this.handTouched) { const d = $("fHand"); if (d.open === timing) { d.open = !timing; this.handTouched = false; } }
@@ -4273,8 +4299,8 @@ const FinishCam = {
     } catch (e) { msg("fcMsg", "bad", err(e)); }
     finally { this.busy = false; this.render(); }
   },
-  async stop() {
-    save("fcStopped", "1");          // stopped here on purpose: not started again by itself
+  async stop(lineOff) {
+    if (!lineOff) save("fcStopped", "1");   // stopped here on purpose: not started again by itself
     this.busy = true; this.render();
     try { this.st = { available: true, ...(await api("POST", "/api/finishcam/stop")) }; msg("fcMsg", "ok", t("fc_stopped")); }
     catch (e) { msg("fcMsg", "bad", err(e)); }
@@ -6466,7 +6492,7 @@ const CamLive = {
 /* ============================== settings ============================== */
 // Station settings from the server (shared by every device); see service.SETTINGS.
 const SETTING_DEFAULTS = { auto_identify: true, camera_background: "off", camera_bg_places: ["weigh", "start", "photo"], backdrop_color: "#8a949e", background_image: null, face_match: "normal", face_required: false, face_fresh_min: 120, walk_ins: true, default_gender: "M", default_unit: "combat",
-                           bib_start: 1, lanes: 3, start_countdown_s: 3, cancel_window_s: 120, finish_face_threshold: 0, site_name: "", default_language: "en", theme: "night", admin_pin_set: false, finish_shutter: "auto", start_line_on: true, start_setup_shown: true, go_effect: "racing", go_dim: 60, go_size: 100, go_speed: 100, go_duration: 1.7, go_lines: 100, go_lines_count: 220, go_lines_opacity: 100, go_opacity: 100 };
+                           bib_start: 1, lanes: 3, start_countdown_s: 3, cancel_window_s: 120, finish_face_threshold: 0, site_name: "", default_language: "en", theme: "night", admin_pin_set: false, finish_shutter: "auto", start_line_on: true, start_setup_shown: true, finish_line_on: true, go_effect: "racing", go_dim: 60, go_size: 100, go_speed: 100, go_duration: 1.7, go_lines: 100, go_lines_count: 220, go_lines_opacity: 100, go_opacity: 100 };
 const setting = k => (S.settings && k in S.settings ? S.settings[k] : SETTING_DEFAULTS[k]);
 function applySettings(first) {
   if (first && load("lang", null) == null && setting("default_language") !== lang) setLang(setting("default_language"), false);
@@ -6763,7 +6789,7 @@ const Evidence = {
 };
 const SET_FIELDS = {   // input id -> [setting, read, write]
   setAuto: ["auto_identify", v => v === "1", v => (v ? "1" : "0")], setBg: ["camera_background"], setMatch: ["face_match"], setFaceReq: ["face_required", v => v === "1", v => (v ? "1" : "0")], setFaceFresh: ["face_fresh_min", v => parseInt(v, 10), String],
-  setChooseFirst: ["station_choose_first", v => v === "1", v => (v ? "1" : "0")], setFcSetup: ["finish_setup_shown", v => v === "1", v => (v ? "1" : "0")], setSlSetup: ["start_setup_shown", v => v === "1", v => (v === false ? "0" : "1")], setStartLineOn: ["start_line_on", v => v === "1", v => (v === false ? "0" : "1")], setWalk: ["walk_ins", v => v === "1", v => (v ? "1" : "0")], setGender: ["default_gender"], setUnit: ["default_unit"], setBib: ["bib_start", v => parseInt(v, 10)],
+  setChooseFirst: ["station_choose_first", v => v === "1", v => (v ? "1" : "0")], setFcSetup: ["finish_setup_shown", v => v === "1", v => (v ? "1" : "0")], setSlSetup: ["start_setup_shown", v => v === "1", v => (v === false ? "0" : "1")], setStartLineOn: ["start_line_on", v => v === "1", v => (v === false ? "0" : "1")], setFinishLineOn: ["finish_line_on", v => v === "1", v => (v === false ? "0" : "1")], setWalk: ["walk_ins", v => v === "1", v => (v ? "1" : "0")], setGender: ["default_gender"], setUnit: ["default_unit"], setBib: ["bib_start", v => parseInt(v, 10)],
   setLanes: ["lanes", v => parseInt(v, 10), String], setStopAfter: ["station_stop_after_s", v => parseInt(v, 10) || 0, String], setOutS: ["station_out_s", v => parseInt(v, 10) || 0, String],
   setCountdown: ["start_countdown_s", v => parseInt(v, 10), String], setGoFx: ["go_effect"], setGoSpeed: ["go_speed", v => parseInt(v, 10), v => { const x = String(v ?? 100); $("setGoSpeedV").textContent = x + "%"; return x; }],
     setGoDur: ["go_duration", v => parseFloat(v), v => { const x = String(v ?? 1.7); $("setGoDurV").textContent = x + " s"; return x; }], setGoCount: ["go_lines_count", v => parseInt(v, 10), v => { const x = String(v ?? 220); $("setGoCountV").textContent = x; return x; }],

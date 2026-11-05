@@ -236,6 +236,7 @@ SETTINGS: dict[str, object] = {
     # registration
     "start_line_on": True,       # the start line by default: on (recognised behind the line, GO, the clock starts at the line) or off (a raised hand gives GO)
     "start_setup_shown": True,   # the start screen shows its line set-up (on/off, position, direction, colour key)
+    "finish_line_on": True,      # the finish line by default: on (the finish camera times each crossing) or off (the examiner times by hand)
     "finish_setup_shown": True,  # the finish screen shows its line position, direction and colour key (hide them once set)
     "station_choose_first": True,   # the one-mat station: the person picks push-ups or crunches first, with a raised hand
     "walk_ins": True,            # the weigh-in desk may register people who are not on the list

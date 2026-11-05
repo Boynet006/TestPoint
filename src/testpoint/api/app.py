@@ -145,6 +145,7 @@ class SettingsIn(BaseModel):
     finish_setup_shown: bool | None = None
     start_setup_shown: bool | None = None
     start_line_on: bool | None = None
+    finish_line_on: bool | None = None
     station_choose_first: bool | None = None
     default_gender: Literal["M", "F", ""] | None = None
     default_unit: Literal["combat", "admin", "special"] | None = None
