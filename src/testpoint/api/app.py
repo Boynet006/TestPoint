@@ -224,6 +224,13 @@ class StationCamIn(BaseModel):
     loop: bool = False
 
 
+class CorrectIn(BaseModel):
+    test: Literal["run", "pushup", "crunch"]
+    value: float
+    """The run time in seconds, or the count."""
+    reason: str = Field(min_length=1, max_length=300)
+
+
 class TagIn(BaseModel):
     bib: str
 
@@ -950,6 +957,12 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
         if late:
             S.check_admin_pin(db, request.headers.get("x-admin-pin"))
         return entry_out(S.cancel_start(db, day, S.get_entry(db, day, entry_id), late=late), day)
+
+    @app.post("/api/entries/{entry_id}/correct", dependencies=[Depends(admin)])
+    def correct_result(entry_id: int, body: CorrectIn, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:
+        """Correct a saved result (with a reason; the admin PIN when one is set)."""
+        e = S.correct_result(db, day, S.rules_for(db, day, rules), S.get_entry(db, day, entry_id), body.test, body.value, body.reason)
+        return entry_out(e, day, S.face_count(db, e.candidate_id, day))
 
     @app.post("/api/run/crossings/{crossing_id}/tag")
     def run_tag(crossing_id: int, body: TagIn, db: Session = Depends(get_db), day: Day = Depends(get_day)) -> dict:

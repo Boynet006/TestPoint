@@ -1632,6 +1632,44 @@ def cancel_attempt(db: Session, day: Day, attempt_id: int) -> None:
     db.commit()
 
 
+def correct_result(db: Session, day: Day, rules: DayRules, entry: Entry, test: str, value: float,
+                   reason: str) -> Entry:
+    """An examiner corrects a saved result (a rep the camera missed, a time from the stopwatch):
+    the run time in seconds, or the push-up or crunch count. Always with a reason; regraded as if
+    it had been saved so; the old and new values in the audit trail."""
+    reason = (reason or "").strip()
+    if not reason:
+        raise ServiceError("override_reason_required", "a correction needs a reason")
+    band = rules.find_band(entry.band)
+    if test == "run":
+        if entry.run_time_s is None:
+            raise ServiceError("no_result", f"{entry.candidate.name} has no run time to correct")
+        if not 0 < value < 24 * 3600:
+            raise ServiceError("bad_input", "the run time is in seconds", 400)
+        old = entry.run_time_s
+        entry.run_time_s = round(float(value), 1)
+        entry.run_grade = rules.grade("run", entry.run_time_s, band) if band else None
+        if entry.status in (J.RUN_PASSED, J.RUN_FAILED, J.RUN_DONE):
+            pass_s = band.run_s[GRADES.index(entry.level)] if band and entry.level in GRADES else None
+            entry.status = J.after_finish(entry.run_time_s, pass_s, rules.run_cutoff_s)
+    elif test in EVENTS:
+        a = next((x for x in entry.attempts if x.event == test and x.status == "finished"), None)
+        if a is None:
+            raise ServiceError("no_result", f"{entry.candidate.name} has no {test} result to correct")
+        if value < 0 or value != int(value) or value > 1000:
+            raise ServiceError("bad_count", "a count is a whole number", 400)
+        old = a.count
+        a.count = int(value)
+        a.grade = rules.grade(test, a.count, band) if band else None
+        a.passed = a.grade >= entry.level if band and entry.level else None
+        a.override_reason = reason
+    else:
+        raise ServiceError("bad_input", f"unknown test {test!r}", 400)
+    _audit(db, day, "admin", "correct_result", entry, test=test, old=old, new=value, reason=reason)
+    db.commit()
+    return entry
+
+
 def note_ended_early(db: Session, day: Day, attempt: Attempt, why: str, after_s: float) -> None:
     """The audit trail of a station test that ended before its time (the count so far stands)."""
     _audit(db, day, attempt.event, "ended_early", attempt.entry, attempt_id=attempt.id, why=why, after_s=after_s,
