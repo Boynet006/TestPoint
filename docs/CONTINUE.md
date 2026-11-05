@@ -70,6 +70,8 @@ a new address changes nothing. The certificate must carry the name: `scripts\htt
 ## 4. What to redo on the new machine
 
 - **Cameras:** Settings > Cameras: type each camera's address with its password again.
+- **Camera picture quality** (set in each camera, not in the app): main stream 2688x1520, 25 fps,
+  H.264 High, constant bitrate 8192 kbps (their maximum). Set on all three on 2026-11-05.
 - **People:** the database starts empty; register candidates again (fresh face photos each day).
 - **Lines:** the finish and start line positions are kept per browser: set them again on the
   finish and start line screens (Line set-up).

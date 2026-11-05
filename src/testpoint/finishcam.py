@@ -467,7 +467,7 @@ def main(argv: list[str] | None = None) -> int:
 
     preview = None
     if poster is not None and not args.no_preview:
-        preview = FramePublisher(args.app, args.station, lambda img, fps_now: draw(img, cam, fps_now))
+        preview = FramePublisher(args.app, args.station, lambda img, fps_now: draw(img, cam, fps_now), max_width=1920, quality=85)
         preview.tap(source, None if crop is None else lambda f: f[int(crop[1] * f.shape[0]):int(crop[3] * f.shape[0]),
                                                                     int(crop[0] * f.shape[1]):int(crop[2] * f.shape[1])])
         if isinstance(source, VideoPlayer):

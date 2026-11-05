@@ -525,7 +525,7 @@ def main(argv: list[str] | None = None) -> int:
             draw_lanes(img, lanes, res, meters_for(session.analyzer))   # the bars follow a retune at once
             draw_hud(img, session.analyzer.name, fps, "")
 
-        preview = FramePublisher(args.app, station, draw)
+        preview = FramePublisher(args.app, station, draw, max_width=1920, quality=85)   # as sharp as the start line's
         preview.tap(source)
         preview.start()
     sender.start()
