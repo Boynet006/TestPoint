@@ -425,6 +425,8 @@ class CrossingIn(BaseModel):
 ENGINE_STALE_S = 2.0
 MAX_VIDEO = 2 * 1024 * 1024 * 1024
 FRAME_STALE_S = 5.0
+FACE_DIMS = ((128,), (512,))
+"""Face vector sizes the cameras send: SFace 128, AdaFace 512 (api/faces.py)."""
 """A camera picture older than this is not shown (the engine stopped)."""
 class StationStartIn(BaseModel):
     query: str
@@ -1562,9 +1564,9 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
                     crop = base64.b64decode(body.crop, validate=True)
                 except ValueError:
                     crop = None
-            if emb.shape == (128,) and sl.state == "idle":
+            if emb.shape in FACE_DIMS and sl.state == "idle":
                 match = start_match(db, day, emb, body.quality, crop)
-            elif emb.shape == (128,) and sl.state in ("raise_hand", "countdown", "go") and sl.entry_id:
+            elif emb.shape in FACE_DIMS and sl.state in ("raise_hand", "countdown", "go") and sl.entry_id:
                 m = start_face_match(db, day, emb)     # more pictures while they wait at the line
                 if m.candidate_id == sl.entry_id:
                     keep_start_face(m, emb, body.quality, crop)
@@ -1700,7 +1702,7 @@ def create_app(db_url: str | None = None, tz: str | None = None, rules: DayRules
                 emb = np.frombuffer(base64.b64decode(lane.face, validate=True), np.float32)
             except ValueError:
                 emb = None
-            if emb is not None and emb.shape == (128,):
+            if emb is not None and emb.shape in FACE_DIMS:
                 match = flow_match(db, day, emb)
                 if match is None:
                     flow.unknown_face(wall())

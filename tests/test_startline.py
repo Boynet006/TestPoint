@@ -445,3 +445,37 @@ def test_the_run_is_timed_from_the_start_line_crossing(monkeypatch):
         started = c.get(f"/api/entries/{e}").json()
         assert started["status"] == "running"
         assert started["run_started_at"].startswith((t0 + timedelta(seconds=2.2)).isoformat()[:21])
+
+
+def test_a_512_float_face_from_the_start_camera_is_recognised(monkeypatch):
+    """AdaFace's vectors (512 floats) must be matched as SFace's were: they were ignored once."""
+    import base64
+
+    from fastapi.testclient import TestClient
+    from sqlalchemy.pool import StaticPool
+    from test_faces import A, FakeEngine
+
+    from testpoint.api import models
+    from testpoint.api.app import create_app
+
+    wide = lambda v: (np.tile(np.asarray(v, np.float32), 4) / 2).astype(np.float32)   # 512, still unit length
+
+    class Fake512(FakeEngine):
+        dim = 512
+
+        def face_from_bytes(self, data, require_single=False):
+            f = super().face_from_bytes(data, require_single)
+            f.embedding = wide(f.embedding)
+            return f
+
+    real = models.create_engine
+    monkeypatch.setattr(models, "create_engine", lambda url, **kw: real(url, poolclass=StaticPool, **kw))
+    app = create_app(db_url="sqlite:///:memory:", web_dir="none", today=lambda: "2026-10-20", face_engine=lambda: Fake512())
+    with TestClient(app) as c:
+        c.post("/api/entries/import", content=b"external_id,name,bib,gender,dob\nC-1,Alpha,11,M,2000-01-01\n")
+        eid = c.get("/api/entries").json()[0]["id"]
+        assert c.post(f"/api/entries/{eid}/face", content=b"face:A").status_code == 200
+        c.post(f"/api/entries/{eid}/weigh-in", json={"weight_kg": 70, "height_cm": 175, "accept": True})
+        emb = base64.b64encode(wide(A).tobytes()).decode()
+        states = [c.post("/api/engine/start/obs", json={"present": True, "emb": emb}).json()["state"] for _ in range(3)]
+        assert "raise_hand" in states, states

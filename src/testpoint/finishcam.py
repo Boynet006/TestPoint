@@ -221,6 +221,8 @@ class FinishCam:
     FACE_LOOK_S = 0.12
     """With a face finder: how often each runner's face is looked for while they approach."""
     MIN_FACE_PX = 40
+    min_face_px = MIN_FACE_PX
+    """The smallest face snapshot kept; the face engine's camera_min_px when it has one (AdaFace: 24)."""
 
     def _keep_head(self, track_id: int, frame: np.ndarray, box, t: float = 0.0) -> None:
         shots = self._heads.setdefault(track_id, [])
@@ -239,7 +241,7 @@ class FinishCam:
             if not found:
                 return
             fx, fy, fw, fh, score = found
-            if min(fw, fh) < self.MIN_FACE_PX:
+            if min(fw, fh) < self.min_face_px:
                 return
             # the head with room around it, at most 320 wide: plenty for recognition, small to send
             m = 0.7 * max(fw, fh)
@@ -472,6 +474,8 @@ def main(argv: list[str] | None = None) -> int:
     cam = FinishCam(detector, line, reader, evidence=evidence,
                     on_crossing=(poster.post if poster else None), ocr_async=True, face_finder=finder)
     cam.names = names
+    if finder is not None:
+        cam.min_face_px = getattr(eng, "camera_min_px", FinishCam.MIN_FACE_PX)
     print(f"finish cam: source {getattr(source, 'display_url', args.source)}  line {args.line} {args.direction}"
           f"  crop {args.crop or 'full'}  app {'off' if args.no_app else args.app}  ocr {'off' if reader is None else 'on'}")
 

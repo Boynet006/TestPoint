@@ -824,6 +824,12 @@ def _current(t: FaceTemplate, day: Day, since: datetime) -> bool:
     return t.day_id == day.id and t.created_at is not None and t.created_at >= since
 
 
+def camera_face(engine) -> dict:
+    """How small a face may be in a camera's picture, for an engine that says (the real one)."""
+    px = getattr(engine, "camera_min_px", None)
+    return {"min_px": px} if px else {}
+
+
 def reembed_templates(db: Session, engine) -> tuple[int, int]:
     """Face templates made by another recognition model (another size, e.g. SFace's 128 after the
     switch to AdaFace's 512) made again from their photo by the model in use. A photo in which no
@@ -1436,7 +1442,7 @@ def face_for_crossing(db: Session, day: Day, rules: DayRules, crossing: Crossing
     found = 0
     for shot in shots:
         try:
-            face = engine.face_from_bytes(shot, require_single=False)
+            face = engine.face_from_bytes(shot, require_single=False, **camera_face(engine))
         except Exception:        # no face in this snapshot (looking down, an arm across it)
             continue
         found += 1
@@ -1495,7 +1501,7 @@ def check_finish_face(db: Session, day: Day, crossing: Crossing, data: list[byte
     best = None
     for shot in data:
         try:
-            face = engine.face_from_bytes(shot, require_single=False)
+            face = engine.face_from_bytes(shot, require_single=False, **camera_face(engine))
         except Exception:                # noqa: BLE001 - no face in this snapshot
             continue
         m = face_match(face.embedding, gallery, threshold=threshold, margin=margin)
@@ -1757,17 +1763,18 @@ def note_calibration(db: Session, day: Day, attempt: Attempt, calibration: dict 
 
 def reset_run(db: Session, day: Day, entry: Entry) -> Entry:
     """The run is taken back so the person runs again (it went wrong): back to weighed in, ready
-    to line up; the time, the start and the finish are cleared (their crossing is left
-    unassigned, out of the review queue). Exercise results already saved stay. The audit log
-    keeps what was there."""
+    to line up; the time, the start and the finish are cleared (their crossings are removed, so
+    the finish screen does not list them as unnamed finishers). Exercise results already saved
+    stay. The audit log keeps what was there, the crossings too."""
     if entry.run_time_s is None and entry.status not in (J.DNF, J.RUNNING, J.LINED_UP) and not (
             entry.status == J.COMPLETE and entry.run_started_at is not None):
         raise ServiceError("no_result", f"{entry.candidate.name} has no run to reset")
+    crossings = list(db.scalars(select(Crossing).where(Crossing.entry_id == entry.id)))
     _audit(db, day, "admin", "reset_run", entry, status=entry.status, run_time_s=entry.run_time_s,
-           run_grade=entry.run_grade, started_at=entry.run_started_at, finished_at=entry.finished_at)
-    for c in db.scalars(select(Crossing).where(Crossing.entry_id == entry.id)):
-        c.entry_id, c.needs_review = None, False
-        c.note = ((c.note or "") + " | run reset").strip(" |")
+           run_grade=entry.run_grade, started_at=entry.run_started_at, finished_at=entry.finished_at,
+           crossings=[{"id": c.id, "at": c.at, "time_s": c.time_s, "source": c.source, "clip": c.clip_path} for c in crossings])
+    for c in crossings:
+        db.delete(c)
     entry.run_time_s = entry.run_grade = entry.finished_at = None
     entry.run_started_at = entry.run_cutoff_at = entry.lined_up_at = None
     entry.status = J.ACCEPTED

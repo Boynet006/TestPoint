@@ -356,7 +356,7 @@ class FaceLook:
         self._last = now
         x0, y0, x1, y1 = hb
         try:
-            f = self.engine.largest_face(frame[y0:y1, x0:x1])
+            f = self.engine.largest_face(frame[y0:y1, x0:x1], min_px=getattr(self.engine, "camera_min_px", None))
         except FaceError:
             return None
         return base64.b64encode(np.asarray(f.embedding, np.float32).tobytes()).decode()

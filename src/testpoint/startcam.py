@@ -115,7 +115,7 @@ class Analyst:
                 self._last_face = now
                 x0, y0, x1, y1 = hb
                 try:
-                    f = self.faces.largest_face(frame[y0:y1, x0:x1])
+                    f = self.faces.largest_face(frame[y0:y1, x0:x1], min_px=getattr(self.faces, "camera_min_px", None))
                     obs["emb"] = base64.b64encode(np.asarray(f.embedding, np.float32).tobytes()).decode()
                     obs["quality"] = f.quality
                     if f.crop_jpeg:

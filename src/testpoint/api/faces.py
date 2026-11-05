@@ -63,6 +63,10 @@ def common_score(raw: float, dim: int) -> float:
 DEFAULT_THRESHOLD = 0.363
 DEFAULT_MARGIN = 0.05
 MIN_FACE_PX = 40
+CAMERA_MIN_FACE_PX = 24
+"""The smallest face recognised in a camera's picture (finish, start line, station) with AdaFace: a
+runner's face 5-10 m from the camera is 25-40 px wide, and AdaFace was 96.9 % right on LFW faces
+shrunk to about 30 px (SFace keeps 40). Registration photos keep MIN_FACE_PX."""
 
 
 class FaceError(Exception):
@@ -76,7 +80,7 @@ class FaceError(Exception):
 class Face:
     box: tuple[int, int, int, int]   # x, y, w, h in image pixels
     score: float
-    embedding: np.ndarray            # (128,) float32, L2-normalised
+    embedding: np.ndarray            # (512,) AdaFace or (128,) SFace, float32, L2-normalised
     crop_jpeg: bytes                 # the photo people see: head and shoulders, 4:5 (see _largest_face)
     yaw: float = 0.0                 # head turn (head_yaw): about 0 facing the camera
     quality: float | None = None     # how good a template this picture makes (see ``quality``), 0..1; None = not measured
@@ -204,6 +208,7 @@ class FaceEngine:
         want = os.environ.get("TESTPOINT_FACE_MODEL", "auto").lower()
         self.model = "adaface" if want in ("auto", "adaface") and (self.model_dir / ADAFACE).is_file() else "sface"
         self.dim = 512 if self.model == "adaface" else 128
+        self.camera_min_px = CAMERA_MIN_FACE_PX if self.model == "adaface" else MIN_FACE_PX
         if device != "cpu":
             from ..vision import face_gpu
             if face_gpu.cuda_available():
@@ -287,14 +292,15 @@ class FaceEngine:
                 "yaw": round(head_yaw(f), 3), "yaw_box": round(head_yaw_box(f), 3),
                 "too_small": bool(min(bw, bh) < MIN_FACE_PX)}
 
-    def face_from_bytes(self, data: bytes, require_single: bool = False) -> Face:
-        return self.largest_face(decode_image(data), require_single)
+    def face_from_bytes(self, data: bytes, require_single: bool = False, min_px: int | None = None) -> Face:
+        return self.largest_face(decode_image(data), require_single, min_px)
 
-    def largest_face(self, img: np.ndarray, require_single: bool = False) -> Face:
+    def largest_face(self, img: np.ndarray, require_single: bool = False, min_px: int | None = None) -> Face:
+        """``min_px``: the smallest face taken (default MIN_FACE_PX; camera pictures: camera_min_px)."""
         with self._lock:
-            return self._largest_face(img, require_single)
+            return self._largest_face(img, require_single, min_px)
 
-    def _largest_face(self, img: np.ndarray, require_single: bool = False) -> Face:
+    def _largest_face(self, img: np.ndarray, require_single: bool = False, min_px: int | None = None) -> Face:
         import cv2
 
         # YuNet works best around 640 px. Try that first (close-up portraits, where the face
@@ -314,7 +320,7 @@ class FaceEngine:
                 break
         if len(faces) == 0:
             raise FaceError("no_face", "no face found in the picture")
-        big = [f for f in faces if min(f[2], f[3]) >= MIN_FACE_PX]
+        big = [f for f in faces if min(f[2], f[3]) >= (min_px or MIN_FACE_PX)]
         if not big:
             raise FaceError("face_too_small", "the face is too small; move closer to the camera")
         if require_single and len(big) > 1:

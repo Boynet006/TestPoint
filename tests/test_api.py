@@ -172,8 +172,12 @@ def test_full_day(client, monkeypatch):
     e = ok(client.post(f"/api/entries/{ids[11]}/reset", json={"test": "crunch"}))
     assert "crunch" not in e["events"] and e["events"]["pushup"]["count"] == 45 and e["status"] == "run_passed"
     err(client.post(f"/api/entries/{ids[11]}/reset", json={"test": "crunch"}), 409, "no_result")
+    mine = [c["id"] for c in ok(client.get("/api/run/crossings")) if c["entry_id"] == ids[11]]
+    assert mine
     e = ok(client.post(f"/api/entries/{ids[11]}/reset", json={"test": "run"}))
     assert e["status"] == "accepted" and e["run_time_s"] is None and e["events"]["pushup"]["count"] == 45
+    # its crossing is gone (not left as an unnamed finisher); the audit log keeps it
+    assert not {c["id"] for c in ok(client.get("/api/run/crossings"))} & set(mine)
     err(client.post(f"/api/entries/{ids[11]}/reset", json={"test": "run"}), 409, "no_result")
 
     # a cancelled attempt can be retried
