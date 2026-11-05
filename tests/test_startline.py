@@ -515,6 +515,10 @@ def test_rolling_start_recognises_runners_on_the_move_and_starts_them_at_the_lin
         assert e["status"] == "running" and e["run_started_at"].startswith((t0 - timedelta(seconds=0.4)).isoformat()[:21])
         # crossing again (walking back): nothing changes
         assert cross([pic(b"A")])["status"] == "ignored"
+        # a start by mistake is cancelled: the same person is not started again by the next crossing
+        assert c.post(f"/api/entries/{ids['11']}/start/cancel").status_code == 200
+        r = cross([pic(b"A"), pic(b"A")])
+        assert r["status"] == "ignored" and r["reason"] == "just_cancelled"
         # Bravo is not weighed in: recognised, refused with the reason, not started
         r = cross([pic(b"B")])
         assert r["status"] == "refused" and r["reason"] == "not_weighed"
@@ -548,3 +552,34 @@ def test_rolling_start_with_nobody_waiting_ignores_whoever_crosses(monkeypatch):
     with TestClient(app) as c:
         r = c.post("/api/engine/start/crossing", json={"faces": []}).json()
         assert r["status"] == "ignored" and r["reason"] == "nobody_waiting" and not r["needs_review"]
+
+
+def test_a_sure_rolling_start_keeps_the_start_cameras_pictures_for_the_finish(monkeypatch):
+    import base64
+
+    from fastapi.testclient import TestClient
+    from sqlalchemy import func, select
+    from sqlalchemy.pool import StaticPool
+    from test_faces import FakeEngine
+
+    from testpoint.api import models
+    from testpoint.api.app import create_app
+
+    real = models.create_engine
+    monkeypatch.setattr(models, "create_engine", lambda url, **kw: real(url, poolclass=StaticPool, **kw))
+    app = create_app(db_url="sqlite:///:memory:", web_dir="none", today=lambda: "2026-10-20", face_engine=lambda: FakeEngine())
+    pic = lambda data: base64.b64encode(data).decode()
+    learnt = lambda: app.state.sessionmaker().scalar(select(func.count()).select_from(models.FaceTemplate).where(models.FaceTemplate.source == "start"))
+    with TestClient(app) as c:
+        c.post("/api/entries/import", content=b"external_id,name,bib,gender,dob\nC-1,Alpha,11,M,2000-01-01\nC-2,Bravo,12,M,2000-01-01\n")
+        ids = {e["candidate"]["bib"]: e["id"] for e in c.get("/api/entries").json()}
+        for bib, who in (("11", b"A"), ("12", b"B")):
+            c.post(f"/api/entries/{ids[bib]}/face", content=b"face:" + who)
+            c.post(f"/api/entries/{ids[bib]}/weigh-in", json={"weight_kg": 70, "height_cm": 175, "accept": True})
+        # two pictures agree: started, nothing learnt (too few to be sure enough to learn)
+        r = c.post("/api/engine/start/crossing", json={"faces": [pic(b"face:B:venue:sharp")] * 2}).json()
+        assert r["status"] == "started" and learnt() == 0
+        # three: started, and the course camera's picture kept for the finish
+        r = c.post("/api/engine/start/crossing", json={"faces": [pic(b"face:A:venue:sharp")] * 3}).json()
+        assert r["status"] == "started" and r["runner"]["bib"] == "11"
+        assert learnt() >= 1

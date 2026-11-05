@@ -1003,6 +1003,7 @@
         <summary><span data-t="sl_setup"></span><small data-t="sl_setup_hint"></small></summary>
         <p class="hint camlegend"><span style="color:#ffc800">■</span> <span data-t="sl_box_mark"></span> &nbsp; <span style="color:#50dc50">■</span> <span data-t="sl_box_hand"></span> &nbsp; <span style="color:#f0f0f0">━</span> <span data-t="sl_box_line"></span></p>
         <div class="settings" style="margin-top:8px">
+          <p class="hint hidden" id="slRollHint" data-t="sl_roll_hint" style="grid-column:1/-1"></p>
           <label for="slOn" data-t="sl_on"></label>
           <select id="slOn" onchange="StartLineCfg.changed()"><option value="0" data-t="off"></option><option value="1" data-t="on"></option></select>
           <span class="hint" data-t="sl_on_hint"></span>
@@ -1099,6 +1100,7 @@
       <div id="camSlot-start"></div>
       <div id="sCall" class="callbox hidden"></div>
       <div id="sRoll" class="card hidden" style="margin-top:10px"><h3 class="sec" style="margin-top:0" data-t="roll_title"></h3><p class="hint" data-t="roll_hint"></p><div class="tablewrap"><table id="sRollTable"></table></div></div>
+      <div id="sRecent" class="card hidden" style="margin-top:10px"><h3 class="sec" style="margin-top:0" data-t="roll_recent"></h3><div class="tablewrap"><table id="sRecentTable"></table></div></div>
       <div class="search" style="margin-top:10px"><input id="sQuery" data-tp="ph_bib" autocomplete="off" onkeydown="if(event.key==='Enter')lineUp()"><button class="btn amber" onclick="lineUp()" data-t="mark_present"></button></div>
       <div id="sMsg"></div>
       <div id="sLast" class="lastmark hidden"></div>
@@ -1814,7 +1816,8 @@ const I18N = {
     st_false_start: "False start, not counted: get into the start position again",
     call_rolling: "Walk to the start line and go: your time starts as you cross it", roll_started: "started",
     roll_title: "Start crossings to name", roll_hint: "Someone crossed the start line and the camera could not say who. Pick the runner: their time starts from that crossing. Not a runner: discard.",
-    roll_assign: "Start them", e_already_running: "Already running", e_not_recognised: "Not recognised", e_cannot_start: "Cannot start now",
+    roll_assign: "Start them", roll_recent: "Recent starts",
+    sl_roll_hint: "Rolling start: put the line on the floor where the runners' feet cross it, and face the camera towards the runners coming (their faces are recognised on the way to the line).", e_already_running: "Already running", e_not_recognised: "Not recognised", e_cannot_start: "Cannot start now",
     set_rolling: "Rolling start", set_rolling_hint: "On: no stopping, no hand, no GO. The start camera recognises each runner on the way and their time starts the moment they cross the start line, as the finish camera does (timed the same way at both lines). Someone it cannot recognise is listed on the start screen for the examiner to name. Off: the start line and hand settings below. Restart the start camera after a change.",
     st_timeout: "Not in position in time: step onto the mat again",
     st_stepped_away: "They stepped away: step onto the mat again",
@@ -2235,7 +2238,8 @@ const I18N = {
     st_false_start: "بداية خاطئة، لم تُحتسب: عد إلى وضعية البداية",
     call_rolling: "امشِ إلى خط البداية وانطلق: يبدأ وقتك لحظة عبوره", roll_started: "انطلق",
     roll_title: "عبور لخط البداية بحاجة إلى تسمية", roll_hint: "عبر شخص خط البداية ولم تتعرف عليه الكاميرا. اختر العدّاء: يبدأ وقته من لحظة ذلك العبور. ليس عدّاءً: احذفه.",
-    roll_assign: "أطلقه", e_already_running: "يجري الآن", e_not_recognised: "لم يتم التعرّف", e_cannot_start: "لا يمكنه الانطلاق الآن",
+    roll_assign: "أطلقه", roll_recent: "آخر الانطلاقات",
+    sl_roll_hint: "انطلاق متحرك: ضع الخط على الأرض حيث تعبره أقدام العدّائين، ووجّه الكاميرا نحو العدّائين القادمين (يُتعرّف على وجوههم في طريقهم إلى الخط).", e_already_running: "يجري الآن", e_not_recognised: "لم يتم التعرّف", e_cannot_start: "لا يمكنه الانطلاق الآن",
     set_rolling: "انطلاق متحرك", set_rolling_hint: "مفعّل: بلا توقف ولا رفع يد ولا إشارة انطلاق. تتعرّف كاميرا البداية على كل عدّاء في طريقه ويبدأ وقته لحظة عبوره خط البداية، كما تفعل كاميرا النهاية (التوقيت بنفس الطريقة عند الخطين). من لا تتعرّف عليه يظهر في شاشة البداية ليسمّيه الفاحص. متوقف: إعدادات خط البداية واليد أدناه. أعد تشغيل كاميرا البداية بعد التغيير.",
     st_timeout: "لم يتخذ الوضعية في الوقت: قف على البساط مجدداً",
     st_stepped_away: "ابتعد: قف على البساط مجدداً",
@@ -4114,15 +4118,25 @@ const StartCall = {
   sig: "", busy: false,
   active: () => role === "start" && mode === "simple" && Cam.relayed() && StartCam.live,
   rolling: () => !!(StartCam.st && StartCam.st.config && StartCam.st.config.rolling),
+  // rolling start: no hand, no stop at the line, no bib at the line: those controls go
+  tidy(r) {
+    const onStart = role === "start";
+    $("idBtn").parentElement.classList.toggle("hidden", onStart && r);
+    $("sQuery").parentElement.classList.toggle("hidden", onStart && r);
+    $("slRollHint").classList.toggle("hidden", !r);
+    for (const id of ["slOn"]) { const el = $(id); el.classList.toggle("hidden", r); el.previousElementSibling.classList.toggle("hidden", r); el.nextElementSibling.classList.toggle("hidden", r); }
+    if (r) $("slLineY").disabled = $("slDir").disabled = false;
+  },
   async poll() {
     const box = $("sCall");
-    if (!this.active()) { box.classList.add("hidden"); $("sRoll").classList.add("hidden"); this.sig = ""; return; }
+    this.tidy(this.active() && this.rolling());
+    if (!this.active()) { box.classList.add("hidden"); $("sRoll").classList.add("hidden"); $("sRecent").classList.add("hidden"); this.sig = ""; return; }
     if (this.busy) return; this.busy = true;
     if (this.rolling()) {
       try { this.rows = await api("GET", "/api/startline/crossings"); } catch { this.rows = null; } finally { this.busy = false; }
       this.renderRolling(); return;
     }
-    $("sRoll").classList.add("hidden");
+    $("sRoll").classList.add("hidden"); $("sRecent").classList.add("hidden");
     try { this.v = await api("GET", "/api/startline"); } catch { this.v = null; } finally { this.busy = false; }
     this.render();
   },
@@ -4142,6 +4156,17 @@ const StartCall = {
       this.fxFor = last.id; GoFX.go("start", `${cname(last.entry)}\n${t("go")}`); refresh();
     }
     if (this.fxFor === undefined && last) this.fxFor = last.id;          // not the ones from before the page opened
+    // the last starts, each with Cancel start (someone who only walked over the line)
+    const recent = rows.filter(c => c.status === "started").slice(0, 5), byId = Object.fromEntries(S.entries.map(e => [e.id, e]));
+    $("sRecent").classList.toggle("hidden", !recent.length);
+    const rsig = lang + "|" + recent.map(c => c.id + ":" + (byId[c.entry.id] || {}).status).join(",");
+    if (rsig !== this.recentSig) {
+      this.recentSig = rsig;
+      $("sRecentTable").innerHTML = recent.map(c => { const e = byId[c.entry.id], on = e && e.status === "running" && e.run_started_at && Math.abs(Date.parse(e.run_started_at) - Date.parse(c.at)) < 1000;
+        return `<tr><td class="t">${esc(new Date(c.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }))}</td><td>${name(c.entry)}</td>`
+          + `<td>${e ? statusPill(e.status) : ""}</td>`
+          + `<td style="text-align:end">${on ? `<button class="btn ghost sm" onclick="confirmClick('rcs${c.id}', this, () => cancelRunnerStart(${c.entry.id}, false))">${esc(t("cancel_start"))}</button>` : ""}</td></tr>`; }).join("");
+    }
     // to name: a select of who may start (weighed in, not run), Start them / Discard
     const todo = rows.filter(c => c.status === "review" || c.status === "refused");
     $("sRoll").classList.toggle("hidden", !todo.length);

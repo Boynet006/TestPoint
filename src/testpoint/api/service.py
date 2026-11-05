@@ -1294,6 +1294,13 @@ def start_runner(db: Session, day: Day, rules: DayRules, entry: Entry, countdown
     return entry
 
 
+ROLLING_AFTER_CANCEL_S = 30.0
+"""A start cancelled by mistake: the same person is not started again by a crossing this soon."""
+ROLLING_LEARN_VOTES = 3
+"""A rolling start learns the start camera's pictures of the runner only when at least this many of
+them agree (a wrong person learnt would follow them to the finish)."""
+
+
 def rolling_start(db: Session, day: Day, rules: DayRules, at: datetime, shots: list[bytes], engine,
                   clip: str | None = None) -> tuple["StartCrossing", Entry | None]:
     """Rolling start: someone crossed the start line on the start camera. Their face, from the
@@ -1306,6 +1313,7 @@ def rolling_start(db: Session, day: Day, rules: DayRules, at: datetime, shots: l
     threshold, margin = FACE_MATCH.get(get_settings(db)["face_match"], FACE_MATCH["normal"])
     votes: dict[int, int] = {}
     best: dict[int, float] = {}
+    seen: list[tuple] = []
     looked = 0
     for shot in shots:
         try:
@@ -1317,6 +1325,7 @@ def rolling_start(db: Session, day: Day, rules: DayRules, at: datetime, shots: l
         if m.candidate_id is not None:
             votes[m.candidate_id] = votes.get(m.candidate_id, 0) + 1
             best[m.candidate_id] = max(best.get(m.candidate_id, 0.0), m.score)
+            seen.append((m.candidate_id, face, m.score, m.runner_up))
     # one person, never two: the pictures agree (several pictures of one face, or one clear one)
     eid = next(iter(votes)) if len(votes) == 1 else None
     entry = db.get(Entry, eid) if eid is not None else None
@@ -1327,6 +1336,9 @@ def rolling_start(db: Session, day: Day, rules: DayRules, at: datetime, shots: l
         c.status, c.note_code = ("review", "not_recognised" if looked else "no_face") if waiting else ("ignored", "nobody_waiting")
     elif entry.status == J.RUNNING or entry.run_time_s is not None or entry.status in (J.DNF, J.COMPLETE):
         c.status, c.note_code = "ignored", "already_ran" if entry.status != J.RUNNING else "already_running"
+    elif db.scalar(select(AuditLog.id).where(AuditLog.entry_id == entry.id, AuditLog.action == "cancel_start",
+                                             AuditLog.at >= at - timedelta(seconds=ROLLING_AFTER_CANCEL_S)).limit(1)):
+        c.status, c.note_code = "ignored", "just_cancelled"
     else:
         gate = gate_for(entry, day, "lineup")
         if entry.status != J.LINED_UP and not gate.ok:
@@ -1339,6 +1351,16 @@ def rolling_start(db: Session, day: Day, rules: DayRules, at: datetime, shots: l
                 c.status = "started"
             except ServiceError as e:
                 c.status, c.note_code = "review", e.code
+            if c.status == "started" and votes[eid] >= ROLLING_LEARN_VOTES:
+                # the course camera's own pictures of them (its light, its distance): templates for
+                # the finish camera, which sees them the same way, from very sure matches only
+                learnt = 0
+                for cid, face, score, runner_up in sorted(seen, key=lambda s: -s[2]):
+                    if cid == eid and learnt < MAX_START and adapt_template(
+                            db, day, entry, face, score, runner_up, min_score=ADAPT_START_SCORE,
+                            min_quality=ADAPT_START_QUALITY, source="start", limit=MAX_START):
+                        learnt += 1
+                        db.flush()
     db.add(c)
     _audit(db, day, "start", "rolling_start", entry, at=at, status=c.status, reason=c.note_code,
            score=c.score, pictures=len(shots), faces=looked, votes=votes)

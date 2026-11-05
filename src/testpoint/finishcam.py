@@ -46,6 +46,9 @@ from .vision.tracker import IoUTracker, Track
 
 CROSSING_PATH = "/api/engine/crossing"
 START_CROSSING_PATH = "/api/engine/start/crossing"
+START_MIN_APPROACH, START_MIN_TRAVEL = 0.12, 0.15
+"""Rolling start: the person comes from at least this far behind the line and travels at least this
+far (shares of the picture), more than at the finish (0.05, 0.06)."""
 """--report start: the same camera work at the start line (rolling start): a runner recognised on
 the way, their clock started as they cross it."""
 
@@ -480,6 +483,10 @@ def main(argv: list[str] | None = None) -> int:
     cam = FinishCam(detector, line, reader, evidence=evidence, evidence_folder="start" if args.report == "start" else "run",
                     on_crossing=(poster.post if poster else None), ocr_async=True, face_finder=finder)
     cam.names = names
+    if args.report == "start":
+        # a rolling start is someone setting off: from well behind the line and a real distance,
+        # not someone sitting or shifting near it (that started a seated examiner, twice)
+        line.MIN_APPROACH, line.MIN_TRAVEL = START_MIN_APPROACH, START_MIN_TRAVEL
     if finder is not None:
         cam.min_face_px = getattr(eng, "camera_min_px", FinishCam.MIN_FACE_PX)
     print(f"finish cam: source {getattr(source, 'display_url', args.source)}  line {args.line} {args.direction}"
