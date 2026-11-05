@@ -306,6 +306,7 @@
   .hmenu-pop .sw::after { content: ""; position: absolute; top: 2px; inset-inline-start: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--text); transition: inset-inline-start .15s; }
   .hmenu-pop button.active .sw { background: var(--amber); } .hmenu-pop button.active .sw::after { inset-inline-start: 18px; background: var(--amber-ink); }
   .seg button.active { background: var(--amber); color: var(--amber-ink); font-weight: 700; }
+  .seg.goplaces { margin-top: 8px; } .seg.goplaces button { flex: 1 1 0; padding: 10px 8px; }
   .conn { font-family: var(--cond); font-size: 14px; letter-spacing: 1px; text-transform: uppercase; }
   .conn.ok { color: var(--go); } .conn.bad { color: var(--stop); }
   main { padding: 14px 20px 14px; max-width: 1500px; margin: 0 auto; }
@@ -1604,11 +1605,10 @@
     <div class="card setpanel" data-p="gofx" data-scope="station">
       <h2 data-t="sec_gofx"></h2>
       <p class="hint" data-t="gofx_intro"></p>
-      <div class="settings">
-        <label for="setGoScope" data-t="gofx_scope"></label>
-        <select id="setGoScope" onchange="GoHere.scope(this.value)"><option value="station" data-t="gofx_scope_all"></option><option value="here" data-t="gofx_scope_here"></option></select>
-        <span class="hint" data-t="gofx_scope_hint"></span>
-      </div>
+      <h3 class="gofx-h" data-t="gofx_for"></h3>
+      <div class="seg goplaces" id="goPlaces"><button type="button" data-g="start" onclick="GoStyle.pick('start')" data-t="sl_on"></button><button type="button" data-g="pushup" onclick="GoStyle.pick('pushup')" data-t="pushup"></button><button type="button" data-g="crunch" onclick="GoStyle.pick('crunch')" data-t="crunch"></button><button type="button" data-g="finish" onclick="GoStyle.pick('finish')" data-t="set_fl_on"></button></div>
+      <p class="hint" data-t="gofx_for_hint" style="margin-top:6px"></p>
+      <input type="hidden" id="setGoStyles">
       <h3 class="gofx-h" data-t="gofx_g_effect"></h3>
       <div class="settings">
         <label for="setGoFx" data-t="set_gofx"></label>
@@ -1816,8 +1816,7 @@ const I18N = {
     n_face_bib_disagree: "the bib read and the face disagree: the face looks like bib {bib}",
     call_timeout: "No hand raised: step onto the mark again",
     call_stepped_away: "The runner stepped away: step onto the mark again",
-    call_raise: "Raise a hand to start", set_gofx: "Effect", set_godim: "Darkness", set_gosize: "Size", set_goa: "Opacity", set_goa_hint: "How solid the word GO is: 100% full, lower lets the screen show through.", set_golines: "Area", set_gocount: "Count", set_gocount_hint: "How many lines (speed streaks): fewer for a cleaner look.", set_golinea: "Opacity", set_golinea_hint: "How strong the lines, rings and sparks are: 100% full, 0% invisible.", set_golines_hint: "How much of the screen the lines take (speed streaks, rings, bursts): 100% the whole screen, less a box around GO, 0% no lines.", set_gospeed: "Speed", set_gospeed_hint: "How fast the effect moves: 100% as designed, 200% twice as fast.", set_godur: "Duration", set_godur_hint: "How long GO stays on the screen, fading out at the end.", set_gosize_hint: "How big GO is drawn: 100% fills most of the screen height.", set_godim_hint: "How dark the screen goes behind GO: 0% the screen stays as it is, 100% black. Preview shows it.", set_gofx_hint: "Shown full screen at GO on the start line and when a station test starts.", gofx_preview: "Preview", gofx_racing: "Racing", sec_gofx: "GO effect", gofx_scope: "Applies to", gofx_scope_all: "Every screen", gofx_scope_here: "This screen only",
-    gofx_scope_hint: "Every screen: the station's GO, saved with Save settings for every device. This screen only: this screen keeps its own GO (each change is kept here at once); the others keep the station's.", gofx_intro: "The full-screen GO on the start line and when a station test starts. Let go of a slider to see it; Save settings keeps it on every device.", gofx_g_effect: "Effect", gofx_g_word: "The word GO", gofx_g_back: "Background", gofx_g_lines: "Lines", gofx_g_time: "Timing", gofx_shockwave: "Shockwave", gofx_slam: "Slam", gofx_neon: "Neon", gofx_hyperspace: "Hyperspace", gofx_fireworks: "Fireworks", call_go_line: "GO! Your time starts when you cross the line", call_behind_line: "Step back behind the line", call_false_start: "False start: over the line before GO. Step back behind the line", sl_setup: "Start line set-up", sl_setup_hint: "Colour key, line position, runners' direction.", sl_box_mark: "the runner at the mark", sl_box_hand: "a hand raised", sl_box_line: "the start line (red while a foot is over it)", sl_on: "Start line", sl_on_hint: "On: no hand to raise. Recognised behind the line, the runner sees GO and their clock starts the moment they cross it. Off: a raised hand gives GO.", sl_line: "Line position", sl_line_hint: "The white line on the picture: put it on the floor where the runners' toes go. It turns red when someone is over it.", sl_dir: "Running direction", sl_dir_down: "Towards the camera (down the picture)", sl_dir_up: "Away from the camera (up the picture)", sl_dir_hint: "Which side of the line is the course",
+    call_raise: "Raise a hand to start", set_gofx: "Effect", set_godim: "Darkness", set_gosize: "Size", set_goa: "Opacity", set_goa_hint: "How solid the word GO is: 100% full, lower lets the screen show through.", set_golines: "Area", set_gocount: "Count", set_gocount_hint: "How many lines (speed streaks): fewer for a cleaner look.", set_golinea: "Opacity", set_golinea_hint: "How strong the lines, rings and sparks are: 100% full, 0% invisible.", set_golines_hint: "How much of the screen the lines take (speed streaks, rings, bursts): 100% the whole screen, less a box around GO, 0% no lines.", set_gospeed: "Speed", set_gospeed_hint: "How fast the effect moves: 100% as designed, 200% twice as fast.", set_godur: "Duration", set_godur_hint: "How long GO stays on the screen, fading out at the end.", set_gosize_hint: "How big GO is drawn: 100% fills most of the screen height.", set_godim_hint: "How dark the screen goes behind GO: 0% the screen stays as it is, 100% black. Preview shows it.", set_gofx_hint: "Shown full screen at GO on the start line and when a station test starts.", gofx_preview: "Preview", gofx_racing: "Racing", sec_gofx: "GO effect", gofx_for: "Settings for", gofx_for_hint: "Each place has its own effect: GO at the start line and when push-ups or crunches start; at the finish line the runner's name and time when they cross. Pick one, set it, Preview; Save settings keeps all four on every screen.", gofx_intro: "The full-screen GO on the start line and when a station test starts. Let go of a slider to see it; Save settings keeps it on every device.", gofx_g_effect: "Effect", gofx_g_word: "The word GO", gofx_g_back: "Background", gofx_g_lines: "Lines", gofx_g_time: "Timing", gofx_shockwave: "Shockwave", gofx_slam: "Slam", gofx_neon: "Neon", gofx_hyperspace: "Hyperspace", gofx_fireworks: "Fireworks", call_go_line: "GO! Your time starts when you cross the line", call_behind_line: "Step back behind the line", call_false_start: "False start: over the line before GO. Step back behind the line", sl_setup: "Start line set-up", sl_setup_hint: "Colour key, line position, runners' direction.", sl_box_mark: "the runner at the mark", sl_box_hand: "a hand raised", sl_box_line: "the start line (red while a foot is over it)", sl_on: "Start line", sl_on_hint: "On: no hand to raise. Recognised behind the line, the runner sees GO and their clock starts the moment they cross it. Off: a raised hand gives GO.", sl_line: "Line position", sl_line_hint: "The white line on the picture: put it on the floor where the runners' toes go. It turns red when someone is over it.", sl_dir: "Running direction", sl_dir_down: "Towards the camera (down the picture)", sl_dir_up: "Away from the camera (up the picture)", sl_dir_hint: "Which side of the line is the course",
     call_no_camera: "The start camera is not sending: check it below",
     call_step_up: "Step onto the mark and look at the camera",
     e_low_quality: "The photo is not good enough to recognise them by later (blurred, dark or too small): take another",
@@ -2233,8 +2232,7 @@ const I18N = {
     n_face_bib_disagree: "الرقم المقروء والوجه لا يتطابقان: الوجه يشبه الرقم {bib}",
     call_timeout: "لم تُرفع اليد: قف على العلامة مجدداً",
     call_stepped_away: "ابتعد العدّاء: قف على العلامة مجدداً",
-    call_raise: "ارفع يدك للبدء", set_gofx: "التأثير", set_godim: "العتمة", set_gosize: "الحجم", set_goa: "الشفافية", set_goa_hint: "مدى وضوح كلمة الانطلاق: 100% كاملة، أقل تظهر الشاشة من خلالها.", set_golines: "المساحة", set_gocount: "العدد", set_gocount_hint: "عدد الخطوط (خطوط السرعة): أقل لمظهر أنظف.", set_golinea: "الشفافية", set_golinea_hint: "قوة الخطوط والحلقات والشرر: 100% كاملة، 0% غير مرئية.", set_golines_hint: "كم تأخذ الخطوط من الشاشة (خطوط السرعة، الحلقات، الانفجارات): 100% الشاشة كلها، أقل منطقة حول الكلمة، 0% بلا خطوط.", set_gospeed: "السرعة", set_gospeed_hint: "سرعة حركة التأثير: 100% كما صُمم، 200% أسرع بمرتين.", set_godur: "المدة", set_godur_hint: "مدة بقاء إشارة الانطلاق على الشاشة، مع تلاشيها في النهاية.", set_gosize_hint: "حجم كلمة الانطلاق: 100% تملأ معظم ارتفاع الشاشة.", set_godim_hint: "مدى إعتام الشاشة خلف إشارة الانطلاق: 0% تبقى الشاشة كما هي، 100% سوداء. المعاينة تعرضه.", set_gofx_hint: "يظهر بملء الشاشة عند الانطلاق في خط البداية وعند بدء اختبار في المحطة.", gofx_preview: "معاينة", gofx_racing: "سباق", sec_gofx: "تأثير الانطلاق", gofx_scope: "يُطبَّق على", gofx_scope_all: "كل الشاشات", gofx_scope_here: "هذه الشاشة فقط",
-    gofx_scope_hint: "كل الشاشات: تأثير المحطة، يُحفظ بزر حفظ الإعدادات لكل الأجهزة. هذه الشاشة فقط: تحتفظ هذه الشاشة بتأثيرها الخاص (يُحفظ كل تغيير هنا فوراً)؛ وتبقى الشاشات الأخرى على تأثير المحطة.", gofx_intro: "إشارة الانطلاق بملء الشاشة في خط البداية وعند بدء اختبار في المحطة. اترك المؤشر لترى التغيير؛ حفظ الإعدادات يعتمده على كل الأجهزة.", gofx_g_effect: "التأثير", gofx_g_word: "كلمة الانطلاق", gofx_g_back: "الخلفية", gofx_g_lines: "الخطوط", gofx_g_time: "التوقيت", gofx_shockwave: "موجة صدمة", gofx_slam: "ارتطام", gofx_neon: "نيون", gofx_hyperspace: "سرعة الضوء", gofx_fireworks: "ألعاب نارية", call_go_line: "انطلق! يبدأ وقتك عند عبورك الخط", call_behind_line: "ارجع خلف الخط", call_false_start: "بداية خاطئة: تجاوز الخط قبل الانطلاق. ارجع خلف الخط", sl_setup: "إعداد خط البداية", sl_setup_hint: "دليل الألوان، موضع الخط، اتجاه العدّائين.", sl_box_mark: "العدّاء عند العلامة", sl_box_hand: "يد مرفوعة", sl_box_line: "خط البداية (أحمر عند تجاوز قدم له)", sl_on: "خط البداية", sl_on_hint: "مفعّل: لا حاجة لرفع اليد. عند التعرّف عليه خلف الخط يرى العدّاء إشارة الانطلاق ويبدأ وقته لحظة عبوره. متوقف: رفع اليد يعطي الانطلاق.", sl_line: "موضع الخط", sl_line_hint: "الخط الأبيض على الصورة: ضعه على الأرض حيث تكون أصابع قدمي العدّاء. يصبح أحمر عند تجاوزه.", sl_dir: "اتجاه الجري", sl_dir_down: "نحو الكاميرا (إلى أسفل الصورة)", sl_dir_up: "بعيداً عن الكاميرا (إلى أعلى الصورة)", sl_dir_hint: "أي جانب من الخط هو المسار",
+    call_raise: "ارفع يدك للبدء", set_gofx: "التأثير", set_godim: "العتمة", set_gosize: "الحجم", set_goa: "الشفافية", set_goa_hint: "مدى وضوح كلمة الانطلاق: 100% كاملة، أقل تظهر الشاشة من خلالها.", set_golines: "المساحة", set_gocount: "العدد", set_gocount_hint: "عدد الخطوط (خطوط السرعة): أقل لمظهر أنظف.", set_golinea: "الشفافية", set_golinea_hint: "قوة الخطوط والحلقات والشرر: 100% كاملة، 0% غير مرئية.", set_golines_hint: "كم تأخذ الخطوط من الشاشة (خطوط السرعة، الحلقات، الانفجارات): 100% الشاشة كلها، أقل منطقة حول الكلمة، 0% بلا خطوط.", set_gospeed: "السرعة", set_gospeed_hint: "سرعة حركة التأثير: 100% كما صُمم، 200% أسرع بمرتين.", set_godur: "المدة", set_godur_hint: "مدة بقاء إشارة الانطلاق على الشاشة، مع تلاشيها في النهاية.", set_gosize_hint: "حجم كلمة الانطلاق: 100% تملأ معظم ارتفاع الشاشة.", set_godim_hint: "مدى إعتام الشاشة خلف إشارة الانطلاق: 0% تبقى الشاشة كما هي، 100% سوداء. المعاينة تعرضه.", set_gofx_hint: "يظهر بملء الشاشة عند الانطلاق في خط البداية وعند بدء اختبار في المحطة.", gofx_preview: "معاينة", gofx_racing: "سباق", sec_gofx: "تأثير الانطلاق", gofx_for: "الإعدادات لـ", gofx_for_hint: "لكل مكان تأثيره الخاص: الانطلاق في خط البداية وعند بدء الضغط أو البطن؛ وفي خط النهاية اسم العدّاء ووقته عند عبوره. اختر مكاناً واضبطه ثم اضغط معاينة؛ حفظ الإعدادات يحفظ الأربعة على كل الشاشات.", gofx_intro: "إشارة الانطلاق بملء الشاشة في خط البداية وعند بدء اختبار في المحطة. اترك المؤشر لترى التغيير؛ حفظ الإعدادات يعتمده على كل الأجهزة.", gofx_g_effect: "التأثير", gofx_g_word: "كلمة الانطلاق", gofx_g_back: "الخلفية", gofx_g_lines: "الخطوط", gofx_g_time: "التوقيت", gofx_shockwave: "موجة صدمة", gofx_slam: "ارتطام", gofx_neon: "نيون", gofx_hyperspace: "سرعة الضوء", gofx_fireworks: "ألعاب نارية", call_go_line: "انطلق! يبدأ وقتك عند عبورك الخط", call_behind_line: "ارجع خلف الخط", call_false_start: "بداية خاطئة: تجاوز الخط قبل الانطلاق. ارجع خلف الخط", sl_setup: "إعداد خط البداية", sl_setup_hint: "دليل الألوان، موضع الخط، اتجاه العدّائين.", sl_box_mark: "العدّاء عند العلامة", sl_box_hand: "يد مرفوعة", sl_box_line: "خط البداية (أحمر عند تجاوز قدم له)", sl_on: "خط البداية", sl_on_hint: "مفعّل: لا حاجة لرفع اليد. عند التعرّف عليه خلف الخط يرى العدّاء إشارة الانطلاق ويبدأ وقته لحظة عبوره. متوقف: رفع اليد يعطي الانطلاق.", sl_line: "موضع الخط", sl_line_hint: "الخط الأبيض على الصورة: ضعه على الأرض حيث تكون أصابع قدمي العدّاء. يصبح أحمر عند تجاوزه.", sl_dir: "اتجاه الجري", sl_dir_down: "نحو الكاميرا (إلى أسفل الصورة)", sl_dir_up: "بعيداً عن الكاميرا (إلى أعلى الصورة)", sl_dir_hint: "أي جانب من الخط هو المسار",
     call_no_camera: "كاميرا البداية لا ترسل: تحقق منها أدناه",
     call_step_up: "قف على العلامة وانظر إلى الكاميرا",
     e_low_quality: "?????? ??? ????? ?????? ???? ?????? (??? ????? ?? ????? ?? ?????): ????? ???? ????",
@@ -4132,9 +4130,9 @@ const StartCall = {
     if (sig !== this.sig) { box.className = "callbox " + cls; box.innerHTML = html; this.sig = sig; }
     if (v.state === "countdown" && this.lastState !== "countdown") refresh();     // the runner list updates at once
     if (v.state !== this.lastState && (v.state === "raise_hand" || v.state === "go")) Sound.chime();
-    if (v.state === "go" && this.lastState !== "go") GoFX.play();
+    if (v.state === "go" && this.lastState !== "go") GoFX.go("start");
     if ((v.state === "countdown" || v.state === "started") && v.go_at && Date.parse(v.go_at) <= serverNow() && this.fxFor !== v.go_at) {
-      this.fxFor = v.go_at; if (Date.parse(v.go_at) > serverNow() - 1500) GoFX.play();   // the moment of GO, not a late page load
+      this.fxFor = v.go_at; if (Date.parse(v.go_at) > serverNow() - 1500) GoFX.go("start");   // the moment of GO, not a late page load
     }
     this.lastState = v.state;
   },
@@ -4328,16 +4326,23 @@ const GoFX = {
   KINDS: ["racing", "shockwave", "slam", "neon", "hyperspace", "fireworks", "off"],
   // Settings > GO effect: plays with what the page shows now (each slider calls it when let go)
   preview() {
-    GoHere.keep();
+    GoStyle.keep();
     const v = id => +$(id).value;
     this.playing = false; document.querySelectorAll("canvas.gofx").forEach(c => c.remove());
-    this.play($("setGoFx").value === "off" ? "racing" : $("setGoFx").value, undefined, v("setGoDim"), v("setGoSize"), v("setGoSpeed"),
+    this.play($("setGoFx").value === "off" ? "racing" : $("setGoFx").value, GoStyle.place === "finish" ? `${t("rb_name")}
+12:34.5` : undefined, v("setGoDim"), v("setGoSize"), v("setGoSpeed"),
               v("setGoDur"), v("setGoLines"), v("setGoCount"), v("setGoLineA"), v("setGoA"));
   },
   playing: false,
-  play(kind = goSetting("go_effect") || "racing", text = t("go"), dim = goSetting("go_dim") ?? 60, size = goSetting("go_size") ?? 100,
-       speed = goSetting("go_speed") ?? 100, secs = goSetting("go_duration") ?? 1.7, lines = goSetting("go_lines") ?? 100,
-       count = goSetting("go_lines_count") ?? 220, lineAlpha = goSetting("go_lines_opacity") ?? 100, goAlpha = goSetting("go_opacity") ?? 100) {
+  // the GO of a place (start, pushup, crunch) or the finish's name and time, with that place's style
+  go(place, text) {
+    const s = goStyle(place);
+    this.play(s.effect || "racing", text ?? t("go"), s.dim ?? 60, s.size ?? 100, s.speed ?? 100, s.duration ?? 1.7, s.lines ?? 100,
+              s.lines_count ?? 220, s.lines_opacity ?? 100, s.opacity ?? 100);
+  },
+  play(kind = setting("go_effect") || "racing", text = t("go"), dim = setting("go_dim") ?? 60, size = setting("go_size") ?? 100,
+       speed = setting("go_speed") ?? 100, secs = setting("go_duration") ?? 1.7, lines = setting("go_lines") ?? 100,
+       count = setting("go_lines_count") ?? 220, lineAlpha = setting("go_lines_opacity") ?? 100, goAlpha = setting("go_opacity") ?? 100) {
     if (kind === "off" || this.playing || document.hidden) return;
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) kind = "fade";
     this.playing = true;
@@ -4348,8 +4353,13 @@ const GoFX = {
     const W = innerWidth, H = innerHeight; c.width = W * dpr; c.height = H * dpr; g.scale(dpr, dpr);
     const css = getComputedStyle(document.documentElement), GO = css.getPropertyValue("--go").trim() || "#19d27a";
     const AMB = css.getPropertyValue("--amber").trim() || "#ffb000", cx = W / 2, cy = H / 2;
-    const big = Math.min(W * 0.34, H * 0.5) * (text.length > 3 ? 0.8 : 1) * Math.max(.3, Math.min(2, +size / 100));   // GO size (Settings)
     const font = s => `900 ${s}px "Barlow Condensed", "Cairo", Impact, sans-serif`;
+    const rows = String(text).split("\n");            // the finish: the name, then the time
+    const fit = (() => {                                // longer words get smaller so they fit the screen
+      g.font = font(100); const wid = Math.max(...rows.map(r => g.measureText(r).width)) || 1;
+      return Math.min(1, (W * 0.86) / (wid / 100 * Math.min(W * 0.34, H * 0.5)), rows.length > 1 ? (H * 0.8) / (rows.length * Math.min(W * 0.34, H * 0.5)) : 1);
+    })();
+    const big = Math.min(W * 0.34, H * 0.5) * fit * (rows.length === 1 && text.length > 3 && fit === 1 ? 0.8 : 1) * Math.max(.3, Math.min(2, +size / 100));   // GO size (Settings)
     const parts = [], rnd = (a, b) => a + Math.random() * (b - a);
     const burst = (x, y, n, col, sp) => { for (let i = 0; i < n; i++) { const a = rnd(0, 6.283), v = rnd(sp * .35, sp); parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: rnd(.6, 1.1), col }); } };
     // the lines: how many (GO lines count) and how strong (GO lines opacity), Settings
@@ -4359,8 +4369,11 @@ const GoFX = {
     const word = (s, alpha, col, glow, dx = 0, dy = 0, stroke) => {
       g.save(); g.globalAlpha = Math.max(0, Math.min(1, alpha)) * GA; g.font = font(s); g.textAlign = "center"; g.textBaseline = "middle";
       if (glow) { g.shadowColor = col; g.shadowBlur = glow; }
-      g.fillStyle = col; g.fillText(text, cx + dx, cy + dy);
-      if (stroke) { g.shadowBlur = 0; g.lineWidth = Math.max(2, s / 40); g.strokeStyle = stroke; g.strokeText(text, cx + dx, cy + dy); }
+      rows.forEach((r, i) => {                         // several rows: stacked around the middle
+        const y = cy + dy + (i - (rows.length - 1) / 2) * s * 1.02;
+        g.fillStyle = col; g.fillText(r, cx + dx, y);
+        if (stroke) { g.save(); g.shadowBlur = 0; g.lineWidth = Math.max(2, s / 40); g.strokeStyle = stroke; g.strokeText(r, cx + dx, y); g.restore(); }
+      });
       g.restore();
     };
     const shake = amp => { document.body.style.transform = amp > .5 ? `translate(${rnd(-amp, amp)}px, ${rnd(-amp, amp)}px)` : ""; };
@@ -4457,7 +4470,7 @@ const GoFX = {
   },
 };
 const Signal = {
-  start() { if (Sound.ctx) Sound.tone(Sound.ctx.currentTime, 880, 0.35, 0.3); GoFX.play(); },
+  start(ev) { if (Sound.ctx) Sound.tone(Sound.ctx.currentTime, 880, 0.35, 0.3); GoFX.go(ev === "crunch" ? "crunch" : "pushup"); },
   warn() { if (Sound.ctx) { const t0 = Sound.ctx.currentTime; Sound.tone(t0, 990, 0.12, 0.25); Sound.tone(t0 + 0.2, 990, 0.12, 0.25); } },
   end() { if (Sound.ctx) { const t0 = Sound.ctx.currentTime; Sound.tone(t0, 660, 1.2, 0.35); Sound.tone(t0, 440, 1.2, 0.2); } },
 };
@@ -4903,6 +4916,22 @@ function camHtml(c) {
   const conf = c.confidence != null ? ` ${Math.round(c.confidence * 100)}%` : "";
   return ` <span class="pill">📷${conf}</span>` + (c.clip ? ` <a class="hint" href="/api/evidence/${encodeURI(c.clip)}" target="_blank">${t("clip")}</a>` : "");
 }
+// The finish line's effect: a runner identified over the line -> their name and time, full screen,
+// in the finish line's style (Settings > GO effect > Finish line). Only new crossings, not the ones
+// already there when the screen opened.
+const FinishFx = {
+  seen: null,
+  check(done, byId) {
+    const ids = done.filter(c => c.entry_id).map(c => c.id);
+    if (this.seen === null) { this.seen = new Set(ids); return; }
+    for (const c of done) {
+      if (!c.entry_id || this.seen.has(c.id)) continue;
+      this.seen.add(c.id);
+      const e = byId[c.entry_id], fresh = !c.at || Date.parse(c.at) > serverNow() - 15000;
+      if (e && fresh && role === "finish" && mode === "simple") GoFX.go("finish", `${cname(e.candidate)}\n${fmt(c.time_s)}`);
+    }
+  },
+};
 function renderFinish() {
   const out = runnersOut(), cd = startingNow(), byId = Object.fromEntries(S.entries.map(e => [e.id, e]));
   const startOf = Object.fromEntries(((S.state && S.state.runners) || []).map(r => [r.entry_id, r.started_at]));
@@ -4923,6 +4952,7 @@ function renderFinish() {
     || `<tr><td class="hint">—</td></tr>`);
   // finishers, newest first, with the result against the runner's own required level
   const done = S.crossings.filter(c => !c.needs_review);
+  FinishFx.check(done, byId);
   $("fCount").textContent = done.length;
   setHTML("fTable", done.slice().reverse().map((c, i) => { const e = byId[c.entry_id]; const fixable = e && !Object.keys(e.events || {}).length;
     return `<tr class="${i === 0 ? "newest" : ""}"><td>${done.length - i}</td><td class="t">${esc(e?.candidate.bib ?? c.bib_read ?? "?")}</td><td>${esc(e ? cname(e.candidate) : "—")}</td><td class="t">${fmt(c.time_s)}</td><td>${resultPill(e)}${camHtml(c)}</td><td style="text-align:end">${fixable ? `<button class="btn ghost sm" onclick="confirmClick('unassign${c.id}', this, () => unassignCrossing(${c.id}))">${t("wrong_bib")}</button>` : ""}</td></tr>`; }).join("") || `<tr><td colspan="6" class="hint">—</td></tr>`);
@@ -5031,7 +5061,7 @@ async function startLane(n) {
   try {
     l.attempt = await api("POST", "/api/attempts", { entry_id: l.entry.id, event, lane: String(n) });
     Object.assign(l, { state: "running", count: 0, rejected: 0, t0: Date.now(), left: limit(), error: null, auto: null, fix: 0, fixRej: 0, live: null, why: "", needWhy: false, warned: false, dots: [], seen: null, lastFault: null });
-    if (!quietStart) Signal.start();
+    if (!quietStart) Signal.start(event);
   } catch (e) {
     if (e.code === "attempt_in_progress") l.reason = "attempt_in_progress"; else l.error = err(e);
   } finally { l.busy = false; }
@@ -5568,7 +5598,7 @@ const StationCall = {
     }
     if (v.state !== this.last) {
       if (v.state === "position" || v.state === "choose") Sound.chime();
-      if (v.state === "testing") Signal.start();
+      if (v.state === "testing") Signal.start(v.event);
       if (v.state === "done") { Signal.end(); refresh(); if (e && e.done && e.done.length >= 2) setTimeout(() => ResultsCard.show(e.id), 800); }
     }
     this.last = v.state;
@@ -6500,25 +6530,35 @@ const CamLive = {
 /* ============================== settings ============================== */
 // Station settings from the server (shared by every device); see service.SETTINGS.
 const SETTING_DEFAULTS = { auto_identify: true, camera_background: "off", camera_bg_places: ["weigh", "start", "photo"], backdrop_color: "#8a949e", background_image: null, face_match: "normal", face_required: false, face_fresh_min: 120, walk_ins: true, default_gender: "M", default_unit: "combat",
-                           bib_start: 1, lanes: 3, start_countdown_s: 3, cancel_window_s: 120, finish_face_threshold: 0, site_name: "", default_language: "en", theme: "night", admin_pin_set: false, finish_shutter: "auto", start_line_on: true, start_setup_shown: true, finish_line_on: true, go_effect: "racing", go_dim: 60, go_size: 100, go_speed: 100, go_duration: 1.7, go_lines: 100, go_lines_count: 220, go_lines_opacity: 100, go_opacity: 100 };
+                           bib_start: 1, lanes: 3, start_countdown_s: 3, cancel_window_s: 120, finish_face_threshold: 0, site_name: "", default_language: "en", theme: "night", admin_pin_set: false, finish_shutter: "auto", go_styles: {}, start_line_on: true, start_setup_shown: true, finish_line_on: true, go_effect: "racing", go_dim: 60, go_size: 100, go_speed: 100, go_duration: 1.7, go_lines: 100, go_lines_count: 220, go_lines_opacity: 100, go_opacity: 100 };
 const setting = k => (S.settings && k in S.settings ? S.settings[k] : SETTING_DEFAULTS[k]);
-// The GO effect of this screen: its own (Settings > GO effect > This screen only, kept on this
-// device) or the station's.
-const GoHere = {
-  get() { try { const o = JSON.parse(load("goHere", "")); return o && typeof o === "object" ? o : null; } catch { return null; } },
-  ids: () => Object.keys(SET_FIELDS).filter(id => SET_FIELDS[id][0].startsWith("go_")),
-  on: () => $("setGoScope") && $("setGoScope").value === "here",
-  fromInputs() { const o = {}; for (const id of this.ids()) { const [k, read] = SET_FIELDS[id]; o[k] = read ? read($(id).value) : $(id).value; } return o; },
-  fill(src) { for (const id of this.ids()) { const [k, , out] = SET_FIELDS[id]; const v = src(k); $(id).value = out ? out(v) : v; } },
-  keep() { if (this.on()) save("goHere", JSON.stringify(this.fromInputs())); },   // each change, at once
-  scope(v) {
-    if (v === "here") save("goHere", JSON.stringify(this.fromInputs()));
-    else { save("goHere", ""); this.fill(setting); }
-    SetNav.check?.();
-  },
-  show() { const h = this.get(); $("setGoScope").value = h ? "here" : "station"; if (h) this.fill(k => (k in h ? h[k] : setting(k))); },
+// The GO effect per place (Settings > GO effect > Settings for): start line, push-ups, crunches,
+// finish line. What a place has not set comes from the station's go_* settings.
+const GO_KEYS = { effect: "setGoFx", dim: "setGoDim", size: "setGoSize", speed: "setGoSpeed", duration: "setGoDur", lines: "setGoLines", lines_count: "setGoCount", lines_opacity: "setGoLineA", opacity: "setGoA" };
+const GO_PLACE_DEFAULTS = { finish: { duration: 3 } };   // a name and a time take longer to read than GO
+const goStyle = place => {
+  const st = setting("go_styles") || {}, own = st[place] || {}, out = {};
+  for (const k of Object.keys(GO_KEYS)) out[k] = own[k] ?? (GO_PLACE_DEFAULTS[place] || {})[k] ?? setting("go_" + k);
+  return out;
 };
-const goSetting = k => { const h = GoHere.get(); return h && k in h ? h[k] : setting(k); };
+const GoStyle = {
+  place: "start",
+  all() { try { return JSON.parse($("setGoStyles").value || "{}") || {}; } catch { return {}; } },
+  show() {   // the sliders: the chosen place's values as they are on the page (saved or not yet)
+    const own = this.all()[this.place] || {};
+    for (const [k, id] of Object.entries(GO_KEYS)) {
+      const v = own[k] ?? (GO_PLACE_DEFAULTS[this.place] || {})[k] ?? setting("go_" + k), f = SET_FIELDS[id];
+      $(id).value = f && f[2] ? f[2](v) : v;
+    }
+    document.querySelectorAll("#goPlaces button").forEach(b => b.classList.toggle("active", b.dataset.g === this.place));
+  },
+  pick(p) { this.place = p; this.show(); },
+  keep() {   // each change of a slider goes into the chosen place
+    const all = this.all(), o = {};
+    for (const [k, id] of Object.entries(GO_KEYS)) { const f = SET_FIELDS[id]; o[k] = f && f[1] ? f[1]($(id).value) : $(id).value; }
+    all[this.place] = o; $("setGoStyles").value = JSON.stringify(all); SetNav.check?.();
+  },
+};
 function applySettings(first) {
   if (first && load("lang", null) == null && setting("default_language") !== lang) setLang(setting("default_language"), false);
   if (first && setting("auto_identify") !== autoId) toggleAuto();
@@ -6820,11 +6860,11 @@ const SET_FIELDS = {   // input id -> [setting, read, write]
     setGoDur: ["go_duration", v => parseFloat(v), v => { const x = String(v ?? 1.7); $("setGoDurV").textContent = x + " s"; return x; }], setGoCount: ["go_lines_count", v => parseInt(v, 10), v => { const x = String(v ?? 220); $("setGoCountV").textContent = x; return x; }],
     setGoLineA: ["go_lines_opacity", v => parseInt(v, 10), v => { const x = String(v ?? 100); $("setGoLineAV").textContent = x + "%"; return x; }], setGoA: ["go_opacity", v => parseInt(v, 10), v => { const x = String(v ?? 100); $("setGoAV").textContent = x + "%"; return x; }], setGoLines: ["go_lines", v => parseInt(v, 10), v => { const x = String(v ?? 100); $("setGoLinesV").textContent = x + "%"; return x; }], setGoSize: ["go_size", v => parseInt(v, 10), v => { const x = String(v ?? 100); $("setGoSizeV").textContent = x + "%"; return x; }], setGoDim: ["go_dim", v => parseInt(v, 10), v => { const x = String(v ?? 60); $("setGoDimV").textContent = x + "%"; return x; }], setCancelWin: ["cancel_window_s", v => parseInt(v, 10), String], setFinishFace: ["finish_face_threshold", v => parseFloat(v) || 0, v => String(+v || 0)], setSite: ["site_name", v => v.trim()], setCamSrc: ["camera_sources", v => JSON.parse(v || "{}"), o => JSON.stringify(o || {})], setEvKeep: ["evidence_keep_days", v => parseInt(v, 10), String],
   setEvMax: ["evidence_max_gb", v => Math.max(0, parseFloat(v) || 0), v => String(+v || 0)], setEvFree: ["evidence_min_free_gb", v => Math.max(0, parseFloat(v) || 0), v => String(+v || 0)],
-  setEvHeld: ["evidence_held_days", v => (v ? v.split(",") : []), a => (a || []).slice().sort().join(",")], setTuning: ["count_tuning", v => JSON.parse(v || "{}"), o => JSON.stringify(o || {})], setTroubleRun: ["trouble_run_cutoff_s", v => parseInt(v, 10) || 0, String], setBgPlaces: ["camera_bg_places", v => (v ? v.split(",") : []), a => (a || []).join(",")], setLang: ["default_language"], setTheme: ["theme"], setFinishShutter: ["finish_shutter"],
+  setEvHeld: ["evidence_held_days", v => (v ? v.split(",") : []), a => (a || []).slice().sort().join(",")], setTuning: ["count_tuning", v => JSON.parse(v || "{}"), o => JSON.stringify(o || {})], setTroubleRun: ["trouble_run_cutoff_s", v => parseInt(v, 10) || 0, String], setBgPlaces: ["camera_bg_places", v => (v ? v.split(",") : []), a => (a || []).join(",")], setLang: ["default_language"], setTheme: ["theme"], setFinishShutter: ["finish_shutter"], setGoStyles: ["go_styles", v => JSON.parse(v || "{}"), o => JSON.stringify(o || {})],
 };
 function showSettings() {
   for (const [id, [k, , out]] of Object.entries(SET_FIELDS)) $(id).value = out ? out(setting(k)) : setting(k);
-  GoHere.show();
+  GoStyle.show();
   const col = setting("backdrop_color"), preset = [...$("setBgColor").options].some(o => o.value === col);
   $("setBgColor").value = preset ? col : "custom"; $("setBgCustom").value = col;
   bgColorPicked(); bgPreview(); bgRows(); themeCards(); bgPlacesShow(); camSourcesShow(); tuningRows(); Evidence.render();
@@ -6910,7 +6950,7 @@ async function removeBg() {
 async function saveSettings() {
   const body = { backdrop_color: bgColor() };
   for (const [id, [k, read]] of Object.entries(SET_FIELDS)) body[k] = read ? read($(id).value) : $(id).value;
-  if (GoHere.on()) for (const id of GoHere.ids()) body[SET_FIELDS[id][0]] = setting(SET_FIELDS[id][0]);   // this screen's own GO stays here
+  for (const id of Object.values(GO_KEYS)) body[SET_FIELDS[id][0]] = setting(SET_FIELDS[id][0]);   // the GO sliders edit go_styles
   if (!(body.bib_start >= 1)) { msg("setMsg", "bad", t("e_bad_input")); return; }
   try {
     const before = S.settings || SETTING_DEFAULTS;
@@ -7018,7 +7058,7 @@ const SetNav = {
   changed() {   // station settings that differ from the saved ones, as {field id: true}
     const out = {};
     for (const [id, [k, read]] of Object.entries(SET_FIELDS)) {
-      if (k.startsWith("go_") && GoHere.on()) continue;   // kept on this screen, not a station change
+      if (Object.values(GO_KEYS).includes(id)) continue;   // the GO sliders edit go_styles (its own field)
       const v = read ? read($(id).value) : $(id).value;
       if (JSON.stringify(v) !== JSON.stringify(setting(k))) out[id] = true;
     }
@@ -7057,6 +7097,7 @@ const SetNav = {
   },
   fill(scope, def) {   // put the default values into the form fields inside ``scope``
     for (const [id, [k, , out]] of Object.entries(SET_FIELDS)) if (scope.contains($(id)) && k in def) $(id).value = out ? out(def[k]) : def[k];
+    if (scope.contains($("setGoStyles"))) GoStyle.show();
     if (scope.contains($("setBgColor")) && def.backdrop_color) {
       const col = def.backdrop_color, preset = [...$("setBgColor").options].some(o => o.value === col);
       $("setBgColor").value = preset ? col : "custom"; $("setBgCustom").value = col;

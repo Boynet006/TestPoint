@@ -255,6 +255,7 @@ SETTINGS: dict[str, object] = {
     # display
     "site_name": "",             # shown in the header; empty = "Fitness examination station"
     "finish_shutter": "auto",    # the finish camera's shutter: auto (as fast as the light allows), 1/1000, 1/500 or 1/250
+    "go_styles": {},             # the GO effect per place (start, pushup, crunch, finish): {place: {effect, dim, size, ...}}; what is not set comes from the go_* below
     "go_effect": "racing",       # the full-screen GO: racing, shockwave, slam, neon, hyperspace, fireworks or off
     "go_dim": 60,                # how dark the screen goes behind GO, 0-100 %
     "go_size": 100,              # how big GO is drawn, 50-150 %
