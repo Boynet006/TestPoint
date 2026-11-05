@@ -156,7 +156,7 @@ class SettingsIn(BaseModel):
     count_tuning: dict[str, dict[str, float]] | None = None
     station_stop_after_s: int | None = Field(default=None, ge=0, le=120)
     station_out_s: int | None = Field(default=None, ge=0, le=30)
-    go_effect: Literal["shockwave", "slam", "neon", "hyperspace", "fireworks", "off"] | None = None
+    go_effect: Literal["racing", "shockwave", "slam", "neon", "hyperspace", "fireworks", "off"] | None = None
     evidence_keep_days: int | None = Field(default=None, ge=0, le=3650)
     evidence_max_gb: float | None = Field(default=None, ge=0, le=100000)
     evidence_min_free_gb: float | None = Field(default=None, ge=0, le=10000)
